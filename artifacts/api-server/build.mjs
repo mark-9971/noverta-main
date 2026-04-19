@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
+import { sentryEsbuildPlugin } from "@sentry/esbuild-plugin";
 import { rm, mkdir, cp } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
@@ -106,7 +107,37 @@ async function buildAll() {
     sourcemap: "linked",
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
+      esbuildPluginPino({ transports: ["pino-pretty"] }),
+      // Upload source maps + tag the release in production builds. Skip
+      // gracefully when SENTRY_AUTH_TOKEN isn't set so dev builds and
+      // contributor builds without Sentry creds still work. The release
+      // identifier is shared with the frontend (vite.config.ts) so issues
+      // across the stack collapse onto the same release.
+      ...(process.env.NODE_ENV === "production" &&
+      process.env.SENTRY_AUTH_TOKEN &&
+      process.env.SENTRY_ORG &&
+      process.env.SENTRY_PROJECT
+        ? (() => {
+            const releaseName =
+              process.env.SENTRY_RELEASE ||
+              process.env.APP_VERSION ||
+              process.env.REPLIT_GIT_COMMIT_SHA ||
+              process.env.GIT_COMMIT ||
+              "";
+            return [
+              sentryEsbuildPlugin({
+                authToken: process.env.SENTRY_AUTH_TOKEN,
+                org: process.env.SENTRY_ORG,
+                project: process.env.SENTRY_PROJECT,
+                ...(releaseName ? { release: { name: releaseName } } : {}),
+                sourcemaps: {
+                  filesToDeleteAfterUpload: ["dist/**/*.map"],
+                },
+                telemetry: false,
+              }),
+            ];
+          })()
+        : []),
     ],
     // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {

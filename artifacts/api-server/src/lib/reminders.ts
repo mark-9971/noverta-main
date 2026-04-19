@@ -46,6 +46,7 @@ import { runProviderActivationNudges } from "./providerActivationNudges";
 import { runApprovalReminders } from "./approvalReminders";
 import { runCoverageReminders } from "./coverageReminders";
 import { runScheduledHardPurges } from "./scheduledHardPurge";
+import { withMonitor } from "./sentry";
 
 const DEMO_EMAIL_SUBJECT_PREFIX = "[SAMPLE DATA] ";
 const DEMO_EMAIL_DISCLAIMER_HTML = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;padding:10px 16px;margin-bottom:16px;font-family:Arial,sans-serif"><strong style="color:#92400e;font-size:13px">⚠ SAMPLE DATA — NOT REAL STUDENT RECORDS</strong><p style="margin:4px 0 0;font-size:12px;color:#78350f">This notification was generated from a demo district. All data is fictional and for demonstration purposes only.</p></div>`;
@@ -1400,37 +1401,70 @@ export async function runIepRenewalReminders(): Promise<void> {
   console.log(`[Reminders] IEP renewal reminders: ${emailsSent} sent, ${skipped} skipped`);
 }
 
-async function runAllReminders(): Promise<void> {
+async function runAllReminders(): Promise<{ failures: number }> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
-  try {
-    await Promise.allSettled([
-      runOverdueContactFollowups(),
-      runOverdueEvaluations(),
-      runDraftTransitionPlans(),
-      runComplianceAlertCheck(),
-      runOverdueSessionLogCheck(),
-      runScheduledReports(),
-      runCostAvoidanceAlertGeneration(),
-      runComplianceRiskAlerts(),
-      runCaseloadSnapshots(),
-      runDemoDistrictExpiry(),
-      runScheduledHardPurges(),
-      runStaleBucketCleanup(),
-      runProviderActivationNudges().then(() => undefined),
-      runApprovalReminders(),
-      runCoverageReminders().then(() => undefined),
-      runIepRenewalReminders(),
-    ]);
-    console.log("[Reminders] Reminder check complete");
-  } catch (err) {
-    console.error("[Reminders] Unexpected error in reminder run:", err);
+  const jobs: Array<{ name: string; run: () => Promise<unknown> }> = [
+    { name: "overdueContactFollowups", run: runOverdueContactFollowups },
+    { name: "overdueEvaluations", run: runOverdueEvaluations },
+    { name: "draftTransitionPlans", run: runDraftTransitionPlans },
+    { name: "complianceAlertCheck", run: runComplianceAlertCheck },
+    { name: "overdueSessionLogCheck", run: runOverdueSessionLogCheck },
+    { name: "scheduledReports", run: runScheduledReports },
+    { name: "costAvoidanceAlertGeneration", run: runCostAvoidanceAlertGeneration },
+    { name: "complianceRiskAlerts", run: runComplianceRiskAlerts },
+    { name: "caseloadSnapshots", run: runCaseloadSnapshots },
+    { name: "demoDistrictExpiry", run: runDemoDistrictExpiry },
+    { name: "scheduledHardPurges", run: runScheduledHardPurges },
+    { name: "staleBucketCleanup", run: runStaleBucketCleanup },
+    { name: "providerActivationNudges", run: runProviderActivationNudges },
+    { name: "approvalReminders", run: runApprovalReminders },
+    { name: "coverageReminders", run: runCoverageReminders },
+    { name: "iepRenewalReminders", run: runIepRenewalReminders },
+  ];
+
+  const results = await Promise.allSettled(jobs.map((j) => j.run()));
+  const failed = results
+    .map((r, i) => ({ name: jobs[i].name, result: r }))
+    .filter((x) => x.result.status === "rejected") as Array<{
+      name: string;
+      result: PromiseRejectedResult;
+    }>;
+
+  for (const { name, result } of failed) {
+    console.error(`[Reminders] Job "${name}" failed:`, result.reason);
   }
+  console.log(
+    `[Reminders] Reminder check complete (${results.length - failed.length} ok, ${failed.length} failed)`,
+  );
+  return { failures: failed.length };
+}
+
+async function runMonitoredReminders(): Promise<void> {
+  await withMonitor(
+    "reminder-scheduler",
+    { type: "interval", value: 6, unit: "hour" },
+    { checkinMargin: 10, maxRuntime: 30 },
+    async () => {
+      const { failures } = await runAllReminders();
+      // Surface a failed check-in to Sentry when any of the underlying
+      // jobs threw. The individual job errors are already logged inside
+      // runAllReminders; this throw exists purely to mark the monitor
+      // tick as failed so the cron alert fires.
+      if (failures > 0) {
+        throw new Error(
+          `Reminder scheduler tick had ${failures} failed job(s) — see [Reminders] logs above for details.`,
+        );
+      }
+    },
+  );
 }
 
 export function startReminderScheduler(): void {
   if (reminderInterval) return;
-  runAllReminders().catch(err => console.error("[Reminders] Initial run failed:", err));
-  reminderInterval = setInterval(runAllReminders, CHECK_INTERVAL_MS);
+  runMonitoredReminders().catch(err => console.error("[Reminders] Initial run failed:", err));
+  reminderInterval = setInterval(() => {
+    runMonitoredReminders().catch(err => console.error("[Reminders] Scheduled run failed:", err));
+  }, CHECK_INTERVAL_MS);
   console.log("[Reminders] Scheduler started — checking every 6 hours");
 }
 

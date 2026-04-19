@@ -54,6 +54,7 @@ import studentPortalRouter from "./studentPortal";
 import agenciesRouter from "./agencies";
 import billingRouter from "./billing";
 import adminReadinessRouter from "./adminReadiness";
+import internalRouter from "./_internal";
 import demoRequestsRouter from "./demoRequests";
 import guardiansRouter from "./guardians";
 import reportExportsRouter from "./reportExports";
@@ -114,6 +115,11 @@ router.use(complianceSnapshotPublicRouter);
 // superintendent receiving the weekly executive summary) click it from the
 // email footer with no Clerk session.
 router.use(scheduledReportUnsubscribeRouter);
+
+// Internal admin-only smoke tests (Sentry test endpoint, etc). Mounted with
+// requireAuth via per-route requireRoles("admin"). It comes before the
+// global requireAuth so the router itself can compose its own auth.
+router.use(internalRouter);
 
 router.use(requireAuth);
 

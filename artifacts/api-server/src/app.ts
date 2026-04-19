@@ -450,10 +450,37 @@ app.use(healthRouter);
 app.use("/api", requireActiveSubscription);
 // Enforce tenant isolation: in production, overrides districtId query param from auth token
 app.use("/api", enforceDistrictScope);
+
+// Enrich every request scope with Clerk user/district context so any event
+// captured downstream (manual captureException, expressIntegration, the
+// 5xx handler below) automatically carries those tags.
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const userId = getClerkUserId(req) ?? undefined;
+    if (userId) Sentry.setUser({ id: userId });
+    const meta = getPublicMeta(req);
+    const districtId = meta.districtId != null ? String(meta.districtId) : undefined;
+    if (districtId) Sentry.setTag("districtId", districtId);
+    if (typeof meta.role === "string") Sentry.setTag("role", meta.role);
+  } catch {}
+  next();
+});
+
 app.use("/api", router);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
+});
+
+// Sentry's Express error handler: attaches request URL, method, route,
+// headers, and active scope (user/district set above) to every captured
+// event, then defers to our handler below to render the response and
+// persist the error_log row.
+Sentry.setupExpressErrorHandler(app, {
+  shouldHandleError(err: any) {
+    const status = err?.status ?? err?.statusCode ?? 500;
+    return status >= 500;
+  },
 });
 
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
@@ -471,20 +498,6 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
 
   if (status >= 500) {
     recordError5xx();
-    // Capture within the active request scope so httpIntegration's
-    // AsyncLocalStorage context (URL, method, headers) is automatically
-    // included. Enrich with Clerk user and district identifiers.
-    Sentry.withScope((scope) => {
-      try {
-        const userId = getClerkUserId(req) ?? undefined;
-        if (userId) scope.setUser({ id: userId });
-        const meta = getPublicMeta(req);
-        const districtId = meta.districtId != null ? String(meta.districtId) : undefined;
-        if (districtId) scope.setTag("districtId", districtId);
-      } catch {}
-      scope.setExtra("httpStatus", status);
-      Sentry.captureException(err);
-    });
     const rawPath = req.url?.split("?")[0] ?? "/";
     const errPath = rawPath.length > 500 ? rawPath.slice(0, 500) : rawPath;
     const rawMsg = err instanceof Error ? err.message : String(err);

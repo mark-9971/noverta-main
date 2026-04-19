@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react";
+import { IGNORE_ERRORS, shouldDropEvent } from "./sentryFilters";
 
 let initialized = false;
 
@@ -11,12 +12,27 @@ export function initSentry() {
     return;
   }
 
+  const environment = (import.meta.env.MODE ?? "development") as string;
+
   Sentry.init({
     dsn,
-    environment: import.meta.env.MODE ?? "development",
+    environment,
     release: import.meta.env.VITE_APP_VERSION,
     tracesSampleRate: 0.1,
-    integrations: [Sentry.browserTracingIntegration()],
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ],
+    ignoreErrors: IGNORE_ERRORS,
+    beforeSend(event) {
+      if (shouldDropEvent(event, environment)) return null;
+      return event;
+    },
   });
 
   initialized = true;

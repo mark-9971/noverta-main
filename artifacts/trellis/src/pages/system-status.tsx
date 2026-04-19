@@ -1,6 +1,8 @@
+import { useState } from "react";
+import * as Sentry from "@sentry/react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, Activity, Database, Server, Clock, Mail } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, Activity, Database, Server, Clock, Mail, Bug } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +46,52 @@ function StatusDot({ ok, label }: { ok: boolean; label: string }) {
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`bg-gray-100 rounded animate-pulse ${className ?? "h-5 w-24"}`} />;
+}
+
+function SentrySmokeTest() {
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  function fireFrontend() {
+    try {
+      Sentry.captureException(new Error("frontend sentry test"));
+      setFeedback("Sent test event to Sentry. Check the project's Issues feed.");
+    } catch (err) {
+      setFeedback(`Failed to send: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function fireBackend() {
+    try {
+      const res = await authFetch("/api/_internal/sentry-test?tag=ui", { method: "GET" });
+      setFeedback(`Backend test endpoint responded with ${res.status}. (500 means it threw — that's expected.)`);
+    } catch (err) {
+      setFeedback(`Backend test request failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return (
+    <details className="mt-4 text-xs text-gray-500">
+      <summary className="cursor-pointer select-none flex items-center gap-1.5 hover:text-gray-700">
+        <Bug className="w-3.5 h-3.5" />
+        Sentry smoke test (admin only)
+      </summary>
+      <div className="mt-3 p-3 border border-gray-200 rounded-md bg-gray-50 space-y-2">
+        <p className="text-gray-600">
+          Fires a test event so you can confirm Sentry is wired up after a deploy.
+          The backend button only works when <span className="font-mono">SENTRY_TEST_ENABLED=true</span> is set on the API.
+        </p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={fireFrontend}>
+            Fire frontend test
+          </Button>
+          <Button size="sm" variant="outline" onClick={fireBackend}>
+            Fire backend test
+          </Button>
+        </div>
+        {feedback && <p className="text-gray-700">{feedback}</p>}
+      </div>
+    </details>
+  );
 }
 
 export default function SystemStatusPage() {
@@ -224,6 +272,7 @@ export default function SystemStatusPage() {
                 ? "Errors are being captured and reported to Sentry"
                 : "Set SENTRY_DSN and VITE_SENTRY_DSN secrets to enable"}
             </p>
+            <SentrySmokeTest />
           </CardContent>
         </Card>
 

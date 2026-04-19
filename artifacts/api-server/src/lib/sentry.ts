@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/node";
 import { logger } from "./logger";
+import { IGNORE_ERRORS, shouldDropEvent } from "./sentryFilters";
 
 const ERROR_BUCKET_WINDOW = 60;
 const errorBuckets: Record<number, number> = {};
@@ -29,17 +30,47 @@ export function getErrorCount1h(): number {
     .reduce((sum, [, v]) => sum + v, 0);
 }
 
+// Resolve the release identifier shared with the frontend so issues across
+// the stack collapse onto the same release in Sentry. Order of precedence:
+//   1. SENTRY_RELEASE  (explicit override, set by CI / deploy script)
+//   2. APP_VERSION     (build-time tag, mirrors VITE_APP_VERSION)
+//   3. RENDER_GIT_COMMIT / REPLIT_GIT_COMMIT_SHA / GIT_COMMIT  (CI env)
+//   4. npm_package_version
+function resolveRelease(): string | undefined {
+  return (
+    process.env.SENTRY_RELEASE ||
+    process.env.APP_VERSION ||
+    process.env.RENDER_GIT_COMMIT ||
+    process.env.REPLIT_GIT_COMMIT_SHA ||
+    process.env.GIT_COMMIT ||
+    process.env.npm_package_version ||
+    undefined
+  );
+}
+
 // Initialize at module-load time so Sentry is active before any route in
 // app.ts is registered (ESM imports execute module-level code before the
 // importing module's body runs).
 const _dsn = process.env.SENTRY_DSN;
+const _environment = process.env.NODE_ENV ?? "development";
+const _release = resolveRelease();
 let _initialized = false;
 
 if (_dsn) {
   Sentry.init({
     dsn: _dsn,
-    environment: process.env.NODE_ENV ?? "development",
+    environment: _environment,
+    release: _release,
     tracesSampleRate: 0,
+    integrations: [
+      Sentry.httpIntegration(),
+      Sentry.expressIntegration(),
+    ],
+    ignoreErrors: IGNORE_ERRORS,
+    beforeSend(event) {
+      if (shouldDropEvent(event, _environment)) return null;
+      return event;
+    },
   });
   _initialized = true;
 }
@@ -48,7 +79,11 @@ if (_dsn) {
 export function initSentry() {
   if (_initialized) {
     logger.info(
-      { dsn: _dsn!.replace(/\/\/[^@]+@/, "//***@") },
+      {
+        dsn: _dsn!.replace(/\/\/[^@]+@/, "//***@"),
+        environment: _environment,
+        release: _release ?? "(unset)",
+      },
       "Sentry error monitoring enabled",
     );
   } else {
@@ -94,6 +129,33 @@ export function captureException(
   });
 }
 
+// Wrap a scheduler tick with a Sentry cron monitor check-in. If Sentry is
+// not initialized this is a passthrough — the callback runs as-is and any
+// thrown error propagates so existing logging/alerting behaviour is preserved.
+//
+// `slug` should be a stable identifier (e.g. "reminder-scheduler"); the
+// `schedule` describes the expected cadence so Sentry can fire a missed-tick
+// alert on its own. Configure a generous `checkinMargin` so brief startup
+// delays don't trigger noise.
+export function withMonitor<T>(
+  slug: string,
+  schedule: { type: "interval"; value: number; unit: "minute" | "hour" | "day" } | { type: "crontab"; value: string },
+  options: { checkinMargin?: number; maxRuntime?: number } = {},
+  callback: () => Promise<T>,
+): Promise<T> {
+  if (!_initialized) return callback();
+  return Sentry.withMonitor(
+    slug,
+    callback,
+    {
+      schedule,
+      checkinMargin: options.checkinMargin ?? 5,
+      maxRuntime: options.maxRuntime ?? 30,
+      timezone: "Etc/UTC",
+    },
+  );
+}
+
 // Flush pending Sentry events — call before process.exit in fatal handlers.
 export function flushSentry(timeoutMs = 2000): Promise<boolean> {
   if (!_initialized) return Promise.resolve(true);
@@ -101,3 +163,4 @@ export function flushSentry(timeoutMs = 2000): Promise<boolean> {
 }
 
 export const sentryInitialized = () => _initialized;
+export const sentryRelease = () => _release;
