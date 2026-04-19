@@ -6,7 +6,7 @@ import {
   ArrowLeft, ChevronRight, ChevronLeft, Users, FileText,
   Clock, TrendingUp, Loader2, Printer,
   BookOpen, MessageSquare, Briefcase,
-  RefreshCw, Save, Printer, AlertTriangle,
+  RefreshCw, Save, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
@@ -44,6 +44,7 @@ export default function IepBuilderPage() {
   const [draftResolved, setDraftResolved] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [presenceEditors, setPresenceEditors] = useState<{ staffId: number; name: string }[]>([]);
 
@@ -148,6 +149,7 @@ export default function IepBuilderPage() {
   const saveDraft = useCallback(async (currentStep: Step, p: ParentQuestionnaire, t: TeacherQuestionnaire, tr: TransitionInput) => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
+    setIsSaving(true);
     // Snapshot the version counter before the async request so we can
     // detect whether new edits arrived while the save was in-flight.
     const versionAtSave = changeVersionRef.current;
@@ -171,7 +173,13 @@ export default function IepBuilderPage() {
       }
     } catch {}
     isSavingRef.current = false;
+    setIsSaving(false);
   }, [studentId]);
+
+  const saveNow = useCallback(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    saveDraft(stepRef.current, parentRef.current, teacherRef.current, transitionRef.current);
+  }, [saveDraft]);
 
   const deleteDraft = useCallback(async () => {
     try {
@@ -472,9 +480,24 @@ export default function IepBuilderPage() {
           </div>
         )}
         {isDirty ? (
-          <div className="flex items-center gap-1.5 text-[11px] text-amber-500 bg-amber-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">
-            <Save className="w-3 h-3" />
-            Unsaved changes
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 text-[11px] text-amber-500 bg-amber-50 rounded-lg px-2.5 py-1.5">
+              <Save className="w-3 h-3" />
+              Unsaved changes
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={saveNow}
+              disabled={isSaving}
+              className="h-7 text-[11px] px-2.5"
+            >
+              {isSaving ? (
+                <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Saving…</>
+              ) : (
+                <><Save className="w-3 h-3 mr-1" /> Save now</>
+              )}
+            </Button>
           </div>
         ) : draftSavedAt ? (
           <div className="flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">
