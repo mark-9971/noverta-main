@@ -32,6 +32,12 @@ type Props = {
   onMissedReasonChange: (v: string) => void;
   onResetFilters: () => void;
   hasActiveFilters: boolean;
+  /**
+   * When true, the "All providers" select and any "or staff" hint in the
+   * search placeholder are hidden. Used for hands-on roles whose data is
+   * already pinned to themselves and should not see a global staff picker.
+   */
+  hideProviderFilter?: boolean;
 };
 
 export function SessionFilters({
@@ -41,12 +47,12 @@ export function SessionFilters({
   students, selectedStudentId, onStudentChange,
   serviceTypes, selectedServiceTypeId, onServiceTypeChange,
   missedReasons, selectedMissedReasonId, onMissedReasonChange,
-  onResetFilters, hasActiveFilters,
+  onResetFilters, hasActiveFilters, hideProviderFilter = false,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const moreActiveCount = [
-    selectedProviderId !== "all",
+    !hideProviderFilter && selectedProviderId !== "all",
     selectedStudentId !== "all",
     selectedServiceTypeId !== "all",
     selectedMissedReasonId !== "all",
@@ -85,7 +91,7 @@ export function SessionFilters({
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
             className="pl-10 h-9 text-[13px] bg-white"
-            placeholder="Search by student, service or staff…"
+            placeholder={hideProviderFilter ? "Search by student or service…" : "Search by student, service or staff…"}
             value={search}
             onChange={e => onSearch(e.target.value)}
           />
@@ -153,17 +159,19 @@ export function SessionFilters({
             </Select>
           )}
 
-          <Select value={selectedProviderId} onValueChange={onProviderChange}>
-            <SelectTrigger className="h-9 text-[12px] bg-white w-[180px]">
-              <SelectValue placeholder="All providers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All providers</SelectItem>
-              {providers.map(p => (
-                <SelectItem key={p.id} value={String(p.id)}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!hideProviderFilter && (
+            <Select value={selectedProviderId} onValueChange={onProviderChange}>
+              <SelectTrigger className="h-9 text-[12px] bg-white w-[180px]">
+                <SelectValue placeholder="All providers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All providers</SelectItem>
+                {providers.map(p => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Select value={selectedStudentId} onValueChange={onStudentChange}>
             <SelectTrigger className="h-9 text-[12px] bg-white w-[180px]">

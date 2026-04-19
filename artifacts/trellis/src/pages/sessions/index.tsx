@@ -51,6 +51,11 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const { teacherId, role } = useRole();
   const canRestore = role === "admin";
   const isProvider = role !== "admin" && role !== "coordinator";
+  // Phase 2B PR3: hands-on roles see only their own sessions; staff/global
+  // filters are hidden from the UI. Server is still permissive — this is a
+  // demo-shell scoping pass, not an auth change.
+  const isHandsOnRole = role === "para" || role === "provider" || role === "direct_provider";
+  const pinStaffId = isHandsOnRole && teacherId ? teacherId : null;
   const { typedFilter } = useSchoolContext();
   const { years: schoolYears, activeYear } = useSchoolYears();
 
@@ -108,7 +113,9 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
     ...(dateTo ? { dateTo } : {}),
     ...(statusFilter !== "all" && statusFilter !== "makeup" ? { status: statusFilter } : {}),
     ...(selectedYearId !== "all" ? { schoolYearId: Number(selectedYearId) } : {}),
-    ...(providerFilter !== "all" ? { staffId: Number(providerFilter) } : {}),
+    ...(pinStaffId
+      ? { staffId: pinStaffId }
+      : providerFilter !== "all" ? { staffId: Number(providerFilter) } : {}),
     ...(studentFilter !== "all" ? { studentId: Number(studentFilter) } : {}),
   };
   const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
@@ -168,7 +175,7 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
     .map((r: any) => ({ id: r.id, label: r.label ?? r.name ?? `Reason ${r.id}` }));
 
   const hasActiveFilters =
-    providerFilter !== "all" || studentFilter !== "all" ||
+    (!isHandsOnRole && providerFilter !== "all") || studentFilter !== "all" ||
     serviceTypeFilter !== "all" || missedReasonFilter !== "all" || !!search;
   function resetFilters() {
     setProviderFilter("all"); setStudentFilter("all");
@@ -378,7 +385,7 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
         {!embedded && (
           <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Session Log</h1>
-            <p className="text-xs md:text-sm text-gray-400 mt-1">{sessionList.length} sessions · Page {page + 1}</p>
+            <p className="text-xs md:text-sm text-gray-400 mt-1">{sessionList.length} {isHandsOnRole ? "of your sessions" : "sessions"} · Page {page + 1}</p>
           </div>
         )}
         {embedded && (
@@ -429,6 +436,7 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
         onMissedReasonChange={(v) => { setMissedReasonFilter(v); setPage(0); }}
         onResetFilters={resetFilters}
         hasActiveFilters={hasActiveFilters}
+        hideProviderFilter={isHandsOnRole}
       />
 
       <SessionList
