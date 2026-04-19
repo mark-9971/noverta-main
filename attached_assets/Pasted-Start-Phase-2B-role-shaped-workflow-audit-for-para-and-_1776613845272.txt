@@ -1,0 +1,58 @@
+Start Phase 2B: role-shaped workflow audit for para and provider experiences.
+
+Goal:
+Audit the app from the perspective of daily-use non-admin roles and identify where the workflow is too broad, too cluttered, too click-heavy, or not role-appropriate.
+
+Focus roles:
+- para
+- provider
+- direct_provider
+Also include sped_teacher as a comparison baseline where useful.
+
+What I want from this pass:
+1. Audit current workflow for each role
+   - default landing page
+   - visible nav sections/items
+   - visible student-detail tabs
+   - top 3 daily actions this role is likely to perform
+   - how many clicks each action takes
+   - what feels distracting, unnecessary, or overly admin-oriented
+
+2. Identify UX/workflow problems
+   - places where the role sees too much
+   - places where the role lands in the wrong context
+   - places where the role’s likely next step is unclear
+   - pages/tabs/actions that are not aligned with daily usage
+
+3. Recommend a tighter role-shaped experience
+   - what the default landing page should be
+   - what nav items should be primary vs collapsed vs hidden
+   - what student-detail tabs/actions should be shown, hidden, or reordered
+   - any low-risk changes that would make the workflow faster and more believable
+
+4. If there are small, high-value UI/workflow fixes that clearly improve these roles without expanding scope too much, propose them and, if appropriate, implement them in a focused follow-up pass
+
+Constraints:
+- Do not do backend, schema, or API redesign
+- Do not broaden into Phase 3 trust/security work
+- Do not rewrite the whole app
+- Prefer product/workflow clarity over cosmetic polish
+- Be blunt and specific
+
+Before executing, give me a strict audit pre-flight summary with:
+1. Files likely relevant
+2. Roles and workflows to inspect
+3. Key questions you are trying to answer
+4. Biggest likely UX risks
+5. What is out of scope
+
+Then perform the audit and return a strict role-by-role report with:
+1. Current experience
+2. Problems
+3. Recommended changes
+4. Highest-priority follow-up build tasks
+
+End with:
+- a ranked top 5 task list for Phase 2B
+- which single task should be built first
+- a copy-pasteable prompt for that first build task
