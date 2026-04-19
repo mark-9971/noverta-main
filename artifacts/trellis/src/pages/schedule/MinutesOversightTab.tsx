@@ -1,7 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useListStaff, useListSpedStudents, listServiceTypes, createScheduleBlock,
+} from "@workspace/api-client-react";
+import type {
+  Staff, ServiceType, CreateScheduleBlockBody,
+} from "@workspace/api-client-react";
+import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,6 +19,14 @@ import {
   AlertTriangle, Clock, TrendingDown, Users, Search,
   ArrowRight, CheckCircle2, CalendarPlus,
 } from "lucide-react";
+import { BlockFormDialog, BlockForm } from "./BlockFormDialog";
+
+// Roles allowed to create schedule blocks inline. Mirrors the gating used on the
+// parent Scheduling Hub (admin) plus the coordinator role explicitly named in
+// the product requirement for this feature.
+const SCHEDULING_ROLES = new Set(["admin", "coordinator"]);
+
+type StudentListItem = { id: number; firstName: string; lastName: string };
 
 interface MinuteRow {
   serviceRequirementId: number;
@@ -68,8 +84,18 @@ function SummaryBubble({
   );
 }
 
+const DEFAULT_BLOCK_FORM: BlockForm = {
+  staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday",
+  startTime: "09:00", endTime: "10:00", location: "", blockLabel: "", notes: "",
+  blockType: "service", isRecurring: true, rotationDay: "",
+  recurrenceType: "weekly", effectiveFrom: "", effectiveTo: "",
+};
+
 export default function MinutesOversightTab() {
   const { filterParams } = useSchoolContext();
+  const { role } = useRole();
+  const canSchedule = SCHEDULING_ROLES.has(role);
+  const queryClient = useQueryClient();
   const searchStr = useSearch();
   const preselectedStudentId = useMemo(() => {
     const v = new URLSearchParams(searchStr).get("studentId");
@@ -80,6 +106,64 @@ export default function MinutesOversightTab() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // Inline scheduling dialog state
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [blockForm, setBlockForm] = useState<BlockForm>(DEFAULT_BLOCK_FORM);
+  const [blockSaving, setBlockSaving] = useState(false);
+  const [serviceTypesList, setServiceTypesList] = useState<ServiceType[]>([]);
+
+  const { data: staffData } = useListStaff(filterParams, { query: { enabled: canSchedule } });
+  const { data: studentsData } = useListSpedStudents(filterParams, { query: { enabled: canSchedule } });
+  const staffList: Staff[] = Array.isArray(staffData) ? staffData : [];
+  const studentList: StudentListItem[] = Array.isArray(studentsData)
+    ? (studentsData as StudentListItem[])
+    : [];
+
+  useEffect(() => {
+    if (!canSchedule) return;
+    listServiceTypes()
+      .then(r => setServiceTypesList(Array.isArray(r) ? r : []))
+      .catch(() => {});
+  }, [canSchedule]);
+
+  function openScheduleFor(row: MinuteRow) {
+    setBlockForm({
+      ...DEFAULT_BLOCK_FORM,
+      studentId: String(row.studentId),
+      serviceTypeId: String(row.serviceTypeId),
+    });
+    setScheduleDialogOpen(true);
+  }
+
+  async function handleSaveBlock() {
+    if (!canSchedule) return;
+    if (!blockForm.staffId) { toast.error("Staff is required"); return; }
+    setBlockSaving(true);
+    try {
+      const payload: CreateScheduleBlockBody = {
+        staffId: Number(blockForm.staffId),
+        studentId: blockForm.studentId && blockForm.studentId !== "__none" ? Number(blockForm.studentId) : null,
+        serviceTypeId: blockForm.serviceTypeId && blockForm.serviceTypeId !== "__none" ? Number(blockForm.serviceTypeId) : null,
+        dayOfWeek: blockForm.dayOfWeek,
+        startTime: blockForm.startTime,
+        endTime: blockForm.endTime,
+        location: blockForm.location || null,
+        blockType: blockForm.blockType,
+        notes: blockForm.notes || null,
+        isRecurring: blockForm.isRecurring,
+        rotationDay: blockForm.rotationDay || null,
+      };
+      await createScheduleBlock(payload);
+      toast.success("Session scheduled");
+      setScheduleDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["minute-progress-scheduling"] });
+      queryClient.invalidateQueries({ queryKey: ["schedule/compliance"] });
+    } catch {
+      toast.error("Failed to schedule session");
+    }
+    setBlockSaving(false);
+  }
 
   useEffect(() => {
     if (preselectedStudentId != null) {
@@ -273,12 +357,15 @@ export default function MinutesOversightTab() {
                       >
                         <Users className="w-3.5 h-3.5" /> View
                       </Link>
-                      <Link
-                        href={`/scheduling?tab=schedule&studentId=${row.studentId}`}
-                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
-                      >
-                        <CalendarPlus className="w-3.5 h-3.5" /> Schedule
-                      </Link>
+                      {canSchedule && (
+                        <button
+                          type="button"
+                          onClick={() => openScheduleFor(row)}
+                          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
+                        >
+                          <CalendarPlus className="w-3.5 h-3.5" /> Schedule
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -293,6 +380,19 @@ export default function MinutesOversightTab() {
           )}
         </>
       )}
+
+      <BlockFormDialog
+        open={scheduleDialogOpen}
+        onClose={() => setScheduleDialogOpen(false)}
+        editingBlock={null}
+        blockForm={blockForm}
+        setBlockForm={setBlockForm}
+        staffList={staffList}
+        studentList={studentList}
+        serviceTypesList={serviceTypesList}
+        saving={blockSaving}
+        onSave={handleSaveBlock}
+      />
     </div>
   );
 }
