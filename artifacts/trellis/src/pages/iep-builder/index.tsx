@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { useRole } from "@/lib/role-context";
 import {
   type Step, type BuilderContext, type GeneratedDraft,
   type ParentQuestionnaire, type TeacherQuestionnaire, type TransitionInput,
@@ -47,6 +48,12 @@ export default function IepBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [presenceEditors, setPresenceEditors] = useState<{ staffId: number; name: string }[]>([]);
+
+  const { teacherId } = useRole();
+  const [staleDraftWarning, setStaleDraftWarning] = useState<{ updatedAt: string; lastEditorName: string | null } | null>(null);
+  const draftSavedAtRef = useRef<string | null>(null);
+  draftSavedAtRef.current = draftSavedAt;
+  const [reloading, setReloading] = useState(false);
 
   const [isDirty, setIsDirty] = useState(false);
   const isDirtyRef = useRef(false);
@@ -304,6 +311,64 @@ export default function IepBuilderPage() {
     };
   }, [studentId]);
 
+  // Poll the shared draft every 60s. If a teammate has saved a newer version
+  // than our currently loaded baseline, surface a non-blocking banner so the
+  // user can choose to reload (losing local edits) or continue (and overwrite).
+  useEffect(() => {
+    if (!draftResolved || isNaN(studentId)) return;
+    let cancelled = false;
+    const url = `${API_BASE}/students/${studentId}/iep-builder/draft`;
+
+    async function poll() {
+      if (isSavingRef.current) return;
+      const baseline = draftSavedAtRef.current;
+      if (!baseline) return;
+      try {
+        const res = await authFetch(url);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!data || !data.updatedAt) return;
+        const remoteNewer = new Date(data.updatedAt).getTime() > new Date(baseline).getTime();
+        const differentStaff = data.staffId != null && data.staffId !== teacherId;
+        if (remoteNewer && differentStaff) {
+          setStaleDraftWarning({ updatedAt: data.updatedAt, lastEditorName: data.lastEditorName ?? null });
+        }
+      } catch {}
+    }
+
+    const interval = setInterval(poll, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [studentId, draftResolved, teacherId]);
+
+  const reloadFromServer = useCallback(async () => {
+    setReloading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft`);
+      if (!res.ok) { toast.error("Failed to reload draft"); return; }
+      const data = await res.json();
+      if (!data || !data.formData) { toast.error("Draft no longer available"); return; }
+      const fd = data.formData;
+      if (fd.parent) setParent({ ...EMPTY_PARENT, ...fd.parent });
+      if (fd.teacher) setTeacher({ ...EMPTY_TEACHER, ...fd.teacher });
+      if (fd.transition) setTransition({ ...EMPTY_TRANSITION, ...fd.transition });
+      setStep(data.wizardStep as Step);
+      setDraftSavedAt(data.updatedAt);
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setStaleDraftWarning(null);
+      toast.success("Loaded the latest draft");
+    } catch {
+      toast.error("Failed to reload draft");
+    }
+    setReloading(false);
+  }, [studentId]);
+
+  const dismissStaleWarning = useCallback(() => {
+    // Bump the baseline so we don't immediately re-warn about the same revision.
+    if (staleDraftWarning) setDraftSavedAt(staleDraftWarning.updatedAt);
+    setStaleDraftWarning(null);
+  }, [staleDraftWarning]);
+
   const changeStep = useCallback((newStep: Step) => {
     setStep(newStep);
     if (draftResolvedRef.current) {
@@ -437,6 +502,50 @@ export default function IepBuilderPage() {
                 Start Fresh
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {staleDraftWarning && (
+        <div
+          className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3"
+          data-testid="stale-draft-warning"
+        >
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] text-amber-900">
+              This draft was updated
+              {staleDraftWarning.lastEditorName && <> by <span className="font-semibold">{staleDraftWarning.lastEditorName}</span></>}
+              {" "}
+              {(() => {
+                const mins = Math.max(1, Math.round((Date.now() - new Date(staleDraftWarning.updatedAt).getTime()) / 60000));
+                return mins < 60
+                  ? `${mins} minute${mins === 1 ? "" : "s"} ago`
+                  : new Date(staleDraftWarning.updatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+              })()}
+              . Reload to see the latest, or continue editing to overwrite.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white h-8"
+              onClick={reloadFromServer}
+              disabled={reloading}
+              data-testid="stale-draft-reload"
+            >
+              {reloading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+              Reload
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={dismissStaleWarning}
+              data-testid="stale-draft-dismiss"
+            >
+              Continue
+            </Button>
           </div>
         </div>
       )}
