@@ -253,6 +253,59 @@ export function buildDocumentHtml(opts: BuildDocumentOptions): string {
 </html>`;
 }
 
+type Html2PdfWorker = {
+  from: (src: HTMLElement) => Html2PdfWorker;
+  set: (opts: Record<string, unknown>) => Html2PdfWorker;
+  save: () => Promise<void>;
+};
+type Html2PdfFactory = () => Html2PdfWorker;
+type Html2PdfModule = { default?: Html2PdfFactory } & Partial<Html2PdfFactory>;
+
+export async function downloadHtmlAsPdf(html: string, filename: string): Promise<void> {
+  const mod = (await import("html2pdf.js")) as unknown as Html2PdfModule;
+  const html2pdf = (mod.default ?? (mod as unknown as Html2PdfFactory)) as Html2PdfFactory;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-10000px";
+  iframe.style.top = "0";
+  iframe.style.width = "8.5in";
+  iframe.style.height = "11in";
+  iframe.style.border = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("PDF render timed out")), 15000);
+      iframe.addEventListener("load", () => { clearTimeout(timeout); resolve(); }, { once: true });
+      const doc = iframe.contentDocument;
+      if (!doc) { clearTimeout(timeout); reject(new Error("Could not access iframe document")); return; }
+      doc.open();
+      doc.write(html);
+      doc.close();
+    });
+
+    const body = iframe.contentDocument?.body;
+    if (!body) throw new Error("No body in PDF iframe");
+
+    const safeName = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+    await html2pdf()
+      .from(body)
+      .set({
+        margin: [0.25, 0.25, 0.25, 0.25],
+        filename: safeName,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] },
+      })
+      .save();
+  } finally {
+    iframe.remove();
+  }
+}
+
 export function openPrintWindow(html: string): void {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);

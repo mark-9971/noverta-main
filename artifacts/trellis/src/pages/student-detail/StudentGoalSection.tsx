@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer, Trophy, X, MessageSquare, User, Trash2 } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer, Trophy, X, MessageSquare, User, Trash2, Download } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { AbaGraph } from "@/components/aba-graph";
-import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow, saveGeneratedDocument } from "@/lib/print-document";
+import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow, saveGeneratedDocument, downloadHtmlAsPdf } from "@/lib/print-document";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -74,6 +74,7 @@ export default function StudentGoalSection({
   const [printFilterOpen, setPrintFilterOpen] = useState(false);
   const [excludedAreas, setExcludedAreas] = useState<Set<string>>(new Set());
   const [needsAttentionOnly, setNeedsAttentionOnly] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   const goalAreas = useMemo(() => {
     const areas = new Set<string>();
@@ -108,7 +109,7 @@ export default function StudentGoalSection({
     setGoalAbaView(prev => ({ ...prev, [`goal-${id}`]: !prev[`goal-${id}`] }));
   }
 
-  function handlePrintReport() {
+  function buildReportHtml(): { html: string; studentName: string } {
     const studentName = student
       ? `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim()
       : "Student";
@@ -120,17 +121,44 @@ export default function StudentGoalSection({
       district: student?.district ?? null,
       goals: filteredPrintGoals,
     });
+    return { html, studentName };
+  }
+
+  function persistSnapshot(html: string) {
+    if (!student?.id) return;
+    const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    saveGeneratedDocument({
+      studentId: student.id,
+      type: "progress_report",
+      title: `Goal Progress Report — ${today}`,
+      htmlSnapshot: html,
+      status: "finalized",
+    });
+  }
+
+  function handlePrintReport() {
+    const { html } = buildReportHtml();
     openPrintWindow(html);
     setPrintFilterOpen(false);
-    if (student?.id) {
-      const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-      saveGeneratedDocument({
-        studentId: student.id,
-        type: "progress_report",
-        title: `Goal Progress Report — ${today}`,
-        htmlSnapshot: html,
-        status: "finalized",
-      });
+    persistSnapshot(html);
+  }
+
+  async function handleDownloadPdf() {
+    if (pdfDownloading) return;
+    const { html, studentName } = buildReportHtml();
+    const safeStudent = studentName.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "student";
+    const today = new Date().toISOString().slice(0, 10);
+    const filename = `goal-progress-report-${safeStudent}-${today}.pdf`;
+    setPdfDownloading(true);
+    try {
+      await downloadHtmlAsPdf(html, filename);
+      persistSnapshot(html);
+      setPrintFilterOpen(false);
+    } catch (err) {
+      console.error("Failed to generate PDF", err);
+      alert("Sorry, we couldn't generate the PDF. Please try again or use Print.");
+    } finally {
+      setPdfDownloading(false);
     }
   }
 
@@ -208,20 +236,33 @@ export default function StudentGoalSection({
                       </label>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 border-t">
+                    <div className="flex items-center justify-between pt-1 border-t gap-2">
                       <span className="text-[11px] text-gray-500">
                         {filteredPrintGoals.length} of {goalProgress.length} goal{goalProgress.length !== 1 ? "s" : ""}
                       </span>
-                      <button
-                        type="button"
-                        onClick={handlePrintReport}
-                        disabled={filteredPrintGoals.length === 0}
-                        className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        data-testid="button-print-report-confirm"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        Print
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleDownloadPdf}
+                          disabled={filteredPrintGoals.length === 0 || pdfDownloading}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          data-testid="button-download-pdf-confirm"
+                          title="Download report as a PDF file"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          {pdfDownloading ? "Preparing…" : "Download PDF"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handlePrintReport}
+                          disabled={filteredPrintGoals.length === 0}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          data-testid="button-print-report-confirm"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          Print
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </PopoverContent>
