@@ -305,8 +305,13 @@ export default function PilotAdminHome() {
     if (!summary || summary.totalStudents <= 0) return null;
     const exposurePerStudent = summary.combinedExposure / summary.totalStudents;
     const providerLoggingRate = 1.0;
-    return computeHealthScore(rate, exposurePerStudent, providerLoggingRate);
-  }, [summary, rate]);
+    return computeHealthScore(
+      rate,
+      exposurePerStudent,
+      providerLoggingRate,
+      goalMasteryData?.masteryRate ?? null,
+    );
+  }, [summary, rate, goalMasteryData?.masteryRate]);
 
   // Per-school health rows for the badge drill-down. Shares its query key
   // with SchoolComplianceBreakdown so react-query dedupes the network call.
@@ -992,9 +997,12 @@ function HealthScoreBadge({
       >
         <p className="font-semibold mb-1.5 text-xs">District Health Score — {score.grade} ({score.numeric}/100)</p>
         <ul className="space-y-1 text-gray-300">
-          <li>📋 Compliance: {score.breakdown.compliancePoints.toFixed(0)} pts <span className="text-gray-500">(60% weight)</span></li>
-          <li>💰 Exposure risk: {score.breakdown.exposurePoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
-          <li>📝 Provider logging: {score.breakdown.loggingPoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
+          <li>📋 Compliance: {score.breakdown.compliancePoints.toFixed(0)} pts <span className="text-gray-500">({score.breakdown.masteryPoints !== null ? "51" : "60"}% weight)</span></li>
+          <li>💰 Exposure risk: {score.breakdown.exposurePoints.toFixed(0)} pts <span className="text-gray-500">({score.breakdown.masteryPoints !== null ? "17" : "20"}% weight)</span></li>
+          <li>📝 Provider logging: {score.breakdown.loggingPoints.toFixed(0)} pts <span className="text-gray-500">({score.breakdown.masteryPoints !== null ? "17" : "20"}% weight)</span></li>
+          {score.breakdown.masteryPoints !== null && (
+            <li data-testid="health-score-mastery-row">🎯 Goal mastery: {score.breakdown.masteryPoints.toFixed(0)} pts <span className="text-gray-500">(15% weight)</span></li>
+          )}
         </ul>
         {sparkline.length >= 2 && (
           <div className="mt-2.5 pt-2 border-t border-gray-700">
