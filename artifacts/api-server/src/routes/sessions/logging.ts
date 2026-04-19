@@ -20,6 +20,7 @@ import { logAudit } from "../../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
+import { isTrainingMode, trainingWriterUserId } from "../../lib/trainingMode";
 import { validateGoalData, type GoalEntry } from "./shared";
 
 const router: IRouter = Router();
@@ -116,17 +117,29 @@ router.post("/sessions", async (req, res): Promise<void> => {
       return;
     }
 
+    const authedReq = req as unknown as AuthedRequest;
+    const trainingMode = isTrainingMode(authedReq);
+
     // District ownership check: verify the student belongs to the caller's district.
     {
-      const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+      const enforcedDistrictId = getEnforcedDistrictId(authedReq);
       if (enforcedDistrictId !== null) {
         const rows = await db.execute(sql`
-          SELECT 1 FROM students
+          SELECT is_sample FROM students
           WHERE id = ${parsed.data.studentId}
             AND school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})
         `);
         if (!rows.rows.length) {
           res.status(403).json({ error: "Student does not belong to your district" });
+          return;
+        }
+        // Training Mode (task 423): refuse to write against a real student
+        // while in Training Mode. The whole point of the feature is that
+        // practice writes never touch real student records — fail loudly
+        // rather than silently letting the write through.
+        const isSampleStudent = (rows.rows[0] as { is_sample: boolean }).is_sample;
+        if (trainingMode && !isSampleStudent) {
+          res.status(403).json({ error: "Training Mode can only log sessions for sample students. Pick a sample student or exit Training Mode." });
           return;
         }
       }
@@ -146,7 +159,13 @@ router.post("/sessions", async (req, res): Promise<void> => {
       resolvedServiceTypeId = row?.service_type_id ?? null;
     }
 
-    const sessionInsert = { ...parsed.data, schoolYearId: activeYearId ?? null, serviceTypeId: resolvedServiceTypeId };
+    // Training Mode tags writes with `is_sandbox=true` and stamps the
+    // caller's real Clerk user id on `sandbox_user_id` so the per-user
+    // "Reset training data" action can wipe just this user's writes.
+    const sandboxFields = trainingMode
+      ? { isSandbox: true, sandboxUserId: trainingWriterUserId(authedReq) }
+      : {};
+    const sessionInsert = { ...parsed.data, schoolYearId: activeYearId ?? null, serviceTypeId: resolvedServiceTypeId, ...sandboxFields };
 
     let goalData: GoalEntry[] = [];
     if (rawGoalData && Array.isArray(rawGoalData) && rawGoalData.length > 0) {

@@ -27,6 +27,7 @@ import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getCallerAssignedStudentIds, assertStudentAccessibleToCaller } from "../../lib/staffScope";
 import { assertSessionLogInCallerDistrict } from "../../lib/districtScope";
+import { isTrainingMode, trainingWriterUserId } from "../../lib/trainingMode";
 import { validateGoalData, sessionToJson, sessionIdGuard, type GoalEntry } from "./shared";
 
 const router: IRouter = Router();
@@ -34,11 +35,26 @@ router.param("id", sessionIdGuard);
 
 router.get("/sessions", async (req, res): Promise<void> => {
   const params = ListSessionsQueryParams.safeParse(req.query);
-  const assignedIds = await getCallerAssignedStudentIds(req as unknown as AuthedRequest);
+  const authedReq = req as unknown as AuthedRequest;
+  const trainingMode = isTrainingMode(authedReq);
+  const assignedIds = await getCallerAssignedStudentIds(authedReq);
   if (assignedIds !== null && assignedIds.length === 0) { res.json({ data: [], total: 0, page: 1, pageSize: 100, hasMore: false }); return; }
   const conditions: any[] = [isNull(sessionLogsTable.deletedAt)];
   if (assignedIds !== null) {
     conditions.push(sql`${sessionLogsTable.studentId} IN (${sql.join(assignedIds.map(id => sql`${id}`), sql`, `)})`);
+  }
+  // Training Mode (task 423): in training mode, restrict the result to the
+  // sample roster (so providers practice only against safe sample students)
+  // and only the caller's own sandbox writes — other trainees' writes on
+  // the shared sample roster stay hidden. Out of training mode, hide all
+  // sandbox-tagged writes as defense in depth even though they reference
+  // sample students that wouldn't normally appear in a real caseload.
+  if (trainingMode) {
+    const writerId = trainingWriterUserId(authedReq);
+    conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE is_sample = true)`);
+    conditions.push(sql`(${sessionLogsTable.isSandbox} = false OR ${sessionLogsTable.sandboxUserId} = ${writerId})`);
+  } else {
+    conditions.push(eq(sessionLogsTable.isSandbox, false));
   }
   if (params.success) {
     if (params.data.studentId) conditions.push(eq(sessionLogsTable.studentId, Number(params.data.studentId)));
@@ -414,7 +430,32 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertSessionLogInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
+  const authedReqPatch = req as unknown as AuthedRequest;
+  if (!(await assertSessionLogInCallerDistrict(authedReqPatch, params.data.id, res))) return;
+  // Training Mode safety (task 423): the row must be either non-sandbox
+  // (a normal seeded sample row) or one of THIS user's own sandbox writes.
+  // Conversely, when NOT in training mode, refuse to edit any sandbox row
+  // — those are practice writes and shouldn't be reachable from the real
+  // session log UI.
+  {
+    const [pre] = await db
+      .select({ isSandbox: sessionLogsTable.isSandbox, sandboxUserId: sessionLogsTable.sandboxUserId })
+      .from(sessionLogsTable)
+      .where(eq(sessionLogsTable.id, params.data.id))
+      .limit(1);
+    if (pre) {
+      const inTraining = isTrainingMode(authedReqPatch);
+      const writerId = trainingWriterUserId(authedReqPatch);
+      if (pre.isSandbox && !inTraining) {
+        res.status(403).json({ error: "This session was logged in Training Mode and can only be edited from Training Mode." });
+        return;
+      }
+      if (pre.isSandbox && inTraining && pre.sandboxUserId !== writerId) {
+        res.status(403).json({ error: "Training Mode sessions can only be edited by the user who created them." });
+        return;
+      }
+    }
+  }
   const { goalData: rawGoalData, ...bodyFields } = req.body;
   const parsed = UpdateSessionBody.safeParse(bodyFields);
   if (!parsed.success) {

@@ -79,6 +79,8 @@ import pilotBaselineRouter from "./pilotBaseline";
 import pilotFeedbackRouter from "./pilotFeedback";
 import studentHandoffRouter from "./studentHandoff";
 import pilotDecisionRouter from "./pilotDecision";
+import trainingModeRouter from "./trainingMode";
+import { applyTrainingModeOverride } from "../lib/trainingMode";
 import { requireLegalAcceptance } from "../middlewares/requireLegalAcceptance";
 import { createDbRateLimitMiddleware } from "../lib/dbRateLimiter";
 
@@ -105,6 +107,14 @@ router.use(nudgesPublicRouter);
 router.use(complianceSnapshotPublicRouter);
 
 router.use(requireAuth);
+
+// Training Mode (task 423): if the caller has flipped Training Mode on
+// from their profile menu, this middleware swaps `tenantStaffId` to a
+// sample-roster persona and tags the request so the sessions and
+// schedules routes hit the sandbox dataset instead of real students.
+// The toggle endpoints themselves are mounted further down and read the
+// real (pre-override) staff id from `req.realStaffId`.
+router.use(applyTrainingModeOverride);
 
 // ── Global authenticated rate limit ─────────────────────────────────────────
 // Applied immediately after requireAuth so every authenticated route is covered.
@@ -308,6 +318,7 @@ router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
 router.use(nudgesAuthedRouter);
 router.use(sampleDataRouter);
+router.use(trainingModeRouter);
 router.use(districtDataRouter);
 router.use(pilotBaselineRouter);
 router.use(pilotFeedbackRouter);

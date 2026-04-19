@@ -16,6 +16,7 @@ import { DemoBanner, useActiveDemoDistrict, useActivePilotDistrict } from "@/com
 import { ViewAsBanner } from "@/components/layout/ViewAsBanner";
 import { SupportSessionBanner } from "@/components/layout/SupportSessionBanner";
 import { SampleDataBanner } from "@/components/SampleDataBanner";
+import { TrainingModeBanner, TrainingModeToggleButton } from "@/components/TrainingModeBanner";
 import { SampleDataTour } from "@/components/SampleDataTour";
 import { ShowcaseTour } from "@/components/ShowcaseTour";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
@@ -435,6 +436,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <p className="text-[11px] truncate leading-tight mt-0.5 text-sidebar-foreground/50">{user.subtitle}</p>
             </div>
             <ThemePicker />
+            <TrainingModeToggleButton />
             <Link
               href="/my-settings"
               className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors flex-shrink-0"
@@ -473,6 +475,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <ViewAsBanner />
         <SupportSessionBanner />
         <DemoBanner />
+        <TrainingModeBanner />
         <SampleDataBanner />
         <SampleDataTour />
         <ShowcaseTour />

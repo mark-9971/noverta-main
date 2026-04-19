@@ -29,6 +29,18 @@ export const sessionLogsTable = pgTable("session_logs", {
   compensatoryObligationId: integer("compensatory_obligation_id").references(() => compensatoryObligationsTable.id),
   notes: text("notes"),
   schoolYearId: integer("school_year_id").references(() => schoolYearsTable.id),
+  // Training Mode (task 423): rows written while a user is in Training Mode
+  // are tagged so the normal app never surfaces them and the per-user "Reset
+  // training data" can wipe them without touching anything else. The student
+  // referenced by these rows is always a sample student (`students.is_sample`
+  // = true), so even without this flag they wouldn't reach a real provider's
+  // caseload — the flag is the cheap, explicit isolation signal the read
+  // path filters on.
+  isSandbox: boolean("is_sandbox").notNull().default(false),
+  // Clerk user id of the user who created this row in Training Mode. Lets
+  // "Reset training data" delete only the caller's own sandbox writes
+  // without touching writes from other trainees on the shared sample roster.
+  sandboxUserId: text("sandbox_user_id"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   // Auditability: who/when last edited this row. The full edit history lives
   // in `audit_logs`; these columns are a cheap at-a-glance signal so list/edit

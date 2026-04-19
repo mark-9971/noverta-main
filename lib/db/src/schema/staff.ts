@@ -23,6 +23,11 @@ export const staffTable = pgTable("staff", {
   /** Origin marker: null = manual/SIS, "pilot_csv" = pilot kickoff wizard. */
   source: text("source"),
   isSample: boolean("is_sample").notNull().default(false),
+  // Per-user "Training Mode" toggle (task 423). When true, the request-scoped
+  // training-mode middleware re-routes this user's reads/writes to the
+  // sandbox dataset (sample students/staff + their own sandbox-tagged
+  // session writes). Toggled via /api/training-mode/{enable,disable}.
+  trainingModeEnabled: boolean("training_mode_enabled").notNull().default(false),
   receiveRiskAlerts: boolean("receive_risk_alerts").notNull().default(true),
   alertDigestMode: boolean("alert_digest_mode"),
   // Optional supervisor relationship — used by provider activation nudges to
