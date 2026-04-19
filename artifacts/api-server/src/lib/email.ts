@@ -131,8 +131,8 @@ export interface SendEmailResult {
   notConfigured?: boolean;
 }
 
-const FROM_EMAIL = "Trellis SPED <noreply@trellis.education>";
-const FROM_EMAIL_FALLBACK = "noreply@trellis.education";
+const FROM_EMAIL = "Trellis SPED <hello@noreply.trellis.education>";
+const FROM_EMAIL_FALLBACK = "hello@noreply.trellis.education";
 
 /**
  * Resolve the base URL for deep links into the app from emails.
