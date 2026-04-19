@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROLE_LABELS } from "./types";
 
+export interface ThresholdLastModified {
+  at: string;
+  byUserId: string;
+  byName: string | null;
+  byRole: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -11,9 +18,19 @@ interface Props {
   setEditThresholds: (t: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   onApply: () => void;
   saving?: boolean;
+  lastModified?: ThresholdLastModified | null;
 }
 
-export function ThresholdDialog({ open, onOpenChange, editThresholds, setEditThresholds, onApply, saving }: Props) {
+function formatLastModified(lm: ThresholdLastModified): string {
+  const date = new Date(lm.at);
+  const when = date.toLocaleString(undefined, {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+  const who = lm.byName?.trim() || `User ${lm.byUserId.slice(-6)}`;
+  return `Last updated ${when} by ${who}`;
+}
+
+export function ThresholdDialog({ open, onOpenChange, editThresholds, setEditThresholds, onApply, saving, lastModified }: Props) {
   return (
     <Dialog open={open} onOpenChange={saving ? undefined : onOpenChange}>
       <DialogContent>
@@ -22,6 +39,15 @@ export function ThresholdDialog({ open, onOpenChange, editThresholds, setEditThr
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-gray-500">Set the maximum number of students per provider for each role. Changes are saved to the database and persist across sessions.</p>
+          {lastModified ? (
+            <p className="text-xs text-gray-500 border-l-2 border-gray-200 pl-2" data-testid="threshold-last-modified">
+              {formatLastModified(lastModified)}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 border-l-2 border-gray-200 pl-2" data-testid="threshold-last-modified-none">
+              No changes recorded yet — using system defaults.
+            </p>
+          )}
           {Object.entries(editThresholds).map(([role, value]) => (
             <div key={role} className="flex items-center gap-3">
               <Label className="w-32 text-sm">{ROLE_LABELS[role] || role}</Label>

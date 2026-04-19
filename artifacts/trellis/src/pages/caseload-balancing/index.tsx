@@ -16,7 +16,7 @@ import { RoleSummaryCard } from "./RoleSummaryCard";
 import { ProviderListPanel } from "./ProviderListPanel";
 import { ProviderDetailPanel } from "./ProviderDetailPanel";
 import { SuggestionsCard } from "./SuggestionsCard";
-import { ThresholdDialog } from "./ThresholdDialog";
+import { ThresholdDialog, type ThresholdLastModified } from "./ThresholdDialog";
 import { ReassignDialog } from "./ReassignDialog";
 
 interface IncompatibleService { serviceTypeId: number; serviceTypeName: string; }
@@ -43,7 +43,17 @@ export default function CaseloadBalancingPage() {
   const [editThresholds, setEditThresholds] = useState<Record<string, number>>({});
   const [customThresholds, setCustomThresholds] = useState<Record<string, number> | null>(null);
   const [savingThresholds, setSavingThresholds] = useState(false);
+  const [thresholdLastModified, setThresholdLastModified] = useState<ThresholdLastModified | null>(null);
   const thresholdsLoaded = useRef(false);
+
+  const refreshThresholdMeta = useCallback(async () => {
+    try {
+      const res = await authFetch("/api/caseload-balancing/thresholds");
+      if (!res.ok) return;
+      const data = await res.json();
+      setThresholdLastModified(data.lastModified ?? null);
+    } catch {}
+  }, []);
 
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [trendLoading, setTrendLoading] = useState(false);
@@ -136,6 +146,7 @@ export default function CaseloadBalancingPage() {
             setCustomThresholds(persisted);
             setThresholds(persisted);
           }
+          setThresholdLastModified(data.lastModified ?? null);
         }
       } catch {}
       fetchData(persisted);
@@ -311,6 +322,7 @@ export default function CaseloadBalancingPage() {
         editThresholds={editThresholds}
         setEditThresholds={setEditThresholds}
         saving={savingThresholds}
+        lastModified={thresholdLastModified}
         onApply={async () => {
           setSavingThresholds(true);
           try {
@@ -328,6 +340,11 @@ export default function CaseloadBalancingPage() {
             const saved = data.thresholds;
             setCustomThresholds(saved);
             setThresholds(saved);
+            if (data.lastModified !== undefined) {
+              setThresholdLastModified(data.lastModified ?? null);
+            } else {
+              refreshThresholdMeta();
+            }
             setThresholdDialog(false);
             fetchData(saved);
             fetchSuggestions(saved);

@@ -1,9 +1,61 @@
 import { Router } from "express";
-import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable, caseloadSnapshotsTable, districtsTable } from "@workspace/db";
-import { eq, and, sql, isNull, count, sum, gte } from "drizzle-orm";
+import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable, caseloadSnapshotsTable, districtsTable, auditLogsTable } from "@workspace/db";
+import { eq, and, sql, isNull, count, sum, gte, desc } from "drizzle-orm";
+import { clerkClient } from "@clerk/express";
 import { getEnforcedDistrictId, type AuthedRequest, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { logAudit } from "../lib/auditLog";
+
+interface ThresholdLastModified {
+  at: string;
+  byUserId: string;
+  byName: string | null;
+  byRole: string;
+}
+
+async function getThresholdLastModified(districtId: number): Promise<ThresholdLastModified | null> {
+  try {
+    const [row] = await db.select({
+      actorUserId: auditLogsTable.actorUserId,
+      actorRole: auditLogsTable.actorRole,
+      createdAt: auditLogsTable.createdAt,
+    })
+      .from(auditLogsTable)
+      .where(and(
+        eq(auditLogsTable.targetTable, "districts"),
+        eq(auditLogsTable.targetId, String(districtId)),
+        eq(auditLogsTable.action, "update"),
+        sql`${auditLogsTable.newValues} ? 'caseloadThresholds'`,
+      ))
+      .orderBy(desc(auditLogsTable.createdAt))
+      .limit(1);
+    if (!row) return null;
+
+    let byName: string | null = null;
+    try {
+      const user = await clerkClient.users.getUser(row.actorUserId);
+      const fn = user.firstName?.trim();
+      const ln = user.lastName?.trim();
+      if (fn || ln) {
+        byName = [fn, ln].filter(Boolean).join(" ");
+      } else {
+        const primary = user.emailAddresses.find(e => e.id === user.primaryEmailAddressId);
+        byName = primary?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null;
+      }
+    } catch {
+      byName = null;
+    }
+
+    return {
+      at: row.createdAt.toISOString(),
+      byUserId: row.actorUserId,
+      byName,
+      byRole: row.actorRole,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const router = Router();
 // Path-scoped: a path-less router.use() would block every router mounted after this one in
@@ -38,8 +90,11 @@ router.get("/caseload-balancing/thresholds", async (req, res): Promise<void> => 
   if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   try {
-    const thresholds = await getDistrictThresholds(districtId);
-    res.json({ thresholds });
+    const [thresholds, lastModified] = await Promise.all([
+      getDistrictThresholds(districtId),
+      getThresholdLastModified(districtId),
+    ]);
+    res.json({ thresholds, lastModified });
   } catch (err) {
     console.error("GET /caseload-balancing/thresholds error:", err);
     res.status(500).json({ error: "Failed to load thresholds" });
@@ -78,7 +133,36 @@ router.put("/caseload-balancing/thresholds", async (req, res): Promise<void> => 
     });
 
     const merged = { ...DEFAULT_THRESHOLDS, ...validated };
-    res.json({ thresholds: merged });
+
+    // Build authoritative lastModified from the just-applied change so the
+    // client doesn't race the fire-and-forget audit insert.
+    const authed = req as unknown as AuthedRequest;
+    const actorUserId = authed.userId ?? "anonymous";
+    const actorRole = authed.trellisRole ?? "unknown";
+    let byName: string | null = null;
+    if (actorUserId !== "anonymous") {
+      try {
+        const user = await clerkClient.users.getUser(actorUserId);
+        const fn = user.firstName?.trim();
+        const ln = user.lastName?.trim();
+        if (fn || ln) {
+          byName = [fn, ln].filter(Boolean).join(" ");
+        } else {
+          const primary = user.emailAddresses.find(e => e.id === user.primaryEmailAddressId);
+          byName = primary?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null;
+        }
+      } catch {
+        byName = null;
+      }
+    }
+    const lastModified: ThresholdLastModified = {
+      at: new Date().toISOString(),
+      byUserId: actorUserId,
+      byName,
+      byRole: actorRole,
+    };
+
+    res.json({ thresholds: merged, lastModified });
   } catch (err) {
     console.error("PUT /caseload-balancing/thresholds error:", err);
     res.status(500).json({ error: "Failed to save thresholds" });
