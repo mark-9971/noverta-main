@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolYears } from "@/lib/use-school-years";
@@ -53,6 +53,36 @@ function statusLabel(status: string) {
   if (status === "missed") return "Missed";
   if (status === "partial") return "Partial";
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function monthKey(dateStr: string) {
+  const [y, m] = dateStr.split("-");
+  return `${y}-${m}`;
+}
+
+function fmtMonth(key: string) {
+  const [y, m] = key.split("-");
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function groupByMonth(items: ExposureItem[]): { key: string; items: ExposureItem[]; subtotal: number }[] {
+  const groups = new Map<string, ExposureItem[]>();
+  for (const item of items) {
+    const key = monthKey(item.date);
+    const arr = groups.get(key);
+    if (arr) arr.push(item);
+    else groups.set(key, [item]);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, groupItems]) => ({
+      key,
+      items: groupItems,
+      subtotal: Math.round(groupItems.reduce((acc, it) => acc + (it.exposureAmount ?? 0), 0) * 100) / 100,
+    }));
 }
 
 function statusBadge(status: string) {
@@ -296,27 +326,95 @@ export default function ExposureDetailPanel({ studentId, studentName, serviceReq
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {data.items.map((item, i) => (
-                      <tr key={i} className="hover:bg-gray-50/60 transition-colors">
-                        <td className="px-3 py-2.5 text-[12px] text-gray-600 whitespace-nowrap">{fmtDate(item.date)}</td>
-                        <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[140px] truncate">{item.serviceType}</td>
-                        <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[120px] truncate">{item.provider}</td>
-                        <td className="px-3 py-2.5 text-[13px] text-gray-700 text-right tabular-nums font-medium">{item.scheduledDurationMinutes}</td>
-                        <td className="px-3 py-2.5">{statusBadge(item.status)}</td>
-                        <td className="px-3 py-2.5 text-right text-[12px] tabular-nums">
-                          {item.hourlyRate != null
-                            ? <span className="text-gray-700">${item.hourlyRate.toFixed(2)}/hr</span>
-                            : <span className="text-amber-600 font-medium">Not set</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums">
-                          {item.exposureAmount != null
-                            ? <span className="text-red-700 font-semibold text-[13px]">{fmtDollars(item.exposureAmount)}</span>
-                            : <span className="text-amber-600 text-[12px]">N/A</span>}
-                        </td>
-                      </tr>
-                    ))}
+                    {scope === "schoolYear" ? (
+                      groupByMonth(data.items).map(group => (
+                        <Fragment key={group.key}>
+                          <tr className="bg-gray-50/80">
+                            <td
+                              colSpan={7}
+                              className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500"
+                            >
+                              {fmtMonth(group.key)}
+                              <span className="ml-2 text-[10px] font-normal text-gray-400 normal-case tracking-normal">
+                                ({group.items.length} {group.items.length === 1 ? "session" : "sessions"})
+                              </span>
+                            </td>
+                          </tr>
+                          {group.items.map((item, i) => (
+                            <tr key={`${group.key}-${i}`} className="hover:bg-gray-50/60 transition-colors">
+                              <td className="px-3 py-2.5 text-[12px] text-gray-600 whitespace-nowrap">{fmtDate(item.date)}</td>
+                              <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[140px] truncate">{item.serviceType}</td>
+                              <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[120px] truncate">{item.provider}</td>
+                              <td className="px-3 py-2.5 text-[13px] text-gray-700 text-right tabular-nums font-medium">{item.scheduledDurationMinutes}</td>
+                              <td className="px-3 py-2.5">{statusBadge(item.status)}</td>
+                              <td className="px-3 py-2.5 text-right text-[12px] tabular-nums">
+                                {item.hourlyRate != null
+                                  ? <span className="text-gray-700">${item.hourlyRate.toFixed(2)}/hr</span>
+                                  : <span className="text-amber-600 font-medium">Not set</span>}
+                              </td>
+                              <td className="px-3 py-2.5 text-right tabular-nums">
+                                {item.exposureAmount != null
+                                  ? <span className="text-red-700 font-semibold text-[13px]">{fmtDollars(item.exposureAmount)}</span>
+                                  : <span className="text-amber-600 text-[12px]">N/A</span>}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50/60">
+                            <td colSpan={6} className="px-3 py-1.5 text-[11px] font-medium text-gray-500 text-right italic">
+                              {fmtMonth(group.key)} subtotal
+                            </td>
+                            <td className="px-3 py-1.5 text-right tabular-nums">
+                              <span className="text-red-700 font-semibold text-[12px]">{fmtDollars(group.subtotal)}</span>
+                            </td>
+                          </tr>
+                        </Fragment>
+                      ))
+                    ) : (
+                      data.items.map((item, i) => (
+                        <tr key={i} className="hover:bg-gray-50/60 transition-colors">
+                          <td className="px-3 py-2.5 text-[12px] text-gray-600 whitespace-nowrap">{fmtDate(item.date)}</td>
+                          <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[140px] truncate">{item.serviceType}</td>
+                          <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[120px] truncate">{item.provider}</td>
+                          <td className="px-3 py-2.5 text-[13px] text-gray-700 text-right tabular-nums font-medium">{item.scheduledDurationMinutes}</td>
+                          <td className="px-3 py-2.5">{statusBadge(item.status)}</td>
+                          <td className="px-3 py-2.5 text-right text-[12px] tabular-nums">
+                            {item.hourlyRate != null
+                              ? <span className="text-gray-700">${item.hourlyRate.toFixed(2)}/hr</span>
+                              : <span className="text-amber-600 font-medium">Not set</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">
+                            {item.exposureAmount != null
+                              ? <span className="text-red-700 font-semibold text-[13px]">{fmtDollars(item.exposureAmount)}</span>
+                              : <span className="text-amber-600 text-[12px]">N/A</span>}
+                          </td>
+                        </tr>
+                      ))
+                    )}
 
-                    {remainingExposure > 0.005 && (
+                    {remainingExposure > 0.005 && scope === "schoolYear" && (
+                      <>
+                        <tr className="bg-gray-50/80">
+                          <td
+                            colSpan={7}
+                            className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500"
+                          >
+                            Unlogged shortfall
+                            <span className="ml-2 text-[10px] font-normal text-gray-400 normal-case tracking-normal">
+                              (shortfall minutes without logged sessions)
+                            </span>
+                          </td>
+                        </tr>
+                        <tr className="bg-gray-50/60">
+                          <td colSpan={6} className="px-3 py-1.5 text-[11px] font-medium text-gray-500 text-right italic">
+                            Unlogged shortfall subtotal
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">
+                            <span className="text-red-700 font-semibold text-[12px]">{fmtDollars(remainingExposure)}</span>
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                    {remainingExposure > 0.005 && scope !== "schoolYear" && (
                       <tr className="bg-amber-50/40 hover:bg-amber-50/60 transition-colors">
                         <td className="px-3 py-2.5 text-[12px] text-gray-400 whitespace-nowrap italic">—</td>
                         <td colSpan={5} className="px-3 py-2.5 text-[12px] text-gray-500 italic">
