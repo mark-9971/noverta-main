@@ -124,13 +124,12 @@ function alertToWorkItem(a: any, index: number): WorkItem {
     : "comingup";
 
   const href = (() => {
-    if (a.type === "evaluation_overdue" || a.type?.includes("re_eval")) return a.studentId ? `/students/${a.studentId}` : "/evaluations";
-    if (a.studentId && (a.type === "iep_expiring" || a.type === "iep_expired" || a.type === "missing_iep")) return `/students/${a.studentId}`;
-    if (a.type === "service_minutes_behind" || a.type === "service_gap" || a.type === "behind_on_minutes" || a.type === "projected_shortfall") return `/compliance?tab=minutes`;
-    if (a.type === "missed_sessions") return a.studentId ? `/sessions?studentId=${a.studentId}` : "/sessions";
+    if (a.studentId && (a.type === "iep_expiring" || a.type === "iep_expired" || a.type === "missing_iep" || a.type === "evaluation_overdue" || a.type?.includes("re_eval"))) return `/students/${a.studentId}?from=action-center`;
+    if (a.type === "service_minutes_behind" || a.type === "service_gap" || a.type === "behind_on_minutes" || a.type === "projected_shortfall") return a.studentId ? `/students/${a.studentId}?from=action-center` : "/compliance?tab=minutes";
+    if (a.type === "missed_sessions") return a.studentId ? `/students/${a.studentId}?from=action-center` : "/sessions";
     if (a.type === "restraint_review" || a.type === "incident_follow_up") return "/protective-measures";
-    if (a.type === "overdue_session_log") return a.studentId ? `/sessions?studentId=${a.studentId}` : "/sessions";
-    if (a.studentId) return `/students/${a.studentId}`;
+    if (a.type === "overdue_session_log") return a.studentId ? `/students/${a.studentId}?from=action-center` : "/sessions";
+    if (a.studentId) return `/students/${a.studentId}?from=action-center`;
     return "/alerts";
   })();
 
@@ -276,7 +275,7 @@ function StudentSearch() {
             return (
               <Link
                 key={s.id}
-                href={`/students/${s.id}`}
+                href={`/students/${s.id}?from=action-center`}
                 onClick={() => { setOpen(false); setQuery(""); }}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
               >
@@ -480,7 +479,7 @@ function WorkItemRow({
         <div className="text-[13px] font-medium text-gray-800 leading-tight">
           {item.studentId ? (
             <>
-              <Link href={`/students/${item.studentId}`} className="hover:text-emerald-700 underline underline-offset-2 decoration-gray-300 hover:decoration-emerald-500">
+              <Link href={`/students/${item.studentId}?from=action-center`} className="hover:text-emerald-700 underline underline-offset-2 decoration-gray-300 hover:decoration-emerald-500">
                 {item.studentName ?? "Student"}
               </Link>
               {item.title.includes("—") && (

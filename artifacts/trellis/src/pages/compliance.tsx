@@ -810,7 +810,7 @@ function ServiceMinutesContent() {
                     return (
                       <tr key={`${r.studentId}-${r.service}-${i}`} className="hover:bg-gray-50/50">
                         <td className="px-4 py-2.5">
-                          <Link href={`/students/${r.studentId}`} className="text-[13px] font-medium text-gray-800 hover:text-emerald-700">
+                          <Link href={`/students/${r.studentId}?from=compliance`} className="text-[13px] font-medium text-gray-800 hover:text-emerald-700">
                             {r.studentName}
                           </Link>
                         </td>
@@ -990,7 +990,7 @@ function ServiceMinutesContent() {
             <Card key={i} className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <Link href={`/students/${p.studentId}`} className="text-sm font-medium text-gray-800 truncate hover:text-emerald-700 block">{p.studentName}</Link>
+                  <Link href={`/students/${p.studentId}?from=compliance`} className="text-sm font-medium text-gray-800 truncate hover:text-emerald-700 block">{p.studentName}</Link>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{p.serviceTypeName}</p>
                 </div>
                 <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0`}>
@@ -1062,7 +1062,7 @@ function ServiceMinutesContent() {
                 return (
                   <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-2.5">
-                      <Link href={`/students/${p.studentId}`} className="text-[13px] font-medium text-gray-800 hover:text-emerald-700">
+                      <Link href={`/students/${p.studentId}?from=compliance`} className="text-[13px] font-medium text-gray-800 hover:text-emerald-700">
                         {p.studentName}
                       </Link>
                     </td>

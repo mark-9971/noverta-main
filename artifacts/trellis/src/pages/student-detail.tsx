@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, FileText, Activity, Target, Gift, Share2, Plus, Archive, ArchiveRestore, CalendarDays, Bell, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, FileText, Activity, Target, Gift, Share2, Plus, Archive, ArchiveRestore, CalendarDays, Bell, AlertTriangle, Clock, ClipboardList, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { authFetch } from "@/lib/auth-fetch";
@@ -586,6 +586,10 @@ export default function StudentDetail() {
   const [activeTab, setActiveTab] = useState<StudentTab>(() => resolveTab(search));
   const [mountedTabs, setMountedTabs] = useState<Set<StudentTab>>(() => new Set([resolveTab(search)]));
 
+  const fromPage = new URLSearchParams(search).get("from");
+  const backHref = fromPage === "compliance" ? "/compliance" : fromPage === "action-center" ? "/action-center" : "/students";
+  const backLabel = fromPage === "compliance" ? "Compliance" : fromPage === "action-center" ? "Action Center" : "All Students";
+
   useEffect(() => {
     setActiveTab(resolveTab(search));
   }, [search]);
@@ -744,8 +748,8 @@ export default function StudentDetail() {
   if (!loadingStudent && !s) {
     return (
       <div className="p-8">
-        <Link href="/students" className="text-emerald-700 text-sm flex items-center gap-1 mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back to Students
+        <Link href={backHref} className="text-emerald-700 text-sm flex items-center gap-1 mb-4">
+          <ArrowLeft className="w-4 h-4" /> Back to {backLabel}
         </Link>
         <p className="text-gray-500">Student not found.</p>
       </div>
@@ -864,8 +868,8 @@ export default function StudentDetail() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
       <div>
-        <Link href="/students" className="text-emerald-700 text-sm flex items-center gap-1.5 mb-4 hover:text-emerald-800">
-          <ArrowLeft className="w-4 h-4" /> All Students
+        <Link href={backHref} className="text-emerald-700 text-sm flex items-center gap-1.5 mb-4 hover:text-emerald-800">
+          <ArrowLeft className="w-4 h-4" /> {backLabel}
         </Link>
 
         {s ? (
@@ -876,7 +880,7 @@ export default function StudentDetail() {
             <div className="flex-1 min-w-0">
               <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">{s.firstName} {s.lastName}</h1>
               <p className="text-xs md:text-sm text-gray-400 mt-0.5 truncate">
-                Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
+                Grade {s.grade}{s.disabilityCategory ? ` · ${s.disabilityCategory}` : ""}{s.schoolName ? ` · ${s.schoolName}` : ""}{s.caseManagerName ? ` · CM: ${s.caseManagerName}` : s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
                 {(() => {
                   // Prefer the direct enrolledAt/withdrawnAt fields; fall back to
                   // enrollment-history events for records predating the field.
@@ -915,7 +919,7 @@ export default function StudentDetail() {
               <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
                 {riskCfg.label}
               </span>
-              {(role === "para" || role === "provider" || role === "direct_provider") && (
+              {((role === "para" || role === "provider" || role === "direct_provider")) ? (
                 <button
                   onClick={() => setQuickLogOpen(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors"
@@ -923,12 +927,16 @@ export default function StudentDetail() {
                 >
                   <Plus className="w-3.5 h-3.5" /> Log Session
                 </button>
+              ) : (
+                <Link href={`/sessions?studentId=${studentId}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
+                  <ClipboardList className="w-3.5 h-3.5" /> Log Session
+                </Link>
               )}
-              <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
-                <FileText className="w-3.5 h-3.5" /> IEP & Reports
+              <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
+                <FileText className="w-3.5 h-3.5" /> View IEP
               </Link>
-              <Link href={`/students/${studentId}/iep-builder`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
-                <FileText className="w-3.5 h-3.5" /> Build IEP Draft
+              <Link href={`/scheduling?studentId=${studentId}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
+                <CalendarPlus className="w-3.5 h-3.5" /> Schedule
               </Link>
               <button
                 onClick={handleShareProgress}
