@@ -107,6 +107,16 @@ function alertTypeLabel(type: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function alertCategory(type: string): WorkItem["category"] {
+  if (!type) return "compliance";
+  if (type === "evaluation_overdue" || type.includes("re_eval") || type.includes("reevaluation")) return "evaluation";
+  if (type.includes("iep") && !type.includes("minutes")) return "iep";
+  if (type === "overdue_session_log" || type === "missed_sessions") return "session";
+  if (type === "behind_on_minutes" || type === "projected_shortfall" || type === "service_minutes_behind" || type === "service_gap") return "compliance";
+  if (type.includes("restraint") || type.includes("incident")) return "compliance";
+  return "compliance";
+}
+
 function alertToWorkItem(a: any, index: number): WorkItem {
   const priority: Priority =
     a.severity === "critical" || a.severity === "high" ? "urgent"
@@ -114,10 +124,12 @@ function alertToWorkItem(a: any, index: number): WorkItem {
     : "comingup";
 
   const href = (() => {
-    if (a.studentId && (a.type === "iep_expiring" || a.type === "iep_expired" || a.type === "missing_iep" || a.type === "evaluation_overdue")) return `/students/${a.studentId}`;
-    if (a.type === "service_minutes_behind" || a.type === "service_gap" || a.type === "missed_sessions" || a.type === "behind_on_minutes" || a.type === "projected_shortfall") return a.studentId ? `/compliance?tab=minutes` : "/compliance";
+    if (a.type === "evaluation_overdue" || a.type?.includes("re_eval")) return a.studentId ? `/students/${a.studentId}` : "/evaluations";
+    if (a.studentId && (a.type === "iep_expiring" || a.type === "iep_expired" || a.type === "missing_iep")) return `/students/${a.studentId}`;
+    if (a.type === "service_minutes_behind" || a.type === "service_gap" || a.type === "behind_on_minutes" || a.type === "projected_shortfall") return `/compliance?tab=minutes`;
+    if (a.type === "missed_sessions") return a.studentId ? `/sessions?studentId=${a.studentId}` : "/sessions";
     if (a.type === "restraint_review" || a.type === "incident_follow_up") return "/protective-measures";
-    if (a.type === "overdue_session_log") return "/sessions";
+    if (a.type === "overdue_session_log") return a.studentId ? `/sessions?studentId=${a.studentId}` : "/sessions";
     if (a.studentId) return `/students/${a.studentId}`;
     return "/alerts";
   })();
@@ -139,9 +151,7 @@ function alertToWorkItem(a: any, index: number): WorkItem {
   return {
     id: `alert-${a.id ?? index}`,
     priority,
-    category: a.type?.includes("iep") || a.type?.includes("evaluation") ? "iep"
-      : a.type?.includes("session") || a.type?.includes("minute") ? "compliance"
-      : "compliance",
+    category: alertCategory(a.type ?? ""),
     icon,
     title: a.studentName ? `${a.studentName} — ${alertTypeLabel(a.type ?? "Alert")}` : alertTypeLabel(a.type ?? "Alert"),
     detail: a.message ?? a.description ?? `Severity: ${a.severity}`,
@@ -702,6 +712,16 @@ function isTabKey(v: string | null): v is TabKey {
   return v === "urgent" || v === "thisweek" || v === "comingup" || v === "alerts";
 }
 
+type CategoryFilter = "all" | "compliance" | "iep" | "session" | "evaluation";
+
+const CATEGORY_FILTERS: { key: CategoryFilter; label: string }[] = [
+  { key: "all",        label: "All" },
+  { key: "compliance", label: "Compliance" },
+  { key: "iep",        label: "IEP" },
+  { key: "session",    label: "Session" },
+  { key: "evaluation", label: "Evaluation" },
+];
+
 export default function ActionCenter() {
   const search = useSearch();
   const [, navigate] = useLocation();
@@ -710,8 +730,8 @@ export default function ActionCenter() {
     return isTabKey(t) ? t : "urgent";
   })();
   const [activeTab, setActiveTabState] = useState<TabKey>(initialTab);
-  // Sync with the URL so /alerts → /_action-center-legacy?tab=alerts lands cleanly,
-  // and so the back/forward buttons restore the previously viewed tab.
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  // Sync with the URL so back/forward buttons restore the previously viewed tab.
   useEffect(() => {
     const t = new URLSearchParams(search).get("tab");
     if (isTabKey(t) && t !== activeTab) setActiveTabState(t);
@@ -721,7 +741,7 @@ export default function ActionCenter() {
     const next = new URLSearchParams(search);
     if (t === "urgent") next.delete("tab"); else next.set("tab", t);
     const qs = next.toString();
-    navigate(`/_action-center-legacy${qs ? `?${qs}` : ""}`, { replace: true });
+    navigate(`/action-center${qs ? `?${qs}` : ""}`, { replace: true });
   }
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [quickLogStudent, setQuickLogStudent] = useState<{ id: number; name: string } | null>(null);
@@ -988,8 +1008,19 @@ export default function ActionCenter() {
 
   // ── Visible items for active tab ──────────────────────────────────────────
 
-  const visibleItems = useMemo(() => filteredAllItems.filter(i => i.priority === activeTab), [filteredAllItems, activeTab]);
-  const visibleAgg = useMemo(() => aggregateItems.filter(i => i.priority === activeTab), [aggregateItems, activeTab]);
+  const visibleItems = useMemo(() => {
+    const byTab = filteredAllItems.filter(i => i.priority === activeTab);
+    if (activeCategory === "all") return byTab;
+    return byTab.filter(i => {
+      if (activeCategory === "compliance") return i.category === "compliance" || i.category === "schedule";
+      return i.category === activeCategory;
+    });
+  }, [filteredAllItems, activeTab, activeCategory]);
+
+  const visibleAgg = useMemo(() => {
+    if (activeCategory !== "all" && activeCategory !== "compliance") return [];
+    return aggregateItems.filter(i => i.priority === activeTab);
+  }, [aggregateItems, activeTab, activeCategory]);
 
   // ── Greeting ──────────────────────────────────────────────────────────────
 
@@ -1062,7 +1093,7 @@ export default function ActionCenter() {
             return (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                onClick={() => { setActiveTab(t.key); setActiveCategory("all"); }}
                 className={`flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
                   activeTab === t.key
                     ? "border-emerald-600 text-emerald-700"
@@ -1094,6 +1125,27 @@ export default function ActionCenter() {
           <div className="pt-2"><AlertsView embedded /></div>
         ) : (
           <>
+            {/* Category filter chips */}
+            {!isLoading && (
+              <div className="flex gap-1.5 flex-wrap pt-1" data-testid="category-filter-bar">
+                {CATEGORY_FILTERS.map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setActiveCategory(f.key)}
+                    data-testid={`category-filter-${f.key}`}
+                    aria-pressed={activeCategory === f.key}
+                    className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
+                      activeCategory === f.key
+                        ? "bg-gray-800 text-white border-gray-800"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Items */}
             {isLoading ? (
               <div className="space-y-2 pt-1">
@@ -1109,7 +1161,15 @@ export default function ActionCenter() {
                 ))}
               </div>
             ) : visibleItems.length === 0 && visibleAgg.length === 0 ? (
-              <EmptyTab tab={activeTab as Priority} />
+              activeCategory !== "all" ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-center">
+                  <CheckCircle2 className="w-7 h-7 text-gray-300" />
+                  <p className="text-[13px] font-medium text-gray-500">No {activeCategory} items in this priority</p>
+                  <button onClick={() => setActiveCategory("all")} className="text-[12px] text-emerald-700 underline">Show all</button>
+                </div>
+              ) : (
+                <EmptyTab tab={activeTab as Priority} />
+              )
             ) : (
               <div className="space-y-2 pt-1">
                 {/* Aggregate count-level items first */}
@@ -1150,7 +1210,7 @@ export default function ActionCenter() {
         <div className="flex flex-wrap gap-2">
           {[
             { href: "/compliance", label: "Compliance" },
-            { href: "/_action-center-legacy?tab=alerts", label: "All Alerts" },
+            { href: "/action-center?tab=alerts", label: "All Alerts" },
             { href: "/reports?tab=risk", label: "At-Risk Export" },
             { href: "/iep-meetings", label: "IEP Meetings" },
             { href: "/evaluations", label: "Evaluations" },

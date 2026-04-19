@@ -271,20 +271,16 @@ function StaffRouter() {
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
       <Route path="/iep-search">{() => <Redirect to="/iep-builder" />}</Route>
-      {/* Phase 1a silent redirect: deprecated work-queue surface → Today */}
-      <Route path="/action-center">{() => <Redirect to="/today" />}</Route>
       {/*
        * SURVIVAL FEATURES — intentionally have NO featureKey guard.
        * These routes must remain accessible regardless of plan tier:
-       *   /_action-center-legacy  → session work-queue (quick-log entry point)
-       *   /alerts                 → real-time IEP/compliance alerts
-       *   /sessions               → session quick-log (see above)
+       *   /action-center  → coordinator work queue (quick-log entry point)
+       *   /alerts         → real-time IEP/compliance alerts
+       *   /sessions       → session quick-log (see above)
        * Do NOT add a featureKey prop to any of these three routes.
        */}
-      <BoundedRoute path="/_action-center-legacy" component={ActionCenterPage} fallbackTitle="Action center error" />
-      {/* Phase 2A: /alerts is now a tab inside the Action Center. Old links keep working. */}
-      <Route path="/alerts" component={AlertsRedirect} />
-      <BoundedRoute path="/_alerts-legacy" component={AlertsPage} fallbackTitle="Alerts error" />
+      <BoundedRoute path="/action-center" component={ActionCenterPage} fallbackTitle="Action center error" />
+      <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <Redirect to="/compliance?tab=timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <Redirect to="/compliance?tab=checklist" />}</Route>
       <Route path="/compliance/trends">{() => <Redirect to="/compliance?tab=trends" />}</Route>
