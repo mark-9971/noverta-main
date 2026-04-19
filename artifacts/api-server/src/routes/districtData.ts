@@ -627,6 +627,234 @@ router.delete("/district-data/soft-delete", requirePlatformAdmin, async (req, re
   res.json({ success: true });
 });
 
+// ─── Shared hard-purge logic (used by manual route + scheduled scheduler) ────
+
+export type HardPurgeActor = {
+  userId: string;
+  role: string;
+  name: string;
+  email?: string;
+};
+
+export type HardPurgeResult = {
+  districtName: string;
+  purgeDate: string;
+  totalRowsDeleted: number;
+  tables: Array<{ table: string; rowsDeleted: number }>;
+};
+
+/**
+ * Execute a hard purge for a district. Performs the per-table deletions
+ * inside a single transaction, writes audit log entries (initiated, per-table,
+ * complete), and emails a deletion certificate PDF to the supplied recipients
+ * (typically the actor and/or the district's billing/admin contacts).
+ *
+ * Throws on failure so callers can decide how to surface errors.
+ */
+export async function runHardPurgeForDistrict(opts: {
+  districtId: number;
+  actor: HardPurgeActor;
+  /** Recipients for the deletion certificate email. Empty array = no email. */
+  notifyEmails?: string[];
+}): Promise<HardPurgeResult> {
+  const { districtId, actor } = opts;
+  const notifyEmails = (opts.notifyEmails ?? []).filter(
+    (e): e is string => typeof e === "string" && e.length > 0,
+  );
+
+  const [district] = await db
+    .select()
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId));
+  if (!district) {
+    throw new Error(`District ${districtId} not found`);
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.userId,
+    actorRole: actor.role,
+    action: "district_hard_purge_initiated",
+    targetTable: "districts",
+    targetId: String(districtId),
+    summary: `Hard purge initiated for district "${district.name}" by ${actor.name}.`,
+    metadata: { districtName: district.name, initiatedBy: actor.userId },
+  });
+
+  const purgeSummary: Array<{ table: string; rowsDeleted: number }> = [];
+  const client = await pool.connect();
+  const totalStorageBytes = 0;
+
+  try {
+    await client.query("BEGIN");
+
+    const { rows: schoolRows } = await client.query<{ id: number }>(
+      "SELECT id FROM schools WHERE district_id = $1",
+      [districtId],
+    );
+    const schoolIds = schoolRows.map(r => r.id);
+
+    const studentIds: number[] = [];
+    if (schoolIds.length) {
+      const { rows: studentRows } = await client.query<{ id: number }>(
+        "SELECT id FROM students WHERE school_id = ANY($1)",
+        [schoolIds],
+      );
+      studentIds.push(...studentRows.map(r => r.id));
+    }
+
+    for (const t of STUDENT_SCOPED_TABLES) {
+      if (!studentIds.length) { purgeSummary.push({ table: t.table, rowsDeleted: 0 }); continue; }
+      try {
+        const { rowCount } = await client.query(
+          `DELETE FROM ${t.table} WHERE ${t.col} = ANY($1)`,
+          [studentIds],
+        );
+        purgeSummary.push({ table: t.table, rowsDeleted: rowCount ?? 0 });
+      } catch {
+        purgeSummary.push({ table: t.table, rowsDeleted: 0 });
+      }
+    }
+
+    for (const t of SCHOOL_SCOPED_TABLES) {
+      if (!schoolIds.length) { purgeSummary.push({ table: t.table, rowsDeleted: 0 }); continue; }
+      try {
+        const { rowCount } = await client.query(
+          `DELETE FROM ${t.table} WHERE ${t.col} = ANY($1)`,
+          [schoolIds],
+        );
+        purgeSummary.push({ table: t.table, rowsDeleted: rowCount ?? 0 });
+      } catch {
+        purgeSummary.push({ table: t.table, rowsDeleted: 0 });
+      }
+    }
+
+    if (schoolIds.length) {
+      const { rowCount } = await client.query(
+        "DELETE FROM schools WHERE district_id = $1",
+        [districtId],
+      );
+      purgeSummary.push({ table: "schools", rowsDeleted: rowCount ?? 0 });
+    }
+
+    for (const t of DISTRICT_SCOPED_TABLES.filter(t => t.table !== "schools")) {
+      try {
+        const { rowCount } = await client.query(
+          `DELETE FROM ${t.table} WHERE ${t.col} = $1`,
+          [districtId],
+        );
+        purgeSummary.push({ table: t.table, rowsDeleted: rowCount ?? 0 });
+      } catch {
+        purgeSummary.push({ table: t.table, rowsDeleted: 0 });
+      }
+    }
+
+    const { rowCount: archiveCount } = await client.query(
+      "DELETE FROM district_archive_jobs WHERE district_id = $1",
+      [districtId],
+    );
+    purgeSummary.push({ table: "district_archive_jobs", rowsDeleted: archiveCount ?? 0 });
+
+    await client.query("DELETE FROM districts WHERE id = $1", [districtId]);
+    purgeSummary.push({ table: "districts", rowsDeleted: 1 });
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    client.release();
+    throw err;
+  }
+
+  client.release();
+
+  const totalRowsDeleted = purgeSummary.reduce((s, t) => s + t.rowsDeleted, 0);
+  const purgeDate = new Date().toISOString();
+
+  for (const t of purgeSummary) {
+    if (t.rowsDeleted > 0) {
+      await writeAuditLog({
+        actorUserId: actor.userId,
+        actorRole: actor.role,
+        action: "district_hard_purge_table",
+        targetTable: t.table,
+        targetId: String(districtId),
+        summary: `Hard purge: deleted ${t.rowsDeleted} row(s) from ${t.table} for district "${district.name}"`,
+        metadata: { districtId, districtName: district.name, rowsDeleted: t.rowsDeleted },
+      });
+    }
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.userId,
+    actorRole: actor.role,
+    action: "district_hard_purge_complete",
+    targetTable: "districts",
+    targetId: String(districtId),
+    summary: `Hard purge complete for district "${district.name}". ${totalRowsDeleted} total rows deleted across ${purgeSummary.length} tables.`,
+    metadata: {
+      districtName: district.name,
+      totalRowsDeleted,
+      tables: purgeSummary,
+      purgeDate,
+      initiatedBy: actor.userId,
+    },
+  });
+
+  if (notifyEmails.length > 0) {
+    try {
+      const pdfBuffer = await generateDeletionCertificate({
+        districtName: district.name,
+        purgeDate,
+        tables: purgeSummary,
+        totalRowsDeleted,
+        storageBytesPurged: totalStorageBytes,
+        initiatedBy: actor.name,
+        email: notifyEmails[0],
+      });
+
+      const dateStr = new Date(purgeDate).toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric",
+      });
+
+      await sendAdminEmail({
+        to: notifyEmails,
+        subject: `Trellis — Data Deletion Certificate: ${district.name}`,
+        html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+<div style="background:#7f1d1d;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+<h2 style="margin:0;font-size:18px">Data Deletion Certificate</h2>
+</div>
+<div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+<p>The hard purge of all data for <strong>${district.name}</strong> has been completed.</p>
+<ul>
+<li><strong>District:</strong> ${district.name}</li>
+<li><strong>Purge date:</strong> ${dateStr}</li>
+<li><strong>Total records deleted:</strong> ${totalRowsDeleted.toLocaleString()}</li>
+<li><strong>Performed by:</strong> ${actor.name}</li>
+</ul>
+<p>A DPA-compliant deletion certificate is attached to this email for your records.</p>
+</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+</div>`,
+        notificationType: "district_deletion_certificate",
+        attachments: [
+          {
+            filename: `trellis-deletion-certificate-${districtId}.pdf`,
+            content: pdfBuffer,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("[HardPurge] Certificate email failed:", err);
+    }
+  }
+
+  return {
+    districtName: district.name,
+    purgeDate,
+    totalRowsDeleted,
+    tables: purgeSummary,
+  };
+}
+
 // ─── POST /district-data/hard-purge ──────────────────────────────────────────
 
 router.post("/district-data/hard-purge", requirePlatformAdmin, async (req, res): Promise<void> => {
@@ -670,182 +898,17 @@ router.post("/district-data/hard-purge", requirePlatformAdmin, async (req, res):
     return;
   }
 
-  // Run the purge
-  const purgeSummary: Array<{ table: string; rowsDeleted: number }> = [];
-  const client = await pool.connect();
-  let totalStorageBytes = 0;
-
   try {
-    await client.query("BEGIN");
-
-    // Get school and student IDs first
-    const { rows: schoolRows } = await client.query<{ id: number }>(
-      "SELECT id FROM schools WHERE district_id = $1",
-      [reqDistrictId]
-    );
-    const schoolIds = schoolRows.map(r => r.id);
-
-    const studentIds: number[] = [];
-    if (schoolIds.length) {
-      const { rows: studentRows } = await client.query<{ id: number }>(
-        "SELECT id FROM students WHERE school_id = ANY($1)",
-        [schoolIds]
-      );
-      studentIds.push(...studentRows.map(r => r.id));
-    }
-
-    // Delete student-scoped data first
-    for (const t of STUDENT_SCOPED_TABLES) {
-      if (!studentIds.length) { purgeSummary.push({ table: t.table, rowsDeleted: 0 }); continue; }
-      try {
-        const { rowCount } = await client.query(
-          `DELETE FROM ${t.table} WHERE ${t.col} = ANY($1)`,
-          [studentIds]
-        );
-        purgeSummary.push({ table: t.table, rowsDeleted: rowCount ?? 0 });
-      } catch {
-        purgeSummary.push({ table: t.table, rowsDeleted: 0 });
-      }
-    }
-
-    // Delete school-scoped data (excluding students since they cascade)
-    for (const t of SCHOOL_SCOPED_TABLES) {
-      if (!schoolIds.length) { purgeSummary.push({ table: t.table, rowsDeleted: 0 }); continue; }
-      try {
-        const { rowCount } = await client.query(
-          `DELETE FROM ${t.table} WHERE ${t.col} = ANY($1)`,
-          [schoolIds]
-        );
-        purgeSummary.push({ table: t.table, rowsDeleted: rowCount ?? 0 });
-      } catch {
-        purgeSummary.push({ table: t.table, rowsDeleted: 0 });
-      }
-    }
-
-    // Delete schools themselves
-    if (schoolIds.length) {
-      const { rowCount } = await client.query(
-        "DELETE FROM schools WHERE district_id = $1",
-        [reqDistrictId]
-      );
-      purgeSummary.push({ table: "schools", rowsDeleted: rowCount ?? 0 });
-    }
-
-    // Delete district-scoped data
-    for (const t of DISTRICT_SCOPED_TABLES.filter(t => t.table !== "schools")) {
-      try {
-        const { rowCount } = await client.query(
-          `DELETE FROM ${t.table} WHERE ${t.col} = $1`,
-          [reqDistrictId]
-        );
-        purgeSummary.push({ table: t.table, rowsDeleted: rowCount ?? 0 });
-      } catch {
-        purgeSummary.push({ table: t.table, rowsDeleted: 0 });
-      }
-    }
-
-    // Delete archive jobs
-    const { rowCount: archiveCount } = await client.query(
-      "DELETE FROM district_archive_jobs WHERE district_id = $1",
-      [reqDistrictId]
-    );
-    purgeSummary.push({ table: "district_archive_jobs", rowsDeleted: archiveCount ?? 0 });
-
-    // Delete the district record itself
-    await client.query("DELETE FROM districts WHERE id = $1", [reqDistrictId]);
-    purgeSummary.push({ table: "districts", rowsDeleted: 1 });
-
-    await client.query("COMMIT");
+    const result = await runHardPurgeForDistrict({
+      districtId: reqDistrictId,
+      actor,
+      notifyEmails: actor.email ? [actor.email] : [],
+    });
+    res.json({ success: true, ...result });
   } catch (err) {
-    await client.query("ROLLBACK");
-    client.release();
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: `Purge failed: ${msg}` });
-    return;
   }
-
-  client.release();
-
-  const totalRowsDeleted = purgeSummary.reduce((s, t) => s + t.rowsDeleted, 0);
-  const purgeDate = new Date().toISOString();
-
-  // Write audit log per table
-  for (const t of purgeSummary) {
-    if (t.rowsDeleted > 0) {
-      await writeAuditLog({
-        actorUserId: actor.userId,
-        actorRole: actor.role,
-        action: "district_hard_purge_table",
-        targetTable: t.table,
-        targetId: String(reqDistrictId),
-        summary: `Hard purge: deleted ${t.rowsDeleted} row(s) from ${t.table} for district "${district.name}"`,
-        metadata: { districtId: reqDistrictId, districtName: district.name, rowsDeleted: t.rowsDeleted },
-      });
-    }
-  }
-
-  await writeAuditLog({
-    actorUserId: actor.userId,
-    actorRole: actor.role,
-    action: "district_hard_purge_complete",
-    targetTable: "districts",
-    targetId: String(reqDistrictId),
-    summary: `Hard purge complete for district "${district.name}". ${totalRowsDeleted} total rows deleted across ${purgeSummary.length} tables.`,
-    metadata: {
-      districtName: district.name,
-      totalRowsDeleted,
-      tables: purgeSummary,
-      purgeDate,
-      initiatedBy: actor.userId,
-    },
-  });
-
-  // Generate deletion certificate PDF and email billing contact
-  if (actor.email) {
-    try {
-      const pdfBuffer = await generateDeletionCertificate({
-        districtName: district.name,
-        purgeDate,
-        tables: purgeSummary,
-        totalRowsDeleted,
-        storageBytesPurged: totalStorageBytes,
-        initiatedBy: actor.name,
-        email: actor.email,
-      });
-
-      sendAdminEmail({
-        to: [actor.email],
-        subject: `Trellis — Data Deletion Certificate: ${district.name}`,
-        html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
-<div style="background:#7f1d1d;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
-<h2 style="margin:0;font-size:18px">Data Deletion Certificate</h2>
-</div>
-<div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-<p>The hard purge of all data for <strong>${district.name}</strong> has been completed.</p>
-<ul>
-<li><strong>District:</strong> ${district.name}</li>
-<li><strong>Purge date:</strong> ${new Date(purgeDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</li>
-<li><strong>Total records deleted:</strong> ${totalRowsDeleted.toLocaleString()}</li>
-<li><strong>Performed by:</strong> ${actor.name}</li>
-</ul>
-<p>A DPA-compliant deletion certificate is attached to this email for your records.</p>
-</div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
-</div>`,
-        notificationType: "district_deletion_certificate",
-      }).catch(() => {});
-    } catch {
-      // Non-fatal
-    }
-  }
-
-  res.json({
-    success: true,
-    districtName: district.name,
-    purgeDate,
-    totalRowsDeleted,
-    tables: purgeSummary,
-  });
 });
 
 // ─── PDF Certificate Generator ───────────────────────────────────────────────

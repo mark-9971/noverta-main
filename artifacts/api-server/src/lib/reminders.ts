@@ -38,6 +38,7 @@ import { runCostAvoidanceAlertGeneration } from "./costAvoidanceAlerts";
 import { runProviderActivationNudges } from "./providerActivationNudges";
 import { runApprovalReminders } from "./approvalReminders";
 import { runCoverageReminders } from "./coverageReminders";
+import { runScheduledHardPurges } from "./scheduledHardPurge";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
@@ -1083,6 +1084,7 @@ async function runAllReminders(): Promise<void> {
       runComplianceRiskAlerts(),
       runCaseloadSnapshots(),
       runDemoDistrictExpiry(),
+      runScheduledHardPurges(),
       runStaleBucketCleanup(),
       runProviderActivationNudges().then(() => undefined),
       runApprovalReminders(),
