@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, importsTable, serviceRequirementsTable } from "@workspace/db";
+import { db, importsTable, serviceRequirementsTable, studentsTable, schoolsTable } from "@workspace/db";
+import { and, eq, isNull } from "drizzle-orm";
 import { findOrGuessStudentId, findServiceTypeId, parseCsvRows, requireAdmin } from "./shared";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
@@ -7,7 +8,8 @@ const router: IRouter = Router();
 
 router.post("/imports/service-requirements", requireAdmin, async (req, res): Promise<void> => {
   try {
-    const { csvData, fileName } = req.body;
+    const { csvData, fileName, source } = req.body;
+    const importSource = source === "pilot_csv" ? "pilot_csv" : null;
     if (!csvData || typeof csvData !== "string") {
       res.status(400).json({ error: "csvData is required" });
       return;
@@ -19,8 +21,11 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
       return;
     }
 
+    const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+
     let imported = 0;
     let errored = 0;
+    let skipped = 0;
     const errors: string[] = [];
 
     for (let i = 0; i < rows.length; i++) {
@@ -31,6 +36,20 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
           errors.push(`Row ${i + 2}: Could not find student`);
           errored++;
           continue;
+        }
+
+        if (enforcedDistrictId !== null) {
+          const [studentDist] = await db
+            .select({ districtId: schoolsTable.districtId })
+            .from(studentsTable)
+            .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+            .where(eq(studentsTable.id, studentId))
+            .limit(1);
+          if (!studentDist || studentDist.districtId !== enforcedDistrictId) {
+            errors.push(`Row ${i + 2}: Student does not belong to your district`);
+            errored++;
+            continue;
+          }
         }
 
         const serviceTypeName = row.service_type || row.service_area || row.service || "";
@@ -57,6 +76,20 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
         const startDate = row.start_date || new Date().toISOString().split("T")[0];
         const endDate = row.end_date || null;
 
+        const [dup] = await db
+          .select({ id: serviceRequirementsTable.id })
+          .from(serviceRequirementsTable)
+          .where(and(
+            eq(serviceRequirementsTable.studentId, studentId),
+            eq(serviceRequirementsTable.serviceTypeId, serviceTypeId),
+            eq(serviceRequirementsTable.active, true),
+          ))
+          .limit(1);
+        if (dup) {
+          skipped++;
+          continue;
+        }
+
         await db.insert(serviceRequirementsTable).values({
           studentId,
           serviceTypeId,
@@ -67,6 +100,7 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
           endDate,
           notes: row.notes || null,
           active: true,
+          source: importSource,
         });
         imported++;
       } catch (e: any) {
@@ -91,6 +125,7 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
       ...importRecord,
       createdAt: importRecord.createdAt.toISOString(),
       updatedAt: importRecord.updatedAt.toISOString(),
+      rowsSkipped: skipped,
       errors: errors.slice(0, 20),
     });
   } catch (e: any) {

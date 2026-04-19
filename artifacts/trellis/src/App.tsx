@@ -49,6 +49,7 @@ const LeadershipPacketPage = lazy(() => import("@/pages/leadership-packet"));
 const Reports = lazy(() => import("@/pages/reports"));
 const StudentDetail = lazy(() => import("@/pages/student-detail"));
 const ImportData = lazy(() => import("@/pages/import-data"));
+const PilotKickoff = lazy(() => import("@/pages/pilot-kickoff"));
 const DataHealthPage = lazy(() => import("@/pages/data-health"));
 const DataVisualizedPage = lazy(() => import("@/pages/data-visualized"));
 const ProgramDataPage = lazy(() => import("@/pages/program-data"));
@@ -253,6 +254,7 @@ function StaffRouter() {
       <BoundedRoute path="/document-workflow" component={DocumentWorkflowPage} fallbackTitle="Document workflow error" />
       <BoundedRoute path="/accommodation-lookup" component={AccommodationLookupPage} fallbackTitle="Accommodation lookup error" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
+      <BoundedRoute path="/pilot-kickoff" component={PilotKickoff} fallbackTitle="Pilot kickoff error" />
       <BoundedRoute path="/data-health" component={DataHealthPage} fallbackTitle="Data health error" />
       <BoundedRoute path="/data-visualized" component={DataVisualizedPage} fallbackTitle="Data visualized error" />
       <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />

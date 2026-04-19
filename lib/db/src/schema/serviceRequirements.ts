@@ -21,6 +21,8 @@ export const serviceRequirementsTable = pgTable("service_requirements", {
   priority: text("priority").default("medium"),
   notes: text("notes"),
   active: boolean("active").notNull().default(true),
+  /** Origin marker: null = manual/SIS, "pilot_csv" = pilot kickoff wizard. */
+  source: text("source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

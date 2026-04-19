@@ -20,6 +20,8 @@ export const staffTable = pgTable("staff", {
   medicaidProviderId: text("medicaid_provider_id"),
   sisConnectionId: integer("sis_connection_id"),
   sisManaged: text("sis_managed"),
+  /** Origin marker: null = manual/SIS, "pilot_csv" = pilot kickoff wizard. */
+  source: text("source"),
   isSample: boolean("is_sample").notNull().default(false),
   receiveRiskAlerts: boolean("receive_risk_alerts").notNull().default(true),
   alertDigestMode: boolean("alert_digest_mode"),

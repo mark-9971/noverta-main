@@ -55,7 +55,8 @@ async function findSchoolId(name: string): Promise<number | null> {
 
 router.post("/imports/staff", requireAdmin, async (req, res): Promise<void> => {
   try {
-    const { csvData, fileName, duplicateHandling = "skip" } = req.body;
+    const { csvData, fileName, duplicateHandling = "skip", source } = req.body;
+    const importSource = source === "pilot_csv" ? "pilot_csv" : null;
     if (!csvData || typeof csvData !== "string") {
       res.status(400).json({ error: "csvData is required" });
       return;
@@ -136,6 +137,7 @@ router.post("/imports/staff", requireAdmin, async (req, res): Promise<void> => {
           npiNumber: row.npi || row.npi_number || null,
           schoolId: schoolId ?? undefined,
           status: "active",
+          source: importSource,
         });
         imported++;
       } catch (e: any) {

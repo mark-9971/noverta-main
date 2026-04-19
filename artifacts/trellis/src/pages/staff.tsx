@@ -89,7 +89,18 @@ export default function Staff() {
             {member.firstName?.[0]}{member.lastName?.[0]}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-semibold text-gray-800">{member.firstName} {member.lastName}</p>
+            <p className="text-[14px] font-semibold text-gray-800 flex items-center gap-1.5">
+              {member.firstName} {member.lastName}
+              {(member as { source?: string | null }).source === "pilot_csv" && (
+                <span
+                  title="Imported via the pilot kickoff CSV wizard — will be reconciled with SIS sync without duplicating"
+                  className="text-[9px] font-semibold uppercase tracking-wide px-1 py-0 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  data-testid={`badge-pilot-csv-staff-${member.id}`}
+                >
+                  CSV
+                </span>
+              )}
+            </p>
             <p className="text-[12px] text-gray-400">{member.email}</p>
           </div>
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[member.role]} flex-shrink-0`}>

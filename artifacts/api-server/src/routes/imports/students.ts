@@ -36,7 +36,8 @@ async function findCaseManagerId(name: string): Promise<number | null> {
 
 router.post("/imports/students", requireAdmin, async (req, res): Promise<void> => {
   try {
-    const { csvData, fileName, duplicateHandling = "skip" } = req.body;
+    const { csvData, fileName, duplicateHandling = "skip", source } = req.body;
+    const importSource = source === "pilot_csv" ? "pilot_csv" : null;
     if (!csvData || typeof csvData !== "string") {
       res.status(400).json({ error: "csvData is required" });
       return;
@@ -114,6 +115,7 @@ router.post("/imports/students", requireAdmin, async (req, res): Promise<void> =
           medicaidId: row.medicaid_id || null,
           notes: row.notes || null,
           status: "active",
+          source: importSource,
           ...(schoolId ? { schoolId } : {}),
           ...(caseManagerId ? { caseManagerId } : {}),
         });

@@ -30,6 +30,8 @@ export const studentsTable = pgTable("students", {
   medicaidId: text("medicaid_id"),
   sisConnectionId: integer("sis_connection_id"),
   sisManaged: text("sis_managed"),
+  /** Origin marker: null = manual/SIS, "pilot_csv" = pilot kickoff wizard. */
+  source: text("source"),
   isSample: boolean("is_sample").notNull().default(false),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

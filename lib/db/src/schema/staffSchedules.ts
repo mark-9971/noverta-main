@@ -17,6 +17,8 @@ export const staffSchedulesTable = pgTable("staff_schedules", {
   notes: text("notes"),
   effectiveFrom: date("effective_from"),
   effectiveTo: date("effective_to"),
+  /** Origin marker: null = manual/SIS, "pilot_csv" = pilot kickoff wizard. */
+  source: text("source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

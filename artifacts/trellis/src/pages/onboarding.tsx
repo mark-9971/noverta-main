@@ -19,7 +19,7 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   FlaskConical, ListChecks, ShieldCheck, AlertTriangle,
-  ArrowRight, Sparkles, Rocket, Compass,
+  ArrowRight, Sparkles, Rocket, Compass, FileSpreadsheet,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
@@ -137,6 +137,49 @@ export default function OnboardingPage() {
                 <Sparkles className="w-3.5 h-3.5" />
                 {sample?.hasSampleData ? "Manage sample data in setup" : "Load sample data"}
                 <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pilot kickoff CSV path — fast lane for districts whose SIS sync isn't connected yet */}
+      <section
+        className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/70 via-white to-white p-5"
+        data-testid="hub-step-pilot-kickoff"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold text-gray-400 tabular-nums">FAST LANE</span>
+              <h2 className="text-sm font-semibold text-gray-900">Start with a CSV import</h2>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                No SIS sync needed
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Most pilots can't get a clean SIS sync running in week one. Walk through four
+              CSV uploads — students, staff, services, schedules — and your district will be
+              live with real data in under 30 minutes. Imports are tagged so they reconcile
+              cleanly with SIS sync later.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/pilot-kickoff"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md px-2.5 py-1.5"
+                data-testid="link-pilot-kickoff-start"
+              >
+                <Rocket className="w-3.5 h-3.5" /> Open pilot kickoff wizard <ArrowRight className="w-3 h-3" />
+              </Link>
+              <Link
+                href="/setup"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 px-2.5 py-1.5"
+                data-testid="link-pilot-kickoff-sis"
+              >
+                Or set up SIS sync instead <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
           </div>

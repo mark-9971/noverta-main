@@ -117,6 +117,26 @@ const templates: Record<string, TemplateConfig> = {
       "# service_type: must match a service type in Trellis (or leave blank)",
     ],
   },
+  staff_schedules: {
+    headers: ["staff_email", "staff_first_name", "staff_last_name", "school", "day_of_week", "start_time", "end_time", "service_type", "label", "effective_from", "effective_to", "notes"],
+    rows: [
+      ["s.wilson@district.edu", "Sarah", "Wilson", "Lincoln Elementary", "Monday", "09:00", "11:30", "Speech-Language Therapy", "AM speech block", "2025-09-01", "2026-06-15", ""],
+      ["s.wilson@district.edu", "Sarah", "Wilson", "Lincoln Elementary", "Wednesday", "09:00", "11:30", "Speech-Language Therapy", "AM speech block", "2025-09-01", "2026-06-15", ""],
+      ["j.park@district.edu", "James", "Park", "Lincoln Elementary", "Tuesday", "13:00", "15:00", "Occupational Therapy", "PM OT block", "2025-09-01", "2026-06-15", ""],
+      ["m.santos@district.edu", "Maria", "Santos", "Washington Elementary", "Monday", "08:00", "10:00", "Applied Behavior Analysis", "1:1 ABA", "2025-09-01", "2026-06-15", "Carlos Rivera"],
+      ["d.thompson@district.edu", "David", "Thompson", "Lincoln Elementary", "Mon-Fri", "08:00", "14:30", "Para Support", "1:1 para coverage", "2025-09-01", "2026-06-15", "Split 1 row per day"],
+    ],
+    instructions: [
+      "# REQUIRED: staff (email or first+last name), school, day_of_week, start_time, end_time",
+      "# Staff must already exist in Trellis (run the Staff step first)",
+      "# day_of_week: Monday, Tuesday, Wednesday, Thursday, Friday (or Mon, Tue, etc.) — one row per day",
+      "# start_time / end_time: HH:MM (24h) or H:MM AM/PM",
+      "# school: must match an existing school name in Trellis",
+      "# service_type (optional): Speech-Language Therapy, Occupational Therapy, ABA, Counseling, Para Support, etc.",
+      "# label / notes (optional): block name or coverage notes (e.g. '1:1 with Carlos Rivera')",
+      "# effective_from / effective_to (optional): YYYY-MM-DD — defaults to open-ended",
+    ],
+  },
   aspen_students: {
     headers: ["Student ID", "First Name", "Last Name", "Grade Level", "Disability", "Case Manager", "School", "IEP Start Date", "IEP End Date"],
     rows: [

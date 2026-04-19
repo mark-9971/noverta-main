@@ -441,6 +441,16 @@ export default function Students() {
                           Inactive
                         </Badge>
                       )}
+                      {(s as { source?: string | null }).source === "pilot_csv" && (
+                        <Badge
+                          variant="outline"
+                          title="Imported via the pilot kickoff CSV wizard — will be reconciled with SIS sync without duplicating"
+                          className="text-[10px] py-0 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-200"
+                          data-testid={`badge-pilot-csv-student-${s.id}`}
+                        >
+                          CSV
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-[12px] text-gray-400">
                       Grade {s.grade}{s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
