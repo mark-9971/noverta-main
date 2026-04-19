@@ -8,7 +8,8 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "lint:tenant-scope": "bash scripts/check-tenant-scope.sh",
-    "ci": "pnpm run lint:tenant-scope && pnpm run typecheck"
+    "check:api-codegen": "bash scripts/check-api-codegen.sh",
+    "ci": "pnpm run lint:tenant-scope && pnpm run check:api-codegen && pnpm run typecheck"
   },
   "private": true,
   "devDependencies": {

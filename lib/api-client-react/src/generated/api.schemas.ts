@@ -563,6 +563,10 @@ export interface UpdateStaffBody {
   npiNumber?: string | null;
   /** @nullable */
   medicaidProviderId?: string | null;
+  /** @nullable */
+  receiveRiskAlerts?: boolean | null;
+  /** @nullable */
+  alertDigestMode?: boolean | null;
 }
 
 export interface ServiceType {

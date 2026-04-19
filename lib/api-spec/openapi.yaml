@@ -7058,6 +7058,10 @@ components:
           type: ["string", "null"]
         medicaidProviderId:
           type: ["string", "null"]
+        receiveRiskAlerts:
+          type: ["boolean", "null"]
+        alertDigestMode:
+          type: ["boolean", "null"]
 
     # ─── Service Types ────────────────────────────────────────────
     ServiceType:
