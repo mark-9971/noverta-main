@@ -98,6 +98,33 @@ function useTimerWarning(
   return level;
 }
 
+function useMaxTimerWarning(
+  timers: TimerEntry[],
+  warnThresholdMs: number,
+  criticalThresholdMs: number,
+): WarningLevel {
+  const compute = useCallback((): WarningLevel => {
+    const now = Date.now();
+    let max: WarningLevel = "none";
+    for (const t of timers) {
+      const lvl = getWarningLevel(t.startedAt, now, warnThresholdMs, criticalThresholdMs);
+      if (lvl === "critical") return "critical";
+      if (lvl === "warn") max = "warn";
+    }
+    return max;
+  }, [timers, warnThresholdMs, criticalThresholdMs]);
+
+  const [level, setLevel] = useState<WarningLevel>(compute);
+
+  useEffect(() => {
+    setLevel(compute());
+    const iv = setInterval(() => setLevel(compute()), 60_000);
+    return () => clearInterval(iv);
+  }, [compute]);
+
+  return level;
+}
+
 function formatElapsed(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
@@ -368,6 +395,7 @@ export function FloatingTimer() {
 
   const activeCount = timers.length;
   const hasActivity = activeCount > 0 || completedTimers.length > 0;
+  const maxWarning = useMaxTimerWarning(timers, warnThresholdMs, criticalThresholdMs);
 
   const loadData = useCallback(async () => {
     try {
@@ -854,12 +882,33 @@ export function FloatingTimer() {
         <div className="flex gap-2">
           <button
             onClick={() => setExpanded(!expanded)}
-            className={`flex-1 h-12 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.97] ${
+            className={`relative flex-1 h-12 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.97] ${
               activeCount > 0
                 ? "bg-emerald-600 text-white hover:bg-emerald-700"
                 : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
             }`}
+            aria-label={
+              maxWarning === "critical"
+                ? "Active timers — one timer has exceeded 4 hours"
+                : maxWarning === "warn"
+                ? "Active timers — one timer has exceeded 2 hours"
+                : undefined
+            }
           >
+            {maxWarning !== "none" && (
+              <span
+                className={`absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full ring-2 ring-white ${
+                  maxWarning === "critical" ? "bg-red-500" : "bg-amber-500"
+                }`}
+                title={
+                  maxWarning === "critical"
+                    ? "A timer has been running over 4 hours"
+                    : "A timer has been running over 2 hours"
+                }
+              >
+                <AlertTriangle className="w-2.5 h-2.5 text-white" />
+              </span>
+            )}
             <Clock className="w-4 h-4" />
             {activeCount > 0 ? (
               <>
