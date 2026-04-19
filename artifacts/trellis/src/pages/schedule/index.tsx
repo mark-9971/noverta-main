@@ -7,7 +7,7 @@ import { useRole } from "@/lib/role-context";
 import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import { toast } from "sonner";
-import { Settings, RotateCcw, Calendar, Plus, ChevronLeft, ChevronRight, Filter, X, AlertTriangle } from "lucide-react";
+import { Settings, RotateCcw, Calendar, Plus, ChevronLeft, ChevronRight, Filter, X, AlertTriangle, Sparkles } from "lucide-react";
 import {
   HOURS, BLOCK_COLORS, ScheduleType, SchoolScheduleConfig,
   SCHEDULE_TYPE_LABELS, getRotationColumns, getCurrentRotationDay, fallbackRotationCol,
@@ -18,6 +18,7 @@ import { ScheduleGrid } from "./ScheduleGrid";
 import { ScheduleListView } from "./ScheduleListView";
 import { BlockFormDialog, BlockForm } from "./BlockFormDialog";
 import { DeleteBlockDialog } from "./DeleteBlockDialog";
+import { AutoSchedulerPanel } from "./AutoSchedulerPanel";
 
 const DEFAULT_FORM: BlockForm = {
   staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday",
@@ -97,6 +98,7 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
   const [blockSaving, setBlockSaving] = useState(false);
   const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
   const [blockForm, setBlockForm] = useState<BlockForm>(DEFAULT_FORM);
+  const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false);
 
   const { filterParams, selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
@@ -402,6 +404,18 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
           <div className="flex items-center gap-2">
             {isAdmin && (
               <button
+                onClick={() => setAutoSchedulerOpen(o => !o)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-lg border transition-colors ${
+                  autoSchedulerOpen
+                    ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                    : "text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Suggest schedule
+              </button>
+            )}
+            {isAdmin && (
+              <button
                 onClick={() => openAddBlock()}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
               >
@@ -517,6 +531,15 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
           </div>
         )}
       </div>
+
+      {/* ── Auto-scheduler panel ── */}
+      {autoSchedulerOpen && isAdmin && (
+        <AutoSchedulerPanel
+          weekOf={isoDate(monday)}
+          onClose={() => setAutoSchedulerOpen(false)}
+          onBlocksCreated={refetch}
+        />
+      )}
 
       {/* ── Compliance ribbon (shown when a student is selected) ── */}
       {studentFilter !== "all" && selectedStudentCompliance && selectedStudentCompliance.length > 0 && (
