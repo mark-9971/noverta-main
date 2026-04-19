@@ -398,7 +398,7 @@ export function ComplianceExportsTab() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {history.map((h: any) => {
-                    const canRedownload = h.format === "csv" && ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution"].includes(h.reportType);
+                    const canRedownload = (h.format === "csv" || h.format === "pdf") && ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution"].includes(h.reportType);
                     return (
                     <tr key={h.id} className="hover:bg-gray-50/50">
                       <td className="px-4 py-2 text-[13px] text-gray-700 font-medium">{h.reportLabel}</td>
@@ -411,14 +411,21 @@ export function ComplianceExportsTab() {
                       <td className="px-4 py-2 text-[11px] text-gray-400 font-mono max-w-[200px] truncate">{h.fileName}</td>
                       <td className="px-4 py-2 text-[12px] text-gray-500">{h.createdAt ? new Date(h.createdAt).toLocaleString() : ""}</td>
                       <td className="px-4 py-2 text-center">
-                        {canRedownload && (
+                        {canRedownload && (() => {
+                          const fallbackExt = h.format === "pdf" ? "html" : "csv";
+                          const fallbackName = `${h.reportType}.${fallbackExt}`;
+                          const downloadName = h.format === "pdf"
+                            ? (h.fileName ? h.fileName.replace(/\.pdf$/i, ".html") : fallbackName)
+                            : (h.fileName || fallbackName);
+                          return (
                           <Button size="sm" variant="ghost" className="text-[11px] gap-1 h-7 px-2"
-                            onClick={() => downloadAuthFile(`/api/reports/exports/history/${h.id}/download`, h.fileName || `${h.reportType}.csv`)}
-                            disabled={downloading === (h.fileName || `${h.reportType}.csv`)}>
+                            onClick={() => downloadAuthFile(`/api/reports/exports/history/${h.id}/download`, downloadName)}
+                            disabled={downloading === downloadName}>
                             <Download className="w-3 h-3" />
                             Re-download
                           </Button>
-                        )}
+                          );
+                        })()}
                       </td>
                     </tr>
                     );

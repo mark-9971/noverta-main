@@ -71,8 +71,8 @@ router.get("/reports/exports/history/:id/download", async (req: Request, res: Re
       return;
     }
 
-    if (entry.format !== "csv") {
-      res.status(400).json({ error: "Re-download is only supported for CSV exports" });
+    if (entry.format !== "csv" && entry.format !== "pdf") {
+      res.status(400).json({ error: "Re-download is only supported for CSV and PDF exports" });
       return;
     }
 
@@ -93,6 +93,21 @@ router.get("/reports/exports/history/:id/download", async (req: Request, res: Re
     }
     const result = await generateReportCSVDirect(entry.reportType, effectiveDistrictId, reportFilters);
     if (!result) { res.status(500).json({ error: "Failed to regenerate report" }); return; }
+
+    if (entry.format === "pdf") {
+      const frequency = (params.frequency as string | undefined) ?? "scheduled";
+      const html = buildScheduledReportHtml({
+        label: entry.reportLabel,
+        headers: result.headers,
+        rows: result.rows,
+        frequency,
+      });
+      const baseName = (entry.fileName || `${entry.reportType}.pdf`).replace(/\.pdf$/i, ".html");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${baseName}"`);
+      res.send(html);
+      return;
+    }
 
     const filename = entry.fileName || `${entry.reportType}.csv`;
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -216,6 +231,51 @@ router.delete("/reports/exports/scheduled/:id", async (req: Request, res: Respon
     res.status(500).json({ error: "Failed to delete scheduled report" });
   }
 });
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+export function buildScheduledReportHtml(opts: {
+  label: string;
+  headers: string[];
+  rows: (string | number | null | undefined)[][];
+  frequency: string;
+}): string {
+  const { label, headers, rows, frequency } = opts;
+  const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const subtitle = `Scheduled ${frequency} report — ${dateStr} — ${rows.length} record${rows.length !== 1 ? "s" : ""}`;
+  const headerRow = headers.map(h => `<th>${escapeHtml(h)}</th>`).join("");
+  const bodyRows = rows.length === 0
+    ? `<tr><td colspan="${Math.max(1, headers.length)}" class="empty">No records found for this report period.</td></tr>`
+    : rows.map(r => `<tr>${headers.map((_, i) => `<td>${escapeHtml(String(r[i] ?? ""))}</td>`).join("")}</tr>`).join("");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(label)}</title>
+<style>
+  @page { size: letter; margin: 0.5in; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #111827; margin: 24px; }
+  h1 { font-size: 18px; margin: 0 0 4px 0; }
+  .subtitle { font-size: 11px; color: #6b7280; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #f3f4f6; text-align: left; padding: 6px 8px; border-bottom: 1px solid #d1d5db; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  td.empty { text-align: center; color: #6b7280; padding: 20px; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(label)}</h1>
+  <div class="subtitle">${escapeHtml(subtitle)}</div>
+  <table>
+    <thead><tr>${headerRow}</tr></thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+</body>
+</html>`;
+}
 
 export async function buildScheduledReportPdf(opts: {
   label: string;
