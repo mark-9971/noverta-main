@@ -14,6 +14,7 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, sql } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import { ensureStaffAssignment } from "../lib/ensureStaffAssignment";
 
 const requireServiceAdmin = requireRoles("admin", "coordinator", "case_manager");
 
@@ -165,6 +166,15 @@ router.post("/service-requirements", requireServiceAdmin, async (req, res): Prom
     return;
   }
   const [req2] = await db.insert(serviceRequirementsTable).values(parsed.data).returning();
+  // Mirror the new requirement's provider into staff_assignments so the
+  // student doesn't appear unassigned on the Care Team / Assigned Providers
+  // panel. Idempotent — safe if a row already exists from a prior requirement.
+  await ensureStaffAssignment({
+    staffId: req2.providerId,
+    studentId: req2.studentId,
+    assignmentType: "service_provider",
+    startDate: req2.startDate ?? null,
+  });
   res.status(201).json({ ...req2, createdAt: req2.createdAt.toISOString() });
 });
 
@@ -256,6 +266,16 @@ router.patch("/service-requirements/:id", requireServiceAdmin, async (req, res):
   if (!r) {
     res.status(404).json({ error: "Not found" });
     return;
+  }
+  // Reflect any provider change in staff_assignments so the student's Care
+  // Team panel stays in sync with who is actually delivering services.
+  if (parsed.data.providerId !== undefined) {
+    await ensureStaffAssignment({
+      staffId: r.providerId,
+      studentId: r.studentId,
+      assignmentType: "service_provider",
+      startDate: r.startDate ?? null,
+    });
   }
   res.json({ ...r, createdAt: r.createdAt.toISOString() });
 });

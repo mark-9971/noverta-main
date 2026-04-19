@@ -21,6 +21,7 @@ import { computeAllActiveMinuteProgress, getCachedStudentRiskMap } from "../../l
 import { logAudit, diffObjects } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { getCallerAssignedStudentIds, assertStudentAccessibleToCaller } from "../../lib/staffScope";
+import { ensureStaffAssignment } from "../../lib/ensureStaffAssignment";
 import { studentIdParamGuard } from "./idGuard";
 
 const router: IRouter = Router();
@@ -257,6 +258,14 @@ router.post("/students", async (req, res): Promise<void> => {
     }
   }
   const [student] = await db.insert(studentsTable).values(parsed.data).returning();
+  // Mirror case-manager assignment into staff_assignments so the student
+  // shows up on the case manager's roster and the Care Team panel from day 1.
+  await ensureStaffAssignment({
+    staffId: student.caseManagerId,
+    studentId: student.id,
+    assignmentType: "case_manager",
+    startDate: student.enrolledAt ?? null,
+  });
   logAudit(req, {
     action: "create",
     targetTable: "students",
@@ -543,6 +552,14 @@ router.patch("/students/:id", async (req, res): Promise<void> => {
   if (!student) {
     res.status(404).json({ error: "Student not found" });
     return;
+  }
+  // Keep staff_assignments in sync if the case manager was changed via PATCH.
+  if (parsed.data.caseManagerId !== undefined) {
+    await ensureStaffAssignment({
+      staffId: student.caseManagerId,
+      studentId: student.id,
+      assignmentType: "case_manager",
+    });
   }
   if (oldStudent) {
     const changes = diffObjects(oldStudent as Record<string, unknown>, student as Record<string, unknown>);
