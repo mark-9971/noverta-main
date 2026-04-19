@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -6,7 +6,7 @@ import { useListSchools } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { DemoEmptyState } from "@/components/DemoEmptyState";
 import {
   Download, AlertTriangle, CheckCircle2, XCircle,
@@ -704,12 +704,30 @@ function IepTimelineTab({ schools }: { schools: SchoolOption[] }) {
 
 type TabKey = "sims" | "restraint" | "timeline";
 
+const VALID_TABS: TabKey[] = ["sims", "restraint", "timeline"];
+
+function resolveTabFromSearch(search: string): TabKey {
+  const key = new URLSearchParams(search).get("tab") ?? "";
+  return (VALID_TABS as string[]).includes(key) ? (key as TabKey) : "sims";
+}
+
 export default function StateReporting() {
   const { typedFilter } = useSchoolContext();
   const { data: schoolsRaw } = useListSchools();
   const schools = (schoolsRaw ?? []) as SchoolOption[];
+  const search = useSearch();
+  const [, navigate] = useLocation();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("sims");
+  const [activeTab, setActiveTabState] = useState<TabKey>(() => resolveTabFromSearch(search));
+
+  useEffect(() => {
+    setActiveTabState(resolveTabFromSearch(search));
+  }, [search]);
+
+  const setActiveTab = useCallback((next: TabKey) => {
+    setActiveTabState(next);
+    navigate(`/state-reporting?tab=${next}`, { replace: true });
+  }, [navigate]);
   const [selectedReport, setSelectedReport] = useState<string>("idea_child_count");
   const [selectedSchool, setSelectedSchool] = useState<string>(typedFilter.schoolId ? String(typedFilter.schoolId) : "");
   const [dateFrom, setDateFrom] = useState<string>("");

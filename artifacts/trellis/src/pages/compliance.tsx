@@ -111,7 +111,7 @@ interface RiskReportData {
 }
 
 function DeseComplianceBanner() {
-  const { data: restraintData } = useQuery<{ districtCompliant: boolean; nonCompliantWindows: number; totalWindows: number }>({
+  const { data: restraintData } = useQuery<{ districtCompliant: boolean; nonCompliantWindows: number; totalWindows: number } | null>({
     queryKey: ["/api/state-reporting/restraint-30-day"],
     queryFn: async () => {
       const res = await authFetch("/api/state-reporting/restraint-30-day");
@@ -122,7 +122,7 @@ function DeseComplianceBanner() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: iepData } = useQuery<{ summary: { breached: number; atRisk: number; total: number } }>({
+  const { data: iepData } = useQuery<{ summary: { breached: number; atRisk: number; total: number } } | null>({
     queryKey: ["/api/state-reporting/iep-timeline"],
     queryFn: async () => {
       const res = await authFetch("/api/state-reporting/iep-timeline");
@@ -136,47 +136,99 @@ function DeseComplianceBanner() {
   if (!restraintData && !iepData) return null;
 
   const restraintOk = restraintData?.districtCompliant ?? true;
+  const restraintBad = restraintData ? restraintData.nonCompliantWindows : 0;
+  const restraintTotal = restraintData?.totalWindows ?? 0;
   const iepBreached = iepData?.summary?.breached ?? 0;
   const iepAtRisk = iepData?.summary?.atRisk ?? 0;
+  const iepTotal = iepData?.summary?.total ?? 0;
+
+  const iepTone =
+    iepBreached > 0 ? "red" : iepAtRisk > 0 ? "amber" : "emerald";
+  const iepToneClass =
+    iepTone === "red"
+      ? "bg-red-50 text-red-800 border-red-200 hover:bg-red-100"
+      : iepTone === "amber"
+        ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+        : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100";
+  const restraintToneClass = restraintOk
+    ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+    : "bg-red-50 text-red-800 border-red-200 hover:bg-red-100";
 
   return (
-    <div className="flex items-center gap-2 flex-wrap mb-4">
-      <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mr-1">DESE Status</span>
-      {restraintData && (
-        <Link href="/state-reporting">
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer border ${
-            restraintOk
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : "bg-red-50 text-red-700 border-red-200"
-          }`}>
-            {restraintOk
-              ? <><ShieldCheck className="w-3 h-3" /> Restraint Compliant</>
-              : <><ShieldAlert className="w-3 h-3" /> {restraintData.nonCompliantWindows} Restraint Window{restraintData.nonCompliantWindows !== 1 ? "s" : ""} Non-Compliant</>}
-          </span>
-        </Link>
-      )}
-      {iepData?.summary && (
-        <Link href="/state-reporting">
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer border ${
-            iepBreached > 0
-              ? "bg-red-50 text-red-700 border-red-200"
-              : iepAtRisk > 0
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-          }`}>
-            {iepBreached > 0
-              ? <><ShieldAlert className="w-3 h-3" /> {iepBreached} IEP Timeline Breach{iepBreached !== 1 ? "es" : ""}</>
-              : iepAtRisk > 0
-                ? <><AlertTriangle className="w-3 h-3" /> {iepAtRisk} IEP At Risk</>
-                : <><ShieldCheck className="w-3 h-3" /> IEP Timelines Compliant</>}
-          </span>
-        </Link>
-      )}
-      <Link href="/state-reporting">
-        <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer">
-          View DESE Reports <ExternalLink className="w-3 h-3" />
+    <div className="mb-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+          MA DESE Compliance
         </span>
-      </Link>
+        <Link href="/state-reporting">
+          <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer">
+            View all DESE reports <ExternalLink className="w-3 h-3" />
+          </span>
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {restraintData && (
+          <Link href="/state-reporting?tab=restraint">
+            <div
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-colors ${restraintToneClass}`}
+              data-testid="badge-restraint-30-day"
+            >
+              {restraintOk
+                ? <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                : <ShieldAlert className="w-4 h-4 flex-shrink-0" />}
+              <div className="flex-1 min-w-0">
+                <div className="text-[12px] font-semibold leading-tight">Restraint 30-Day</div>
+                <div className="text-[11px] opacity-80 leading-tight mt-0.5">
+                  {restraintOk
+                    ? restraintTotal > 0
+                      ? `All ${restraintTotal} window${restraintTotal !== 1 ? "s" : ""} compliant`
+                      : "No active 30-day windows"
+                    : `${restraintBad} of ${restraintTotal} window${restraintTotal !== 1 ? "s" : ""} non-compliant`}
+                </div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
+            </div>
+          </Link>
+        )}
+        {iepData?.summary && (
+          <Link href="/state-reporting?tab=timeline">
+            <div
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-colors ${iepToneClass}`}
+              data-testid="badge-iep-timeline"
+            >
+              {iepTone === "red"
+                ? <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                : iepTone === "amber"
+                  ? <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  : <ShieldCheck className="w-4 h-4 flex-shrink-0" />}
+              <div className="flex-1 min-w-0">
+                <div className="text-[12px] font-semibold leading-tight">IEP Timeline</div>
+                <div className="text-[11px] opacity-80 leading-tight mt-0.5">
+                  {iepBreached === 0 && iepAtRisk === 0
+                    ? iepTotal > 0
+                      ? `All ${iepTotal} timeline${iepTotal !== 1 ? "s" : ""} on track`
+                      : "No active timelines"
+                    : (
+                      <>
+                        {iepBreached > 0 && (
+                          <span className="font-semibold">{iepBreached} breached</span>
+                        )}
+                        {iepBreached > 0 && iepAtRisk > 0 && <span className="opacity-60"> · </span>}
+                        {iepAtRisk > 0 && (
+                          <span className="font-semibold">{iepAtRisk} at risk</span>
+                        )}
+                        {iepTotal > 0 && (
+                          <span className="opacity-60"> of {iepTotal}</span>
+                        )}
+                      </>
+                    )}
+                </div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
+            </div>
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
