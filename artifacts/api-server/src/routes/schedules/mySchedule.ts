@@ -10,6 +10,7 @@ import type { AuthedRequest } from "../../middlewares/auth";
 import { requireAuth, requireRoles } from "../../middlewares/auth";
 import { blockToJson } from "./shared";
 import { isBlockActiveOnDate } from "../../lib/scheduleUtils";
+import { sendAdminEmail, getAppBaseUrl } from "../../lib/email";
 
 const router: IRouter = Router();
 
@@ -424,8 +425,105 @@ router.patch("/schedules/change-requests/:id", requireReviewer, async (req, res)
     return;
   }
 
+  // Notify the requesting provider of the decision. Failures are logged but
+  // never block the API response — the review is already persisted.
+  void notifyProviderOfDecision(
+    (updated as ChangeRequestRecord).id,
+    (updated as ChangeRequestRecord).staffId,
+    (updated as ChangeRequestRecord).requestType,
+    parsed.data.status,
+    parsed.data.adminNotes ?? null,
+  ).catch(err => {
+    console.error("[ChangeRequestEmail] Failed to dispatch decision email:", err);
+  });
+
   res.json(changeRequestRecordToJson(updated as ChangeRequestRecord));
 });
+
+const REQUEST_TYPE_LABELS: Record<string, string> = {
+  swap_time: "Swap Time",
+  coverage_request: "Coverage Request",
+  other: "Other",
+};
+
+async function notifyProviderOfDecision(
+  requestId: number,
+  requesterStaffId: number,
+  requestType: string,
+  decision: "approved" | "denied",
+  adminNotes: string | null,
+): Promise<void> {
+  const [requester] = await db
+    .select({
+      email: staffTable.email,
+      firstName: staffTable.firstName,
+    })
+    .from(staffTable)
+    .where(eq(staffTable.id, requesterStaffId));
+
+  if (!requester || !requester.email) {
+    console.log(`[ChangeRequestEmail] Skipping notification for request ${requestId} — requester ${requesterStaffId} has no email on file.`);
+    return;
+  }
+
+  const esc = (s: string): string => s
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+  const typeLabel = REQUEST_TYPE_LABELS[requestType] ?? requestType.replace(/_/g, " ");
+  const decisionLabel = decision === "approved" ? "Approved" : "Denied";
+  const headerColor = decision === "approved" ? "#059669" : "#b91c1c";
+  const greetingName = requester.firstName ? requester.firstName : "there";
+  const subject = `Your schedule change request was ${decision}`;
+
+  const baseUrl = getAppBaseUrl();
+  const linkHtml = baseUrl
+    ? `<p style="margin-top:20px"><a href="${baseUrl}/my-schedule" style="background:#065f46;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View My Schedule →</a></p>`
+    : "";
+  const linkText = baseUrl ? `\n\nView your schedule: ${baseUrl}/my-schedule` : "";
+
+  const adminNotesHtml = adminNotes && adminNotes.trim().length > 0
+    ? `<p><strong>Reviewer note:</strong></p><blockquote style="margin:8px 0;padding:8px 12px;border-left:3px solid #e5e7eb;color:#374151;white-space:pre-wrap">${esc(adminNotes)}</blockquote>`
+    : `<p style="color:#6b7280">No additional notes from the reviewer.</p>`;
+  const adminNotesText = adminNotes && adminNotes.trim().length > 0
+    ? `\n\nReviewer note:\n${adminNotes}`
+    : "";
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${esc(subject)}</title></head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0">
+<div style="max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+<div style="background:${headerColor};color:#fff;padding:18px 24px"><h1 style="margin:0;font-size:17px">Schedule Change Request ${esc(decisionLabel)}</h1></div>
+<div style="padding:24px">
+<p>Hi ${esc(greetingName)},</p>
+<p>Your <strong>${esc(typeLabel)}</strong> request has been <strong>${esc(decisionLabel.toLowerCase())}</strong> by your reviewer.</p>
+<ul style="color:#374151">
+<li><strong>Request type:</strong> ${esc(typeLabel)}</li>
+<li><strong>Decision:</strong> ${esc(decisionLabel)}</li>
+</ul>
+${adminNotesHtml}
+${linkHtml}
+</div>
+<div style="background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb">Sent by Trellis SPED Compliance Platform.</div>
+</div></body></html>`;
+
+  const text = `Hi ${greetingName},\n\nYour ${typeLabel} request has been ${decisionLabel.toLowerCase()} by your reviewer.\n\nRequest type: ${typeLabel}\nDecision: ${decisionLabel}${adminNotesText}${linkText}\n\n— Trellis SPED Compliance Platform`;
+
+  const result = await sendAdminEmail({
+    to: [requester.email],
+    subject,
+    html,
+    text,
+    notificationType: "schedule_change_request_decision",
+  });
+
+  if (!result.success) {
+    if (result.notConfigured) {
+      console.log(`[ChangeRequestEmail] RESEND_API_KEY not configured — skipped notifying ${requester.email} for request ${requestId}.`);
+    } else {
+      console.error(`[ChangeRequestEmail] Failed to send decision email for request ${requestId}:`, result.error);
+    }
+  }
+}
 
 function changeRequestRecordToJson(r: ChangeRequestRecord) {
   return {
