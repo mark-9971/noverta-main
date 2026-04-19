@@ -72,6 +72,7 @@ import serviceForecastRouter from "./serviceForecast";
 import compensatoryFinanceRouter from "./compensatoryFinance";
 import sampleDataRouter from "./sampleData";
 import districtDataRouter from "./districtData";
+import pilotBaselineRouter from "./pilotBaseline";
 import { requireLegalAcceptance } from "../middlewares/requireLegalAcceptance";
 import { createDbRateLimitMiddleware } from "../lib/dbRateLimiter";
 
@@ -274,6 +275,7 @@ router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
 router.use(sampleDataRouter);
 router.use(districtDataRouter);
+router.use(pilotBaselineRouter);
 router.use(evaluationsRouter);
 router.use(transitionsRouter);
 router.use(iepMeetingsRouter);

@@ -7,6 +7,10 @@ import { startReminderScheduler, ensureCaseloadSnapshotsTable } from "./lib/remi
 import { startErrorLogCleanup } from "./lib/errorLogCleanup";
 import { startCostAvoidanceSnapshotScheduler } from "./lib/costAvoidanceSnapshots";
 import { startComplianceTrendSnapshotScheduler } from "./lib/complianceTrendSnapshots";
+import {
+  ensurePilotBaselineSnapshotsTable,
+  backfillPilotBaselines,
+} from "./lib/pilotBaselineSnapshots";
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
 import { startMedicaidReportSnapshotScheduler } from "./lib/medicaidReportSnapshotsScheduler";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
@@ -156,4 +160,11 @@ app.listen(port, (err) => {
   ensureCaseloadSnapshotsTable()
     .catch((err: unknown) => logger.warn({ err }, "ensureCaseloadSnapshotsTable failed (non-fatal)"))
     .finally(() => startReminderScheduler());
+  ensurePilotBaselineSnapshotsTable()
+    .catch((err: unknown) => logger.warn({ err }, "ensurePilotBaselineSnapshotsTable failed (non-fatal)"))
+    .finally(() => {
+      backfillPilotBaselines().catch((err: unknown) =>
+        logger.warn({ err }, "backfillPilotBaselines failed (non-fatal)"),
+      );
+    });
 });

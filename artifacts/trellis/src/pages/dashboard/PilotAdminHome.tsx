@@ -13,6 +13,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
+import PilotBaselinePanels from "@/components/dashboard/PilotBaselinePanels";
 import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
 import SchoolComplianceBreakdown from "@/components/dashboard/SchoolComplianceBreakdown";
 import ProviderDelivery from "@/components/dashboard/ProviderDelivery";
@@ -452,6 +453,9 @@ export default function PilotAdminHome() {
           <p className="mt-3 text-xs text-red-600">Couldn't load the compliance report. Refresh in a minute.</p>
         )}
       </section>
+
+      {/* Pilot baseline + comparison — self-hides for non-pilot districts */}
+      <PilotBaselinePanels />
 
       {/* 2. Where are we at risk? */}
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-students-at-risk">
