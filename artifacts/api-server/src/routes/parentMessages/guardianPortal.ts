@@ -2,11 +2,12 @@
 // All routes here require requireGuardianScope — the guardian JWT token scopes
 // every request to the specific guardian's identity. No district session is used.
 import { Router, type Request, type Response } from "express";
-import { db, parentMessagesTable, conferenceRequestsTable, guardiansTable, staffTable, studentsTable, teamMeetingsTable } from "@workspace/db";
-import { eq, and, desc, or } from "drizzle-orm";
+import { db, parentMessagesTable, conferenceRequestsTable, guardiansTable, staffTable, studentsTable, schoolsTable, teamMeetingsTable } from "@workspace/db";
+import { eq, and, desc, or, isNull } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { requireGuardianScope } from "../../middlewares/auth";
 import { resolveGuardianId } from "./shared";
+import { sendEmail, buildPwnReadReceiptEmail, getAppBaseUrl } from "../../lib/email";
 
 const guardianMessagesRouter = Router();
 guardianMessagesRouter.use(requireGuardianScope);
@@ -92,13 +93,116 @@ guardianMessagesRouter.patch("/messages/:id/read", async (req: Request, res: Res
     const msgId = Number(req.params.id);
     if (isNaN(msgId)) { res.status(400).json({ error: "Invalid message ID" }); return; }
 
-    const [msg] = await db.select({ id: parentMessagesTable.id, recipientGuardianId: parentMessagesTable.recipientGuardianId })
+    const [msg] = await db.select({
+      id: parentMessagesTable.id,
+      recipientGuardianId: parentMessagesTable.recipientGuardianId,
+      senderStaffId: parentMessagesTable.senderStaffId,
+      studentId: parentMessagesTable.studentId,
+      category: parentMessagesTable.category,
+      subject: parentMessagesTable.subject,
+      readAt: parentMessagesTable.readAt,
+    })
       .from(parentMessagesTable)
       .where(and(eq(parentMessagesTable.id, msgId), eq(parentMessagesTable.recipientGuardianId, guardianId)));
 
     if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
 
-    await db.update(parentMessagesTable).set({ readAt: new Date() }).where(eq(parentMessagesTable.id, msgId));
+    // Atomic first-read detection: the update only matches rows where
+    // read_at IS NULL, so concurrent PATCH requests can't both observe an
+    // unread state and double-fire the PWN notification path below.
+    const readAt = new Date();
+    const updated = await db.update(parentMessagesTable)
+      .set({ readAt })
+      .where(and(eq(parentMessagesTable.id, msgId), isNull(parentMessagesTable.readAt)))
+      .returning({ id: parentMessagesTable.id });
+    const wasUnread = updated.length > 0;
+
+    // PWN read-receipt notification: when a guardian opens a Prior Written
+    // Notice for the first time, alert the sending staff member by email and
+    // record the read-receipt event in the parent-communication audit log
+    // for compliance tracking. Failures here are logged but do not block the
+    // read acknowledgement itself.
+    if (wasUnread && msg.category === "prior_written_notice" && msg.senderStaffId) {
+      try {
+        const [staffRow] = await db.select({
+          id: staffTable.id,
+          firstName: staffTable.firstName,
+          lastName: staffTable.lastName,
+          email: staffTable.email,
+          schoolId: staffTable.schoolId,
+        }).from(staffTable).where(eq(staffTable.id, msg.senderStaffId));
+
+        const [guardianRow] = await db.select({ name: guardiansTable.name })
+          .from(guardiansTable).where(eq(guardiansTable.id, guardianId));
+
+        const [studentRow] = await db.select({
+          firstName: studentsTable.firstName,
+          lastName: studentsTable.lastName,
+        }).from(studentsTable).where(eq(studentsTable.id, msg.studentId));
+
+        const studentName = studentRow ? `${studentRow.firstName} ${studentRow.lastName}` : "the student";
+        const guardianName = guardianRow?.name ?? "Guardian";
+        const staffName = staffRow ? `${staffRow.firstName} ${staffRow.lastName}` : "Staff";
+
+        let schoolName = "your school";
+        if (staffRow?.schoolId) {
+          const [schoolRow] = await db.select({ name: schoolsTable.name })
+            .from(schoolsTable).where(eq(schoolsTable.id, staffRow.schoolId));
+          if (schoolRow?.name) schoolName = schoolRow.name;
+        }
+
+        logAudit(req, {
+          action: "update",
+          targetTable: "parent_messages",
+          targetId: msgId,
+          studentId: msg.studentId,
+          summary: `Guardian read Prior Written Notice: ${msg.subject}`,
+          newValues: {
+            category: "prior_written_notice",
+            readAt: readAt.toISOString(),
+            guardianId,
+            senderStaffId: msg.senderStaffId,
+          },
+        });
+
+        if (staffRow?.email) {
+          const built = buildPwnReadReceiptEmail({
+            staffName,
+            guardianName,
+            studentName,
+            subject: msg.subject,
+            readAt,
+            schoolName,
+            studentId: msg.studentId,
+            messageId: msgId,
+            appBaseUrl: getAppBaseUrl() ?? undefined,
+          });
+          await sendEmail({
+            studentId: msg.studentId,
+            type: "pwn_read_receipt",
+            subject: built.subject,
+            bodyHtml: built.html,
+            bodyText: built.text,
+            toEmail: staffRow.email,
+            toName: staffName,
+            staffId: staffRow.id,
+            guardianId,
+            metadata: {
+              parentMessageId: msgId,
+              category: "prior_written_notice",
+              readAt: readAt.toISOString(),
+            },
+          });
+        } else {
+          console.warn(
+            `[pwn_read_receipt] Staff ${msg.senderStaffId} has no email on file; skipped read-receipt email for message ${msgId}`,
+          );
+        }
+      } catch (notifyErr) {
+        console.error("PWN read-receipt notification failed:", notifyErr);
+      }
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error("PATCH /guardian-portal/messages/:id/read error:", err);

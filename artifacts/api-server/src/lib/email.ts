@@ -89,6 +89,7 @@ export type EmailType =
   | "iep_timeline_compliance_alert"
   | "provider_activation_nudge"
   | "provider_activation_escalation"
+  | "pwn_read_receipt"
   | "general";
 
 export interface SendEmailParams {
@@ -349,6 +350,59 @@ export async function sendAdminEmail(params: SendAdminEmailParams): Promise<Send
   }
 
   return { success: false, error: `Max retries exceeded: ${lastError}` };
+}
+
+export function buildPwnReadReceiptEmail(opts: {
+  staffName: string;
+  guardianName: string;
+  studentName: string;
+  subject: string;
+  readAt: Date;
+  schoolName: string;
+  studentId?: number;
+  messageId?: number;
+  appBaseUrl?: string;
+}): { subject: string; html: string; text: string } {
+  const { staffName, guardianName, studentName, subject: pwnSubject, readAt, schoolName, studentId, messageId, appBaseUrl } = opts;
+  const esc = (s: string): string => s
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const eStaff = esc(staffName);
+  const eGuardian = esc(guardianName);
+  const eStudent = esc(studentName);
+  const ePwnSubject = esc(pwnSubject);
+  const eSchool = esc(schoolName);
+  const subject = `Read Receipt — Prior Written Notice acknowledged for ${studentName}`;
+  const readAtStr = readAt.toLocaleString("en-US", {
+    weekday: "short", year: "numeric", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  });
+  const messageLink = appBaseUrl && studentId != null
+    ? `${appBaseUrl}/students/${studentId}${messageId != null ? `?messageId=${messageId}` : ""}`
+    : null;
+  const linkHtml = messageLink
+    ? `<p style="margin-top:20px"><a href="${messageLink}" style="background:#065f46;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View Message →</a></p>`
+    : "";
+  const linkText = messageLink ? `\n\nView the message: ${messageLink}` : "";
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#065f46;color:#fff;padding:20px 24px}.body{padding:24px}.notice{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Prior Written Notice — Read Receipt</h1></div>
+<div class="body">
+<p>Hi ${eStaff},</p>
+<div class="notice"><strong>${eGuardian}</strong> opened the Prior Written Notice you sent regarding <strong>${eStudent}</strong>.</div>
+<ul>
+  <li><strong>Subject:</strong> ${ePwnSubject}</li>
+  <li><strong>Student:</strong> ${eStudent}</li>
+  <li><strong>Read at:</strong> ${esc(readAtStr)}</li>
+</ul>
+<p style="color:#374151">This read receipt is recorded in the parent-communication audit log for compliance tracking. It confirms the guardian opened the notice in the parent portal but is not a substitute for any required signed acknowledgment.</p>
+${linkHtml}
+</div>
+<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${eSchool}.</p></div>
+</div></body></html>`;
+  const text = `Prior Written Notice — Read Receipt\n\nHi ${staffName},\n\n${guardianName} opened the Prior Written Notice you sent regarding ${studentName}.\n\nSubject: ${pwnSubject}\nStudent: ${studentName}\nRead at: ${readAtStr}\n\nThis read receipt is recorded in the parent-communication audit log for compliance tracking.${linkText}\n\n${schoolName}`;
+  return { subject, html, text };
 }
 
 export function buildIncidentNotificationEmail(opts: {
