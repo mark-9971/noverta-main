@@ -33,6 +33,7 @@ interface WorkItem {
   studentName?: string;
   href: string;
   actionLabel: string;
+  logSession?: boolean;
 }
 
 // ─── Schedule-gap helpers ─────────────────────────────────────────────────────
@@ -127,6 +128,12 @@ function alertToWorkItem(a: any, index: number): WorkItem {
     return AlertTriangle;
   })();
 
+  const isShortfallType =
+    a.type === "behind_on_minutes" ||
+    a.type === "projected_shortfall" ||
+    a.type === "service_minutes_behind" ||
+    a.type === "missed_sessions";
+
   return {
     id: `alert-${a.id ?? index}`,
     priority,
@@ -140,6 +147,7 @@ function alertToWorkItem(a: any, index: number): WorkItem {
     studentName: a.studentName,
     href,
     actionLabel: "View →",
+    logSession: isShortfallType && !!a.studentId,
   };
 }
 
@@ -160,6 +168,7 @@ function riskToWorkItem(r: any): WorkItem {
     studentName: r.studentName,
     href: `/compliance?tab=minutes`,
     actionLabel: "Review minutes →",
+    logSession: !!r.studentId,
   };
 }
 
@@ -433,7 +442,8 @@ function WorkItemRow({
 }) {
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
-  const showLogBtn = !!onLogSession && !!item.studentId && (item.category === "compliance" || item.category === "session");
+  const showLogSessionLink = !!item.logSession && !!item.studentId;
+  const showLogBtn = !showLogSessionLink && !!onLogSession && !!item.studentId && (item.category === "compliance" || item.category === "session");
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const snoozeRef = useRef<HTMLDivElement>(null);
 
@@ -472,6 +482,15 @@ function WorkItemRow({
         <div className="text-[11px] text-gray-400 mt-0.5 leading-snug">{item.detail}</div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+        {showLogSessionLink && (
+          <Link
+            href={`/sessions?studentId=${item.studentId}&quicklog=true`}
+            className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
+            title="Open quick-log for this student"
+          >
+            <ClipboardEdit className="w-3 h-3" /> Log Session
+          </Link>
+        )}
         {showLogBtn && (
           <button
             onClick={() => onLogSession!(item.studentId!, item.studentName ?? "")}

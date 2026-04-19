@@ -63,6 +63,8 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
   const [missedReasonFilter, setMissedReasonFilter] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false); const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [quickLogPrefillStudentId, setQuickLogPrefillStudentId] = useState<number | undefined>(undefined);
+  const [quickLogPrefillStudentName, setQuickLogPrefillStudentName] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0); const [showReview, setShowReview] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM); const [submitting, setSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -84,6 +86,19 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
       setSelectedYearId(String(activeYear.id));
     }
   }, [activeYear]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const studentIdParam = params.get("studentId");
+    const quicklogParam = params.get("quicklog");
+    if (studentIdParam && quicklogParam === "true") {
+      const id = Number(studentIdParam);
+      if (!isNaN(id) && id > 0) {
+        setQuickLogPrefillStudentId(id);
+        setQuickLogOpen(true);
+      }
+    }
+  }, []);
 
   const sessionParams = {
     limit: PAGE_SIZE,
@@ -112,6 +127,15 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const staffAllList = (staffData as any[]) ?? [];
   const missedReasonsList = (missedReasonsData as any[]) ?? [];
   const reqList = (serviceReqs as any[]) ?? [];
+
+  useEffect(() => {
+    if (!quickLogPrefillStudentId || quickLogPrefillStudentName) return;
+    const found = studentList.find((s: any) => s.id === quickLogPrefillStudentId);
+    if (found) {
+      const name = `${(found as any).firstName ?? ""} ${(found as any).lastName ?? ""}`.trim();
+      if (name) setQuickLogPrefillStudentName(name);
+    }
+  }, [quickLogPrefillStudentId, studentList, quickLogPrefillStudentName]);
 
   const filtered = sessionList.filter(s => {
     const matchSearch = search.trim() === "" ||
@@ -492,9 +516,11 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
 
       <QuickLogSheet
         isOpen={quickLogOpen}
-        onClose={() => setQuickLogOpen(false)}
+        onClose={() => { setQuickLogOpen(false); setQuickLogPrefillStudentId(undefined); setQuickLogPrefillStudentName(undefined); }}
         onSuccess={() => refetch()}
         staffId={teacherId}
+        prefillStudentId={quickLogPrefillStudentId}
+        prefillStudentName={quickLogPrefillStudentName}
       />
 
       {!embedded && isProvider && (

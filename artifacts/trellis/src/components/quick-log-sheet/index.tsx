@@ -151,6 +151,12 @@ export function QuickLogSheet({
     }
   }, [isOpen, prefillStudentId, prefillOutcome, skipToMissed, prefillDurationMinutes]);
 
+  useEffect(() => {
+    if (prefillStudentId && prefillStudentName && studentId === prefillStudentId && !studentName) {
+      setStudentName(prefillStudentName);
+    }
+  }, [prefillStudentName]);
+
   // Auto-pre-select most recent student+service when opening fresh (no prefill)
   useEffect(() => {
     if (!isOpen || prefillStudentId) return;
