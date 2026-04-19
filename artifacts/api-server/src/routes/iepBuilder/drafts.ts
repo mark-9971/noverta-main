@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, iepBuilderDraftsTable, staffTable } from "@workspace/db";
+import { db, iepBuilderDraftsTable, iepBuilderDraftCommentsTable, staffTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { getStaffIdFromReq } from "./shared";
 import { assertStudentInCallerDistrict } from "../../lib/districtScope";
@@ -153,6 +153,8 @@ router.delete("/students/:studentId/iep-builder/draft", async (req, res): Promis
     const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
     if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    await db.delete(iepBuilderDraftCommentsTable)
+      .where(eq(iepBuilderDraftCommentsTable.studentId, studentId));
     await db.delete(iepBuilderDraftsTable)
       .where(eq(iepBuilderDraftsTable.studentId, studentId));
     res.json({ ok: true });

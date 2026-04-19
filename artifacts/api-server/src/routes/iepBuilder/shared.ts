@@ -129,8 +129,23 @@ export const TRANSITION_DOMAINS = [
 ];
 
 export function getStaffIdFromReq(req: any): number | null {
+  const tenantStaffId = req?.tenantStaffId;
+  if (typeof tenantStaffId === "number" && tenantStaffId > 0) return tenantStaffId;
   const meta = getPublicMeta(req);
   if (meta.staffId) return meta.staffId;
+  // Test-only: a trusted test harness may pass an x-test-staff-id header.
+  // Strictly gated on the same conditions as the auth middleware's dev/test
+  // bypass to prevent identity spoofing in production.
+  const allowTestBypass =
+    process.env.NODE_ENV === "test" ||
+    (process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_BYPASS === "1");
+  if (allowTestBypass) {
+    const hdr = req?.headers?.["x-test-staff-id"];
+    if (typeof hdr === "string" && hdr) {
+      const n = Number(hdr);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
   if (process.env.NODE_ENV !== "production") return 77;
   return null;
 }

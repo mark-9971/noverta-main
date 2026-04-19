@@ -24,6 +24,8 @@ import { Step3Teacher } from "./Step3Teacher";
 import { Step4Transition } from "./Step4Transition";
 import { Step5Generate } from "./Step5Generate";
 import { printDraft as printDraftHtml } from "./printDraft";
+import { TeamNotes, type DraftComment } from "./TeamNotes";
+import { useUser } from "@clerk/react";
 
 export default function IepBuilderPage() {
   const params = useParams<{ id: string }>();
@@ -54,6 +56,32 @@ export default function IepBuilderPage() {
   const draftSavedAtRef = useRef<string | null>(null);
   draftSavedAtRef.current = draftSavedAt;
   const [reloading, setReloading] = useState(false);
+
+  const { user: clerkUser } = useUser();
+  const currentStaffId = Number(clerkUser?.publicMetadata?.staffId) || null;
+  const [comments, setComments] = useState<DraftComment[]>([]);
+
+  useEffect(() => {
+    if (isNaN(studentId)) return;
+    let cancelled = false;
+    async function loadComments() {
+      try {
+        const res = await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft/comments`);
+        if (!res.ok) return;
+        const data = (await res.json()) as DraftComment[];
+        if (!cancelled) setComments(data);
+      } catch {}
+    }
+    loadComments();
+    return () => { cancelled = true; };
+  }, [studentId]);
+
+  const handleAddComment = useCallback((c: DraftComment) => {
+    setComments(prev => [...prev, c]);
+  }, []);
+  const handleDeleteComment = useCallback((id: number) => {
+    setComments(prev => prev.filter(c => c.id !== id));
+  }, []);
 
   const [isDirty, setIsDirty] = useState(false);
   const isDirtyRef = useRef(false);
@@ -393,6 +421,7 @@ export default function IepBuilderPage() {
       setStep(5);
       setIsDirty(false);
       deleteDraft();
+      setComments([]);
     } catch {
       toast.error("Failed to generate draft. Please try again.");
       scheduleAutoSave();
@@ -639,6 +668,17 @@ export default function IepBuilderPage() {
       {step === 4 && context.needsTransition && <Step4Transition context={context} values={transition} onChange={setTransitionField} />}
       {(step === 5 || (!context.needsTransition && step === 4)) && (
         <Step5Generate draft={draft} generating={generating} onGenerate={generate} onPrint={printDraft} context={context} />
+      )}
+
+      {!draft && (
+        <TeamNotes
+          studentId={studentId}
+          wizardStep={step}
+          comments={comments}
+          currentStaffId={currentStaffId}
+          onAdd={handleAddComment}
+          onDelete={handleDeleteComment}
+        />
       )}
 
       <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
