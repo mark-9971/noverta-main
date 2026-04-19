@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { Activity, Lock, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Activity, Lock, TrendingDown, TrendingUp, Minus, FileDown } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
 interface BaselineMetrics {
@@ -188,6 +188,7 @@ export default function PilotBaselinePanels() {
               Refreshed daily · compares today's numbers to the {baselineDate} baseline
             </p>
           </div>
+          <PilotReadoutButton />
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
@@ -235,6 +236,69 @@ export default function PilotBaselinePanels() {
           </table>
         </div>
       </section>
+    </div>
+  );
+}
+
+interface PilotReadoutButtonProps {
+  // Optional override for platform-admin / internal-support callers who need to
+  // generate a readout for a district they aren't tenant-scoped to. District
+  // admins/coordinators can omit this — the backend uses their tenant scope.
+  districtId?: number;
+}
+
+export function PilotReadoutButton({ districtId }: PilotReadoutButtonProps = {}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleClick = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const url =
+        districtId != null
+          ? `/api/reports/exports/pilot-readout.pdf?districtId=${districtId}`
+          : "/api/reports/exports/pilot-readout.pdf";
+      const res = await authFetch(url);
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(detail || `Failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pilot-readout-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Open in a new tab so the AM can review immediately
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to generate readout");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={busy}
+        data-testid="button-generate-pilot-readout"
+        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <FileDown className="w-3.5 h-3.5" />
+        {busy ? "Generating…" : "Generate Pilot Readout"}
+      </button>
+      {error && (
+        <span className="text-[11px] text-red-600" data-testid="text-pilot-readout-error">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

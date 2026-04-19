@@ -7,6 +7,7 @@ import providerReportsRouter from "./providerReports";
 import historyAndScheduledRouter from "./historyAndScheduled";
 import complianceRiskReportRouter from "./complianceRiskReport";
 import weeklyComplianceSummaryRouter from "./weeklyComplianceSummary";
+import pilotReadoutPdfRouter from "./pilotReadoutPdf";
 
 export { generateReportCSVDirect } from "./historyAndScheduled";
 export type { ReportFilters } from "./utils";
@@ -24,5 +25,6 @@ router.use(providerReportsRouter);
 router.use(historyAndScheduledRouter);
 router.use(complianceRiskReportRouter);
 router.use(weeklyComplianceSummaryRouter);
+router.use(pilotReadoutPdfRouter);
 
 export default router;
