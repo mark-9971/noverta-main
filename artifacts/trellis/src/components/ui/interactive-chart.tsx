@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, type CSSProperties } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, Dot,
@@ -313,8 +313,8 @@ export function InteractiveChart({
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="group relative cursor-pointer flex-shrink-0"
-        style={{ width: sparklineWidth, height: sparklineHeight }}
+        className="group relative cursor-pointer w-full h-11 min-[480px]:w-[var(--sw)] min-[480px]:h-[var(--sh)] min-[480px]:flex-shrink-0"
+        style={{ ["--sw" as string]: `${sparklineWidth}px`, ["--sh" as string]: `${sparklineHeight}px` } as CSSProperties}
         title="Click to expand chart"
         aria-label={`Expand ${title || "chart"}`}
       >
@@ -337,8 +337,8 @@ export function InteractiveChart({
             />
           </AreaChart>
         </ResponsiveContainer>
-        <div className="absolute inset-0 bg-gray-900/0 group-hover:bg-gray-900/5 rounded transition-colors flex items-center justify-center">
-          <Maximize2 className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-gray-900/0 group-hover:bg-gray-900/5 rounded transition-colors flex items-center justify-center pointer-events-none">
+          <Maximize2 className="w-4 h-4 min-[480px]:w-3.5 min-[480px]:h-3.5 text-gray-500 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-70 transition-opacity" />
         </div>
       </button>
     );
