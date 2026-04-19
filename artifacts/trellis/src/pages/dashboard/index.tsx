@@ -97,6 +97,20 @@ function DashboardFull() {
     staleTime: 120_000,
   });
 
+  // Prior-week snapshot used to render WoW delta arrows on the KPI cards.
+  // The endpoint returns `{ available: false }` when there's no history yet,
+  // in which case the cards just hide their delta indicators (graceful fallback).
+  const { data: weekTrend } = useQuery<DashboardTabsProps["weekTrend"]>({
+    queryKey: ["dashboard/compliance-week-trend", filterParams],
+    queryFn: async () => {
+      const qs = new URLSearchParams(filterParams).toString();
+      const r = await authFetch(`/api/reports/compliance-week-trend${qs ? `?${qs}` : ""}`);
+      if (!r.ok) return { available: false };
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+
   const deadlines: DashboardTabsProps["deadlines"] = (() => {
     type RawEvent = { student?: { firstName: string; lastName: string }; eventType: string; daysRemaining?: number };
     const raw = deadlinesRaw as { events?: RawEvent[] } | RawEvent[] | undefined;
@@ -208,6 +222,9 @@ function DashboardFull() {
         }
         goalMasteryBreakdown={goalMasteryData?.byServiceArea}
         evalTimelineRisk={evalTimelineRisk ?? null}
+        weekTrend={weekTrend ?? null}
+        currentHighRiskCount={outOfComplianceStudents + (ro?.atRisk ?? 0)}
+        currentGoalMasteryRate={goalMasteryData?.masteryRate ?? null}
       />
     </div>
   );

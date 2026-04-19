@@ -15,7 +15,7 @@ import { useState, useMemo } from "react";
  * `positiveIsGood` flips the color polarity so e.g. "overdue evaluations going
  * down" renders green even though the numeric delta is negative.
  */
-function TrendDelta({
+export function TrendDelta({
   delta,
   positiveIsGood,
   suffix = "",

@@ -13,6 +13,7 @@ import type { ServiceAreaMastery } from "@/components/dashboard/GoalMasteryBreak
 import {
   AccommodationComplianceCard, EvaluationTimelineRiskCard, TransitionsSection,
   MeetingsSection, ContractRenewalsCard, DeadlinesSection, IepExpirationCard,
+  TrendDelta,
 } from "./SecondarySections";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
@@ -75,6 +76,23 @@ interface EvalTimelineRisk {
   deadlineDays: number;
 }
 
+/**
+ * Prior-week snapshot from /api/reports/compliance-week-trend.
+ * `available: false` is the graceful-fallback signal — when the snapshot
+ * job hasn't run yet (fresh install) or there are no active students, the
+ * KPI cards simply hide their delta indicators.
+ */
+export interface WeekTrendSnapshot {
+  available: boolean;
+  studentsOutOfCompliance?: number;
+  studentsAtRisk?: number;
+  studentsOnTrack?: number;
+  overallComplianceRate?: number;
+  secondary?: {
+    goalMastery?: { masteryRate: number | null };
+  };
+}
+
 export interface DashboardTabsProps {
   isAdmin: boolean;
   myCaseload: ProviderCaseloadSummary | null;
@@ -96,6 +114,11 @@ export interface DashboardTabsProps {
   goalMasterySubtitle?: string;
   goalMasteryBreakdown?: ServiceAreaMastery[];
   evalTimelineRisk: EvalTimelineRisk | null;
+  weekTrend?: WeekTrendSnapshot | null;
+  /** Current value displayed on the High-Risk Students card (out + at-risk). */
+  currentHighRiskCount?: number;
+  /** Current value displayed on the Goal Mastery Rate card (percent, or null). */
+  currentGoalMasteryRate?: number | null;
 }
 
 export function DashboardTabs({
@@ -103,7 +126,7 @@ export function DashboardTabs({
   s, ro, alerts, recent, riskPieData, trendData, serviceData,
   transitionDash, meetingDash, accommodationCompliance, deadlines,
   goalMasteryRate, goalMasterySubtitle, goalMasteryBreakdown,
-  evalTimelineRisk,
+  evalTimelineRisk, weekTrend, currentHighRiskCount, currentGoalMasteryRate,
 }: DashboardTabsProps) {
   const quickActions = [
     { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
@@ -113,6 +136,30 @@ export function DashboardTabs({
     { label: "Compensatory Exposure", icon: DollarSign, href: "/compensatory?view=finance", color: "text-rose-700 bg-rose-50 hover:bg-rose-100" },
     { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-gray-700 bg-gray-50 hover:bg-gray-100" },
   ];
+
+  // ── Week-over-week deltas for the KPI cards.
+  // Each delta is null unless the prior-week snapshot returned data AND we
+  // have a current value to compare against. The TrendDelta component hides
+  // itself on null, so cards without prior data render cleanly (graceful
+  // fallback). Caseload variants of the cards intentionally have no deltas —
+  // the prior-week endpoint is district-scoped, not per-staff.
+  const trendAvailable = weekTrend?.available === true && !myCaseload;
+
+  const priorHighRiskCount = trendAvailable
+    && weekTrend!.studentsOutOfCompliance !== undefined
+    && weekTrend!.studentsAtRisk !== undefined
+    ? weekTrend!.studentsOutOfCompliance + weekTrend!.studentsAtRisk
+    : null;
+  const highRiskDelta = priorHighRiskCount !== null && currentHighRiskCount !== undefined
+    ? currentHighRiskCount - priorHighRiskCount
+    : null;
+
+  const priorGoalMastery = trendAvailable
+    ? weekTrend!.secondary?.goalMastery?.masteryRate ?? null
+    : null;
+  const goalMasteryDelta = priorGoalMastery !== null && currentGoalMasteryRate !== null && currentGoalMasteryRate !== undefined
+    ? currentGoalMasteryRate - priorGoalMastery
+    : null;
 
   // Operational counters from dashboard summary
   const uncoveredToday = s?.uncoveredBlocksToday ?? 0;
@@ -211,6 +258,9 @@ export function DashboardTabs({
               : `${outOfComplianceStudents} out of compliance · ${ro?.atRisk ?? 0} at risk`}
             emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href={myCaseload ? "/sessions" : "/compliance?tab=risk-report"}
+            delta={!myCaseload && highRiskDelta !== null
+              ? <TrendDelta delta={highRiskDelta} positiveIsGood={false} suffix=" vs. last wk" />
+              : null}
           />
           <MetricCard
             title={myCaseload ? "Compliance" : "Urgent Actions"}
@@ -248,6 +298,9 @@ export function DashboardTabs({
             subtitle={goalMasterySubtitle ?? "of rated goals on track or mastered"}
             emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href="/progress-reports"
+            delta={goalMasteryDelta !== null
+              ? <TrendDelta delta={goalMasteryDelta} positiveIsGood={true} suffix="% vs. last wk" />
+              : null}
           />
         </div>
           );

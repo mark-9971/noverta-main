@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
-export function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href, footer, emptyState }: any) {
+export function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href, footer, delta, emptyState }: any) {
   const accents: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-600",
     red: "bg-red-50 text-red-500",
@@ -40,6 +40,7 @@ export function MetricCard({ title, value, icon: Icon, accent = "emerald", subti
                 {emptyState}
               </p>
             )}
+            {isLoaded && !isEmpty && delta && <div className="mt-1">{delta}</div>}
             {isLoaded && !isEmpty && footer}
           </div>
         </div>
