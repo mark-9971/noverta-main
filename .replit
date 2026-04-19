@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "incident-e2e"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "html-nesting-smoke"
+
 [[workflows.workflow]]
 name = "incident-e2e"
 author = "agent"
@@ -27,6 +31,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-form-wizard.spec.ts tests/incident-lifecycle.spec.ts tests/quick-report-form.spec.ts --reporter=line && npx tsc --noEmit"
+
+[[workflows.workflow]]
+name = "html-nesting-smoke"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/no-dom-nesting-warnings.spec.ts --reporter=line"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
