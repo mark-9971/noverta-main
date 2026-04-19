@@ -15,6 +15,17 @@ interface ServiceRequirement { id: number; serviceTypeId: number; serviceTypeNam
 
 const BROADCAST_CHANNEL_NAME = "trellis-data-panel";
 
+function detectIsMac(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  const platform = uaData?.platform || navigator.platform || "";
+  return /mac/i.test(platform);
+}
+
+const IS_MAC = detectIsMac();
+const SHORTCUT_LABEL = IS_MAC ? "\u2318\u21E7T" : "Ctrl+Shift+T";
+const SHORTCUT_BADGE = IS_MAC ? "\u2318\u21E7T" : "\u2303\u21E7T";
+
 type WarningLevel = "none" | "warn" | "critical";
 
 function getWarningLevel(
@@ -192,11 +203,11 @@ function ActiveTimerCard({
         <button
           onClick={onStop}
           className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-[0.97] transition-all"
-          title={isOnlyTimer ? "Stop & Log (Ctrl+Shift+T)" : undefined}
+          title={isOnlyTimer ? `Stop & Log (${SHORTCUT_LABEL})` : undefined}
         >
           <Square className="w-3 h-3" /> Stop & Log
           {isOnlyTimer && (
-            <span className="ml-1 text-[9px] opacity-60 font-normal hidden sm:inline">⌃⇧T</span>
+            <span className="ml-1 text-[9px] opacity-60 font-normal hidden sm:inline">{SHORTCUT_BADGE}</span>
           )}
         </button>
         <button
@@ -375,7 +386,8 @@ export function FloatingTimer() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "t") {
+      const modifier = IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+      if (modifier && e.shiftKey && e.key.toLowerCase() === "t") {
         e.preventDefault();
         const activeTimers = activeTimersRef.current;
         if (activeTimers.length === 1) {
@@ -529,12 +541,12 @@ export function FloatingTimer() {
       <button
         onClick={openStartFlow}
         className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center group"
-        aria-label="Start session timer (Ctrl+Shift+T)"
-        title="Start session timer (Ctrl+Shift+T)"
+        aria-label={`Start session timer (${SHORTCUT_LABEL})`}
+        title={`Start session timer (${SHORTCUT_LABEL})`}
       >
         <Play className="w-6 h-6 ml-0.5" />
         <span className="absolute bottom-full right-0 mb-2 px-2 py-1 rounded-md bg-gray-800 text-white text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          Ctrl+Shift+T
+          {SHORTCUT_LABEL}
         </span>
       </button>
     );
@@ -751,12 +763,12 @@ export function FloatingTimer() {
           <button
             onClick={openStartFlow}
             className="relative w-12 h-12 rounded-xl shadow-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center group"
-            aria-label="Start new timer (Ctrl+Shift+T)"
-            title="Start new timer (Ctrl+Shift+T)"
+            aria-label={`Start new timer (${SHORTCUT_LABEL})`}
+            title={`Start new timer (${SHORTCUT_LABEL})`}
           >
             <Plus className="w-5 h-5" />
             <span className="absolute bottom-full right-0 mb-2 px-2 py-1 rounded-md bg-gray-800 text-white text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Ctrl+Shift+T
+              {SHORTCUT_LABEL}
             </span>
           </button>
         </div>
