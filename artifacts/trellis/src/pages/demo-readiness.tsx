@@ -38,10 +38,17 @@ interface ReadinessReport {
   summary: { pass: number; warn: number; fail: number; total: number };
 }
 
+interface HistoryCheckEntry {
+  id: string;
+  label: string;
+  status: Status;
+}
+
 interface HistoryRun {
   id: number;
   generatedAt: string;
   summary: { pass: number; warn: number; fail: number; total: number };
+  checks: HistoryCheckEntry[];
 }
 
 interface HistoryResponse {
@@ -153,7 +160,39 @@ function SparklineBar({ run, maxTotal }: { run: HistoryRun; maxTotal: number }) 
   );
 }
 
+// Per-check sparkline cell — narrow column showing one run's status for a single
+// check. Color encodes pass/warn/fail; gaps render as light gray (the check
+// didn't exist in that run, e.g. after we added a new check).
+function CheckCell({
+  status,
+  run,
+  checkLabel,
+}: {
+  status: Status | null;
+  run: HistoryRun;
+  checkLabel: string;
+}) {
+  const cls =
+    status === "pass" ? "bg-emerald-500"
+    : status === "warn" ? "bg-amber-400"
+    : status === "fail" ? "bg-red-500"
+    : "bg-gray-200";
+  const time = new Date(run.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const date = new Date(run.generatedAt).toLocaleDateString([], { month: "short", day: "numeric" });
+  const tip = status
+    ? `${checkLabel}: ${status.toUpperCase()} at ${date} ${time}`
+    : `${checkLabel}: not recorded at ${date} ${time}`;
+  return (
+    <div className="flex flex-col items-center gap-1" title={tip}>
+      <div className={`w-full h-6 rounded-sm ${cls}`} />
+    </div>
+  );
+}
+
 function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
+  // Track which check the SE has drilled into (null = overall view).
+  const [selectedCheckId, setSelectedCheckId] = useState<string>("__overall__");
+
   if (runs.length === 0) {
     return (
       <Card className="border-dashed border-gray-200">
@@ -170,6 +209,22 @@ function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
 
   const allPassCount = runs.filter(r => runOverallStatus(r) === "pass").length;
   const anyFailCount = runs.filter(r => runOverallStatus(r) === "fail").length;
+
+  // Build the union of all check ids/labels seen across the recorded runs so
+  // SEs can drill into any check that ever ran — even one that's gone away.
+  // Most-recent run wins for label resolution. Sorted alphabetically by label
+  // for predictable ordering in the dropdown.
+  const checkOptions = (() => {
+    const seen = new Map<string, string>();
+    for (const r of runs) {
+      for (const c of r.checks) {
+        if (!seen.has(c.id)) seen.set(c.id, c.label);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  })();
 
   let trendLabel: string;
   let trendClass: string;
@@ -189,10 +244,30 @@ function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
 
   const displayRuns = [...runs].reverse();
 
+  // When a specific check is selected, compute that check's per-run status and
+  // a quick "regressing?" trend label so the SE can spot flapping at a glance.
+  const isCheckView = selectedCheckId !== "__overall__";
+  const selectedLabel = checkOptions.find(c => c.id === selectedCheckId)?.label ?? selectedCheckId;
+  const checkStatuses = isCheckView
+    ? displayRuns.map(r => r.checks.find(c => c.id === selectedCheckId)?.status ?? null)
+    : [];
+  const checkSummary = (() => {
+    if (!isCheckView) return null;
+    let pass = 0, warn = 0, fail = 0, missing = 0;
+    for (const s of checkStatuses) {
+      if (s === "pass") pass++;
+      else if (s === "warn") warn++;
+      else if (s === "fail") fail++;
+      else missing++;
+    }
+    const lastRecorded = [...checkStatuses].reverse().find(s => s !== null) ?? null;
+    return { pass, warn, fail, missing, lastRecorded };
+  })();
+
   return (
     <Card className="border-gray-200">
       <CardHeader className="pb-2 pt-4 px-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-gray-400" />
             <CardTitle className="text-sm font-medium text-gray-700">
@@ -201,27 +276,80 @@ function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
           </div>
           <span className={`text-xs font-semibold ${trendClass}`}>{trendLabel}</span>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500" /> All-pass runs: {allPassCount}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <span className="inline-block w-2 h-2 rounded-sm bg-amber-400" /> Warn
-          </span>
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <span className="inline-block w-2 h-2 rounded-sm bg-red-500" /> Fail
-          </span>
+        <div className="flex items-center justify-between gap-3 mt-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500" /> {isCheckView ? "Pass" : `All-pass runs: ${allPassCount}`}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="inline-block w-2 h-2 rounded-sm bg-amber-400" /> Warn
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="inline-block w-2 h-2 rounded-sm bg-red-500" /> Fail
+            </span>
+            {isCheckView && (
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <span className="inline-block w-2 h-2 rounded-sm bg-gray-200 border border-gray-300" /> Not recorded
+              </span>
+            )}
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600">
+            <span className="text-gray-500">Drill into check:</span>
+            <select
+              value={selectedCheckId}
+              onChange={e => setSelectedCheckId(e.target.value)}
+              className="border border-gray-200 rounded-md text-xs py-1 px-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            >
+              <option value="__overall__">Overall (pass/warn/fail per run)</option>
+              {checkOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </CardHeader>
       <CardContent className="px-5 pb-4">
-        <div
-          className="grid gap-0.5 items-end"
-          style={{ gridTemplateColumns: `repeat(${displayRuns.length}, minmax(0, 1fr))` }}
-        >
-          {displayRuns.map(run => (
-            <SparklineBar key={run.id} run={run} maxTotal={maxTotal} />
-          ))}
-        </div>
+        {isCheckView ? (
+          <>
+            <div
+              className="grid gap-0.5 items-end"
+              style={{ gridTemplateColumns: `repeat(${displayRuns.length}, minmax(0, 1fr))` }}
+            >
+              {displayRuns.map((run, i) => (
+                <CheckCell
+                  key={run.id}
+                  status={checkStatuses[i] ?? null}
+                  run={run}
+                  checkLabel={selectedLabel}
+                />
+              ))}
+            </div>
+            {checkSummary && (
+              <p className="text-xs text-gray-500 mt-2">
+                <span className="font-medium text-gray-700">{selectedLabel}</span>{" "}
+                across {displayRuns.length} run{displayRuns.length !== 1 ? "s" : ""}:{" "}
+                <span className="text-emerald-700 font-medium">{checkSummary.pass} pass</span>
+                {" · "}
+                <span className="text-amber-700 font-medium">{checkSummary.warn} warn</span>
+                {" · "}
+                <span className="text-red-700 font-medium">{checkSummary.fail} fail</span>
+                {checkSummary.missing > 0 && <> · {checkSummary.missing} not recorded</>}
+                {checkSummary.lastRecorded && (
+                  <> · last status <span className="font-medium uppercase">{checkSummary.lastRecorded}</span></>
+                )}
+              </p>
+            )}
+          </>
+        ) : (
+          <div
+            className="grid gap-0.5 items-end"
+            style={{ gridTemplateColumns: `repeat(${displayRuns.length}, minmax(0, 1fr))` }}
+          >
+            {displayRuns.map(run => (
+              <SparklineBar key={run.id} run={run} maxTotal={maxTotal} />
+            ))}
+          </div>
+        )}
         <div className="flex justify-between mt-1">
           <span className="text-xs text-gray-400">
             {new Date(displayRuns[0]?.generatedAt ?? "").toLocaleDateString([], { month: "short", day: "numeric" })}

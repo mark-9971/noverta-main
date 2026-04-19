@@ -1188,9 +1188,13 @@ router.get("/support/demo-readiness", async (_req: Request, res: Response) => {
 /**
  * GET /api/support/demo-readiness/history?limit=50
  * Returns the last N demo-readiness check runs (most-recent first).
- * Each row contains the timestamp and pass/warn/fail summary counts.
- * The per-check detail is omitted here to keep payloads small — the
- * UI only needs the summary for the sparkline.
+ * Each row contains the timestamp, pass/warn/fail summary counts, and a
+ * trimmed per-check status array `{id, label, status}` so the UI can render
+ * a per-check sparkline and let SEs drill into a single check's history
+ * (e.g. "has the SIS worker been flapping all morning?"). The full message/
+ * remediation strings are intentionally omitted here to keep payloads small
+ * — they're only needed for the *current* run, which the main endpoint
+ * returns separately.
  */
 router.get("/support/demo-readiness/history", async (req: Request, res: Response) => {
   const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 50));
@@ -1203,17 +1207,33 @@ router.get("/support/demo-readiness/history", async (req: Request, res: Response
         warn: demoReadinessRunsTable.warn,
         fail: demoReadinessRunsTable.fail,
         total: demoReadinessRunsTable.total,
+        checks: demoReadinessRunsTable.checks,
       })
       .from(demoReadinessRunsTable)
       .orderBy(desc(demoReadinessRunsTable.generatedAt))
       .limit(limit);
 
+    type StoredCheck = { id?: unknown; label?: unknown; status?: unknown };
+    const isStatus = (s: unknown): s is "pass" | "warn" | "fail" =>
+      s === "pass" || s === "warn" || s === "fail";
+
     res.json({
-      runs: rows.map(r => ({
-        id: r.id,
-        generatedAt: r.generatedAt,
-        summary: { pass: r.pass, warn: r.warn, fail: r.fail, total: r.total },
-      })),
+      runs: rows.map(r => {
+        const rawChecks = Array.isArray(r.checks) ? (r.checks as StoredCheck[]) : [];
+        const checks = rawChecks
+          .filter(c => typeof c?.id === "string" && isStatus(c?.status))
+          .map(c => ({
+            id: c.id as string,
+            label: typeof c.label === "string" ? (c.label as string) : (c.id as string),
+            status: c.status as "pass" | "warn" | "fail",
+          }));
+        return {
+          id: r.id,
+          generatedAt: r.generatedAt,
+          summary: { pass: r.pass, warn: r.warn, fail: r.fail, total: r.total },
+          checks,
+        };
+      }),
     });
   } catch (err) {
     console.error("[Support] demo-readiness history error:", err);
