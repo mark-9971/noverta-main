@@ -330,6 +330,23 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
     ? sql`AND g.student_id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${enforcedStaffId})`
     : sql``;
 
+  // Goal mastery rate is computed PER GOAL relative to where that goal's
+  // student is in their IEP year, not as a flat "is the latest rating
+  // mastered/sufficient" bucket. Logic:
+  //
+  //   progress_fraction (0..1) = numeric mapping of latest progress rating
+  //   time_fraction (0..1)     = (today - iep_start) / (iep_end - iep_start)
+  //                              clamped to [0,1], joined via iep_documents
+  //
+  //   on_pace = TRUE when rating is "mastered", OR
+  //             progress_fraction >= time_fraction, OR
+  //             time_fraction is NULL and rating is "sufficient/mastered"
+  //
+  // Example (user spec): a goal at 50% progress whose student is only 25%
+  // through the IEP year is "ahead of schedule" → counts as on pace.
+  //
+  // Rating mapping handles both canonical machine codes and the human-readable
+  // variants emitted by older progress-report seeds.
   const [result, breakdownResult] = await Promise.all([
     db.execute(sql`
       WITH latest_ratings AS (
@@ -340,17 +357,52 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
              LATERAL jsonb_array_elements(pr.goal_progress) AS entry
         WHERE jsonb_array_length(pr.goal_progress) > 0
         ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
+      ),
+      goal_pace AS (
+        SELECT
+          g.id              AS goal_id,
+          g.service_area    AS service_area,
+          lr.rating         AS rating,
+          CASE lr.rating
+            WHEN 'mastered'                            THEN 1.00
+            WHEN 'Mastered / Goal met'                 THEN 1.00
+            WHEN 'sufficient_progress'                 THEN 0.75
+            WHEN 'Sufficient progress to achieve goal' THEN 0.75
+            WHEN 'some_progress'                       THEN 0.50
+            WHEN 'Progressing toward goal'             THEN 0.50
+            WHEN 'minimal_progress'                    THEN 0.20
+            WHEN 'insufficient_progress'               THEN 0.10
+            WHEN 'Insufficient progress at this time'  THEN 0.10
+            ELSE 0.00
+          END               AS progress_fraction,
+          CASE
+            WHEN d.iep_start_date IS NULL OR d.iep_end_date IS NULL THEN NULL
+            WHEN d.iep_end_date::date <= d.iep_start_date::date THEN NULL
+            ELSE LEAST(1.0, GREATEST(0.0,
+              (CURRENT_DATE - d.iep_start_date::date)::numeric
+              / NULLIF((d.iep_end_date::date - d.iep_start_date::date), 0)::numeric
+            ))
+          END               AS time_fraction
+        FROM iep_goals g
+        LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
+        LEFT JOIN iep_documents d   ON d.id = g.iep_document_id
+        WHERE g.active = true
+          AND g.status = 'active'
+          ${schoolFilter}
+          ${staffFilter}
       )
       SELECT
-        COUNT(g.id)                                                                           AS total_goals,
-        COUNT(lr.goal_id)                                                                     AS rated_goals,
-        COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress'))     AS on_track_goals
-      FROM iep_goals g
-      LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
-      WHERE g.active = true
-        AND g.status = 'active'
-        ${schoolFilter}
-        ${staffFilter}
+        COUNT(*)                                                              AS total_goals,
+        COUNT(rating)                                                         AS rated_goals,
+        COUNT(*) FILTER (
+          WHERE rating IN ('mastered', 'Mastered / Goal met')
+             OR (time_fraction IS NULL
+                 AND rating IN ('sufficient_progress',
+                                'Sufficient progress to achieve goal'))
+             OR (time_fraction IS NOT NULL
+                 AND progress_fraction >= time_fraction)
+        )                                                                     AS on_track_goals
+      FROM goal_pace
     `),
     db.execute(sql`
       WITH latest_ratings AS (
@@ -361,18 +413,53 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
              LATERAL jsonb_array_elements(pr.goal_progress) AS entry
         WHERE jsonb_array_length(pr.goal_progress) > 0
         ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
+      ),
+      goal_pace AS (
+        SELECT
+          g.id              AS goal_id,
+          COALESCE(NULLIF(TRIM(g.service_area), ''), 'Unspecified') AS service_area,
+          lr.rating         AS rating,
+          CASE lr.rating
+            WHEN 'mastered'                            THEN 1.00
+            WHEN 'Mastered / Goal met'                 THEN 1.00
+            WHEN 'sufficient_progress'                 THEN 0.75
+            WHEN 'Sufficient progress to achieve goal' THEN 0.75
+            WHEN 'some_progress'                       THEN 0.50
+            WHEN 'Progressing toward goal'             THEN 0.50
+            WHEN 'minimal_progress'                    THEN 0.20
+            WHEN 'insufficient_progress'               THEN 0.10
+            WHEN 'Insufficient progress at this time'  THEN 0.10
+            ELSE 0.00
+          END               AS progress_fraction,
+          CASE
+            WHEN d.iep_start_date IS NULL OR d.iep_end_date IS NULL THEN NULL
+            WHEN d.iep_end_date::date <= d.iep_start_date::date THEN NULL
+            ELSE LEAST(1.0, GREATEST(0.0,
+              (CURRENT_DATE - d.iep_start_date::date)::numeric
+              / NULLIF((d.iep_end_date::date - d.iep_start_date::date), 0)::numeric
+            ))
+          END               AS time_fraction
+        FROM iep_goals g
+        LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
+        LEFT JOIN iep_documents d   ON d.id = g.iep_document_id
+        WHERE g.active = true
+          AND g.status = 'active'
+          ${schoolFilter}
+          ${staffFilter}
       )
       SELECT
-        COALESCE(NULLIF(TRIM(g.service_area), ''), 'Unspecified') AS service_area,
-        COUNT(g.id)                                                                             AS total_goals,
-        COUNT(lr.goal_id)                                                                       AS rated_goals,
-        COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress'))       AS on_track_goals
-      FROM iep_goals g
-      LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
-      WHERE g.active = true
-        AND g.status = 'active'
-        ${schoolFilter}
-        ${staffFilter}
+        service_area,
+        COUNT(*)                                                              AS total_goals,
+        COUNT(rating)                                                         AS rated_goals,
+        COUNT(*) FILTER (
+          WHERE rating IN ('mastered', 'Mastered / Goal met')
+             OR (time_fraction IS NULL
+                 AND rating IN ('sufficient_progress',
+                                'Sufficient progress to achieve goal'))
+             OR (time_fraction IS NOT NULL
+                 AND progress_fraction >= time_fraction)
+        )                                                                     AS on_track_goals
+      FROM goal_pace
       GROUP BY service_area
       ORDER BY service_area
     `),
