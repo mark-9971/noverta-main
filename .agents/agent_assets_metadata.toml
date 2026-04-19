@@ -119,3 +119,9 @@ id = "NUFQJva0D1hxYaVsrl0ga"
 uri = "file://.local/trellis-page-audit.txt"
 type = "text"
 title = "Trellis — Full Product & Page Audit"
+
+[[outputs]]
+id = "WczndQE4Jc0TvNQTL-7w-"
+uri = "file://.local/exports/phase-2c-audit.txt"
+type = "text"
+title = "Phase 2C — Pilot/Demo Story Audit"
