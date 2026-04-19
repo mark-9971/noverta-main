@@ -1,0 +1,64 @@
+Phase 2B cleanup: remove the duplicate “Log Session” label confusion on student detail.
+
+Goal:
+The student-detail page now has a new header-level “Log Session” quick-log CTA for hands-on roles. A pre-existing button inside StudentSnapshot also says “Log Session,” but it performs a different action (navigates to the Sessions list). This creates confusing duplicate labels on the same page.
+
+This pass should remove that confusion with the smallest safe UI change.
+
+Preferred fix:
+Rename the older StudentSnapshot button to something more accurate, such as:
+
+* “Open Sessions”
+    or
+* “View Sessions”
+
+Do not change the new header quick-log CTA.
+Do not build new behavior unless renaming alone is not viable.
+
+Why this matters:
+This is a small but obvious UX inconsistency that can create confusion in demos and daily use. It should be cleaned up before moving into Phase 2C.
+
+Hard constraints:
+
+* Smallest safe change only
+* No API changes
+* No schema changes
+* No route changes
+* Do not alter the new header quick-log CTA behavior
+* Prefer relabeling over rewiring shared behavior
+* Preserve out-of-scope role workflows as much as possible
+
+What to do:
+
+1. Inspect the student-detail summary area and the shared StudentSnapshot component
+2. Find the older “Log Session” button that routes to /sessions?...
+3. Rename it to a more accurate label
+4. Ensure the new header-level “Log Session” button remains the primary quick-log action for hands-on roles
+5. Keep the navigation behavior of the older button unchanged unless absolutely necessary
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. where the duplicate “Log Session” labels currently appear
+3. exact label change proposed
+4. whether the old button is shared outside student-detail
+5. biggest regression risks
+6. anything intentionally out of scope
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact label change made
+3. whether button behavior changed or stayed the same
+4. where the updated label now appears
+5. validation performed
+6. known issues still remaining
+7. blunt verdict
+8. copy-pasteable commit message
+
+Important rules:
+
+* Prefer a text/label cleanup over behavioral rewiring
+* Do not broaden this into a larger student-detail redesign
+* Do not claim success unless the duplicate-label confusion is actually resolved
+    :::
