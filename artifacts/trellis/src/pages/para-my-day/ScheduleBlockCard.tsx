@@ -1,6 +1,7 @@
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, Play, Pencil, XCircle } from "lucide-react";
+import { ArrowLeftRight, Clock, MapPin, Play, Pencil, XCircle } from "lucide-react";
 import type { ScheduleBlock, QuickLogPrefill } from "./types";
 import { formatTime, isCurrentBlock, isUpcoming } from "./constants";
 
@@ -134,6 +135,16 @@ export function ScheduleBlockCard({
             </button>
           </div>
         )}
+
+        <div className="mt-2 flex justify-end">
+          <Link
+            href="/my-schedule"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-gray-600"
+          >
+            <ArrowLeftRight className="w-3 h-3" />
+            Request change
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

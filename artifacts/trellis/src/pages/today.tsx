@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   Calendar, Clock, AlertTriangle, ClipboardList, CheckCircle2,
-  Users, Timer, ArrowRight, MapPin, AlertCircle,
+  Users, Timer, ArrowRight, MapPin, AlertCircle, ArrowLeftRight,
 } from "lucide-react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
@@ -403,7 +403,7 @@ export default function TodayPage() {
           <CardTitle className="text-[13px] font-semibold text-gray-700 flex items-center gap-2">
             <Clock className="w-4 h-4 text-emerald-500" /> Today&apos;s Schedule
           </CardTitle>
-          <Link href="/schedule">
+          <Link href={isSupervisor && viewedStaffId !== teacherId ? "/schedule" : "/my-schedule"}>
             <Button variant="ghost" size="sm" className="h-7 text-[11px] text-gray-400">
               Full schedule <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
@@ -469,6 +469,18 @@ export default function TodayPage() {
                       <Link href={`/sessions?studentId=${b.studentId}&date=${today.date}`}>
                         <Button size="sm" variant="ghost" className="h-7 text-[11px] text-emerald-600">
                           View
+                        </Button>
+                      </Link>
+                    )}
+                    {!isSupervisor && (
+                      <Link href="/my-schedule">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-[11px] text-gray-400 hover:text-gray-600"
+                          title="Request a change to this block"
+                        >
+                          <ArrowLeftRight className="w-3 h-3" />
                         </Button>
                       </Link>
                     )}

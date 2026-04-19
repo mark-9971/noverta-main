@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, ChevronRight, AlertTriangle, Shield, ChevronDown, CheckCircle2, Users } from "lucide-react";
+import { CalendarDays, Clock, ChevronRight, AlertTriangle, Shield, ChevronDown, CheckCircle2, Users } from "lucide-react";
 import type { ScheduleBlock, AssignedBip, StaffAlert, QuickLogPrefill } from "./types";
 import { isCurrentBlock, isUpcoming } from "./constants";
 import { AlertsBanner } from "./AlertsBanner";
@@ -216,16 +217,31 @@ export function AgendaView({
            nothing to show — explain why instead of looking broken. */
         <RoleFirstRunCard role="para" />
       ) : (
-        <div className="space-y-3">
-          {blocks.map(block => (
-            <ScheduleBlockCard
-              key={block.id}
-              block={block}
-              onStart={onStartSession}
-              onQuickLog={onQuickLog}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide">
+              Today&apos;s Schedule
+            </p>
+            <Link
+              href="/my-schedule"
+              className="flex items-center gap-1 text-[12px] font-medium text-emerald-700 hover:text-emerald-800"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              Full week
+              <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {blocks.map(block => (
+              <ScheduleBlockCard
+                key={block.id}
+                block={block}
+                onStart={onStartSession}
+                onQuickLog={onQuickLog}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
