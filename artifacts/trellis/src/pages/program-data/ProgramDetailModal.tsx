@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { X, Save, Settings2, BookOpen, Plus, Clock, RefreshCw, CheckCircle2, AlertTriangle, CalendarDays, TrendingDown } from "lucide-react";
 import { listProgramSteps, updateProgramTarget, createProgramStep, listProgramTargetPhaseHistory, type ProgramTargetPhaseHistoryItem } from "@workspace/api-client-react";
 import { ProgramTarget, ProgramStep, ProgramPhase, PROGRAM_PHASES, PHASE_CONFIG, PROMPT_LABELS, REINFORCEMENT_SCHEDULES } from "./constants";
+import { IndependenceRateChart } from "./IndependenceRateChart";
 
 const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -357,6 +358,15 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
                   </p>
                 </div>
               </div>
+
+              {program.phase !== "mastered" && (
+                <div className="border border-violet-100 rounded-xl p-4 bg-violet-50/30">
+                  <IndependenceRateChart
+                    targetId={program.id}
+                    masteryCriterionPercent={program.masteryCriterionPercent ?? 80}
+                  />
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center gap-1.5 mb-2">

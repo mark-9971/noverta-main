@@ -300,4 +300,74 @@ router.get("/program-targets/:id/prompt-history", async (req, res): Promise<void
   }
 });
 
+/* ─────────────────────────────────────────────────────────────
+ * GET /api/program-targets/:id/independence-rate
+ *
+ * Returns per-session independence rate for a single program target,
+ * computed from program_data.prompted (0 = not prompted / independent,
+ * >0 = prompted). This is the primary clinical fading signal because
+ * `promptLevelUsed` is often seeded as "independent" uniformly.
+ *
+ * Shape:
+ *   { sessions: SessionRate[], targetId: number }
+ *   SessionRate: { sessionDate, trialsTotal, independentTrials, independenceRate (0-100 int) }
+ * ───────────────────────────────────────────────────────────── */
+router.get("/program-targets/:id/independence-rate", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.id as string, 10);
+    if (isNaN(targetId)) { res.status(400).json({ error: "Invalid target id" }); return; }
+
+    const rows = await db
+      .select({
+        sessionDate: dataSessionsTable.sessionDate,
+        trialsTotal: sql<number>`cast(sum(${programDataTable.trialsTotal}) as int)`,
+        independentTrials: sql<number>`cast(sum(case when ${programDataTable.prompted} = 0 then ${programDataTable.trialsTotal} else 0 end) as int)`,
+      })
+      .from(programDataTable)
+      .innerJoin(dataSessionsTable, eq(dataSessionsTable.id, programDataTable.dataSessionId))
+      .where(
+        and(
+          eq(programDataTable.programTargetId, targetId),
+          sql`${programDataTable.trialsTotal} > 0`,
+        )
+      )
+      .groupBy(dataSessionsTable.sessionDate)
+      .orderBy(asc(dataSessionsTable.sessionDate));
+
+    const sessions = rows
+      .filter(r => (r.trialsTotal ?? 0) > 0)
+      .map(r => ({
+        sessionDate: r.sessionDate,
+        trialsTotal: r.trialsTotal ?? 0,
+        independentTrials: r.independentTrials ?? 0,
+        independenceRate: Math.round(100 * (r.independentTrials ?? 0) / (r.trialsTotal ?? 1)),
+      }));
+
+    // Classify trend: compare avg of first-half vs second-half independence rates
+    let trend: "improving" | "stable" | "regressing" | "insufficient_data" = "insufficient_data";
+    if (sessions.length >= 4) {
+      const half = Math.floor(sessions.length / 2);
+      const firstAvg = sessions.slice(0, half).reduce((s, r) => s + r.independenceRate, 0) / half;
+      const lastAvg = sessions.slice(sessions.length - half).reduce((s, r) => s + r.independenceRate, 0) / half;
+      const delta = lastAvg - firstAvg;
+      trend = delta >= 8 ? "improving" : delta <= -8 ? "regressing" : "stable";
+    } else if (sessions.length >= 2) {
+      const first = sessions[0].independenceRate;
+      const last = sessions[sessions.length - 1].independenceRate;
+      trend = last - first >= 10 ? "improving" : last - first <= -10 ? "regressing" : "stable";
+    }
+
+    // Last 3-session rolling average
+    const last3 = sessions.slice(-3);
+    const recentAvg = last3.length > 0
+      ? Math.round(last3.reduce((s, r) => s + r.independenceRate, 0) / last3.length)
+      : null;
+
+    res.json({ sessions, targetId, trend, recentAvg });
+  } catch (e: any) {
+    console.error("GET independence-rate error:", e);
+    res.status(500).json({ error: "Failed to fetch independence rate data" });
+  }
+});
+
 export default router;
