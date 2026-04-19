@@ -134,7 +134,19 @@ router.post("/sessions", async (req, res): Promise<void> => {
 
     // Resolve active school year — schoolYearId is not in the zod schema so we merge it here
     const activeYearId = await getActiveSchoolYearIdForStudent(parsed.data.studentId);
-    const sessionInsert = { ...parsed.data, schoolYearId: activeYearId ?? null };
+
+    // If serviceTypeId was not sent but serviceRequirementId was, back-fill it
+    // so the service column always shows in the sessions list.
+    let resolvedServiceTypeId = parsed.data.serviceTypeId ?? null;
+    if (resolvedServiceTypeId == null && parsed.data.serviceRequirementId) {
+      const result = await db.execute(
+        sql`SELECT service_type_id FROM service_requirements WHERE id = ${parsed.data.serviceRequirementId} LIMIT 1`
+      );
+      const row = result.rows[0] as { service_type_id: number | null } | undefined;
+      resolvedServiceTypeId = row?.service_type_id ?? null;
+    }
+
+    const sessionInsert = { ...parsed.data, schoolYearId: activeYearId ?? null, serviceTypeId: resolvedServiceTypeId };
 
     let goalData: GoalEntry[] = [];
     if (rawGoalData && Array.isArray(rawGoalData) && rawGoalData.length > 0) {
