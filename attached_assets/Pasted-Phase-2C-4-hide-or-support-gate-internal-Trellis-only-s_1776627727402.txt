@@ -1,0 +1,88 @@
+Phase 2C-4: hide or support-gate internal / Trellis-only surfaces from customer-facing roles.
+
+Goal:
+Now that the core role navs and home surfaces are cleaner, remove remaining customer-facing exposure to internal, support-only, pilot-ops, debug, and Trellis-only pages. These routes can remain reachable, but they should not appear in navs or obvious customer-facing entry points for normal demo roles.
+
+Why this matters:
+A clean demo is not just about what is emphasized. It is also about what users cannot accidentally see. Internal pilot tooling, support/debug pages, and Trellis-ops surfaces make the product feel unfinished or operationally messy if they leak into customer-facing shells.
+
+Hard constraints:
+
+* Visibility / IA cleanup only
+* No route deletions
+* No backend changes
+* No API changes
+* No schema changes
+* No auth/capability rewrite
+* Keep routes reachable by direct URL if the app still depends on them
+* Prefer nav/entry-point cleanup and support-role gating over invasive refactors
+
+What to do:
+
+1. Audit all navs and obvious customer-facing entry points for links to:
+
+   * pilot/internal ops pages
+   * support/debug pages
+   * audit/health pages
+   * internal demo-readiness pages
+   * tenants / support-session / internal admin surfaces
+   * billing / pricing / upgrade pages that do not belong in the pilot story
+2. Remove those from customer-facing navs and obvious entry points
+3. Where there is already an internal/support role pattern, keep those surfaces visible only there
+4. Preserve routes and internal reachability unless removing a route from UI exposure is trivial and clearly safe
+
+Files likely relevant:
+
+* `artifacts/trellis/src/components/layout/nav-config.ts`
+* possibly a small number of obvious dashboard/landing entry-point files if they surface internal links
+* any role-based nav helper already used for support/admin-only surfaces
+
+Roles to protect from exposure:
+
+* admin
+* coordinator
+* case_manager
+* sped_teacher
+* bcba
+* provider
+* direct_provider
+* para
+* sped_parent
+* sped_student
+
+Internal/support-facing roles may keep access if already designed that way:
+
+* `trellis_support`
+* any clearly internal admin/support shell if present
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. which internal/support/pilot pages are still visibly exposed and where
+3. which roles currently see them
+4. exact cleanup planned
+5. whether any support/internal role will remain the holder of those links
+6. biggest regression risks
+7. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. which customer-facing exposures were removed
+3. which roles are now protected from seeing them
+4. which internal/support roles still retain access
+5. whether any routes were left reachable but hidden
+6. validation performed
+7. known issues still remaining
+8. blunt verdict
+9. copy-pasteable commit message
+
+Acceptance:
+
+* customer-facing roles no longer see internal/pilot/support/debug surfaces in nav or obvious entry points
+* internal/support roles still retain needed access where applicable
+* no routes are broken
+* no backend/auth/schema changes
+* typecheck remains clean aside from known unrelated warnings
