@@ -33,6 +33,8 @@ import { MetricCard } from "./MetricCard";
 import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAlertsWidget";
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
+import { GoalMasteryBreakdownCard } from "@/components/dashboard/GoalMasteryBreakdownCard";
+import type { ServiceAreaMastery } from "@/components/dashboard/GoalMasteryBreakdownCard";
 
 interface HealthScoreTrend {
   available: boolean;
@@ -216,11 +218,17 @@ export default function PilotAdminHome() {
     staleTime: 60_000,
   });
 
-  const { data: goalMasteryData } = useQuery<{ totalActiveGoals: number; ratedGoals: number; onTrackOrMasteredGoals: number; masteryRate: number | null }>({
+  const { data: goalMasteryData } = useQuery<{
+    totalActiveGoals: number;
+    ratedGoals: number;
+    masteryRate: number | null;
+    byServiceArea?: ServiceAreaMastery[];
+  }>({
     queryKey: ["goal-mastery-rate", filterParams],
-    queryFn: () => {
-      const p = new URLSearchParams(filterParams);
-      return authFetch(`/api/dashboard/goal-mastery-rate?${p.toString()}`).then(r => r.ok ? r.json() : null);
+    queryFn: async () => {
+      const r = await authFetch(`/api/dashboard/goal-mastery-rate${params}`);
+      if (!r.ok) return null;
+      return r.json();
     },
     staleTime: 60_000,
   });
@@ -718,6 +726,11 @@ export default function PilotAdminHome() {
             </Link>
           </div>
         </section>
+      )}
+
+      {/* Goal mastery by service area — shows which service types are struggling */}
+      {goalMasteryData?.byServiceArea && goalMasteryData.byServiceArea.length > 0 && (
+        <GoalMasteryBreakdownCard breakdown={goalMasteryData.byServiceArea} />
       )}
 
       {/* Provider activation nudge stat — small read-out of how many providers

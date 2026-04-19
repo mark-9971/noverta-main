@@ -8,6 +8,8 @@ import type { RiskOverview, AlertsSummary, ComplianceByService, Alert } from "@w
 import type { DashboardSummaryExtended, ProviderCaseloadSummary } from "./types";
 import { MetricCard } from "./MetricCard";
 import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
+import { GoalMasteryBreakdownCard } from "@/components/dashboard/GoalMasteryBreakdownCard";
+import type { ServiceAreaMastery } from "@/components/dashboard/GoalMasteryBreakdownCard";
 import {
   AccommodationComplianceCard, EvaluationTimelineRiskCard, TransitionsSection,
   MeetingsSection, ContractRenewalsCard, DeadlinesSection, IepExpirationCard,
@@ -92,6 +94,7 @@ export interface DashboardTabsProps {
   deadlines: DeadlineItem[];
   goalMasteryRate: number | null;
   goalMasterySubtitle?: string;
+  goalMasteryBreakdown?: ServiceAreaMastery[];
   evalTimelineRisk: EvalTimelineRisk | null;
 }
 
@@ -99,7 +102,7 @@ export function DashboardTabs({
   isAdmin, myCaseload, hasTrackedData, onTrackPct, complianceSubtitle,
   s, ro, alerts, recent, riskPieData, trendData, serviceData,
   transitionDash, meetingDash, accommodationCompliance, deadlines,
-  goalMasteryRate, goalMasterySubtitle,
+  goalMasteryRate, goalMasterySubtitle, goalMasteryBreakdown,
   evalTimelineRisk,
 }: DashboardTabsProps) {
   const quickActions = [
@@ -230,6 +233,21 @@ export function DashboardTabs({
             href="/progress-reports"
           />
         </div>
+
+        {/* Goal mastery by service area — compact breakdown beneath the top-line card.
+            On small screens, the summary toggle is visible so it can be collapsed.
+            On sm+ the summary is hidden (sm:hidden) and details stays open — always visible. */}
+        {goalMasteryBreakdown && goalMasteryBreakdown.length > 0 && (
+          <details className="group" open>
+            <summary className="list-none cursor-pointer sm:hidden flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2 select-none">
+              <Target className="w-3.5 h-3.5 text-gray-400" />
+              <span>Goal mastery by service area</span>
+              <span className="ml-auto text-[10px] text-gray-400 group-open:hidden">Show</span>
+              <span className="ml-auto text-[10px] text-gray-400 hidden group-open:inline">Hide</span>
+            </summary>
+            <GoalMasteryBreakdownCard breakdown={goalMasteryBreakdown} />
+          </details>
+        )}
 
         {/* District comparison — platform-admin only, self-hides when <2 districts */}
         <DistrictComparisonCard />

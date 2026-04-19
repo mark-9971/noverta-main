@@ -330,27 +330,53 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
     ? sql`AND g.student_id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${enforcedStaffId})`
     : sql``;
 
-  const result = await db.execute(sql`
-    WITH latest_ratings AS (
-      SELECT DISTINCT ON ((entry->>'iepGoalId')::int)
-        (entry->>'iepGoalId')::int AS goal_id,
-        entry->>'progressRating'   AS rating
-      FROM progress_reports pr,
-           LATERAL jsonb_array_elements(pr.goal_progress) AS entry
-      WHERE jsonb_array_length(pr.goal_progress) > 0
-      ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
-    )
-    SELECT
-      COUNT(g.id)                                                                           AS total_goals,
-      COUNT(lr.goal_id)                                                                     AS rated_goals,
-      COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress'))     AS on_track_goals
-    FROM iep_goals g
-    LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
-    WHERE g.active = true
-      AND g.status = 'active'
-      ${schoolFilter}
-      ${staffFilter}
-  `);
+  const [result, breakdownResult] = await Promise.all([
+    db.execute(sql`
+      WITH latest_ratings AS (
+        SELECT DISTINCT ON ((entry->>'iepGoalId')::int)
+          (entry->>'iepGoalId')::int AS goal_id,
+          entry->>'progressRating'   AS rating
+        FROM progress_reports pr,
+             LATERAL jsonb_array_elements(pr.goal_progress) AS entry
+        WHERE jsonb_array_length(pr.goal_progress) > 0
+        ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
+      )
+      SELECT
+        COUNT(g.id)                                                                           AS total_goals,
+        COUNT(lr.goal_id)                                                                     AS rated_goals,
+        COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress'))     AS on_track_goals
+      FROM iep_goals g
+      LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
+      WHERE g.active = true
+        AND g.status = 'active'
+        ${schoolFilter}
+        ${staffFilter}
+    `),
+    db.execute(sql`
+      WITH latest_ratings AS (
+        SELECT DISTINCT ON ((entry->>'iepGoalId')::int)
+          (entry->>'iepGoalId')::int AS goal_id,
+          entry->>'progressRating'   AS rating
+        FROM progress_reports pr,
+             LATERAL jsonb_array_elements(pr.goal_progress) AS entry
+        WHERE jsonb_array_length(pr.goal_progress) > 0
+        ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
+      )
+      SELECT
+        COALESCE(NULLIF(TRIM(g.service_area), ''), 'Unspecified') AS service_area,
+        COUNT(g.id)                                                                             AS total_goals,
+        COUNT(lr.goal_id)                                                                       AS rated_goals,
+        COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress'))       AS on_track_goals
+      FROM iep_goals g
+      LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
+      WHERE g.active = true
+        AND g.status = 'active'
+        ${schoolFilter}
+        ${staffFilter}
+      GROUP BY service_area
+      ORDER BY service_area
+    `),
+  ]);
 
   const row = result.rows[0] as Record<string, unknown>;
   const totalGoals = Number(row?.total_goals ?? 0);
@@ -360,11 +386,24 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
   // Null only when there are no active goals at all.
   const masteryRate = totalGoals > 0 ? Math.round((onTrackGoals / totalGoals) * 100) : null;
 
+  const byServiceArea = (breakdownResult.rows as Record<string, unknown>[]).map(r => {
+    const total = Number(r.total_goals ?? 0);
+    const onTrack = Number(r.on_track_goals ?? 0);
+    return {
+      serviceArea: String(r.service_area ?? "Unspecified"),
+      totalGoals: total,
+      ratedGoals: Number(r.rated_goals ?? 0),
+      onTrackGoals: onTrack,
+      masteryRate: total > 0 ? Math.round((onTrack / total) * 100) : null,
+    };
+  });
+
   res.json({
     totalActiveGoals: totalGoals,
     ratedGoals,
     onTrackOrMasteredGoals: onTrackGoals,
     masteryRate,
+    byServiceArea,
   });
 });
 

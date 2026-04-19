@@ -76,7 +76,13 @@ function DashboardFull() {
     staleTime: 120_000,
   });
 
-  const { data: goalMasteryData } = useQuery<{ totalActiveGoals: number; ratedGoals: number; onTrackOrMasteredGoals: number; masteryRate: number | null }>({
+  const { data: goalMasteryData } = useQuery<{
+    totalActiveGoals: number;
+    ratedGoals: number;
+    onTrackOrMasteredGoals: number;
+    masteryRate: number | null;
+    byServiceArea?: { serviceArea: string; totalGoals: number; ratedGoals: number; onTrackGoals: number; masteryRate: number | null }[];
+  }>({
     queryKey: ["goal-mastery-rate", filterParams],
     queryFn: () => {
       const params = new URLSearchParams(filterParams);
@@ -200,6 +206,7 @@ function DashboardFull() {
               ? "No ratings recorded yet"
               : undefined
         }
+        goalMasteryBreakdown={goalMasteryData?.byServiceArea}
         evalTimelineRisk={evalTimelineRisk ?? null}
       />
     </div>
