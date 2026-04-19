@@ -1,0 +1,81 @@
+next
+
+:::writing{variant=“standard” id=“62418”}
+Phase 2B Task DP1: make /my-day feel correct for provider and direct_provider.
+
+Goal:
+provider now correctly lands on /my-day, but /my-day is still implemented as a para-shaped page and includes behavior/BIP-oriented panels that are not appropriate for most provider and direct_provider workflows. Adjust the page so it remains useful for para, while feeling correctly session-oriented for provider and direct_provider.
+
+Why this matters:
+The structural provider-nav fix is done. This task finishes the landing-page shaping so provider/direct_provider do not land on a para-flavored home.
+
+Hard constraints:
+
+* Low-risk UI/workflow change only
+* No route changes
+* No API changes
+* No schema changes
+* Do not redesign the whole page
+* Do not change para behavior unless necessary to preserve existing behavior
+* Do not touch unrelated roles
+
+Scope:
+Audit the current /my-day implementation and identify which panels/sections are:
+
+* para-specific
+* behavior/BIP-specific
+* not appropriate for provider or direct_provider
+
+Then implement a role-shaped rendering rule so:
+
+* para keeps the current full experience
+* provider and direct_provider keep the session-oriented daily workflow
+* provider and direct_provider do not see para-specific behavior/BIP panels that make the page feel miscategorized
+
+Keep visible for provider/direct_provider if already present and useful:
+
+* daily agenda / assigned sessions
+* active session state
+* quick log entry point
+* missed-session flow
+* anything clearly tied to session execution/logging
+
+Hide for provider/direct_provider if present:
+
+* assigned-BIP panels
+* behavior-trial collection panels
+* para-only behavior-program widgets
+* any section that assumes classroom/behavior-support staff workflow rather than clinician session workflow
+
+Files likely relevant:
+
+* artifacts/trellis/src/pages/my-day.tsx
+* artifacts/trellis/src/pages/para-my-day.tsx if that is the actual implementation path
+* any small helper/component files directly imported by that page
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. current /my-day sections for para
+3. which sections you believe should be hidden for provider/direct_provider
+4. exact role-based rendering logic you plan to add
+5. biggest regression risks
+6. anything intentionally out of scope
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact /my-day behavior for para after change
+3. exact /my-day behavior for provider after change
+4. exact /my-day behavior for direct_provider after change
+5. validation performed
+6. known issues still remaining
+7. blunt verdict
+8. copy-pasteable commit message
+
+Important rules:
+
+* Preserve para workflow
+* Prefer a small conditional-rendering change over any big refactor
+* Do not claim success unless you validated the role-specific behavior
+    :::
