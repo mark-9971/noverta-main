@@ -12,8 +12,9 @@ import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
   Printer, ArrowRight, CheckCircle, FileBarChart, ShieldCheck, ShieldAlert, ExternalLink, Share2, Copy, Check,
-  FileText, Loader2, Mail, CalendarPlus,
+  FileText, Loader2, Mail, CalendarPlus, Settings as SettingsIcon,
 } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -1119,6 +1120,44 @@ function ServiceMinutesContent() {
   );
 }
 
+function ComplianceThresholdPill() {
+  const { data } = useQuery<{ complianceMinuteThreshold?: number }[]>({
+    queryKey: ["districts"],
+    queryFn: async () => {
+      const r = await authFetch("/api/districts");
+      if (!r.ok) throw new Error("Failed to fetch district");
+      return r.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const threshold = data?.[0]?.complianceMinuteThreshold;
+  if (typeof threshold !== "number") return null;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-medium hover:bg-emerald-100 transition-colors"
+            data-testid="compliance-threshold-pill"
+          >
+            <SettingsIcon className="h-3 w-3" />
+            Threshold: {threshold}%
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <p className="text-xs leading-snug">
+            Students must receive at least <strong>{threshold}%</strong> of their required service minutes to be considered on track. This drives the on-track / at-risk labels across compliance views.
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1">Click to change in Settings.</p>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  );
+}
+
 function ShareSnapshotButton() {
   const { toast } = useToast();
   const [state, setState] = useState<"idle" | "loading" | "copied">("idle");
@@ -1165,16 +1204,19 @@ export default function CompliancePage() {
           <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Compliance & Service Delivery</h1>
           <p className="text-xs md:text-sm text-gray-400 mt-1">Required vs. delivered minutes · shortfall tracking · compensatory exposure</p>
         </div>
-        {activeTab === "minutes" && (
-          <div className="flex items-center gap-2">
-            <ShareSnapshotButton />
-            <Link href="/weekly-compliance-summary">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                <Printer className="w-3.5 h-3.5" /> Weekly Summary
-              </Button>
-            </Link>
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTab !== "risk-report" && <ComplianceThresholdPill />}
+          {activeTab === "minutes" && (
+            <>
+              <ShareSnapshotButton />
+              <Link href="/weekly-compliance-summary">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                  <Printer className="w-3.5 h-3.5" /> Weekly Summary
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <DeseComplianceBanner />
