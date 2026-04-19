@@ -472,11 +472,12 @@ function ViewAsStartDialog({ candidate, onClose }: { candidate: ViewAsCandidate;
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [policyBlocked, setPolicyBlocked] = useState(false);
   const tooShort = reason.trim().length < 8;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tooShort || submitting) return;
+    if (tooShort || submitting || policyBlocked) return;
     setSubmitting(true); setErr(null);
     const r = await startSession({
       targetUserId: candidate.userId,
@@ -489,7 +490,11 @@ function ViewAsStartDialog({ candidate, onClose }: { candidate: ViewAsCandidate;
       },
     });
     setSubmitting(false);
-    if (!r.ok) { setErr(r.error); return; }
+    if (!r.ok) {
+      setErr(r.error);
+      if (r.policyBlocked) setPolicyBlocked(true);
+      return;
+    }
     onClose();
   };
 
@@ -532,7 +537,28 @@ function ViewAsStartDialog({ candidate, onClose }: { candidate: ViewAsCandidate;
               autoFocus
             />
           </div>
-          {err && <div className="text-xs text-red-600" data-testid="view-as-error">{err}</div>}
+          {err && (
+            policyBlocked ? (
+              <div
+                className="rounded border border-amber-300 bg-amber-50 p-3 text-xs"
+                data-testid="view-as-policy-block"
+                role="alert"
+              >
+                <div className="flex items-start gap-2">
+                  <ShieldAlert className="h-4 w-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-amber-900 mb-0.5">View-as blocked by policy</div>
+                    <div className="text-amber-800" data-testid="view-as-error">{err}</div>
+                    <div className="text-amber-700 mt-1">
+                      This restriction is contractual. Contact the customer's account owner if a temporary exception is needed.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-red-600" data-testid="view-as-error">{err}</div>
+            )
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -541,7 +567,7 @@ function ViewAsStartDialog({ candidate, onClose }: { candidate: ViewAsCandidate;
             >Cancel</button>
             <button
               type="submit"
-              disabled={tooShort || submitting}
+              disabled={tooShort || submitting || policyBlocked}
               data-testid="view-as-submit"
               className="text-sm px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 inline-flex items-center gap-1"
             >

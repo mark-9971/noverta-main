@@ -53,7 +53,7 @@ interface StartParams {
 interface ViewAsContextType {
   session: ViewAsSessionInfo | null;
   isActive: boolean;
-  startSession: (params: StartParams) => Promise<{ ok: true } | { ok: false; error: string }>;
+  startSession: (params: StartParams) => Promise<{ ok: true } | { ok: false; error: string; status?: number; policyBlocked?: boolean }>;
   endSession: () => Promise<void>;
   /** Milliseconds remaining until expiresAt; 0 if no session. Recomputes every second. */
   remainingMs: number;
@@ -151,7 +151,12 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({})) as { error?: string };
-        return { ok: false, error: body.error ?? `Failed (${r.status})` };
+        return {
+          ok: false,
+          error: body.error ?? `Failed (${r.status})`,
+          status: r.status,
+          policyBlocked: r.status === 403,
+        };
       }
       const body = await r.json() as {
         token: string; sessionId: number; startedAt: string; expiresAt: string; target: ViewAsTarget;
