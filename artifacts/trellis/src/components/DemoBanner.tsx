@@ -10,6 +10,7 @@ interface DistrictLite {
   id: number;
   name: string;
   isDemo?: boolean;
+  isPilot?: boolean;
 }
 
 interface SchoolLite {
@@ -17,7 +18,7 @@ interface SchoolLite {
   districtId?: number | null;
 }
 
-export function useActiveDemoDistrict() {
+function useActiveDistrictByFlag(flag: "isDemo" | "isPilot") {
   const { selectedDistrictId, selectedSchoolId } = useSchoolContext();
   const { data: districtData } = useListDistricts();
   const { data: schoolData } = useListSchools();
@@ -26,25 +27,26 @@ export function useActiveDemoDistrict() {
 
   return useMemo(() => {
     if (!districts.length) return null;
-    const demoDistrictsById = new Map(districts.filter(d => d.isDemo).map(d => [d.id, d]));
-    if (demoDistrictsById.size === 0) return null;
+    const matchById = new Map(districts.filter(d => d[flag]).map(d => [d.id, d]));
+    if (matchById.size === 0) return null;
 
-    // Explicit district selection wins.
-    if (selectedDistrictId) {
-      return demoDistrictsById.get(selectedDistrictId) ?? null;
-    }
-    // School selection: resolve to its district.
+    if (selectedDistrictId) return matchById.get(selectedDistrictId) ?? null;
     if (selectedSchoolId) {
       const school = schools.find(s => s.id === selectedSchoolId);
-      if (school?.districtId != null) return demoDistrictsById.get(school.districtId) ?? null;
+      if (school?.districtId != null) return matchById.get(school.districtId) ?? null;
       return null;
     }
-    // No selection: only safe to assume demo when the user's scope is a single demo district.
-    if (districts.length === 1 && districts[0].isDemo) {
-      return districts[0];
-    }
+    if (districts.length === 1 && districts[0][flag]) return districts[0];
     return null;
-  }, [districts, schools, selectedDistrictId, selectedSchoolId]);
+  }, [districts, schools, selectedDistrictId, selectedSchoolId, flag]);
+}
+
+export function useActiveDemoDistrict() {
+  return useActiveDistrictByFlag("isDemo");
+}
+
+export function useActivePilotDistrict() {
+  return useActiveDistrictByFlag("isPilot");
 }
 
 interface ResetResponse {

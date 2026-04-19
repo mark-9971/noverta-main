@@ -11,7 +11,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
-import { DemoBanner, useActiveDemoDistrict } from "@/components/DemoBanner";
+import { DemoBanner, useActiveDemoDistrict, useActivePilotDistrict } from "@/components/DemoBanner";
 import { ViewAsBanner } from "@/components/layout/ViewAsBanner";
 import { SupportSessionBanner } from "@/components/layout/SupportSessionBanner";
 import { SampleDataBanner } from "@/components/SampleDataBanner";
@@ -171,9 +171,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
   const baseConfig = roleConfig[role] ?? roleConfig["sped_teacher"];
   const demoDistrict = useActiveDemoDistrict();
+  const pilotDistrict = useActivePilotDistrict();
   const isDemoMode = demoDistrict !== null;
-  const config: RoleThemeConfig = (isDemoMode && DEMO_ADMIN_ROLES.has(role))
-    ? { ...baseConfig, nav: getAdminNavForMode(true) }
+  const isPilotMode = pilotDistrict !== null && !isDemoMode;
+  const config: RoleThemeConfig = DEMO_ADMIN_ROLES.has(role) && (isDemoMode || isPilotMode)
+    ? { ...baseConfig, nav: getAdminNavForMode(isDemoMode, isPilotMode) }
     : baseConfig;
 
   useEffect(() => {

@@ -392,6 +392,7 @@ const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
   "/progress-reports",
 ]);
 
+// Demo mode: IEP & ABA collapsed — prospects see compliance wedge front-and-centre.
 const DEMO_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
   "Overview": true,
   "Compliance & Risk": true,
@@ -402,26 +403,49 @@ const DEMO_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
   "Admin / Tools": false,
 };
 
-export const demoFocusedAdminNav: NavSection[] = adminNav
-  .map(section => {
-    const items = section.items.filter(item => DEMO_NAV_ALLOWED_HREFS.has(item.href));
-    if (items.length === 0) return null;
-    const defaultOpen = section.label && section.label in DEMO_SECTION_DEFAULT_OPEN
-      ? DEMO_SECTION_DEFAULT_OPEN[section.label]
-      : section.defaultOpen;
-    return { ...section, items, defaultOpen };
-  })
-  .filter((s): s is NavSection => s !== null);
+// Pilot mode: real users doing real work — IEP & ABA open by default,
+// but thin/broken surfaces still hidden (same allowed-href set as demo).
+const PILOT_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
+  "Overview": true,
+  "Compliance & Risk": true,
+  "IEP & Services": true,
+  "ABA & Behavior": true,
+  "Scheduling": true,
+  "Financial / Executive": false,
+  "Admin / Tools": false,
+};
 
-/** Returns the appropriate admin nav based on whether the user is in demo mode.
+function buildFocusedAdminNav(sectionDefaults: Record<string, boolean>): NavSection[] {
+  return adminNav
+    .map(section => {
+      const items = section.items.filter(item => DEMO_NAV_ALLOWED_HREFS.has(item.href));
+      if (items.length === 0) return null;
+      const defaultOpen = section.label && section.label in sectionDefaults
+        ? sectionDefaults[section.label]
+        : section.defaultOpen;
+      return { ...section, items, defaultOpen };
+    })
+    .filter((s): s is NavSection => s !== null);
+}
+
+export const demoFocusedAdminNav: NavSection[] = buildFocusedAdminNav(DEMO_SECTION_DEFAULT_OPEN);
+export const pilotFocusedAdminNav: NavSection[] = buildFocusedAdminNav(PILOT_SECTION_DEFAULT_OPEN);
+
+/**
+ * Returns the appropriate admin nav based on district mode.
  *
- * Demo mode trims to the pilot-relevant surfaces (Compliance, ABA, IEP core)
- * and collapses IEP & Services + ABA & Behavior by default so the compliance
- * wedge is front-and-centre without hiding clinical depth.
- * Admin-only surfaces (Data Import, State Reports, Data Health) are hidden.
+ * - demo:  Wedge-focused, IEP & ABA collapsed (sales/prospect context).
+ * - pilot: Wedge-focused, IEP & ABA open (real users doing real work).
+ * - full:  Complete admin nav (fully-configured paying districts).
+ *
+ * In all cases, thin/broken surfaces (Agencies, State Reports, Medicaid Billing,
+ * Resource Management, Parent Comms, Data Import, Document Workflow, etc.) are
+ * hidden from primary nav. Routes remain accessible via direct URL.
  */
-export function getAdminNavForMode(isDemo: boolean): NavSection[] {
-  return isDemo ? demoFocusedAdminNav : adminNav;
+export function getAdminNavForMode(isDemo: boolean, isPilot?: boolean): NavSection[] {
+  if (isDemo) return demoFocusedAdminNav;
+  if (isPilot) return pilotFocusedAdminNav;
+  return adminNav;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
