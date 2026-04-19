@@ -12,6 +12,18 @@ import { usePopupWindow } from "@/components/live-data-panel/useDataPanelPopup";
 interface Student { id: number; firstName: string; lastName: string; }
 interface ServiceType { id: number; name: string; }
 interface ServiceRequirement { id: number; serviceTypeId: number; serviceTypeName: string | null; active: boolean; }
+interface MinuteProgressEntry { serviceTypeId: number; remainingMinutes: number; intervalType: string; }
+interface RemainingByType { remainingMinutes: number; intervalType: string | null; }
+
+function intervalLabel(intervalType: string | null): string {
+  switch (intervalType) {
+    case "weekly": return "this week";
+    case "monthly": return "this month";
+    case "quarterly": return "this quarter";
+    case "daily": return "today";
+    default: return "remaining";
+  }
+}
 
 const BROADCAST_CHANNEL_NAME = "trellis-data-panel";
 
@@ -276,6 +288,7 @@ export function FloatingTimer() {
   const [startStep, setStartStep] = useState<"student" | "service">("student");
   const [studentRequirements, setStudentRequirements] = useState<ServiceRequirement[]>([]);
   const [suggestedServiceTypeId, setSuggestedServiceTypeId] = useState<number | null>(null);
+  const [remainingByType, setRemainingByType] = useState<Map<number, RemainingByType>>(new Map());
 
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [loggingTimerId, setLoggingTimerId] = useState<string | null>(null);
@@ -407,12 +420,16 @@ export function FloatingTimer() {
     setSelectedStudent(s);
     setStudentRequirements([]);
     setSuggestedServiceTypeId(null);
+    setRemainingByType(new Map());
     setStartStep("service");
     selectedStudentIdRef.current = s.id;
     try {
-      const res = await authFetch(`/api/service-requirements?studentId=${s.id}&active=true`);
-      if (!res.ok) return;
-      const reqs: ServiceRequirement[] = await res.json();
+      const [reqRes, progRes] = await Promise.all([
+        authFetch(`/api/service-requirements?studentId=${s.id}&active=true`),
+        authFetch(`/api/minute-progress?studentId=${s.id}`),
+      ]);
+      if (!reqRes.ok) return;
+      const reqs: ServiceRequirement[] = await reqRes.json();
       // Guard against race: discard result if the user already switched to a different student
       if (selectedStudentIdRef.current !== s.id) return;
       // Sort by priority descending (higher priority = more important), then by id for stability
@@ -424,6 +441,21 @@ export function FloatingTimer() {
       setStudentRequirements(sorted);
       if (sorted.length > 0 && sorted[0].serviceTypeId) {
         setSuggestedServiceTypeId(sorted[0].serviceTypeId);
+      }
+      if (progRes.ok) {
+        const progress: MinuteProgressEntry[] = await progRes.json();
+        if (selectedStudentIdRef.current !== s.id) return;
+        const map = new Map<number, RemainingByType>();
+        for (const p of progress) {
+          const existing = map.get(p.serviceTypeId);
+          if (existing) {
+            existing.remainingMinutes += p.remainingMinutes;
+            if (existing.intervalType !== p.intervalType) existing.intervalType = null;
+          } else {
+            map.set(p.serviceTypeId, { remainingMinutes: p.remainingMinutes, intervalType: p.intervalType });
+          }
+        }
+        setRemainingByType(map);
       }
     } catch {
       // non-fatal — proceed without suggestions
@@ -625,6 +657,11 @@ export function FloatingTimer() {
                     const isMatched = matchedTypeIds.has(svc.id);
                     const isSuggested = svc.id === suggestedServiceTypeId;
                     const isFirstOther = hasMatches && !isMatched && sortedServiceTypes[idx - 1] && matchedTypeIds.has(sortedServiceTypes[idx - 1].id);
+                    const remaining = isMatched ? remainingByType.get(svc.id) : undefined;
+                    const remainingLabel = remaining
+                      ? `${Math.round(remaining.remainingMinutes)} min ${intervalLabel(remaining.intervalType)}`
+                      : null;
+                    const tallRow = isSuggested || (isMatched && remainingLabel);
                     return (
                       <div key={svc.id}>
                         {isFirstOther && (
@@ -634,15 +671,28 @@ export function FloatingTimer() {
                         )}
                         <button
                           onClick={() => handleSelectService(svc)}
-                          className={`w-full px-4 rounded-lg border text-sm font-medium text-left transition-colors ${
+                          className={`w-full px-4 py-2 rounded-lg border text-sm font-medium text-left transition-colors ${
                             isSuggested
-                              ? "h-14 bg-emerald-50 border-emerald-400 text-emerald-900 hover:bg-emerald-100"
+                              ? `${tallRow ? "min-h-14" : "h-14"} bg-emerald-50 border-emerald-400 text-emerald-900 hover:bg-emerald-100`
                               : isMatched
-                              ? "h-12 bg-white border-emerald-200 text-gray-800 hover:bg-emerald-50"
+                              ? `${tallRow ? "min-h-12" : "h-12"} bg-white border-emerald-200 text-gray-800 hover:bg-emerald-50`
                               : "h-12 bg-white border-gray-200 text-gray-800 hover:bg-emerald-50 hover:border-emerald-200"
                           } active:bg-emerald-100`}
                         >
-                          <span className="block truncate">{svc.name}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="block truncate">{svc.name}</span>
+                            {remainingLabel && (
+                              <span
+                                className={`text-[10px] font-semibold whitespace-nowrap flex-shrink-0 ${
+                                  remaining && remaining.remainingMinutes === 0
+                                    ? "text-gray-400"
+                                    : "text-emerald-700"
+                                }`}
+                              >
+                                {remaining && remaining.remainingMinutes === 0 ? "Met" : remainingLabel}
+                              </span>
+                            )}
+                          </div>
                           {isSuggested && (
                             <span className="text-[10px] font-semibold text-emerald-600">Suggested</span>
                           )}
