@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, BadgeCheck, CheckCircle2, Clock, FileText, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, BadgeCheck, CheckCircle2, Clock, FileText, TrendingUp, TrendingDown, Minus, SlidersHorizontal } from "lucide-react";
 import { Link } from "wouter";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
+import { useState, useMemo } from "react";
 
 /**
  * Inline week-over-week delta indicator for secondary dashboard metric cards.
@@ -485,6 +486,10 @@ interface IepExpiration {
   studentName: string;
   iepEndDate: string;
   daysRemaining: number;
+  schoolId: number | null;
+  schoolName: string | null;
+  caseManagerId: number | null;
+  caseManagerName: string | null;
 }
 
 const BAND_CONFIG = [
@@ -497,6 +502,10 @@ export function IepExpirationCard({ enabled = true }: { enabled?: boolean }) {
   const { filterParams } = useSchoolContext();
   const qs = new URLSearchParams(filterParams).toString();
 
+  const [schoolFilter, setSchoolFilter] = useState<string>("");
+  const [caseManagerFilter, setCaseManagerFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"daysRemaining" | "studentName">("daysRemaining");
+
   const { data, isLoading } = useQuery<IepExpiration[]>({
     queryKey: ["dashboard/iep-expirations", filterParams],
     queryFn: () =>
@@ -507,11 +516,53 @@ export function IepExpirationCard({ enabled = true }: { enabled?: boolean }) {
     enabled,
   });
 
-  const students = data ?? [];
+  const allStudents = data ?? [];
+
+  const schools = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const s of allStudents) {
+      if (s.schoolId && s.schoolName && !seen.has(s.schoolId)) {
+        seen.set(s.schoolId, s.schoolName);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allStudents]);
+
+  const caseManagers = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const s of allStudents) {
+      if (s.caseManagerId && s.caseManagerName && !seen.has(s.caseManagerId)) {
+        seen.set(s.caseManagerId, s.caseManagerName);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allStudents]);
+
+  const students = useMemo(() => {
+    let list = allStudents;
+    if (schoolFilter) {
+      list = list.filter((s) => String(s.schoolId) === schoolFilter);
+    }
+    if (caseManagerFilter) {
+      list = list.filter((s) => String(s.caseManagerId) === caseManagerFilter);
+    }
+    if (sortBy === "studentName") {
+      list = [...list].sort((a, b) => a.studentName.localeCompare(b.studentName));
+    }
+    return list;
+  }, [allStudents, schoolFilter, caseManagerFilter, sortBy]);
+
   const total = students.length;
+  const hasFilters = !!schoolFilter || !!caseManagerFilter;
 
   const formatDate = (iso: string) =>
     new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+  const showFilters = allStudents.length > 0 && (schools.length > 1 || caseManagers.length > 1);
 
   return (
     <Card className="border-gray-200/60" data-testid="iep-expiration-card">
@@ -519,13 +570,70 @@ export function IepExpirationCard({ enabled = true }: { enabled?: boolean }) {
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-gray-500" />
           <CardTitle className="text-sm font-semibold text-gray-600">IEP Renewals Due</CardTitle>
-          {total > 0 && (
+          {allStudents.length > 0 && (
             <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
-              {total} expiring soon
+              {allStudents.length} expiring soon
             </span>
           )}
         </div>
       </CardHeader>
+
+      {showFilters && (
+        <div className="px-6 pt-3 pb-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            {schools.length > 1 && (
+              <select
+                value={schoolFilter}
+                onChange={(e) => setSchoolFilter(e.target.value)}
+                className="text-[12px] rounded-md border border-gray-200 bg-white px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                aria-label="Filter by school"
+              >
+                <option value="">All schools</option>
+                {schools.map((sc) => (
+                  <option key={sc.id} value={String(sc.id)}>{sc.name}</option>
+                ))}
+              </select>
+            )}
+            {caseManagers.length > 1 && (
+              <select
+                value={caseManagerFilter}
+                onChange={(e) => setCaseManagerFilter(e.target.value)}
+                className="text-[12px] rounded-md border border-gray-200 bg-white px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                aria-label="Filter by case manager"
+              >
+                <option value="">All case managers</option>
+                {caseManagers.map((cm) => (
+                  <option key={cm.id} value={String(cm.id)}>{cm.name}</option>
+                ))}
+              </select>
+            )}
+            <div className="ml-auto flex items-center gap-1">
+              <span className="text-[11px] text-gray-400 mr-1">Sort:</span>
+              <button
+                onClick={() => setSortBy("daysRemaining")}
+                className={`text-[11px] px-2 py-0.5 rounded ${sortBy === "daysRemaining" ? "bg-emerald-100 text-emerald-700 font-semibold" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                Days left
+              </button>
+              <button
+                onClick={() => setSortBy("studentName")}
+                className={`text-[11px] px-2 py-0.5 rounded ${sortBy === "studentName" ? "bg-emerald-100 text-emerald-700 font-semibold" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                Name
+              </button>
+            </div>
+            {hasFilters && (
+              <button
+                onClick={() => { setSchoolFilter(""); setCaseManagerFilter(""); }}
+                className="text-[11px] text-gray-400 hover:text-gray-600 underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <CardContent className="pt-4">
         {isLoading ? (
@@ -534,49 +642,82 @@ export function IepExpirationCard({ enabled = true }: { enabled?: boolean }) {
               <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />
             ))}
           </div>
-        ) : total === 0 ? (
+        ) : allStudents.length === 0 ? (
           <div className="flex items-center gap-3 py-3 px-4 rounded-lg bg-emerald-50 border border-emerald-200">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
             <span className="text-sm font-medium text-emerald-700">All IEPs current — no renewals due in the next 90 days.</span>
           </div>
+        ) : total === 0 && hasFilters ? (
+          <div className="flex items-center gap-3 py-3 px-4 rounded-lg bg-gray-50 border border-gray-200">
+            <CheckCircle2 className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            <span className="text-sm text-gray-500">No renewals match the selected filters.</span>
+          </div>
         ) : (
           <div className="space-y-4">
-            {BAND_CONFIG.map((band) => {
-              const group = students.filter(
-                (s) => s.daysRemaining >= band.min && s.daysRemaining <= band.max
-              );
-              if (group.length === 0) return null;
-              return (
-                <div key={band.label}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${band.dot}`} />
-                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{band.label}</span>
-                    <span className={`ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${band.badgeBg} ${band.badgeText}`}>{group.length}</span>
+            {sortBy === "daysRemaining" ? (
+              BAND_CONFIG.map((band) => {
+                const group = students.filter(
+                  (s) => s.daysRemaining >= band.min && s.daysRemaining <= band.max
+                );
+                if (group.length === 0) return null;
+                return (
+                  <div key={band.label}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${band.dot}`} />
+                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{band.label}</span>
+                      <span className={`ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${band.badgeBg} ${band.badgeText}`}>{group.length}</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {group.map((s) => (
+                        <IepRenewalRow key={s.studentId} s={s} band={band} formatDate={formatDate} />
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    {group.map((s) => (
-                      <Link key={s.studentId} href={`/students/${s.studentId}/iep`}>
-                        <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${band.bg} ${band.border} hover:brightness-95 transition-all cursor-pointer`}>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[13px] font-medium text-gray-800 truncate block">{s.studentName}</span>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="text-[12px] text-gray-500">{formatDate(s.iepEndDate)}</div>
-                            <div className={`text-[11px] font-semibold ${band.text}`}>
-                              {s.daysRemaining === 0 ? "Expires today" : `${s.daysRemaining} day${s.daysRemaining === 1 ? "" : "s"} left`}
-                            </div>
-                          </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="space-y-1.5">
+                {students.map((s) => {
+                  const band = BAND_CONFIG.find((b) => s.daysRemaining >= b.min && s.daysRemaining <= b.max) ?? BAND_CONFIG[2];
+                  return <IepRenewalRow key={s.studentId} s={s} band={band} formatDate={formatDate} />;
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function IepRenewalRow({
+  s,
+  band,
+  formatDate,
+}: {
+  s: IepExpiration;
+  band: (typeof BAND_CONFIG)[number];
+  formatDate: (iso: string) => string;
+}) {
+  return (
+    <Link key={s.studentId} href={`/students/${s.studentId}/iep`}>
+      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${band.bg} ${band.border} hover:brightness-95 transition-all cursor-pointer`}>
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-medium text-gray-800 truncate block">{s.studentName}</span>
+          {(s.schoolName || s.caseManagerName) && (
+            <span className="text-[11px] text-gray-400 truncate block">
+              {[s.schoolName, s.caseManagerName ? `CM: ${s.caseManagerName}` : null].filter(Boolean).join(" · ")}
+            </span>
+          )}
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-[12px] text-gray-500">{formatDate(s.iepEndDate)}</div>
+          <div className={`text-[11px] font-semibold ${band.text}`}>
+            {s.daysRemaining === 0 ? "Expires today" : `${s.daysRemaining} day${s.daysRemaining === 1 ? "" : "s"} left`}
+          </div>
+        </div>
+        <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+      </div>
+    </Link>
   );
 }

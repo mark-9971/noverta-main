@@ -1,7 +1,7 @@
 // tenant-scope: district-join
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { studentsTable, iepDocumentsTable } from "@workspace/db";
+import { studentsTable, iepDocumentsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { parseSchoolDistrictFilters } from "./shared";
 
@@ -32,15 +32,31 @@ router.get("/dashboard/iep-expirations", async (req, res): Promise<void> => {
       );
     }
 
+    // Optional server-side filter by case manager
+    const caseManagerId = req.query.caseManagerId ? Number(req.query.caseManagerId) : undefined;
+    if (caseManagerId) {
+      conditions.push(sql`${studentsTable.caseManagerId} = ${caseManagerId}`);
+    }
+
+    // sortBy param: "studentName" | "daysRemaining" (default)
+    const sortBy = req.query.sortBy === "studentName" ? "studentName" : "daysRemaining";
+
     const rows = await db
       .select({
         studentId: studentsTable.id,
         firstName: studentsTable.firstName,
         lastName: studentsTable.lastName,
         iepEndDate: iepDocumentsTable.iepEndDate,
+        schoolId: studentsTable.schoolId,
+        schoolName: schoolsTable.name,
+        caseManagerId: studentsTable.caseManagerId,
+        caseManagerFirstName: staffTable.firstName,
+        caseManagerLastName: staffTable.lastName,
       })
       .from(iepDocumentsTable)
       .innerJoin(studentsTable, eq(studentsTable.id, iepDocumentsTable.studentId))
+      .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .leftJoin(staffTable, eq(staffTable.id, studentsTable.caseManagerId))
       .where(and(...(conditions as any[])))
       .orderBy(sql`${iepDocumentsTable.iepEndDate} ASC`);
 
@@ -53,8 +69,20 @@ router.get("/dashboard/iep-expirations", async (req, res): Promise<void> => {
         studentName: `${r.firstName} ${r.lastName}`,
         iepEndDate: r.iepEndDate,
         daysRemaining,
+        schoolId: r.schoolId ?? null,
+        schoolName: r.schoolName ?? null,
+        caseManagerId: r.caseManagerId ?? null,
+        caseManagerName: r.caseManagerFirstName && r.caseManagerLastName
+          ? `${r.caseManagerFirstName} ${r.caseManagerLastName}`
+          : null,
       };
     });
+
+    // Sort after mapping (so we can sort by computed studentName or daysRemaining)
+    if (sortBy === "studentName") {
+      result.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    }
+    // daysRemaining is already sorted ascending from the DB query
 
     res.json(result);
   } catch (e: any) {
