@@ -169,6 +169,30 @@ router.put("/caseload-balancing/thresholds", async (req, res): Promise<void> => 
   }
 });
 
+router.delete("/caseload-balancing/thresholds", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+
+  try {
+    await db.update(districtsTable)
+      .set({ caseloadThresholds: null })
+      .where(eq(districtsTable.id, districtId));
+
+    logAudit(req, {
+      action: "update",
+      targetTable: "districts",
+      targetId: districtId,
+      summary: `Reset caseload thresholds to defaults for district #${districtId}`,
+      newValues: { caseloadThresholds: null },
+    });
+
+    res.json({ thresholds: { ...DEFAULT_THRESHOLDS } });
+  } catch (err) {
+    console.error("DELETE /caseload-balancing/thresholds error:", err);
+    res.status(500).json({ error: "Failed to reset thresholds" });
+  }
+});
+
 router.get("/caseload-balancing/summary", async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (!districtId) return void res.status(403).json({ error: "No district scope" });

@@ -17,7 +17,9 @@ interface Props {
   editThresholds: Record<string, number>;
   setEditThresholds: (t: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   onApply: () => void;
+  onReset?: () => void;
   saving?: boolean;
+  resetting?: boolean;
   lastModified?: ThresholdLastModified | null;
 }
 
@@ -30,9 +32,10 @@ function formatLastModified(lm: ThresholdLastModified): string {
   return `Last updated ${when} by ${who}`;
 }
 
-export function ThresholdDialog({ open, onOpenChange, editThresholds, setEditThresholds, onApply, saving, lastModified }: Props) {
+export function ThresholdDialog({ open, onOpenChange, editThresholds, setEditThresholds, onApply, onReset, saving, resetting, lastModified }: Props) {
+  const busy = saving || resetting;
   return (
-    <Dialog open={open} onOpenChange={saving ? undefined : onOpenChange}>
+    <Dialog open={open} onOpenChange={busy ? undefined : onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Configure Caseload Thresholds</DialogTitle>
@@ -58,16 +61,23 @@ export function ThresholdDialog({ open, onOpenChange, editThresholds, setEditThr
                 value={value}
                 onChange={e => setEditThresholds(t => ({ ...t, [role]: parseInt(e.target.value, 10) || 1 }))}
                 className="w-24"
-                disabled={saving}
+                disabled={busy}
               />
             </div>
           ))}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={onApply} disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
+        <DialogFooter className="sm:justify-between">
+          {onReset ? (
+            <Button variant="ghost" onClick={onReset} disabled={busy}>
+              {resetting ? "Resetting..." : "Reset to defaults"}
+            </Button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
+            <Button onClick={onApply} disabled={busy}>
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -43,6 +43,7 @@ export default function CaseloadBalancingPage() {
   const [editThresholds, setEditThresholds] = useState<Record<string, number>>({});
   const [customThresholds, setCustomThresholds] = useState<Record<string, number> | null>(null);
   const [savingThresholds, setSavingThresholds] = useState(false);
+  const [resettingThresholds, setResettingThresholds] = useState(false);
   const [thresholdLastModified, setThresholdLastModified] = useState<ThresholdLastModified | null>(null);
   const thresholdsLoaded = useRef(false);
 
@@ -322,7 +323,34 @@ export default function CaseloadBalancingPage() {
         editThresholds={editThresholds}
         setEditThresholds={setEditThresholds}
         saving={savingThresholds}
+        resetting={resettingThresholds}
         lastModified={thresholdLastModified}
+        onReset={async () => {
+          if (!window.confirm("Reset all caseload thresholds to system defaults? This will clear your district's custom values.")) return;
+          setResettingThresholds(true);
+          try {
+            const res = await authFetch("/api/caseload-balancing/thresholds", { method: "DELETE" });
+            if (!res.ok) {
+              const err = await res.json();
+              toast.error(err.error || "Failed to reset thresholds");
+              return;
+            }
+            const data = await res.json();
+            const defaults = data.thresholds;
+            setCustomThresholds(null);
+            setThresholds(defaults);
+            setEditThresholds({ ...defaults });
+            setThresholdDialog(false);
+            fetchData(defaults);
+            fetchSuggestions(defaults);
+            await refreshThresholdMeta();
+            toast.success("Thresholds reset to defaults");
+          } catch {
+            toast.error("Failed to reset thresholds");
+          } finally {
+            setResettingThresholds(false);
+          }
+        }}
         onApply={async () => {
           setSavingThresholds(true);
           try {
