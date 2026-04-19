@@ -340,3 +340,87 @@ export async function computeAllActiveMinuteProgress(filters?: {
 
   return results;
 }
+
+// ---------------------------------------------------------------------------
+// Cached per-student worst-risk aggregation.
+//
+// The Students list and the dashboard both want the same answer: "for each
+// active student, what is the worst risk tier across their requirements?"
+// Recomputing that inline per request (previously a hand-written CTE in the
+// students route) was expensive for large districts. This helper runs the
+// shared JS pipeline (computeAllActiveMinuteProgress) once and caches the
+// derived map for a short window so repeated filter clicks are near-instant.
+// ---------------------------------------------------------------------------
+
+export type AggregateRiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance";
+
+type RiskMapScope = { districtId?: number; schoolId?: number };
+
+const RISK_PRIORITY: Record<string, number> = {
+  out_of_compliance: 4,
+  at_risk: 3,
+  slightly_behind: 2,
+  on_track: 1,
+  completed: 0,
+  no_data: 0,
+};
+
+const RISK_MAP_TTL_MS = 30_000;
+
+type RiskMapCacheEntry = {
+  expiresAt: number;
+  promise: Promise<Map<number, AggregateRiskStatus>>;
+};
+
+const riskMapCache = new Map<string, RiskMapCacheEntry>();
+
+function riskMapCacheKey(scope: RiskMapScope): string {
+  return `d=${scope.districtId ?? ""}|s=${scope.schoolId ?? ""}`;
+}
+
+function aggregateFromProgress(
+  all: MinuteProgressResult[]
+): Map<number, AggregateRiskStatus> {
+  const map = new Map<number, AggregateRiskStatus>();
+  for (const p of all) {
+    const candidate: AggregateRiskStatus =
+      p.riskStatus === "out_of_compliance" ? "out_of_compliance"
+      : p.riskStatus === "at_risk" ? "at_risk"
+      : p.riskStatus === "slightly_behind" ? "slightly_behind"
+      : "on_track";
+    const cur = map.get(p.studentId);
+    if (!cur || (RISK_PRIORITY[candidate] ?? 0) > (RISK_PRIORITY[cur] ?? 0)) {
+      map.set(p.studentId, candidate);
+    }
+  }
+  return map;
+}
+
+export async function getCachedStudentRiskMap(
+  scope: RiskMapScope = {}
+): Promise<Map<number, AggregateRiskStatus>> {
+  const key = riskMapCacheKey(scope);
+  const now = Date.now();
+  const entry = riskMapCache.get(key);
+  if (entry && entry.expiresAt > now) return entry.promise;
+
+  const promise = (async () => {
+    const all = await computeAllActiveMinuteProgress({
+      districtId: scope.districtId,
+      schoolId: scope.schoolId,
+    });
+    return aggregateFromProgress(all);
+  })();
+
+  riskMapCache.set(key, { expiresAt: now + RISK_MAP_TTL_MS, promise });
+  promise.catch(() => {
+    // Don't poison the cache with a failed request.
+    const cur = riskMapCache.get(key);
+    if (cur && cur.promise === promise) riskMapCache.delete(key);
+  });
+  return promise;
+}
+
+export function invalidateStudentRiskMapCache(): void {
+  riskMapCache.clear();
+}
