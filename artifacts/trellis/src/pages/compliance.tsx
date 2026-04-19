@@ -30,6 +30,7 @@ import ComplianceTimelinePage from "./compliance-timeline";
 import ComplianceTrendsPage from "./compliance-trends";
 import ComplianceRiskReportPage from "./compliance-risk-report";
 import RecommendationsPanel from "@/components/compliance/RecommendationsPanel";
+import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
 const TABS = [
   { key: "risk-report", label: "Risk Report", icon: FileBarChart },
   { key: "minutes", label: "Service Minutes", icon: Timer },
@@ -255,6 +256,7 @@ function ServiceMinutesContent() {
   const [scheduleFrequency, setScheduleFrequency] = useState<"weekly" | "monthly">("weekly");
   const [scheduleEmails, setScheduleEmails] = useState("");
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const [drilldownStudent, setDrilldownStudent] = useState<{ studentId: number; studentName: string } | null>(null);
   const { toast } = useToast();
   const { data: progress, isLoading: progressLoading, isError, refetch } = useListMinuteProgress(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
@@ -821,9 +823,18 @@ function ServiceMinutesContent() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          <span className="text-[12px] font-medium text-red-700 tabular-nums">
-                            {r.estimatedExposure > 0 ? fmtDollars(r.estimatedExposure) : "—"}
-                          </span>
+                          {r.estimatedExposure > 0 ? (
+                            <button
+                              onClick={() => setDrilldownStudent({ studentId: r.studentId, studentName: r.studentName })}
+                              className="text-[12px] font-medium text-red-700 tabular-nums underline decoration-dashed decoration-red-300 underline-offset-2 hover:text-red-900 transition-colors cursor-pointer"
+                              title="Click to see itemised breakdown"
+                              data-testid={`button-exposure-${r.studentId}`}
+                            >
+                              {fmtDollars(r.estimatedExposure)}
+                            </button>
+                          ) : (
+                            <span className="text-[12px] font-medium text-gray-400 tabular-nums">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-[12px] text-gray-500">{r.providerName}</td>
                       </tr>
@@ -1063,6 +1074,12 @@ function ServiceMinutesContent() {
           )}
         </div>
       </Card>
+
+      <ExposureDetailPanel
+        studentId={drilldownStudent?.studentId ?? null}
+        studentName={drilldownStudent?.studentName}
+        onClose={() => setDrilldownStudent(null)}
+      />
     </div>
   );
 }
