@@ -18,6 +18,22 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 let _extraHeaders: Record<string, string> | null = null;
+let _onApiError: ((error: ApiError) => void) | null = null;
+
+/**
+ * Register a global handler invoked synchronously *before* an ApiError is
+ * thrown. Useful for cross-cutting concerns like "sign the user out and
+ * route to a lockout screen when the API reports the tenant is deleted".
+ *
+ * The handler receives the ApiError and may inspect `error.status` and
+ * `error.data` (which holds the parsed JSON error body, e.g.
+ * `{ error, code }`). The handler MUST NOT throw — exceptions are
+ * swallowed so they can never replace the original ApiError reaching the
+ * caller. Pass `null` to clear.
+ */
+export function setOnApiError(handler: ((error: ApiError) => void) | null): void {
+  _onApiError = handler;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -376,7 +392,11 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+    const apiError = new ApiError(response, errorData, requestInfo);
+    if (_onApiError) {
+      try { _onApiError(apiError); } catch { /* swallow — never replace the original error */ }
+    }
+    throw apiError;
   }
 
   return (await parseSuccessBody(response, responseType, requestInfo)) as T;

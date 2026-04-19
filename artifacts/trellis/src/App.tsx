@@ -1,6 +1,8 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider, RedirectToSignIn, useAuth, useUser } from "@clerk/react";
+import { ClerkProvider, RedirectToSignIn, useAuth, useUser, useClerk } from "@clerk/react";
+import { setOnApiError, ApiError } from "@workspace/api-client-react";
+import { setDistrictLockedMessage } from "@/pages/district-locked";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { registerTokenProvider, setAuthFetchExtraHeaders, getDevAuthBypassHeaders } from "@/lib/auth-fetch";
@@ -138,6 +140,7 @@ const OnboardingPage = lazy(() => import("@/pages/onboarding"));
 const CoveragePage = lazy(() => import("@/pages/coverage"));
 const DocumentWorkflowPage = lazy(() => import("@/pages/document-workflow"));
 const AccommodationLookupPage = lazy(() => import("@/pages/accommodation-lookup"));
+const DistrictLockedPage = lazy(() => import("@/pages/district-locked"));
 const SignInPage = lazy(() => import("@/pages/sign-in"));
 const SignUpPage = lazy(() => import("@/pages/sign-up"));
 const SignDocumentPage = lazy(() => import("@/pages/sign-document"));
@@ -160,6 +163,39 @@ const queryClient = new QueryClient({
 // only so they can land on /support-session and (after opening a session)
 // browse the rest of the app under the read-only override.
 const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "direct_provider", "trellis_support"];
+
+/**
+ * Detects when the API blocks the caller because their district is
+ * soft-deleted (HTTP 403 with `code: "DISTRICT_SOFT_DELETED"`) and routes
+ * the user to a friendly full-page lockout screen instead of letting the raw
+ * error surface in whichever panel happened to load. Also signs the user
+ * out so they can't navigate back into protected routes.
+ */
+function DistrictLockoutHandler() {
+  const { signOut } = useClerk();
+  useEffect(() => {
+    let triggered = false;
+    setOnApiError((err: ApiError) => {
+      if (triggered) return;
+      if (err.status !== 403) return;
+      const data = err.data as { code?: string; error?: string } | null;
+      if (!data || data.code !== "DISTRICT_SOFT_DELETED") return;
+      triggered = true;
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+      const target = `${base}/district-locked`;
+      setDistrictLockedMessage(typeof data.error === "string" ? data.error : null);
+      // Sign the user out so protected routes are no longer reachable. Any
+      // failure here still falls through to the hard redirect below.
+      Promise.resolve()
+        .then(() => signOut({ redirectUrl: target }))
+        .catch(() => {
+          window.location.replace(target);
+        });
+    });
+    return () => { setOnApiError(null); };
+  }, [signOut]);
+  return null;
+}
 
 function SentryUserSync() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -426,10 +462,16 @@ function App() {
       afterSignOutUrl={`${base}/sign-in`}
     >
       <SentryUserSync />
+      <DistrictLockoutHandler />
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={base}>
             <Switch>
+              <Route path="/district-locked">
+                <Suspense fallback={<PageLoader />}>
+                  <DistrictLockedPage />
+                </Suspense>
+              </Route>
               <Route path="/pricing" component={PricingPage} />
               <Route path="/demo/request">
                 <Suspense fallback={<PageLoader />}>
