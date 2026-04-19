@@ -711,7 +711,7 @@ export function buildDailyCoverageReportHtml(opts: {
        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
          ${absentStaffNames.map(n => `<span style="background:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">${esc(n)}</span>`).join("")}
        </div>`
-    : `<h2>Absent Staff</h2><p style="color:${GRAY_600};font-size:12px">No absences recorded for today.</p>`;
+    : `<h2>Absent Staff</h2><p style="color:${GRAY_600};font-size:12px">No absences recorded for this date.</p>`;
 
   const uncoveredSection = uncovered.length > 0
     ? `<h2>Sessions Needing Coverage (${uncovered.length})</h2>

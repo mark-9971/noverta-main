@@ -28,6 +28,7 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [printDate, setPrintDate] = useState<string>(today());
   const { typedFilter } = useSchoolContext();
   const schoolId = (typedFilter as any)?.schoolId ? Number((typedFilter as any).schoolId) : null;
 
@@ -36,7 +37,7 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
   async function handlePrintDailyReport() {
     setPrinting(true);
     try {
-      const date = today();
+      const date = printDate || today();
       const params = new URLSearchParams({ date });
       if (schoolId) params.set("schoolId", String(schoolId));
 
@@ -126,16 +127,25 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
               Track absences, assign substitutes, and monitor coverage patterns.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 shrink-0"
-            onClick={handlePrintDailyReport}
-            disabled={printing}
-          >
-            <Printer className="h-3.5 w-3.5" />
-            {printing ? "Preparing…" : "Print Daily Report"}
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <input
+              type="date"
+              value={printDate}
+              onChange={(e) => setPrintDate(e.target.value)}
+              className="h-8 px-2 text-[13px] border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              aria-label="Report date"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={handlePrintDailyReport}
+              disabled={printing || !printDate}
+            >
+              <Printer className="h-3.5 w-3.5" />
+              {printing ? "Preparing…" : "Print Daily Report"}
+            </Button>
+          </div>
         </div>
       )}
 
