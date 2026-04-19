@@ -32,7 +32,10 @@ export default function SchedulingHub() {
 
   function setTab(t: Tab) {
     setTabState(t);
-    navigate(`/scheduling?tab=${t}`, { replace: true });
+    const params = new URLSearchParams(search);
+    params.set("tab", t);
+    if (t !== "schedule") params.delete("week");
+    navigate(`/scheduling?${params.toString()}`, { replace: true });
   }
 
   return (

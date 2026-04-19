@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useListScheduleBlocks, useListStaff, useListSpedStudents, listSchools, listServiceTypes, createScheduleBlock, updateScheduleBlock, deleteScheduleBlock } from "@workspace/api-client-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,11 +51,23 @@ function fmtDate(d: Date): string {
 }
 
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function todayIso(): string {
   return isoDate(new Date());
+}
+
+function parseWeekOffset(search: string): number {
+  const p = new URLSearchParams(search).get("week");
+  if (!p || !/^\d{4}-\d{2}-\d{2}$/.test(p)) return 0;
+  const currentMonday = getMondayOfWeek(0);
+  const paramDate = new Date(p + "T00:00:00");
+  const diff = Math.round((paramDate.getTime() - currentMonday.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  return diff;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -71,6 +84,9 @@ interface ComplianceRow {
 }
 
 export default function Schedule({ embedded = false }: { embedded?: boolean } = {}) {
+  const search = useSearch();
+  const [, navigate] = useLocation();
+
   // ── filter state ──────────────────────────────────────────────────────────
   const [staffFilter, setStaffFilter] = useState<string>("all");
   const [studentFilter, setStudentFilter] = useState<string>("all");
@@ -78,7 +94,7 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
   // ── week nav ──────────────────────────────────────────────────────────────
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(() => parseWeekOffset(search));
   const monday = useMemo(() => getMondayOfWeek(weekOffset), [weekOffset]);
   const weekDates = useMemo(() => WEEKDAYS.map((_, i) => addDays(monday, i)), [monday]);
   const todayIsoStr = useMemo(() => todayIso(), []);
@@ -87,6 +103,22 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
     WEEKDAYS.forEach((day, i) => { m[day] = isoDate(weekDates[i]); });
     return m;
   }, [weekDates]);
+
+  // Sync weekOffset → URL ?week= param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const currentWeekParam = params.get("week");
+    const weekStart = isoDate(getMondayOfWeek(weekOffset));
+    const expected = weekOffset === 0 ? null : weekStart;
+    if (currentWeekParam === expected) return;
+    if (weekOffset === 0) {
+      params.delete("week");
+    } else {
+      params.set("week", weekStart);
+    }
+    const qs = params.toString();
+    navigate(qs ? `?${qs}` : "?", { replace: true });
+  }, [weekOffset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── view / dialog state ───────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
