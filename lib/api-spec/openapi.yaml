@@ -9587,6 +9587,13 @@ components:
         serviceTypeName:
           type: string
           nullable: true
+        sessionLogged:
+          type: boolean
+          description: True when a session log was matched for this block on the requested date.
+        sessionStatus:
+          type: string
+          nullable: true
+          description: Status of the matched session log (e.g. "completed", "missed"), or null when no log matched.
       required: [id, staffId, dayOfWeek, startTime, endTime]
 
     ParaMyDayResponse:

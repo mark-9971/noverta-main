@@ -13,6 +13,7 @@ export interface ScheduleBlock {
   studentName: string | null;
   serviceTypeName: string | null;
   sessionLogged: boolean;
+  sessionStatus: string | null;
 }
 
 export interface IepGoal {

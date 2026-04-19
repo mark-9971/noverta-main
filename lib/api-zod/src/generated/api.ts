@@ -3851,6 +3851,18 @@ export const GetParaMyDayResponse = zod.object({
       notes: zod.string().nullish(),
       studentName: zod.string().nullish(),
       serviceTypeName: zod.string().nullish(),
+      sessionLogged: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when a session log was matched for this block on the requested date.",
+        ),
+      sessionStatus: zod
+        .string()
+        .nullish()
+        .describe(
+          'Status of the matched session log (e.g. \"completed\", \"missed\"), or null when no log matched.',
+        ),
     }),
   ),
 });

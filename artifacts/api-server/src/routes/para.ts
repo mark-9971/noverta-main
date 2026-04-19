@@ -157,6 +157,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
           studentId: sessionLogsTable.studentId,
           serviceTypeId: sessionLogsTable.serviceTypeId,
           startTime: sessionLogsTable.startTime,
+          status: sessionLogsTable.status,
         })
         .from(sessionLogsTable)
         .where(and(
@@ -175,6 +176,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
     );
 
     const consumed = new Set<number>();
+    const blockToSessionStatus = new Map<number, string>();
 
     // Pass 1: exact time matching — consume sessions with matching startTime
     const exactSessionsByKey = new Map<string, number[]>();
@@ -195,26 +197,29 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         if (idx !== undefined) {
           consumed.add(idx);
           loggedByExact.add(b.id);
+          blockToSessionStatus.set(b.id, todaySessions[idx].status);
         }
       }
     }
 
     // Pass 2: count fallback for remaining sessions (no startTime or time didn't match any block)
-    const fallbackCounts = new Map<string, number>();
+    const fallbackQueues = new Map<string, number[]>();
     for (let i = 0; i < todaySessions.length; i++) {
       if (consumed.has(i)) continue;
       const s = todaySessions[i];
       const k = `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`;
-      fallbackCounts.set(k, (fallbackCounts.get(k) ?? 0) + 1);
+      if (!fallbackQueues.has(k)) fallbackQueues.set(k, []);
+      fallbackQueues.get(k)!.push(i);
     }
     const loggedByFallback = new Set<number>();
     for (const b of activeBlocks) {
       if (loggedByExact.has(b.id)) continue;
       const k = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
-      const count = fallbackCounts.get(k) ?? 0;
-      if (count > 0) {
-        fallbackCounts.set(k, count - 1);
+      const queue = fallbackQueues.get(k);
+      if (queue && queue.length > 0) {
+        const idx = queue.shift()!;
         loggedByFallback.add(b.id);
+        blockToSessionStatus.set(b.id, todaySessions[idx].status);
       }
     }
 
@@ -238,6 +243,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         studentName: b.studentFirst ? `${b.studentFirst} ${b.studentLast}` : null,
         serviceTypeName: b.serviceTypeName,
         sessionLogged: loggedBlockIds.has(b.id),
+        sessionStatus: blockToSessionStatus.get(b.id) ?? null,
       })),
     });
   } catch (e: unknown) {

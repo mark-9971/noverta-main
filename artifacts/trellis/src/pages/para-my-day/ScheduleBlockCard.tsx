@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftRight, Clock, MapPin, Play, Pencil, XCircle } from "lucide-react";
+import { ArrowLeftRight, Clock, MapPin, Play, Pencil, XCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import type { ScheduleBlock, QuickLogPrefill } from "./types";
 import { formatTime, isCurrentBlock, isUpcoming } from "./constants";
 
@@ -25,6 +25,9 @@ export function ScheduleBlockCard({
   const current = isCurrentBlock(block);
   const upcoming = isUpcoming(block);
   const isPast = !current && !upcoming;
+  const wasMissed = block.sessionLogged && block.sessionStatus === "missed";
+  const inProgress = block.sessionLogged && block.sessionStatus === "in_progress";
+  const wasLogged = block.sessionLogged && !wasMissed && !inProgress;
 
   const computedDuration = blockDurationMinutes(block);
 
@@ -47,14 +50,16 @@ export function ScheduleBlockCard({
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {current && (
+              {current && !block.sessionLogged && (
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full animate-pulse" />
                   NOW
                 </span>
               )}
-              {upcoming && (
-                <span className="text-[11px] font-medium text-gray-400">UPCOMING</span>
+              {upcoming && !block.sessionLogged && (
+                <span className="text-[11px] font-medium text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                  Upcoming
+                </span>
               )}
               {isPast && block.studentId && !block.sessionLogged && (
                 <span className="flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
@@ -62,9 +67,21 @@ export function ScheduleBlockCard({
                   Needs log
                 </span>
               )}
-              {isPast && block.studentId && block.sessionLogged && (
-                <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+              {block.studentId && wasLogged && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" />
                   Logged
+                </span>
+              )}
+              {block.studentId && wasMissed && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                  <AlertTriangle className="w-3 h-3" />
+                  Missed
+                </span>
+              )}
+              {block.studentId && inProgress && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full animate-pulse">
+                  In Progress
                 </span>
               )}
             </div>
@@ -93,7 +110,7 @@ export function ScheduleBlockCard({
             </div>
           </div>
 
-          {block.studentId && (current || upcoming) && (
+          {block.studentId && (current || upcoming) && !block.sessionLogged && (
             <Button
               size="lg"
               className="bg-emerald-600 hover:bg-emerald-600/90 text-white min-h-[52px] min-w-[52px] px-5 text-[14px] font-semibold rounded-xl shadow-sm flex-shrink-0"
@@ -124,7 +141,7 @@ export function ScheduleBlockCard({
           </div>
         )}
 
-        {block.studentId && (current || upcoming) && (
+        {block.studentId && (current || upcoming) && !block.sessionLogged && (
           <div className="mt-3 pt-3 border-t border-gray-100">
             <button
               onClick={() => onQuickLog(completedPrefill)}

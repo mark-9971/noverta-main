@@ -2040,6 +2040,10 @@ export interface ParaScheduleBlock {
   notes?: string | null;
   studentName?: string | null;
   serviceTypeName?: string | null;
+  /** True when a session log was matched for this block on the requested date. */
+  sessionLogged?: boolean;
+  /** Status of the matched session log (e.g. "completed", "missed"), or null when no log matched. */
+  sessionStatus?: string | null;
 }
 
 export type ParaMyDayResponseDayOfWeek =
