@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { useListStaff } from "@workspace/api-client-react";
-import { UserCheck, AlertTriangle, RefreshCw, Clock, User, Star } from "lucide-react";
+import { UserCheck, AlertTriangle, RefreshCw, Clock, User, Star, ChevronDown, ChevronRight, UserX } from "lucide-react";
 import { DAY_LABELS, fmt12, today } from "./utils";
 
 interface Suggestion {
@@ -25,6 +25,16 @@ interface Suggestion {
   isSuggested: boolean;
 }
 
+interface ExcludedStaff {
+  staffId: number;
+  name: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  reason: "absence" | "schedule_conflict";
+  reasonLabel: string;
+}
+
 export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +44,8 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
   const [substituteId, setSubstituteId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [excluded, setExcluded] = useState<ExcludedStaff[]>([]);
+  const [showExcluded, setShowExcluded] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId: String(schoolId) } : {}) });
@@ -61,6 +73,8 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
     setAssignDialog(session);
     setSubstituteId("");
     setSuggestions([]);
+    setExcluded([]);
+    setShowExcluded(false);
     setLoadingSuggestions(true);
     try {
       const params = new URLSearchParams({
@@ -71,6 +85,7 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
       if (r.ok) {
         const data = await r.json();
         setSuggestions(data.suggestions ?? []);
+        setExcluded(data.excluded ?? []);
       }
     } catch {
       // suggestions are optional — silently ignore failures
@@ -285,6 +300,32 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
                 </SelectContent>
               </Select>
             </div>
+            {excluded.length > 0 && (
+              <div className="border-t pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowExcluded(v => !v)}
+                  className="flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-700 w-full"
+                >
+                  {showExcluded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  <UserX className="h-3 w-3" />
+                  <span>{excluded.length} staff unavailable</span>
+                </button>
+                {showExcluded && (
+                  <ul className="mt-2 space-y-1.5 pl-5">
+                    {excluded.map(e => (
+                      <li key={e.staffId} className="text-[12px] leading-tight">
+                        <div className="text-gray-700 font-medium">
+                          {e.name}
+                          {e.role && <span className="text-gray-400 font-normal"> · {e.role}</span>}
+                        </div>
+                        <div className="text-gray-500">{e.reasonLabel}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setAssignDialog(null); setSuggestions([]); }} disabled={assigning}>Cancel</Button>

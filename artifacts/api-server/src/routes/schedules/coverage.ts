@@ -93,8 +93,16 @@ router.get("/coverage/suggest-substitute", requireAdmin, async (req, res): Promi
     districtFilter = `AND s.school_id IN (SELECT id FROM schools WHERE district_id = $${candidateParams.length})`;
   }
 
-  // 3. Exclude staff who are absent on this date OR have a conflicting schedule block
-  //    A conflict = another recurring/applicable block on the same day_of_week that overlaps the time window
+  // 3. Fetch all active staff in district (excluding the original) and LEFT JOIN
+  //    against absences and conflicting blocks so we can classify each row as
+  //    available or excluded (with a reason). A conflict = another recurring or
+  //    applicable block on the same day_of_week that overlaps the time window.
+  const absenceParamIdx = candidateParams.push(absenceDate);
+  const dayParamIdx = candidateParams.push(day_of_week);
+  const endParamIdx = candidateParams.push(end_time);
+  const startParamIdx = candidateParams.push(start_time);
+  const weekDateParamIdx = candidateParams.push(absenceDate);
+
   const candidatesResult = await pool.query<{
     id: number;
     first_name: string;
@@ -102,44 +110,107 @@ router.get("/coverage/suggest-substitute", requireAdmin, async (req, res): Promi
     role: string;
     school_id: number | null;
     qualifications: string | null;
+    is_absent: boolean;
+    conflict_start: string | null;
+    conflict_end: string | null;
   }>(`
-    SELECT s.id, s.first_name, s.last_name, s.role, s.school_id, s.qualifications
+    SELECT
+      s.id, s.first_name, s.last_name, s.role, s.school_id, s.qualifications,
+      (a.staff_id IS NOT NULL) AS is_absent,
+      conflict.start_time AS conflict_start,
+      conflict.end_time AS conflict_end
     FROM staff s
+    LEFT JOIN LATERAL (
+      SELECT 1 AS staff_id
+      FROM staff_absences
+      WHERE staff_id = s.id AND absence_date = $${absenceParamIdx}
+      LIMIT 1
+    ) a ON true
+    LEFT JOIN LATERAL (
+      SELECT start_time, end_time
+      FROM schedule_blocks
+      WHERE staff_id = s.id
+        AND deleted_at IS NULL
+        AND day_of_week = $${dayParamIdx}
+        AND start_time < $${endParamIdx}
+        AND end_time > $${startParamIdx}
+        AND (
+          is_recurring = true
+          OR (is_recurring = false AND week_of = (
+            SELECT to_char(date_trunc('week', $${weekDateParamIdx}::date + interval '1 day') - interval '1 day', 'YYYY-MM-DD')
+          ))
+        )
+        -- Biweekly parity: if a block recurs biweekly, only treat it as a
+        -- conflict when the absence date falls on an "on" week relative to
+        -- its effective_from anchor (matches the JS parity logic in
+        -- routes/staff.ts absence-block handler).
+        AND (
+          recurrence_type != 'biweekly'
+          OR effective_from IS NULL
+          OR (($${weekDateParamIdx}::date - effective_from)::int % 14 = 0)
+        )
+      ORDER BY start_time ASC
+      LIMIT 1
+    ) conflict ON true
     WHERE s.id != $1
       AND s.status = 'active'
       AND s.deleted_at IS NULL
       ${districtFilter}
-      AND s.id NOT IN (
-        SELECT staff_id FROM staff_absences
-        WHERE absence_date = $${candidateParams.push(absenceDate)}
-      )
-      AND s.id NOT IN (
-        SELECT staff_id FROM schedule_blocks
-        WHERE deleted_at IS NULL
-          AND day_of_week = $${candidateParams.push(day_of_week)}
-          AND start_time < $${candidateParams.push(end_time)}
-          AND end_time > $${candidateParams.push(start_time)}
-          AND (
-            is_recurring = true
-            OR (is_recurring = false AND week_of = (
-              SELECT to_char(date_trunc('week', $${candidateParams.push(absenceDate)}::date + interval '1 day') - interval '1 day', 'YYYY-MM-DD')
-            ))
-          )
-          -- Biweekly parity: if a block recurs biweekly, only treat it as a
-          -- conflict when the absence date falls on an "on" week relative to
-          -- its effective_from anchor (matches the JS parity logic in
-          -- routes/staff.ts absence-block handler).
-          AND (
-            recurrence_type != 'biweekly'
-            OR effective_from IS NULL
-            OR (($${candidateParams.push(absenceDate)}::date - effective_from)::int % 14 = 0)
-          )
-      )
   `, candidateParams);
+
+  // Partition into available candidates and excluded staff (with reasons)
+  const fmtTime = (t: string) => {
+    const [h, m] = t.split(":");
+    const hh = Number(h);
+    const period = hh >= 12 ? "PM" : "AM";
+    const h12 = hh % 12 === 0 ? 12 : hh % 12;
+    return `${h12}:${m} ${period}`;
+  };
+
+  const availableRows: typeof candidatesResult.rows = [];
+  const excluded: Array<{
+    staffId: number;
+    name: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    reason: "absence" | "schedule_conflict";
+    reasonLabel: string;
+  }> = [];
+
+  for (const c of candidatesResult.rows) {
+    if (c.is_absent) {
+      excluded.push({
+        staffId: c.id,
+        name: `${c.first_name} ${c.last_name}`,
+        firstName: c.first_name,
+        lastName: c.last_name,
+        role: c.role,
+        reason: "absence",
+        reasonLabel: "Out — absence on this date",
+      });
+    } else if (c.conflict_start && c.conflict_end) {
+      excluded.push({
+        staffId: c.id,
+        name: `${c.first_name} ${c.last_name}`,
+        firstName: c.first_name,
+        lastName: c.last_name,
+        role: c.role,
+        reason: "schedule_conflict",
+        reasonLabel: `Schedule conflict at ${fmtTime(c.conflict_start)}–${fmtTime(c.conflict_end)}`,
+      });
+    } else {
+      availableRows.push(c);
+    }
+  }
+
+  excluded.sort((a, b) =>
+    a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+  );
 
   // 4. Score and rank candidates
   //    +2 for matching role, +1 for same school (building), +1 per overlapping qualification keyword
-  const scored = candidatesResult.rows.map(c => {
+  const scored = availableRows.map(c => {
     const isRoleMatch = c.role === orig_role;
     const isSameSchool = school_id != null && c.school_id === school_id;
     const candidateQualTokens = qualTokens(c.qualifications);
@@ -172,7 +243,7 @@ router.get("/coverage/suggest-substitute", requireAdmin, async (req, res): Promi
     isSuggested: idx < 3,
   }));
 
-  res.json({ suggestions, originalRole: orig_role, schoolId: school_id });
+  res.json({ suggestions, excluded, originalRole: orig_role, schoolId: school_id });
 });
 
 router.get("/schedule-blocks/uncovered", requireAdmin, async (req, res): Promise<void> => {
