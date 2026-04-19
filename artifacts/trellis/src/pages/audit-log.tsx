@@ -33,6 +33,7 @@ import {
   Eye,
   Filter,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { listAuditLogs, getAuditLogStats, customFetch } from "@workspace/api-client-react";
@@ -105,7 +106,23 @@ function formatRole(role: string): string {
     .join(" ");
 }
 
+type TabKey = "all" | "rate_limit";
+type RateLimitWindow = "1h" | "24h" | "7d";
+
+const RATE_LIMIT_WINDOW_MS: Record<RateLimitWindow, number> = {
+  "1h": 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+};
+
+const RATE_LIMIT_WINDOW_LABEL: Record<RateLimitWindow, string> = {
+  "1h": "Last 1 hour",
+  "24h": "Last 24 hours",
+  "7d": "Last 7 days",
+};
+
 export default function AuditLogPage() {
+  const [tab, setTab] = useState<TabKey>("all");
   const [offset, setOffset] = useState(0);
   const [actionFilter, setActionFilter] = useState("");
   const [tableFilter, setTableFilter] = useState("");
@@ -116,6 +133,13 @@ export default function AuditLogPage() {
   const [studentIdFilter, setStudentIdFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [rlWindow, setRlWindow] = useState<RateLimitWindow>("24h");
+  const [rlOffset, setRlOffset] = useState(0);
+
+  const rlSinceIso = (() => {
+    const d = new Date(Date.now() - RATE_LIMIT_WINDOW_MS[rlWindow]);
+    return d.toISOString();
+  })();
 
   const buildParams = useCallback(
     (extra?: Record<string, string>) => {
@@ -149,6 +173,22 @@ export default function AuditLogPage() {
     queryFn: async () => {
       return listAuditLogs(Object.fromEntries(new URLSearchParams(buildParams())) as any) as unknown as AuditLogsResponse;
     },
+    enabled: tab === "all",
+  });
+
+  const { data: rlData, isLoading: rlLoading, error: rlError } = useQuery<AuditLogsResponse>({
+    queryKey: ["audit-logs-rate-limit", rlWindow, rlOffset],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(rlOffset));
+      params.set("action", "rate_limit_exceeded");
+      params.set("dateFrom", rlSinceIso);
+      return listAuditLogs(
+        Object.fromEntries(params) as any
+      ) as unknown as AuditLogsResponse;
+    },
+    enabled: tab === "rate_limit",
   });
 
   const { data: _statsData } = useQuery({
@@ -221,17 +261,69 @@ export default function AuditLogPage() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          className="gap-2"
-        >
-          <Download className="w-4 h-4" />
-          Export CSV
-        </Button>
+        {tab === "all" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+        )}
       </div>
 
+      <div className="flex items-center gap-1 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setTab("all")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            tab === "all"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          All Events
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTab("rate_limit");
+            setRlOffset(0);
+          }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+            tab === "rate_limit"
+              ? "border-amber-600 text-amber-700"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Rate Limit Breaches
+          {stats?.byAction?.rate_limit_exceeded ? (
+            <span className="ml-1 bg-amber-100 text-amber-800 text-[10px] rounded-full px-1.5 py-0.5">
+              {stats.byAction.rate_limit_exceeded}
+            </span>
+          ) : null}
+        </button>
+      </div>
+
+      {tab === "rate_limit" ? (
+        <RateLimitBreachesPanel
+          windowKey={rlWindow}
+          onWindowChange={(w) => {
+            setRlWindow(w);
+            setRlOffset(0);
+          }}
+          data={rlData}
+          isLoading={rlLoading}
+          error={rlError as Error | null}
+          offset={rlOffset}
+          onOffsetChange={setRlOffset}
+          onRowClick={setSelectedLog}
+        />
+      ) : (
+        <>
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="bg-white rounded-lg border border-gray-200 p-3">
@@ -512,6 +604,8 @@ export default function AuditLogPage() {
           </>
         )}
       </div>
+        </>
+      )}
 
       <Dialog
         open={!!selectedLog}
@@ -630,6 +724,240 @@ export default function AuditLogPage() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+interface RateLimitBreachesPanelProps {
+  windowKey: RateLimitWindow;
+  onWindowChange: (w: RateLimitWindow) => void;
+  data: AuditLogsResponse | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  offset: number;
+  onOffsetChange: (o: number) => void;
+  onRowClick: (log: AuditLogEntry) => void;
+}
+
+function RateLimitBreachesPanel({
+  windowKey,
+  onWindowChange,
+  data,
+  isLoading,
+  error,
+  offset,
+  onOffsetChange,
+  onRowClick,
+}: RateLimitBreachesPanelProps) {
+  const logs = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+
+  const breakdown = (() => {
+    const map = new Map<string, { count: number; latest: string }>();
+    for (const log of logs) {
+      const meta = (log.metadata ?? {}) as Record<string, unknown>;
+      const key = (typeof meta.endpointKey === "string" ? meta.endpointKey : log.targetTable) || "(unknown)";
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+        if (log.createdAt > existing.latest) existing.latest = log.createdAt;
+      } else {
+        map.set(key, { count: 1, latest: log.createdAt });
+      }
+    }
+    return Array.from(map.entries())
+      .map(([endpointKey, v]) => ({ endpointKey, ...v }))
+      .sort((a, b) => b.count - a.count);
+  })();
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-amber-900">
+            Rate limit breach breakdown
+          </p>
+          <p className="text-xs text-amber-700 mt-1">
+            Shows endpoints where clients hit the rate limit. Use this to spot
+            abuse patterns or misconfigured clients.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-amber-800 font-medium">Window:</label>
+          <Select
+            value={windowKey}
+            onValueChange={(v) => onWindowChange(v as RateLimitWindow)}
+          >
+            <SelectTrigger className="h-8 text-sm w-[140px] bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(RATE_LIMIT_WINDOW_LABEL) as RateLimitWindow[]).map(
+                (k) => (
+                  <SelectItem key={k} value={k}>
+                    {RATE_LIMIT_WINDOW_LABEL[k]}
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {breakdown.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">
+              Top endpoints — {RATE_LIMIT_WINDOW_LABEL[windowKey]}
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Aggregated from the {logs.length.toLocaleString()} most recent
+              breach events on this page.
+            </p>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {breakdown.slice(0, 8).map((row) => {
+              const max = breakdown[0]?.count || 1;
+              const pct = Math.round((row.count / max) * 100);
+              return (
+                <div key={row.endpointKey} className="p-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-mono text-gray-800 truncate">
+                      {row.endpointKey}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Latest: {formatDate(row.latest)}
+                    </p>
+                  </div>
+                  <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="text-sm font-semibold text-amber-700 w-12 text-right tabular-nums">
+                    {row.count}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-gray-200">
+        {isLoading ? (
+          <div className="p-12 text-center text-gray-400">
+            Loading rate limit breaches...
+          </div>
+        ) : error ? (
+          <div className="p-12 text-center text-red-500">
+            Failed to load rate limit breaches.
+          </div>
+        ) : logs.length === 0 ? (
+          <DemoEmptyState setupHint="Rate limit breaches are recorded when clients exceed configured request limits. None have occurred in the selected window.">
+            <div className="p-12 text-center text-gray-400">
+              No rate limit breaches in the selected window
+            </div>
+          </DemoEmptyState>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[160px]">Timestamp</TableHead>
+                    <TableHead>Endpoint Key</TableHead>
+                    <TableHead className="w-[140px]">Actor</TableHead>
+                    <TableHead className="w-[100px] text-right">
+                      Breach Count
+                    </TableHead>
+                    <TableHead className="w-[50px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.map((log) => {
+                    const meta = (log.metadata ?? {}) as Record<string, unknown>;
+                    const endpointKey =
+                      typeof meta.endpointKey === "string"
+                        ? meta.endpointKey
+                        : log.targetTable;
+                    const breachCount =
+                      typeof meta.count === "number" ? meta.count : null;
+                    const max = typeof meta.max === "number" ? meta.max : null;
+                    return (
+                      <TableRow
+                        key={log.id}
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => onRowClick(log)}
+                      >
+                        <TableCell className="text-xs text-gray-500 font-mono">
+                          {formatDate(log.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono text-gray-800">
+                          {endpointKey}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs text-gray-700">
+                            {formatRole(log.actorRole)}
+                          </div>
+                          <div className="text-[10px] text-gray-400 font-mono truncate max-w-[120px]">
+                            {log.actorUserId}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-sm font-semibold text-amber-700 tabular-nums">
+                            {breachCount ?? "—"}
+                          </span>
+                          {max != null && (
+                            <span className="text-[10px] text-gray-400 ml-1">
+                              / {max}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Eye className="w-3.5 h-3.5 text-gray-400" />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="p-3 border-t border-gray-100 flex items-center justify-between text-sm">
+              <p className="text-gray-500">
+                {total.toLocaleString()} breach event
+                {total === 1 ? "" : "s"} in {RATE_LIMIT_WINDOW_LABEL[windowKey].toLowerCase()}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={offset === 0}
+                  onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-gray-600 text-sm">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={offset + PAGE_SIZE >= total}
+                  onClick={() => onOffsetChange(offset + PAGE_SIZE)}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
