@@ -12,10 +12,17 @@ export interface SendReportEmailParams {
   csvContent?: string;
   pdfBuffer?: Buffer;
   fileName: string;
+  /**
+   * Optional callback that returns a per-recipient unsubscribe URL. When
+   * provided, the report is sent as one email per recipient (instead of a
+   * single multi-recipient send) so each footer can carry a unique HMAC
+   * unsubscribe link. Returning null skips the footer for that recipient.
+   */
+  unsubscribeUrlFor?: (email: string) => string | null;
 }
 
 export async function sendReportEmail(params: SendReportEmailParams): Promise<{ success: boolean; error?: string }> {
-  const { toEmails, reportLabel, frequency, recordCount, format, csvContent, pdfBuffer, fileName } = params;
+  const { toEmails, reportLabel, frequency, recordCount, format, csvContent, pdfBuffer, fileName, unsubscribeUrlFor } = params;
   const resend = getResendClient();
   if (!resend) {
     console.log(`[ScheduledReports] Email not configured — would send ${reportLabel} (${format.toUpperCase()}) to ${toEmails.join(", ")}`);
@@ -28,7 +35,12 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
   const formatNote = format === "pdf"
     ? "The report is attached as a PDF file."
     : "The report is attached as a CSV file. Log in to Trellis to generate PDF versions or view export history.";
-  const emailHtml = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+
+  const buildHtml = (unsubscribeUrl: string | null): string => {
+    const footerLink = unsubscribeUrl
+      ? `<div style="text-align:center;padding:8px 12px 0;color:#9ca3af;font-size:11px"><a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline">Unsubscribe from this report</a></div>`
+      : "";
+    return `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
 <h2 style="margin:0;font-size:18px">Trellis — ${reportLabel}</h2>
 </div>
@@ -42,7 +54,9 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
 <p style="color:#6b7280;font-size:13px">${formatNote}</p>
 </div>
 <div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+${footerLink}
 </div>`;
+  };
 
   try {
     let attachmentContent: Buffer;
@@ -54,11 +68,36 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
       return { success: false, error: "No attachment content provided" };
     }
 
+    if (unsubscribeUrlFor) {
+      // Per-recipient send so each footer carries that recipient's HMAC link.
+      const errors: string[] = [];
+      let anySuccess = false;
+      for (const email of toEmails) {
+        const html = buildHtml(unsubscribeUrlFor(email));
+        const result = await resend.emails.send({
+          from: FROM_EMAIL,
+          to: email,
+          subject,
+          html,
+          attachments: [{ filename: fileName, content: attachmentContent }],
+        });
+        if (result.error) {
+          console.error(`[ScheduledReports] Email send failed for ${email}:`, result.error);
+          errors.push(`${email}: ${result.error.message}`);
+        } else {
+          anySuccess = true;
+        }
+      }
+      if (errors.length > 0 && !anySuccess) return { success: false, error: errors.join("; ") };
+      if (errors.length > 0) return { success: true, error: `Partial: ${errors.join("; ")}` };
+      return { success: true };
+    }
+
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmails,
       subject,
-      html: emailHtml,
+      html: buildHtml(null),
       attachments: [{ filename: fileName, content: attachmentContent }],
     });
     if (result.error) {

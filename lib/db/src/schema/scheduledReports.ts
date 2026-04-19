@@ -8,6 +8,7 @@ export const scheduledReportsTable = pgTable("scheduled_reports", {
   format: text("format").notNull().default("csv").$type<"csv" | "pdf">(),
   filters: jsonb("filters").$type<Record<string, unknown>>(),
   recipientEmails: jsonb("recipient_emails").$type<string[]>().notNull(),
+  unsubscribeSecret: text("unsubscribe_secret"),
   createdBy: text("created_by").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),

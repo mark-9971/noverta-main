@@ -1,4 +1,5 @@
 // tenant-scope: district-join
+import { randomBytes } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
@@ -152,7 +153,7 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
       return;
     }
 
-    const validReportTypes = ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution"];
+    const validReportTypes = ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution", "executive-summary"];
     if (!validReportTypes.includes(reportType)) {
       res.status(400).json({ error: `Invalid reportType. Must be one of: ${validReportTypes.join(", ")}` });
       return;
@@ -164,10 +165,21 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
       return;
     }
 
-    const resolvedFormat = format === "pdf" ? "pdf" : "csv";
+    // The executive-summary type is always emailed as a PDF — it has no CSV
+    // representation. Other report types default to CSV and may opt in to PDF.
+    const resolvedFormat: "csv" | "pdf" =
+      reportType === "executive-summary" ? "pdf" : (format === "pdf" ? "pdf" : "csv");
     const validFormats = ["csv", "pdf"];
     if (format && !validFormats.includes(format)) {
       res.status(400).json({ error: `Invalid format. Must be one of: ${validFormats.join(", ")}` });
+      return;
+    }
+
+    const validRecipients = (recipientEmails as unknown[]).every(
+      e => typeof e === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+    );
+    if (!validRecipients) {
+      res.status(400).json({ error: "recipientEmails must be valid email addresses" });
       return;
     }
 
@@ -188,6 +200,8 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
       nextRunAt = new Date(now.getFullYear(), now.getMonth() + 1, 1, 6, 0, 0, 0);
     }
 
+    const unsubscribeSecret = randomBytes(24).toString("hex");
+
     const [created] = await db.insert(scheduledReportsTable).values({
       districtId,
       reportType,
@@ -195,6 +209,7 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
       format: resolvedFormat,
       filters: filters ?? {},
       recipientEmails,
+      unsubscribeSecret,
       createdBy,
       nextRunAt,
     }).returning();

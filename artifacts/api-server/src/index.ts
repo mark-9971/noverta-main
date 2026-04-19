@@ -3,7 +3,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
 import { startSisWorker } from "./lib/sis/worker";
-import { startReminderScheduler, ensureCaseloadSnapshotsTable } from "./lib/reminders";
+import { startReminderScheduler, ensureCaseloadSnapshotsTable, ensureScheduledReportsUnsubscribeColumn } from "./lib/reminders";
 import { startErrorLogCleanup } from "./lib/errorLogCleanup";
 import { startCostAvoidanceSnapshotScheduler } from "./lib/costAvoidanceSnapshots";
 import { startComplianceTrendSnapshotScheduler } from "./lib/complianceTrendSnapshots";
@@ -161,6 +161,8 @@ app.listen(port, (err) => {
   ensureCaseloadSnapshotsTable()
     .catch((err: unknown) => logger.warn({ err }, "ensureCaseloadSnapshotsTable failed (non-fatal)"))
     .finally(() => startReminderScheduler());
+  ensureScheduledReportsUnsubscribeColumn()
+    .catch((err: unknown) => logger.warn({ err }, "ensureScheduledReportsUnsubscribeColumn failed (non-fatal)"));
   ensurePilotBaselineSnapshotsTable()
     .catch((err: unknown) => logger.warn({ err }, "ensurePilotBaselineSnapshotsTable failed (non-fatal)"))
     .finally(() => {

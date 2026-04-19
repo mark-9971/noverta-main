@@ -34,6 +34,9 @@ import {
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
 import { generateReportCSVDirect, buildScheduledReportPdf } from "../routes/reportExports/historyAndScheduled";
+import { computeExecutiveSummary, type ExecutiveSummaryResult } from "../routes/reports/executiveSummary";
+import { initPdfDoc, pdfHeader, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters } from "../routes/reportExports/utils";
+import { buildScheduledReportUnsubscribeToken } from "../routes/scheduledReportUnsubscribe";
 import { runCostAvoidanceAlertGeneration } from "./costAvoidanceAlerts";
 import { runProviderActivationNudges } from "./providerActivationNudges";
 import { runApprovalReminders } from "./approvalReminders";
@@ -694,7 +697,102 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
   "services-by-provider": "Services by Provider",
   "student-roster": "Student Roster",
   "caseload-distribution": "Caseload Distribution",
+  "executive-summary": "Executive Summary",
 };
+
+/**
+ * Build the executive-summary PDF that gets emailed on a schedule. Mirrors the
+ * on-screen "Executive Summary" the SPED director sees on the compliance page,
+ * so what the superintendent receives matches what the director generated.
+ */
+export async function buildExecutiveSummaryPdf(opts: {
+  summary: ExecutiveSummaryResult;
+  frequency: string;
+}): Promise<Buffer> {
+  const { summary, frequency } = opts;
+  const doc = initPdfDoc();
+  const chunks: Buffer[] = [];
+  doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+  const start = new Date(summary.reportPeriod.start).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  const end = new Date(summary.reportPeriod.end).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  pdfHeader(doc, "Executive Summary", `Scheduled ${frequency} report — ${start} to ${end}`);
+
+  pdfSectionTitle(doc, "Caseload at a Glance");
+  doc.font("Helvetica").fontSize(10).fillColor("#111827");
+  doc.text(`Active Students: ${summary.totalActiveStudents}`);
+  doc.text(`Overall Compliance Rate: ${summary.complianceRate}%`);
+  doc.moveDown(0.5);
+
+  pdfSectionTitle(doc, "Risk Distribution");
+  const riskCols = [
+    { text: "On Track", width: 123 },
+    { text: "Slightly Behind", width: 123 },
+    { text: "At Risk", width: 123 },
+    { text: "Out of Compliance", width: 123 },
+  ];
+  pdfTableHeader(doc, riskCols);
+  const riskY = doc.y;
+  pdfTableRow(doc, [
+    { text: String(summary.riskCounts.onTrack), width: 123 },
+    { text: String(summary.riskCounts.slightlyBehind), width: 123 },
+    { text: String(summary.riskCounts.atRisk), width: 123 },
+    { text: String(summary.riskCounts.outOfCompliance), width: 123 },
+  ], riskY);
+  doc.y = riskY + 13;
+  doc.moveDown(0.5);
+
+  pdfSectionTitle(doc, "Service Delivery");
+  doc.font("Helvetica").fontSize(10).fillColor("#111827");
+  doc.text(`Delivered: ${summary.serviceDelivery.totalDeliveredMinutes.toLocaleString()} of ${summary.serviceDelivery.totalRequiredMinutes.toLocaleString()} minutes (${summary.serviceDelivery.overallPercent}%)`);
+  doc.text(`Missed Sessions: ${summary.serviceDelivery.totalMissedSessions}    Make-Up Sessions: ${summary.serviceDelivery.totalMakeupSessions}`);
+  doc.moveDown(0.5);
+
+  if (summary.serviceDelivery.byService.length > 0) {
+    pdfSectionTitle(doc, "By Service Type");
+    const svcCols = [
+      { text: "Service", width: 200 },
+      { text: "Students", width: 70 },
+      { text: "Required (min)", width: 90 },
+      { text: "Delivered (min)", width: 90 },
+      { text: "%", width: 42 },
+    ];
+    pdfTableHeader(doc, svcCols);
+    for (const s of summary.serviceDelivery.byService) {
+      if (doc.y > 700) { doc.addPage(); pdfTableHeader(doc, svcCols); }
+      const y = doc.y;
+      pdfTableRow(doc, [
+        { text: s.serviceTypeName, width: 200 },
+        { text: String(s.studentCount), width: 70 },
+        { text: s.requiredMinutes.toLocaleString(), width: 90 },
+        { text: s.deliveredMinutes.toLocaleString(), width: 90 },
+        { text: `${s.percentComplete}%`, width: 42 },
+      ], y);
+      doc.y = y + 13;
+    }
+    doc.moveDown(0.5);
+  }
+
+  pdfSectionTitle(doc, "IEP Deadlines");
+  doc.font("Helvetica").fontSize(10).fillColor("#111827");
+  doc.text(`Due within 30 days: ${summary.iepDeadlines.within30}`);
+  doc.text(`Due within 60 days: ${summary.iepDeadlines.within60}`);
+  doc.text(`Due within 90 days: ${summary.iepDeadlines.within90}`);
+  doc.text(`Overdue: ${summary.iepDeadlines.overdue}`);
+  doc.moveDown(0.5);
+
+  pdfSectionTitle(doc, "Open Alerts");
+  doc.font("Helvetica").fontSize(10).fillColor("#111827");
+  doc.text(`Open alerts: ${summary.alerts.openAlerts}    Critical: ${summary.alerts.criticalAlerts}`);
+
+  pdfFooters(doc, "Executive Summary");
+
+  return new Promise<Buffer>((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+    doc.end();
+  });
+}
 
 export async function runScheduledReports(): Promise<void> {
   const now = new Date();
@@ -727,44 +825,74 @@ export async function runScheduledReports(): Promise<void> {
         serviceTypeId: storedFilters.serviceTypeId ? Number(storedFilters.serviceTypeId) : undefined,
         complianceStatus: storedFilters.complianceStatus as string | undefined,
       };
-      const result = await generateReportCSVDirect(reportType, schedule.districtId, reportFilters);
-      if (!result) {
-        console.error(`[ScheduledReports] Failed to generate ${reportType} for schedule #${schedule.id}`);
+
+      const recipients = (schedule.recipientEmails ?? []) as string[];
+      if (recipients.length === 0) {
+        console.log(`[ScheduledReports] Schedule #${schedule.id} has no recipients — skipping`);
+        await db.update(scheduledReportsTable).set({ enabled: false }).where(eq(scheduledReportsTable.id, schedule.id));
         continue;
       }
 
-      const scheduleFormat: "csv" | "pdf" = schedule.format === "pdf" ? "pdf" : "csv";
-      const rowCount = result.rowCount;
-      const fileExt = scheduleFormat === "pdf" ? "pdf" : "csv";
-      const fileName = `Scheduled_${label.replace(/\s+/g, "_")}_${today}.${fileExt}`;
+      const appBase = getAppBaseUrl();
+      const unsubscribeUrlFor = schedule.unsubscribeSecret && appBase
+        ? (email: string): string => {
+            const token = buildScheduledReportUnsubscribeToken(schedule.id, email, schedule.unsubscribeSecret as string);
+            const params = new URLSearchParams({ email, token });
+            return `${appBase}/api/email-unsubscribe/scheduled-report/${schedule.id}?${params.toString()}`;
+          }
+        : undefined;
 
       let emailResult: { success: boolean; error?: string };
-      if (scheduleFormat === "pdf") {
-        const pdfBuffer = await buildScheduledReportPdf({
-          label,
-          headers: result.headers,
-          rows: result.rows,
-          frequency: schedule.frequency,
+      let rowCount = 0;
+      let fileName: string;
+      const scheduleFormat: "csv" | "pdf" = schedule.format === "pdf" ? "pdf" : "csv";
+
+      if (reportType === "executive-summary") {
+        // Executive summary: PDF-only. Emailed to leadership (e.g., the
+        // superintendent) on a weekly/monthly cadence.
+        const summary = await computeExecutiveSummary({
+          districtId: schedule.districtId,
+          schoolId: reportFilters.schoolId ?? null,
+          startDate: reportFilters.startDate,
+          endDate: reportFilters.endDate,
         });
+        rowCount = summary.totalActiveStudents;
+        fileName = `Executive_Summary_${today}.pdf`;
+        const pdfBuffer = await buildExecutiveSummaryPdf({ summary, frequency: schedule.frequency });
         emailResult = await sendReportEmail({
-          toEmails: schedule.recipientEmails ?? [],
+          toEmails: recipients,
           reportLabel: label,
           frequency: schedule.frequency,
           recordCount: rowCount,
           format: "pdf",
           pdfBuffer,
           fileName,
+          unsubscribeUrlFor,
         });
       } else {
-        emailResult = await sendReportEmail({
-          toEmails: schedule.recipientEmails ?? [],
-          reportLabel: label,
-          frequency: schedule.frequency,
-          recordCount: rowCount,
-          format: "csv",
-          csvContent: result.csv,
-          fileName,
-        });
+        const result = await generateReportCSVDirect(reportType, schedule.districtId, reportFilters);
+        if (!result) {
+          console.error(`[ScheduledReports] Failed to generate ${reportType} for schedule #${schedule.id}`);
+          continue;
+        }
+        rowCount = result.rowCount;
+        const fileExt = scheduleFormat === "pdf" ? "pdf" : "csv";
+        fileName = `Scheduled_${label.replace(/\s+/g, "_")}_${today}.${fileExt}`;
+
+        if (scheduleFormat === "pdf") {
+          const pdfBuffer = await buildScheduledReportPdf({
+            label, headers: result.headers, rows: result.rows, frequency: schedule.frequency,
+          });
+          emailResult = await sendReportEmail({
+            toEmails: recipients, reportLabel: label, frequency: schedule.frequency,
+            recordCount: rowCount, format: "pdf", pdfBuffer, fileName, unsubscribeUrlFor,
+          });
+        } else {
+          emailResult = await sendReportEmail({
+            toEmails: recipients, reportLabel: label, frequency: schedule.frequency,
+            recordCount: rowCount, format: "csv", csvContent: result.csv, fileName, unsubscribeUrlFor,
+          });
+        }
       }
 
       await db.insert(exportHistoryTable).values({
@@ -832,6 +960,19 @@ export async function ensureCaseloadSnapshotsTable(): Promise<void> {
     `);
   } catch (err) {
     console.warn("[Reminders] ensureCaseloadSnapshotsTable: DDL failed (non-fatal)", err);
+  }
+}
+
+/**
+ * Idempotent DDL that ensures the `unsubscribe_secret` column exists on
+ * `scheduled_reports`. Mirrors migration 036_scheduled_reports_unsubscribe.sql
+ * so the feature works in environments where migrations haven't been replayed.
+ */
+export async function ensureScheduledReportsUnsubscribeColumn(): Promise<void> {
+  try {
+    await pool.query(`ALTER TABLE scheduled_reports ADD COLUMN IF NOT EXISTS unsubscribe_secret TEXT`);
+  } catch (err) {
+    console.warn("[Reminders] ensureScheduledReportsUnsubscribeColumn: DDL failed (non-fatal)", err);
   }
 }
 

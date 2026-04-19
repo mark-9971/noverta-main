@@ -4,11 +4,15 @@ import { useListMinuteProgress, useGetComplianceByService } from "@workspace/api
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
   Printer, ArrowRight, CheckCircle, FileBarChart, ShieldCheck, ShieldAlert, ExternalLink, Share2, Copy, Check,
-  FileText, Loader2,
+  FileText, Loader2, Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
@@ -247,6 +251,11 @@ function ServiceMinutesContent() {
   const [showAllStudents, setShowAllStudents] = useState(false);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState<"weekly" | "monthly">("weekly");
+  const [scheduleEmails, setScheduleEmails] = useState("");
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const { toast } = useToast();
   const { data: progress, isLoading: progressLoading, isError, refetch } = useListMinuteProgress(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
 
@@ -375,6 +384,54 @@ function ServiceMinutesContent() {
     }
   }
 
+  async function handleScheduleExecutiveSummary() {
+    const emails = scheduleEmails
+      .split(/[,\n;]+/)
+      .map(e => e.trim())
+      .filter(Boolean);
+    if (emails.length === 0) {
+      toast({ title: "Add at least one recipient", description: "Enter the email addresses that should receive this report.", variant: "destructive" });
+      return;
+    }
+    const invalid = emails.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    if (invalid.length > 0) {
+      toast({ title: "Invalid email address", description: invalid.join(", "), variant: "destructive" });
+      return;
+    }
+
+    setScheduleSubmitting(true);
+    try {
+      const filters: Record<string, unknown> = {};
+      if (schoolId) filters.schoolId = schoolId;
+      const res = await authFetch("/api/reports/exports/scheduled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType: "executive-summary",
+          frequency: scheduleFrequency,
+          format: "pdf",
+          recipientEmails: emails,
+          filters,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed (${res.status})`);
+      }
+      toast({
+        title: "Scheduled",
+        description: `Executive Summary will be emailed ${scheduleFrequency} to ${emails.length} recipient${emails.length === 1 ? "" : "s"}.`,
+      });
+      setScheduleDialogOpen(false);
+      setScheduleEmails("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not create schedule";
+      toast({ title: "Failed to schedule report", description: msg, variant: "destructive" });
+    } finally {
+      setScheduleSubmitting(false);
+    }
+  }
+
   const isLoading = progressLoading || reportLoading;
   const progressList = (progress as any[]) ?? [];
   const s = riskReport?.summary;
@@ -490,7 +547,7 @@ function ServiceMinutesContent() {
   return (
     <div className="space-y-5">
       {hasReport && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -503,8 +560,66 @@ function ServiceMinutesContent() {
               : <><FileText className="w-3.5 h-3.5" /> Generate Executive Summary</>
             }
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setScheduleDialogOpen(true)}
+            data-testid="button-schedule-executive-summary"
+          >
+            <Mail className="w-3.5 h-3.5" /> Schedule this report
+          </Button>
         </div>
       )}
+
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Executive Summary</DialogTitle>
+            <DialogDescription>
+              Email the Executive Summary PDF on a regular cadence — for example, to your superintendent. Recipients can unsubscribe with one click from the email footer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="schedule-frequency">Frequency</Label>
+              <Select value={scheduleFrequency} onValueChange={(v) => setScheduleFrequency(v as "weekly" | "monthly")}>
+                <SelectTrigger id="schedule-frequency" data-testid="select-schedule-frequency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly (every Monday)</SelectItem>
+                  <SelectItem value="monthly">Monthly (1st of each month)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="schedule-emails">Recipient emails</Label>
+              <Input
+                id="schedule-emails"
+                placeholder="superintendent@district.org, board.chair@district.org"
+                value={scheduleEmails}
+                onChange={(e) => setScheduleEmails(e.target.value)}
+                data-testid="input-schedule-emails"
+              />
+              <p className="text-xs text-gray-500">Separate multiple addresses with commas.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)} disabled={scheduleSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleScheduleExecutiveSummary}
+              disabled={scheduleSubmitting}
+              data-testid="button-confirm-schedule"
+            >
+              {scheduleSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Scheduling…</> : "Schedule report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {reportError && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />

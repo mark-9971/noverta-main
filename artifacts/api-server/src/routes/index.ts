@@ -36,6 +36,7 @@ import parentCommunicationRouter from "./parentCommunication";
 import sharedProgressPublicRouter from "./parentCommunication/sharedProgressPublic";
 import { nudgesPublicRouter, nudgesAuthedRouter } from "./nudges";
 import complianceSnapshotRouter, { complianceSnapshotPublicRouter } from "./complianceSnapshot";
+import scheduledReportUnsubscribeRouter from "./scheduledReportUnsubscribe";
 import supervisionRouter from "./supervision";
 import paraRouter from "./para";
 import auditLogRouter from "./auditLog";
@@ -105,6 +106,12 @@ router.use(nudgesPublicRouter);
 // GET /share/compliance/:token is the capability — no Clerk session required.
 // POST /compliance/share-snapshot is authenticated and mounted after requireAuth below.
 router.use(complianceSnapshotPublicRouter);
+
+// Public, unauthenticated unsubscribe endpoint for scheduled report emails.
+// The HMAC token in the URL IS the capability — recipients (e.g., a
+// superintendent receiving the weekly executive summary) click it from the
+// email footer with no Clerk session.
+router.use(scheduledReportUnsubscribeRouter);
 
 router.use(requireAuth);
 
