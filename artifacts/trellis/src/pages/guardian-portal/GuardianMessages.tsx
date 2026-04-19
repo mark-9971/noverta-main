@@ -278,6 +278,23 @@ export default function GuardianMessages() {
                             </span>
                           </div>
                           <p className="text-sm text-gray-700 whitespace-pre-line">{msg.body}</p>
+                          {msg.senderType === "guardian" && (
+                            <div className="flex items-center justify-end gap-1 mt-1.5 text-[10px]">
+                              {msg.readAt ? (
+                                <>
+                                  <CheckCheck className="w-3 h-3 text-emerald-600" />
+                                  <span className="text-emerald-700 font-medium">
+                                    Read by staff &middot; {new Date(msg.readAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-3 h-3 text-gray-400" />
+                                  <span className="text-gray-400">Not yet read</span>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
