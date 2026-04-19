@@ -1,0 +1,106 @@
+name: Schema Drift
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: schema-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Detect Drizzle ↔ Postgres drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: trellis
+          POSTGRES_PASSWORD: trellis
+          POSTGRES_DB: trellis_drift
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trellis"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://trellis:trellis@localhost:5432/trellis_drift
+      PGSSLMODE: disable
+      NODE_ENV: test
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Need full history (or at least the base ref) so we can bootstrap
+      # the DB from main's schema below. `actions/checkout@v4` defaults
+      # to a shallow clone that only fetches the PR head.
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: git fetch --depth=1 origin "$BASE_REF"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The SQL files under `lib/db/src/migrations/` are *deltas* layered
+      # on top of a base schema bootstrapped via `drizzle-kit push`, not
+      # a complete CREATE TABLE corpus. To make this drift check
+      # meaningful we must push from the **base branch's** Drizzle
+      # declarations — pushing from the PR's declarations would silently
+      # create any new columns introduced by the PR and the subsequent
+      # `assertSchemaColumnsPresent()` check would tautologically pass
+      # even when the PR forgot to add a paired migration.
+      #
+      # Sequence:
+      #   1. Stash the PR's `lib/db/src/schema` directory.
+      #   2. Check out the base branch's version into the worktree.
+      #   3. `push-force` → DB now matches main exactly.
+      #   4. Restore the PR's schema directory.
+      #   5. `check-drift` runs the PR's migrations and then asserts the
+      #      PR's Drizzle declarations match the resulting DB.
+      #
+      # If the PR adds a column to the Drizzle schema without a paired
+      # migration: step 3 won't create it, step 5's migration won't add
+      # it, the assertion fails and prints the offending
+      # `<table>.<column>` pairs.
+      - name: Bootstrap base schema from base branch
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pr-schema-snapshot
+          cp -R lib/db/src/schema/. /tmp/pr-schema-snapshot/
+          rm -rf lib/db/src/schema
+          git checkout "origin/${BASE_REF}" -- lib/db/src/schema
+          pnpm --filter @workspace/db run push-force
+          rm -rf lib/db/src/schema
+          mkdir -p lib/db/src/schema
+          cp -R /tmp/pr-schema-snapshot/. lib/db/src/schema/
+
+      # Applies every SQL file in `lib/db/src/migrations/` in order and
+      # then runs `assertSchemaColumnsPresent()`. Fails the build with
+      # the offending `<table>.<column>` pairs in the job log when the
+      # PR's Drizzle schema declares columns the migration set does not
+      # produce.
+      - name: Run migrations and assert schema parity
+        run: pnpm --filter @workspace/db run check-drift
