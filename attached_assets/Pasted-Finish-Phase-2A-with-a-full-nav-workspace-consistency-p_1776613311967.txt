@@ -1,0 +1,86 @@
+Finish Phase 2A with a full nav/workspace consistency pass.
+
+Context:
+We have already consolidated some flows into tabbed workspaces (for example compensatory and alerts inside Action Center). I want this pass to finish Phase 2A cleanly so the product feels coherent, intentional, and demo-ready.
+
+Goal:
+Audit and fix navigation/workspace consistency across the app, especially where routes, tabs, redirects, page headers, sidebar items, quick links, and active-state logic may have drifted apart.
+
+Scope:
+Focus on UI/workflow consistency only.
+Do not do backend, schema, or API redesign unless absolutely required for a small fix.
+Prefer small, maintainable fixes over large rewrites.
+
+What to audit:
+1. Sidebar active-state behavior
+   - Ensure the correct nav item highlights for tabbed destinations and redirected destinations
+   - Especially check routes like:
+     - /compensatory?tab=...
+     - /_action-center-legacy?tab=alerts
+     - any other query-string or tab-driven destinations
+   - If current active-state matching ignores query strings or nested workspace state, fix it cleanly
+
+2. Sidebar destination consistency
+   - Check that each sidebar item points to the correct canonical route
+   - Remove or update any links still pointing at legacy or split destinations where the canonical destination has changed
+   - Confirm labels still match the actual destination and page purpose
+
+3. Quick links / CTA / in-app links
+   - Audit important buttons, cards, dashboard links, and action shortcuts
+   - Make sure they point to the new canonical workspace/tab destination, not stale legacy pages
+   - Check for links that land users in the wrong tab or wrong context
+
+4. Redirect consistency
+   - Audit redirects added during Phase 2A
+   - Confirm legacy URLs still land users in the correct canonical destination and tab
+   - Preserve useful query params when appropriate
+   - Identify any remaining routes that should redirect but do not
+
+5. Page header / tab / route naming consistency
+   - Check that sidebar label, page title, tab label, and route destination all tell the same story
+   - Flag and fix mismatches where the route says one thing and the UI says another
+   - Reduce “historical leftovers” that make the app feel stitched together
+
+6. Workspace duplication / fragmentation
+   - Look for cases where one workflow still appears split across multiple pages when it should feel like one workspace
+   - Do not invent new product directions, but flag any obvious leftover fragmentation that should be cleaned up now to finish Phase 2A
+
+Constraints:
+- Preserve existing route structure unless a small redirect or matcher change is clearly better
+- Avoid risky rewrites
+- Do not expand scope into Phase 2B role redesign or deeper feature redesign
+- Do not make cosmetic-only changes unless they directly improve workflow coherence
+- If something is ambiguous, prefer the smallest fix that improves consistency
+
+Required process:
+Before executing, give me a strict pre-flight summary with:
+1. Files to be edited / created
+2. Routes affected
+3. Redirects added or changed
+4. Active-state logic changes planned
+5. Quick-link / CTA destinations expected to change
+6. Biggest regression risks
+7. Anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+1. Exact files edited / created
+2. Exact user-visible behavior changes
+3. Exact active-state logic changes made
+4. Exact redirects added / changed
+5. Links / CTAs / sidebar destinations updated
+6. Validation performed
+   - typecheck
+   - tests run
+   - build status
+   - app boot status
+7. Known issues still remaining
+8. Follow-up recommendations
+9. Blunt verdict: done, partial, or risky
+
+Important rules:
+- Do not say “done” unless the actual behavior was validated
+- Be concrete and specific
+- If you find Phase 2A leftovers you do not fix, list them clearly
+- End with a copy-pasteable commit message
