@@ -13,6 +13,7 @@ import {
 import { and, eq, inArray, isNull, sql, desc, ilike, or } from "drizzle-orm";
 import { requirePlatformAdmin, type AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
+import { sendAdminEmail } from "../lib/email";
 import {
   generateToken, hashToken, loadActiveViewAsSession,
   endActiveSessionsForAdmin, endSessionByToken,
@@ -921,6 +922,99 @@ router.get("/support/users/lookup", async (req: Request, res: Response) => {
   }
 });
 
+// Demo-readiness regression alerts ------------------------------------------
+//
+// When a readiness run drops from passing (fail = 0) into failing (fail > 0),
+// email a configurable platform-admin address so the SE team finds out before
+// a demo is booked, not after. Cooldown prevents spam if the demo bounces in
+// and out of failing repeatedly.
+const DEMO_READINESS_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+let lastDemoReadinessAlertAt = 0;
+
+function getDemoReadinessAlertRecipients(): string[] {
+  const raw = process.env.DEMO_READINESS_ALERT_EMAIL ?? "";
+  return raw
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+interface DemoReadinessFailAlertParams {
+  generatedAt: Date;
+  summary: { pass: number; warn: number; fail: number; total: number };
+  checks: Array<{ id: string; label: string; status: "pass" | "warn" | "fail"; message: string; remediation?: string }>;
+  demoDistrict: { id: number; name: string };
+}
+
+async function maybeSendDemoReadinessFailAlert(p: DemoReadinessFailAlertParams): Promise<void> {
+  const recipients = getDemoReadinessAlertRecipients();
+  if (recipients.length === 0) {
+    console.log("[demo-readiness-alert] DEMO_READINESS_ALERT_EMAIL not set — skipping fail alert");
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastDemoReadinessAlertAt < DEMO_READINESS_ALERT_COOLDOWN_MS) {
+    const minsLeft = Math.ceil((DEMO_READINESS_ALERT_COOLDOWN_MS - (now - lastDemoReadinessAlertAt)) / 60000);
+    console.log(`[demo-readiness-alert] Cooldown active (${minsLeft}m left) — skipping fail alert`);
+    return;
+  }
+
+  const failing = p.checks.filter(c => c.status === "fail");
+  const esc = (s: string): string => s
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+  const subject = `[Trellis] Demo readiness FAILING — ${failing.length} check(s) red on ${esc(p.demoDistrict.name)}`;
+  const failingHtml = failing.map(c =>
+    `<li><strong>${esc(c.label)}</strong>: ${esc(c.message)}${c.remediation ? `<br><span style="color:#6b7280;font-size:12px">Remediation: ${esc(c.remediation)}</span>` : ""}</li>`
+  ).join("");
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:640px;margin:0 auto">
+<div style="background:#b91c1c;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+<h2 style="margin:0;font-size:18px">Demo readiness regressed to FAILING</h2>
+</div>
+<div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+<p>The most recent demo-readiness run for <strong>${esc(p.demoDistrict.name)}</strong> (id ${p.demoDistrict.id}) flipped from passing to failing.</p>
+<ul style="color:#374151">
+<li><strong>Generated:</strong> ${esc(p.generatedAt.toISOString())}</li>
+<li><strong>Summary:</strong> ${p.summary.pass} pass / ${p.summary.warn} warn / <span style="color:#b91c1c"><strong>${p.summary.fail} fail</strong></span> (of ${p.summary.total})</li>
+</ul>
+<h3 style="margin-top:20px;font-size:14px">Failing checks</h3>
+<ul>${failingHtml}</ul>
+<p style="color:#6b7280;font-size:12px">Open the Pre-Flight page in Support to investigate. Further alerts will be suppressed for 4 hours.</p>
+</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Internal Operations</div>
+</div>`;
+  const text = [
+    `Demo readiness regressed to FAILING for ${p.demoDistrict.name} (id ${p.demoDistrict.id}).`,
+    `Generated: ${p.generatedAt.toISOString()}`,
+    `Summary: ${p.summary.pass} pass / ${p.summary.warn} warn / ${p.summary.fail} fail (of ${p.summary.total})`,
+    "",
+    "Failing checks:",
+    ...failing.map(c => `  - ${c.label}: ${c.message}${c.remediation ? ` (Remediation: ${c.remediation})` : ""}`),
+    "",
+    "Further alerts suppressed for 4 hours.",
+  ].join("\n");
+
+  // Optimistically update the cooldown timestamp BEFORE awaiting the send so
+  // a burst of overlapping requests can't slip past the gate. If the send
+  // fails, we still hold the cooldown — that's intentional, since hammering
+  // SEs with retries on a broken email config is worse than a missed alert.
+  lastDemoReadinessAlertAt = now;
+  const result = await sendAdminEmail({
+    to: recipients,
+    subject,
+    html,
+    text,
+    notificationType: "demo_readiness_fail_alert",
+  });
+  if (!result.success) {
+    console.error("[demo-readiness-alert] Send failed:", result.error ?? "(no detail)");
+  } else {
+    console.log(`[demo-readiness-alert] Sent fail alert to ${recipients.length} recipient(s)`);
+  }
+}
+
 /**
  * GET /api/support/demo-readiness
  * Composite "is the demo in a good state to show?" check. Aggregates the
@@ -1151,27 +1245,57 @@ router.get("/support/demo-readiness", async (_req: Request, res: Response) => {
 
     const generatedAt = new Date();
 
-    // Persist this run to history (fire-and-forget; never blocks the response).
-    db.insert(demoReadinessRunsTable).values({
-      generatedAt,
-      pass: summary.pass,
-      warn: summary.warn,
-      fail: summary.fail,
-      total: summary.total,
-      checks: checks as unknown as Record<string, unknown>[],
-    }).then(() =>
-      // Cap at last 50 runs.
-      db.execute(sql`
-        DELETE FROM demo_readiness_runs
-        WHERE id NOT IN (
-          SELECT id FROM demo_readiness_runs
-          ORDER BY generated_at DESC
-          LIMIT 50
-        )
-      `)
-    ).catch((e: unknown) => {
-      console.error("[Support] demo-readiness history write error:", e);
-    });
+    // Persist this run to history, then alert SEs if readiness just dropped
+    // from passing to failing. Fire-and-forget — never blocks the response.
+    (async () => {
+      try {
+        // Look up the previous run's fail count BEFORE inserting the new row,
+        // so the comparison is "previous run" vs "this run" (not vs itself).
+        const [prev] = await db
+          .select({ fail: demoReadinessRunsTable.fail })
+          .from(demoReadinessRunsTable)
+          .orderBy(desc(demoReadinessRunsTable.generatedAt))
+          .limit(1);
+
+        await db.insert(demoReadinessRunsTable).values({
+          generatedAt,
+          pass: summary.pass,
+          warn: summary.warn,
+          fail: summary.fail,
+          total: summary.total,
+          checks: checks as unknown as Record<string, unknown>[],
+        });
+
+        // Cap at last 50 runs. Retention failure must NOT block the alert —
+        // log and keep going.
+        try {
+          await db.execute(sql`
+            DELETE FROM demo_readiness_runs
+            WHERE id NOT IN (
+              SELECT id FROM demo_readiness_runs
+              ORDER BY generated_at DESC
+              LIMIT 50
+            )
+          `);
+        } catch (cleanupErr: unknown) {
+          console.error("[Support] demo-readiness retention cleanup failed:", cleanupErr);
+        }
+
+        // Alert only on a true regression: previous run was passing (fail = 0)
+        // and this run has at least one failure. Skip on the very first run
+        // ever (no prev) — there's no transition to detect.
+        if (summary.fail > 0 && prev && prev.fail === 0) {
+          await maybeSendDemoReadinessFailAlert({
+            generatedAt,
+            summary,
+            checks,
+            demoDistrict: { id: demoRow.id, name: demoRow.name },
+          });
+        }
+      } catch (e: unknown) {
+        console.error("[Support] demo-readiness history write error:", e);
+      }
+    })();
 
     res.json({
       generatedAt: generatedAt.toISOString(),
