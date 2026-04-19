@@ -49,6 +49,10 @@ export const districtsTable = pgTable("districts", {
   // summary PDF header so the document feels district-branded for school board
   // presentations. Falls back to text-only header when null/blank.
   logoUrl: text("logo_url"),
+  // Roles in this list cannot be impersonated via view-as for this district.
+  // Stored as a JSON array of role strings (e.g. ["clinical_psychologist"]).
+  // Null/empty array = no district-level exclusions (global defaults still apply).
+  viewAsExcludedRoles: jsonb("view_as_excluded_roles").$type<string[]>().default([]),
   deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
   deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),
   deleteInitiatedBy: text("delete_initiated_by"),

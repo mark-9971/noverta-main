@@ -897,6 +897,13 @@ router.get("/support/users/lookup", async (req: Request, res: Response) => {
       drift.push("Staff row(s) exist but no Clerk user found by this identifier — they cannot sign in yet");
     }
 
+    // Determine whether view-as is permitted for this Clerk user.
+    // We evaluate this server-side so the frontend never needs to duplicate
+    // the exclusion logic — it just reads the flag.
+    const viewAsAllowed = clerk && !clerk.platformAdmin
+      ? await isViewAsAllowed(clerk.role, clerk.districtId).catch(() => false)
+      : false;
+
     res.json({
       query: q,
       staffMatches: staffRows.map(s => ({
@@ -904,7 +911,7 @@ router.get("/support/users/lookup", async (req: Request, res: Response) => {
         name: `${s.firstName} ${s.lastName}`,
         active: !s.deletedAt && s.status === "active",
       })),
-      clerk,
+      clerk: clerk ? { ...clerk, viewAsAllowed } : null,
       recentAudit,
       drift,
     });
@@ -1340,6 +1347,41 @@ router.get("/support/demo-reseed/:jobId", (req: Request, res: Response) => {
 // replayed by a different platform-admin account.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// View-as allow/deny policy helpers
+// ---------------------------------------------------------------------------
+
+// Roles that are ALWAYS excluded from view-as regardless of district config.
+// This is a platform-level safeguard; districts cannot override this list.
+const VIEW_AS_GLOBALLY_EXCLUDED_ROLES: ReadonlySet<string> = new Set([
+  "platform_admin",
+]);
+
+/**
+ * Returns true if impersonating a user with the given role in the given
+ * district is permitted, false if it is blocked by policy.
+ *
+ * Policy precedence (highest first):
+ *  1. Global hard-exclusions (VIEW_AS_GLOBALLY_EXCLUDED_ROLES) — always blocked.
+ *  2. District-level viewAsExcludedRoles — blocked if role appears in the list.
+ *  3. Otherwise allowed.
+ */
+async function isViewAsAllowed(role: string | null, districtId: number | null): Promise<boolean> {
+  if (!role) return true; // no role metadata — allow (server will validate at session time)
+  if (VIEW_AS_GLOBALLY_EXCLUDED_ROLES.has(role)) return false;
+  if (districtId == null) return true;
+  const [district] = await db
+    .select({ viewAsExcludedRoles: districtsTable.viewAsExcludedRoles })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId))
+    .limit(1);
+  if (!district) return true; // district not found — don't block, let start handler 404
+  const excluded: string[] = Array.isArray(district.viewAsExcludedRoles)
+    ? (district.viewAsExcludedRoles as string[])
+    : [];
+  return !excluded.includes(role);
+}
+
 const REASON_MIN_LENGTH = 8;
 const REASON_MAX_LENGTH = 500;
 
@@ -1388,6 +1430,20 @@ router.post("/support/view-as/start", async (req: Request, res: Response) => {
   const snap = await resolveTargetSnapshot(targetUserId, body.targetSnapshot ?? null);
   if (!snap) {
     res.status(404).json({ error: "Could not resolve target user — no Clerk record or staff row found" });
+    return;
+  }
+
+  // Enforce per-district (and global) view-as exclusion policy.
+  // Returns 403 — not 400 — so the caller knows the identity check passed but
+  // the action is contractually or policy-forbidden for this target.
+  const allowed = await isViewAsAllowed(snap.role ?? null, snap.districtId ?? null).catch(() => false);
+  if (!allowed) {
+    const scope = snap.districtId != null ? `district ${snap.districtId}` : "this district";
+    res.status(403).json({
+      error: `View-as is not permitted for the role "${snap.role}" in ${scope}. ` +
+        "This restriction may be contractual (e.g. PHI access under a clinical provider identity). " +
+        "Contact your compliance team before attempting impersonation.",
+    });
     return;
   }
 

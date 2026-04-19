@@ -111,7 +111,7 @@ interface EmailStatusReport {
 interface UserLookupReport {
   query: string;
   staffMatches: Array<{ staffId: number; name: string; email: string; role: string; status: string; schoolName: string | null; districtId: number | null; districtName: string | null; active: boolean }>;
-  clerk: null | { userId: string; primaryEmail: string | null; role: string | null; districtId: number | null; staffId: number | null; platformAdmin: boolean; createdAt: number | null; lastSignInAt: number | null };
+  clerk: null | { userId: string; primaryEmail: string | null; role: string | null; districtId: number | null; staffId: number | null; platformAdmin: boolean; createdAt: number | null; lastSignInAt: number | null; viewAsAllowed: boolean };
   recentAudit: Array<{ id: number; action: string; targetTable: string | null; targetId: string | number | null; summary: string | null; createdAt: string }>;
   drift: string[];
 }
@@ -629,11 +629,11 @@ function UserLookupPanel() {
                       <div><span className="text-gray-500">Platform admin:</span> {data.clerk.platformAdmin ? "yes" : "no"}</div>
                       <div><span className="text-gray-500">Last sign in:</span> {data.clerk.lastSignInAt ? fmtRelative(new Date(data.clerk.lastSignInAt).toISOString()) : "never"}</div>
                       {data.clerk.role && !data.clerk.platformAdmin && (
-                        <div className="pt-2 mt-2 border-t border-gray-100">
+                        <div className="pt-2 mt-2 border-t border-gray-100 space-y-1">
                           <button
                             type="button"
                             data-testid="view-as-start-button"
-                            disabled={viewAsActive}
+                            disabled={viewAsActive || !data.clerk.viewAsAllowed}
                             onClick={() => setViewAsCandidate({
                               userId: data.clerk!.userId,
                               role: data.clerk!.role!,
@@ -641,12 +641,24 @@ function UserLookupPanel() {
                               districtId: data.clerk!.districtId ?? null,
                               staffId: data.clerk!.staffId ?? null,
                             })}
-                            title={viewAsActive ? "End the current view-as session before starting another" : "Open the view-as start dialog"}
+                            title={
+                              !data.clerk.viewAsAllowed
+                                ? `View-as is not permitted for the role "${data.clerk.role}" in this district. This restriction may be contractual (e.g. PHI access under a clinical provider identity).`
+                                : viewAsActive
+                                ? "End the current view-as session before starting another"
+                                : "Open the view-as start dialog"
+                            }
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <ShieldAlert className="h-3 w-3" />
                             {viewAsActive ? "View-as already active" : "View as this user…"}
                           </button>
+                          {!data.clerk.viewAsAllowed && (
+                            <p className="text-xs text-red-700 flex items-center gap-1">
+                              <ShieldAlert className="h-3 w-3 shrink-0" />
+                              View-as is blocked for role <span className="font-mono font-medium">{data.clerk.role}</span> in this district.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
