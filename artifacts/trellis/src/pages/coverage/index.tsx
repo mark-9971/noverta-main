@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Redirect } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSchoolContext } from "@/lib/school-context";
 import { UserX, AlertTriangle, BarChart2, History, FileText, ArrowLeftRight, Printer } from "lucide-react";
 import { UncoveredTab } from "./UncoveredTab";
@@ -15,7 +16,7 @@ import { ChangeRequestsTab } from "./ChangeRequestsTab";
 import type { CoverageTab } from "./utils";
 import { today } from "./utils";
 import { authFetch } from "@/lib/auth-fetch";
-import { buildDailyCoverageReportHtml, openPrintWindow } from "@/lib/print-document";
+import { buildDailyCoverageReportHtml } from "@/lib/print-document";
 import { toast } from "sonner";
 
 const COVERAGE_ROLES = ["admin", "coordinator", "case_manager"];
@@ -24,6 +25,9 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
   const { role } = useRole();
   const [tab, setTab] = useState<CoverageTab>("uncovered");
   const [printing, setPrinting] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { typedFilter } = useSchoolContext();
   const schoolId = (typedFilter as any)?.schoolId ? Number((typedFilter as any).schoolId) : null;
 
@@ -87,12 +91,20 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
         sessions: allSessions,
       });
 
-      openPrintWindow(html);
+      setPreviewLoaded(false);
+      setPreviewHtml(html);
     } catch {
       toast.error("Failed to generate coverage report");
     } finally {
       setPrinting(false);
     }
+  }
+
+  function handlePrintPreview() {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    win.focus();
+    win.print();
   }
 
   const tabs: { key: CoverageTab; label: string; icon: React.ElementType }[] = [
@@ -160,6 +172,48 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
           {tab === "change_requests" && <ChangeRequestsTab schoolId={schoolId} />}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={previewHtml !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewHtml(null);
+            setPreviewLoaded(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-5 py-3 border-b">
+            <DialogTitle>Daily Coverage Report Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 bg-gray-100 overflow-hidden">
+            {previewHtml && (
+              <iframe
+                ref={iframeRef}
+                title="Coverage report preview"
+                srcDoc={previewHtml}
+                onLoad={() => setPreviewLoaded(true)}
+                className="w-full h-full bg-white border-0"
+              />
+            )}
+          </div>
+          <DialogFooter className="px-5 py-3 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPreviewHtml(null);
+                setPreviewLoaded(false);
+              }}
+            >
+              Close
+            </Button>
+            <Button onClick={handlePrintPreview} disabled={!previewLoaded} className="gap-1.5">
+              <Printer className="h-3.5 w-3.5" />
+              {previewLoaded ? "Print" : "Loading…"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
