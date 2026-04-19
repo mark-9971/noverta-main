@@ -26,6 +26,7 @@ import {
   districtSubscriptionsTable,
   medicaidClaimsTable,
   communicationEventsTable,
+  compensatoryObligationsTable,
 } from "@workspace/db";
 import { legalAcceptancesTable } from "@workspace/db/schema";
 import { LEGAL_VERSIONS } from "../src/lib/legalVersions";
@@ -214,6 +215,7 @@ export async function cleanupDistrict(districtId: number) {
   }
   if (studentIds.length > 0) {
     await db.delete(communicationEventsTable).where(inArray(communicationEventsTable.studentId, studentIds));
+    await db.delete(compensatoryObligationsTable).where(inArray(compensatoryObligationsTable.studentId, studentIds));
     await db.delete(studentsTable).where(inArray(studentsTable.id, studentIds));
   }
   if (staffIds.length > 0) {
