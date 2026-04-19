@@ -26,6 +26,7 @@ import { FeedbackWidget } from "@/components/FeedbackWidget";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { SidebarSetupProgress } from "@/components/onboarding/SidebarSetupProgress";
+import { MobileSetupProgress } from "@/components/onboarding/MobileSetupProgress";
 import { ThemePicker } from "./ThemePicker";
 import { useTheme, DARK_SIDEBAR_THEMES, type ThemeId } from "@/lib/theme-context";
 import { useTier } from "@/lib/tier-context";
@@ -521,6 +522,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        <MobileSetupProgress />
         <ViewAsBanner />
         <SupportSessionBanner />
         <DemoBanner />
