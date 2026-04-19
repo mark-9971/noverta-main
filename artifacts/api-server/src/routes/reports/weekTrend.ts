@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { schoolYearsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { schoolYearsTable, complianceTrendSnapshotsTable } from "@workspace/db/schema";
+import { eq, and, lte, desc, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
@@ -81,22 +81,71 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
         ? yearDates.endDate
         : priorWeekDateStr;
 
-    const progress = await computeAllActiveMinuteProgress({
-      districtId,
-      ...(schoolId ? { schoolId } : {}),
-      ...(yearDates ? { startDate: yearDates.startDate } : {}),
-      endDate: effectiveEndDate,
-      asOfDate: sevenDaysAgo,
-    });
+    // Snapshot fast-path: when no school or school-year filter is applied, the
+    // nightly per-district trend snapshot already captures these exact metrics.
+    // Reading it is O(1) and immune to retroactive session edits. We accept the
+    // most recent snapshot at-or-before the prior-week target date so a missed
+    // nightly run still serves trend data.
+    let overallComplianceRate = 100;
+    let studentsOutOfCompliance = 0;
+    let studentsAtRisk = 0;
+    let studentsOnTrack = 0;
+    let primaryAvailable = false;
+    let priorWeekEndDateOut: string = effectiveEndDate;
+    let primarySource: "snapshot" | "live" = "live";
 
-    if (progress.length === 0) {
-      res.json({ available: false });
-      return;
+    if (schoolId === undefined && rawSchoolYearId === undefined) {
+      const [snapshot] = await db
+        .select({
+          snapshotDate: complianceTrendSnapshotsTable.snapshotDate,
+          overallComplianceRate: complianceTrendSnapshotsTable.overallComplianceRate,
+          studentsOutOfCompliance: complianceTrendSnapshotsTable.studentsOutOfCompliance,
+          studentsAtRisk: complianceTrendSnapshotsTable.studentsAtRisk,
+          studentsOnTrack: complianceTrendSnapshotsTable.studentsOnTrack,
+        })
+        .from(complianceTrendSnapshotsTable)
+        .where(and(
+          eq(complianceTrendSnapshotsTable.districtId, districtId),
+          lte(complianceTrendSnapshotsTable.snapshotDate, effectiveEndDate),
+        ))
+        .orderBy(desc(complianceTrendSnapshotsTable.snapshotDate))
+        .limit(1);
+
+      if (snapshot) {
+        const rate = typeof snapshot.overallComplianceRate === "string"
+          ? parseFloat(snapshot.overallComplianceRate)
+          : (snapshot.overallComplianceRate as unknown as number);
+        overallComplianceRate = Number.isFinite(rate) ? rate : 100;
+        studentsOutOfCompliance = snapshot.studentsOutOfCompliance;
+        studentsAtRisk = snapshot.studentsAtRisk;
+        studentsOnTrack = snapshot.studentsOnTrack;
+        priorWeekEndDateOut = typeof snapshot.snapshotDate === "string"
+          ? snapshot.snapshotDate
+          : new Date(snapshot.snapshotDate as unknown as string).toISOString().substring(0, 10);
+        primaryAvailable = true;
+        primarySource = "snapshot";
+      }
+      // If no snapshot exists yet (e.g. fresh install before first nightly
+      // run), fall through to the live-compute path below.
     }
 
-    let totalRequired = 0;
-    let totalDelivered = 0;
-    const studentWorstStatus = new Map<number, string>();
+    if (!primaryAvailable) {
+      const progress = await computeAllActiveMinuteProgress({
+        districtId,
+        ...(schoolId ? { schoolId } : {}),
+        ...(yearDates ? { startDate: yearDates.startDate } : {}),
+        endDate: effectiveEndDate,
+        asOfDate: sevenDaysAgo,
+      });
+
+      if (progress.length === 0) {
+        res.json({ available: false });
+        return;
+      }
+
+      let totalRequired = 0;
+      let totalDelivered = 0;
+      const studentWorstStatus = new Map<number, string>();
 
     const riskOrder: Record<string, number> = {
       out_of_compliance: 0,
@@ -118,21 +167,20 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
       }
     }
 
-    const overallComplianceRate =
-      totalRequired > 0 ? Math.round((totalDelivered / totalRequired) * 1000) / 10 : 100;
+      overallComplianceRate =
+        totalRequired > 0 ? Math.round((totalDelivered / totalRequired) * 1000) / 10 : 100;
 
-    // Match canonical compliance-risk-report bucket definitions exactly:
-    //   out_of_compliance  → studentsOutOfCompliance
-    //   at_risk            → studentsAtRisk
-    //   on_track/completed → studentsOnTrack
-    //   slightly_behind    → not counted in any displayed bucket (same as main report)
-    let studentsOutOfCompliance = 0;
-    let studentsAtRisk = 0;
-    let studentsOnTrack = 0;
-    for (const status of studentWorstStatus.values()) {
-      if (status === "out_of_compliance") studentsOutOfCompliance++;
-      else if (status === "at_risk") studentsAtRisk++;
-      else if (status === "on_track" || status === "completed") studentsOnTrack++;
+      // Match canonical compliance-risk-report bucket definitions exactly:
+      //   out_of_compliance  → studentsOutOfCompliance
+      //   at_risk            → studentsAtRisk
+      //   on_track/completed → studentsOnTrack
+      //   slightly_behind    → not counted in any displayed bucket (same as main report)
+      for (const status of studentWorstStatus.values()) {
+        if (status === "out_of_compliance") studentsOutOfCompliance++;
+        else if (status === "at_risk") studentsAtRisk++;
+        else if (status === "on_track" || status === "completed") studentsOnTrack++;
+      }
+      primarySource = "live";
     }
 
     // ── Secondary metrics: re-run the dashboard's date-anchored counts with
@@ -305,12 +353,13 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
 
     res.json({
       available: true,
-      priorWeekEndDate: effectiveEndDate,
+      priorWeekEndDate: priorWeekEndDateOut,
       overallComplianceRate,
       studentsOutOfCompliance,
       studentsAtRisk,
       studentsOnTrack,
       secondary,
+      source: primarySource,
     });
   } catch (e: any) {
     console.error("GET /reports/compliance-week-trend error:", e);

@@ -6,6 +6,7 @@ import { startSisWorker } from "./lib/sis/worker";
 import { startReminderScheduler, ensureCaseloadSnapshotsTable } from "./lib/reminders";
 import { startErrorLogCleanup } from "./lib/errorLogCleanup";
 import { startCostAvoidanceSnapshotScheduler } from "./lib/costAvoidanceSnapshots";
+import { startComplianceTrendSnapshotScheduler } from "./lib/complianceTrendSnapshots";
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
 import { startMedicaidReportSnapshotScheduler } from "./lib/medicaidReportSnapshotsScheduler";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
@@ -145,6 +146,7 @@ app.listen(port, (err) => {
   void startSisWorker();
   startErrorLogCleanup();
   startCostAvoidanceSnapshotScheduler();
+  startComplianceTrendSnapshotScheduler();
   initStripe();
   backfillDistrictSubscriptions();
   ensureDbConstraints().catch((err: unknown) => logger.warn({ err }, "ensureDbConstraints failed (non-fatal)"));
