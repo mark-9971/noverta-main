@@ -17,8 +17,8 @@ correctly:
 | `SENTRY_ORG`         | both build configs                                       |
 | `SENTRY_PROJECT`     | both build configs                                       |
 | `SENTRY_RELEASE`     | optional override for the release name (defaults to `VITE_APP_VERSION` / `APP_VERSION` / git SHA / `npm_package_version`) |
-| `VITE_APP_VERSION`   | baked into the frontend bundle as the release            |
-| `APP_VERSION`        | read by the backend `Sentry.init` for the release tag    |
+| `VITE_APP_VERSION`   | baked into the frontend bundle as the release (Vite mirrors `SENTRY_RELEASE` / git SHA when unset) |
+| `APP_VERSION`        | read by the backend `Sentry.init` for the release tag (api-server build bakes the resolved release in via `define`, so this only needs to be set explicitly to override) |
 | `SENTRY_TEST_ENABLED`| set to `true` on the API to allow `GET /api/_internal/sentry-test` |
 
 When the auth token is unset the build skips upload gracefully — dev

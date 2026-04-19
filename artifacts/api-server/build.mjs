@@ -15,6 +15,18 @@ async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  // Resolve the release identifier once so the source-map upload tag and the
+  // runtime Sentry.init() release tag stay in lock-step. Without baking it
+  // into the bundle, prod events come in with an empty release while the
+  // uploaded artifacts live under a git-SHA release, and the two never link
+  // up in the Sentry UI (so stack traces stay minified).
+  const resolvedRelease =
+    process.env.SENTRY_RELEASE ||
+    process.env.APP_VERSION ||
+    process.env.REPLIT_GIT_COMMIT_SHA ||
+    process.env.GIT_COMMIT ||
+    "";
+
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",
@@ -23,6 +35,13 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
+    ...(resolvedRelease
+      ? {
+          define: {
+            "process.env.APP_VERSION": JSON.stringify(resolvedRelease),
+          },
+        }
+      : {}),
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
     // Examples of unbundleable packages:
