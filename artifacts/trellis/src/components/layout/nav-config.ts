@@ -18,6 +18,7 @@ export type SubNavItem = {
   href: string;
   label: string;
   icon: IconComponent;
+  pendingChangeRequestBadge?: boolean;
 };
 
 export type NavItem = {
@@ -26,6 +27,7 @@ export type NavItem = {
   icon: IconComponent;
   primary?: boolean;
   alertBadge?: boolean;
+  pendingChangeRequestBadge?: boolean;
   comingSoon?: boolean;
   featureKey?: FeatureKey;
   children?: SubNavItem[];
@@ -289,10 +291,10 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/sessions", label: "Session Log", icon: Clipboard },
       {
-        href: "/scheduling", label: "Scheduling Hub", icon: Clock,
+        href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true,
         children: [
           { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck, pendingChangeRequestBadge: true },
           { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
           { href: "/scheduling?tab=staff-calendar", label: "Staff Calendar", icon: CalendarDays },
         ],
@@ -443,10 +445,10 @@ export const focusedAdminNav: NavSection[] = [
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
       {
-        href: "/scheduling", label: "Schedule", icon: CalendarDays,
+        href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true,
         children: [
           { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck, pendingChangeRequestBadge: true },
           { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
         ],
       },

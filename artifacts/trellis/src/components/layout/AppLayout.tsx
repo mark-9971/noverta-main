@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster, toast } from "sonner";
+import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
@@ -62,13 +63,14 @@ function useCollapsedSections(sections: NavSection[]) {
 }
 
 function NavItemRow({
-  item, active, theme, config, openAlerts, onNavigate, locked, lockedTierLabel, onLockedClick,
+  item, active, theme, config, openAlerts, pendingChangeRequests, onNavigate, locked, lockedTierLabel, onLockedClick,
 }: {
   item: NavItem;
   active: boolean;
   theme: string;
   config: RoleThemeConfig;
   openAlerts: number;
+  pendingChangeRequests: number;
   onNavigate?: () => void;
   locked?: boolean;
   lockedTierLabel?: string;
@@ -108,6 +110,11 @@ function NavItemRow({
       {item.alertBadge && openAlerts > 0 && !isLocked && (
         <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
           {openAlerts > 99 ? "99+" : openAlerts}
+        </span>
+      )}
+      {item.pendingChangeRequestBadge && pendingChangeRequests > 0 && !isLocked && (
+        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+          {pendingChangeRequests > 99 ? "99+" : pendingChangeRequests}
         </span>
       )}
     </>
@@ -171,6 +178,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { hasAccess, getFeatureInfo, loading: tierLoading } = useTier();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
+  const isReviewer = role === "admin" || role === "coordinator" || role === "case_manager";
+  const [pendingChangeRequests, setPendingChangeRequests] = useState(0);
+  useEffect(() => {
+    if (!isReviewer) {
+      setPendingChangeRequests(0);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await authFetch("/api/schedules/change-requests?status=pending");
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled) setPendingChangeRequests(Array.isArray(data) ? data.length : 0);
+      } catch {
+        /* ignore — badge just stays at last known count */
+      }
+    }
+    load();
+    const id = window.setInterval(load, 60000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [isReviewer]);
   const baseConfig = roleConfig[role] ?? roleConfig["sped_teacher"];
   const demoDistrict = useActiveDemoDistrict();
   const pilotDistrict = useActivePilotDistrict();
@@ -372,6 +401,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             theme={theme}
                             config={config}
                             openAlerts={openAlerts}
+                            pendingChangeRequests={pendingChangeRequests}
                             onNavigate={() => setSidebarOpen(false)}
                             locked={isItemLocked}
                             lockedTierLabel={tierInfo?.requiredTierLabel}
@@ -386,6 +416,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             <div className="ml-3 pl-3 mt-0.5 mb-1 border-l-2 border-sidebar-border/60 space-y-0.5">
                               {item.children!.map((child, ci) => {
                                 const childActive = isChildActive(child.href, ci === 0);
+                                const showPendingBadge =
+                                  child.pendingChangeRequestBadge && pendingChangeRequests > 0;
                                 return (
                                   <Link
                                     key={child.href}
@@ -402,7 +434,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                       "w-3.5 h-3.5 flex-shrink-0",
                                       childActive ? "text-sidebar-primary" : "text-sidebar-foreground/40"
                                     )} />
-                                    <span className="truncate">{child.label}</span>
+                                    <span className="flex-1 truncate">{child.label}</span>
+                                    {showPendingBadge && (
+                                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                                        {pendingChangeRequests > 99 ? "99+" : pendingChangeRequests}
+                                      </span>
+                                    )}
                                   </Link>
                                 );
                               })}
