@@ -89,7 +89,9 @@ export default function OnboardingPage() {
 
   const pilotReady = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
   const completed = onboarding?.pilotChecklist?.completedCount ?? 0;
-  const total = onboarding?.pilotChecklist?.totalSteps ?? 8;
+  // Default to the canonical 9-step pilot checklist length when the API
+  // hasn't responded yet, so the header doesn't briefly show "0/8".
+  const total = onboarding?.pilotChecklist?.totalSteps ?? 9;
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
@@ -186,7 +188,7 @@ export default function OnboardingPage() {
         </div>
       </section>
 
-      {/* Step 2 — Setup checklist (canonical 8-step) */}
+      {/* Step 2 — Setup checklist (canonical 9-step) */}
       <section data-testid="hub-step-checklist">
         <div className="flex items-center gap-2 mb-2 ml-1">
           <span className="text-[10px] font-bold text-gray-400 tabular-nums">STEP 2</span>

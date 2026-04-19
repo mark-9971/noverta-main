@@ -24,8 +24,9 @@ export function useChecklistVisibility(): ChecklistVisibilityData {
   });
 
   const invalidate = () => {
+    // Dashboard, sidebar, and checklist all share this single cache key now,
+    // so one invalidation refreshes every surface that displays setup state.
     queryClient.invalidateQueries({ queryKey: ["onboarding/pilot-checklist"] });
-    queryClient.invalidateQueries({ queryKey: ["pilot-home/onboarding-status"] });
   };
 
   const dismissMutation = useMutation({

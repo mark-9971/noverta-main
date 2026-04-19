@@ -3,7 +3,7 @@ import {
   db, districtsTable, schoolsTable, serviceTypesTable, staffTable,
   studentsTable, onboardingProgressTable, sisConnectionsTable,
   districtSubscriptionsTable, serviceRequirementsTable, sessionLogsTable,
-  schoolYearsTable, legalAcceptancesTable,
+  schoolYearsTable, legalAcceptancesTable, userChecklistDismissalsTable,
 } from "@workspace/db";
 import { count, isNull, eq, and, isNotNull, inArray } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
@@ -152,7 +152,6 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
     if (districtId) {
       sisConnected = await getStepStatus(districtId, "sis_connected");
       districtConfirmed = await getStepStatus(districtId, "district_confirmed");
-      checklistDismissed = await getStepStatus(districtId, "checklist_dismissed");
       const [confirmedRow] = await db.select().from(onboardingProgressTable)
         .where(and(
           eq(onboardingProgressTable.districtId, districtId),
@@ -163,10 +162,16 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
       }
     }
 
-    // DPA acceptance is per-user: check whether the requesting admin has
-    // accepted the current version of the Data Processing Agreement.
+    // Per-user state: checklist dismissal and DPA acceptance are personal
+    // preferences, scoped to the requesting user (not their district).
     const authedReq = req as unknown as AuthedRequest;
     if (authedReq.userId) {
+      const [dismissalRow] = await db.select({ userId: userChecklistDismissalsTable.userId })
+        .from(userChecklistDismissalsTable)
+        .where(eq(userChecklistDismissalsTable.userId, authedReq.userId))
+        .limit(1);
+      checklistDismissed = !!dismissalRow;
+
       const dpaVersion = LEGAL_VERSIONS["dpa"];
       const [dpaRow] = await db.select({ id: legalAcceptancesTable.id })
         .from(legalAcceptancesTable)
@@ -660,14 +665,26 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
   }
 });
 
+/**
+ * Per-user dismiss/show endpoints for the onboarding checklist widget.
+ *
+ * Dismissal is a personal preference, scoped to the requesting user (Clerk
+ * userId), NOT to their district. Two admins in the same district can have
+ * independent show/hide states.
+ */
 router.post("/onboarding/dismiss-checklist", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
-    if (districtId == null) {
-      res.status(400).json({ error: "No district associated with this account." });
+    const authed = req as unknown as AuthedRequest;
+    if (!authed.userId) {
+      res.status(401).json({ error: "Not authenticated." });
       return;
     }
-    await markStepComplete(districtId, "checklist_dismissed");
+    await db.insert(userChecklistDismissalsTable)
+      .values({ userId: authed.userId })
+      .onConflictDoUpdate({
+        target: userChecklistDismissalsTable.userId,
+        set: { dismissedAt: new Date() },
+      });
     res.json({ checklistDismissed: true });
   } catch (err) {
     console.error("Dismiss checklist error:", err);
@@ -677,21 +694,13 @@ router.post("/onboarding/dismiss-checklist", requireRoles("admin", "coordinator"
 
 router.post("/onboarding/show-checklist", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
-    if (districtId == null) {
-      res.status(400).json({ error: "No district associated with this account." });
+    const authed = req as unknown as AuthedRequest;
+    if (!authed.userId) {
+      res.status(401).json({ error: "Not authenticated." });
       return;
     }
-    const existing = await db.select().from(onboardingProgressTable)
-      .where(and(
-        eq(onboardingProgressTable.districtId, districtId),
-        eq(onboardingProgressTable.stepKey, "checklist_dismissed"),
-      ));
-    if (existing.length > 0) {
-      await db.update(onboardingProgressTable)
-        .set({ completed: false })
-        .where(eq(onboardingProgressTable.id, existing[0].id));
-    }
+    await db.delete(userChecklistDismissalsTable)
+      .where(eq(userChecklistDismissalsTable.userId, authed.userId));
     res.json({ checklistDismissed: false });
   } catch (err) {
     console.error("Show checklist error:", err);

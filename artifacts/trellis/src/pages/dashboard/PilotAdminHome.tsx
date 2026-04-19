@@ -176,16 +176,20 @@ export default function PilotAdminHome() {
   });
 
   // ── Onboarding status — used to gate weekly section and setup-mode display ──
+  // Shares the cache key with PilotOnboardingChecklist and SidebarSetupProgress
+  // so the "steps remaining" count on the dashboard always matches what the
+  // checklist itself shows (previously they used different keys and could
+  // drift apart between refetches).
   const { data: onboarding } = useQuery<OnboardingStatus>({
-    queryKey: ["pilot-home/onboarding-status"],
+    queryKey: ["onboarding/pilot-checklist"],
     queryFn: async () => {
-      const r = await authFetch("/api/onboarding/status");
-      if (!r.ok) throw new Error("onboarding/status failed");
+      const r = await authFetch("/api/onboarding/checklist");
+      if (!r.ok) throw new Error("onboarding/checklist failed");
       return r.json();
     },
     staleTime: 5 * 60_000,
   });
-  // Use the 8-step pilot readiness signal — NOT the legacy 3-step `isComplete`
+  // Use the 9-step pilot readiness signal — NOT the legacy 3-step `isComplete`
   // which only checks SIS+schools+service types and collapses the onboarding UI
   // before the district is truly ready.
   const onboardingComplete = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
