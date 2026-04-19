@@ -17,6 +17,10 @@ import {
   ensureWeeklyDigestColumn,
   sendWeeklyRiskDigestsForAllDistricts,
 } from "./costAvoidanceWeeklyDigest";
+import {
+  ensurePilotScorecardSchema,
+  sendPilotScorecardsForAllPilotDistricts,
+} from "./pilotScorecard";
 
 async function ensureCostAvoidanceSnapshotsTable(): Promise<void> {
   try {
@@ -309,6 +313,11 @@ export async function captureSnapshotsForAllDistricts(): Promise<void> {
   sendWeeklyRiskDigestsForAllDistricts().catch((err) =>
     logger.warn({ err }, "Weekly risk digest run failed (non-fatal)"),
   );
+
+  // Send the weekly Pilot Success Scorecard to pilot districts.
+  sendPilotScorecardsForAllPilotDistricts().catch((err) =>
+    logger.warn({ err }, "Weekly pilot scorecard run failed (non-fatal)"),
+  );
 }
 
 let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -339,6 +348,7 @@ export function startCostAvoidanceSnapshotScheduler(): void {
 
   ensureCostAvoidanceSnapshotsTable()
     .then(() => ensureWeeklyDigestColumn())
+    .then(() => ensurePilotScorecardSchema())
     .then(() => captureSnapshotsForAllDistricts())
     .catch((err) =>
       logger.warn({ err }, "Initial cost avoidance snapshot run failed (non-fatal)")

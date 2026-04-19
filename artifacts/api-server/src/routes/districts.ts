@@ -12,6 +12,7 @@ import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { requirePlatformAdmin, getEnforcedDistrictId, requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { buildWeeklyRiskDigestPreviewForDistrict } from "../lib/costAvoidanceWeeklyDigest";
+import { buildPilotScorecardPreviewForDistrict } from "../lib/pilotScorecard";
 import { sendAdminEmail } from "../lib/email";
 
 const router: IRouter = Router();
@@ -423,11 +424,20 @@ router.get("/districts/:id/notification-preferences", requireRoles("admin"), asy
 
   try {
     const result = await db.execute(
-      sql`SELECT weekly_risk_email_enabled FROM districts WHERE id = ${districtId} LIMIT 1`,
+      sql`SELECT weekly_risk_email_enabled, pilot_scorecard_email_enabled, is_pilot
+            FROM districts WHERE id = ${districtId} LIMIT 1`,
     );
-    const row = result.rows[0] as { weekly_risk_email_enabled: boolean } | undefined;
+    const row = result.rows[0] as {
+      weekly_risk_email_enabled: boolean;
+      pilot_scorecard_email_enabled: boolean | null;
+      is_pilot: boolean | null;
+    } | undefined;
     if (!row) { res.status(404).json({ error: "District not found" }); return; }
-    res.json({ weeklyRiskEmailEnabled: row.weekly_risk_email_enabled ?? true });
+    res.json({
+      weeklyRiskEmailEnabled: row.weekly_risk_email_enabled ?? true,
+      pilotScorecardEmailEnabled: row.pilot_scorecard_email_enabled ?? true,
+      isPilot: row.is_pilot ?? false,
+    });
   } catch (err) {
     console.error("[districts] GET notification-preferences error:", err);
     res.status(500).json({ error: "Failed to fetch notification preferences" });
@@ -448,18 +458,43 @@ router.patch("/districts/:id/notification-preferences", requireRoles("admin"), a
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const { weeklyRiskEmailEnabled } = req.body ?? {};
-  if (typeof weeklyRiskEmailEnabled !== "boolean") {
-    res.status(400).json({ error: "weeklyRiskEmailEnabled must be a boolean" }); return;
+  const body = (req.body ?? {}) as {
+    weeklyRiskEmailEnabled?: unknown;
+    pilotScorecardEmailEnabled?: unknown;
+  };
+
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+
+  if (body.weeklyRiskEmailEnabled !== undefined) {
+    if (typeof body.weeklyRiskEmailEnabled !== "boolean") {
+      res.status(400).json({ error: "weeklyRiskEmailEnabled must be a boolean" }); return;
+    }
+    sets.push(`weekly_risk_email_enabled = $${i++}`);
+    values.push(body.weeklyRiskEmailEnabled);
   }
+  if (body.pilotScorecardEmailEnabled !== undefined) {
+    if (typeof body.pilotScorecardEmailEnabled !== "boolean") {
+      res.status(400).json({ error: "pilotScorecardEmailEnabled must be a boolean" }); return;
+    }
+    sets.push(`pilot_scorecard_email_enabled = $${i++}`);
+    values.push(body.pilotScorecardEmailEnabled);
+  }
+
+  if (sets.length === 0) {
+    res.status(400).json({ error: "No supported preference provided" }); return;
+  }
+
+  values.push(districtId);
 
   try {
     const updated = await pool.query<{ id: number }>(
-      "UPDATE districts SET weekly_risk_email_enabled = $1 WHERE id = $2 RETURNING id",
-      [weeklyRiskEmailEnabled, districtId],
+      `UPDATE districts SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`,
+      values,
     );
     if (updated.rowCount === 0) { res.status(404).json({ error: "District not found" }); return; }
-    res.json({ success: true, weeklyRiskEmailEnabled });
+    res.json({ success: true, ...body });
   } catch (err) {
     console.error("[districts] PATCH notification-preferences error:", err);
     res.status(500).json({ error: "Failed to update notification preferences" });
@@ -570,6 +605,103 @@ router.post("/districts/:id/weekly-risk-digest-preview/send-test", requireRoles(
   } catch (err) {
     console.error("[districts] POST weekly-risk-digest-preview/send-test error:", err);
     res.status(500).json({ error: "Failed to send test digest email" });
+  }
+});
+
+/**
+ * GET /districts/:id/pilot-scorecard-preview
+ * Returns the rendered weekly Pilot Success Scorecard email so admins can see
+ * what will be sent on Monday. Default response is HTML; pass ?format=json
+ * for {subject, html, text, data}.
+ */
+router.get("/districts/:id/pilot-scorecard-preview", requireRoles("admin"), async (req, res): Promise<void> => {
+  const districtId = parseInt(req.params.id as string, 10);
+  if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
+
+  const enforcedId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (enforcedId !== null && enforcedId !== districtId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  try {
+    const result = await buildPilotScorecardPreviewForDistrict(districtId);
+    if (!result.ok) { res.status(404).json({ error: result.error }); return; }
+    const format = (req.query.format as string | undefined)?.toLowerCase();
+    if (format === "json") {
+      res.json({ subject: result.subject, html: result.html, text: result.text, data: result.data });
+      return;
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.send(result.html);
+  } catch (err) {
+    console.error("[districts] GET pilot-scorecard-preview error:", err);
+    res.status(500).json({ error: "Failed to build pilot scorecard preview" });
+  }
+});
+
+/**
+ * POST /districts/:id/pilot-scorecard-preview/send-test
+ * Sends a one-off copy of the current pilot scorecard to the calling admin's
+ * email. Does not affect the regular weekly send schedule or idempotency.
+ */
+router.post("/districts/:id/pilot-scorecard-preview/send-test", requireRoles("admin"), async (req, res): Promise<void> => {
+  const districtId = parseInt(req.params.id as string, 10);
+  if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
+
+  const enforcedId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (enforcedId !== null && enforcedId !== districtId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const meta = getPublicMeta(req);
+  if (!meta.staffId) {
+    res.status(400).json({ error: "Caller has no linked staff record; cannot determine email." });
+    return;
+  }
+
+  try {
+    const [staffRow] = await db
+      .select({ email: staffTable.email })
+      .from(staffTable)
+      .where(eq(staffTable.id, meta.staffId))
+      .limit(1);
+
+    const recipient = staffRow?.email;
+    if (!recipient) {
+      res.status(400).json({ error: "No email address on file for the calling admin." });
+      return;
+    }
+
+    const preview = await buildPilotScorecardPreviewForDistrict(districtId);
+    if (!preview.ok) { res.status(404).json({ error: preview.error }); return; }
+
+    const testSubject = `[TEST] ${preview.subject}`;
+    const result = await sendAdminEmail({
+      to: [recipient],
+      subject: testSubject,
+      html: preview.html,
+      text: preview.text,
+      notificationType: "PilotScorecardTest",
+    });
+
+    if (result.notConfigured) {
+      res.status(200).json({
+        sent: false,
+        notConfigured: true,
+        recipient,
+        message: "Email provider not configured — would have sent test email.",
+      });
+      return;
+    }
+    if (!result.success) {
+      res.status(502).json({ sent: false, recipient, error: result.error ?? "send failed" });
+      return;
+    }
+    res.json({ sent: true, recipient });
+  } catch (err) {
+    console.error("[districts] POST pilot-scorecard-preview/send-test error:", err);
+    res.status(500).json({ error: "Failed to send test scorecard email" });
   }
 });
 
