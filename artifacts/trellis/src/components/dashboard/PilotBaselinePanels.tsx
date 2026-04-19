@@ -255,11 +255,11 @@ export function PilotReadoutButton({ districtId }: PilotReadoutButtonProps = {})
     setBusy(true);
     setError(null);
     try {
-      const url =
+      const requestUrl =
         districtId != null
           ? `/api/reports/exports/pilot-readout.pdf?districtId=${districtId}`
           : "/api/reports/exports/pilot-readout.pdf";
-      const res = await authFetch(url);
+      const res = await authFetch(requestUrl);
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
         throw new Error(detail || `Failed (${res.status})`);

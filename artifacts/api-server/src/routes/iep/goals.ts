@@ -619,14 +619,25 @@ router.get("/students/:studentId/goal-annotations", async (req, res): Promise<vo
     if (goalIds.length === 0) { res.json({}); return; }
 
     const ids = goalIds.map(g => g.id);
-    const rows = await db.select().from(goalAnnotationsTable)
+    const rows = await db
+      .select({
+        id: goalAnnotationsTable.id,
+        goalId: goalAnnotationsTable.goalId,
+        annotationDate: goalAnnotationsTable.annotationDate,
+        label: goalAnnotationsTable.label,
+        createdBy: goalAnnotationsTable.createdBy,
+        createdAt: goalAnnotationsTable.createdAt,
+        createdByName: sql<string | null>`${staffTable.firstName} || ' ' || ${staffTable.lastName}`,
+      })
+      .from(goalAnnotationsTable)
+      .leftJoin(staffTable, eq(goalAnnotationsTable.createdBy, staffTable.id))
       .where(sql`${goalAnnotationsTable.goalId} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`)
       .orderBy(asc(goalAnnotationsTable.annotationDate));
 
-    const byGoal: Record<number, typeof rows> = {};
+    const byGoal: Record<number, Array<typeof rows[number] & { createdAt: string }>> = {};
     for (const row of rows) {
       if (!byGoal[row.goalId]) byGoal[row.goalId] = [];
-      byGoal[row.goalId].push(row);
+      byGoal[row.goalId].push({ ...row, createdAt: row.createdAt.toISOString() });
     }
     res.json(byGoal);
   } catch (e: any) {
