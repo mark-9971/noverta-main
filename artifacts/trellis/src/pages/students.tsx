@@ -67,6 +67,10 @@ export default function Students() {
     ...(caseManagerFilter !== "all" ? { caseManagerId: Number(caseManagerFilter) } : {}),
     ...(gradeFilter !== "all" ? { grade: gradeFilter } : {}),
     ...(schoolFilter !== "all" ? { schoolId: Number(schoolFilter) } : {}),
+    // Push risk-tier filtering into the API so the paginated `total` reflects
+    // only matching students (otherwise the footer would show the unfiltered
+    // student count even when a tier chip is active).
+    ...(riskFilter !== "all" ? { riskStatus: RISK_TIER_STATUSES[riskFilter].join(",") } : {}),
   } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
@@ -162,30 +166,36 @@ export default function Students() {
         `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
       const isSped = spedIds.has(s.id);
       const matchType = typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
-      const riskStatus = studentRisk[s.id] ?? "on_track";
-      const matchRisk = riskFilter === "all" || RISK_TIER_STATUSES[riskFilter].includes(riskStatus);
+      // Risk filtering is now performed server-side (see useListStudents above)
+      // so the API's `total` matches the rows we render and the pagination
+      // footer stays accurate. Re-applying a client-side risk match here would
+      // re-introduce a mismatch (the server treats `completed`/`no_data` as
+      // on_track, while the client tier mapping does not).
       const matchServiceType = serviceTypeFilter === "all" ||
         (studentServiceTypeIds[s.id]?.has(Number(serviceTypeFilter)) ?? false);
       const matchMissing = missingFilter === "all" ||
         (missingFilter === "no_services" && isSped && !studentMinutes[s.id]);
-      return matchSearch && matchType && matchRisk && matchServiceType && matchMissing;
+      return matchSearch && matchType && matchServiceType && matchMissing;
     });
-  }, [studentList, search, typeFilter, riskFilter, serviceTypeFilter, spedIds, studentRisk, studentServiceTypeIds, missingFilter, studentMinutes]);
+  }, [studentList, search, typeFilter, serviceTypeFilter, spedIds, studentServiceTypeIds, missingFilter, studentMinutes]);
 
+  // Tier counts are derived from the full district-wide minute-progress list
+  // (not the paginated, risk-filtered studentList) so the chips keep showing
+  // accurate counts for every tier even while one tier is selected.
   const tierCounts = useMemo(() => {
-    const typeFiltered = studentList.filter(s => {
-      const isSped = spedIds.has(s.id);
-      return typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
-    });
     let critical = 0, at_risk = 0, on_track = 0;
-    for (const s of typeFiltered) {
-      const r = studentRisk[s.id] ?? "on_track";
+    for (const idStr of Object.keys(studentRisk)) {
+      const sid = Number(idStr);
+      const isSped = spedIds.has(sid);
+      if (typeFilter === "sped" && !isSped) continue;
+      if (typeFilter === "gen_ed" && isSped) continue;
+      const r = studentRisk[sid];
       if (r === "out_of_compliance") critical++;
       else if (r === "at_risk" || r === "slightly_behind") at_risk++;
       else on_track++;
     }
-    return { critical, at_risk, on_track, all: typeFiltered.length };
-  }, [studentList, typeFilter, spedIds, studentRisk]);
+    return { critical, at_risk, on_track, all: critical + at_risk + on_track };
+  }, [studentRisk, typeFilter, spedIds]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">

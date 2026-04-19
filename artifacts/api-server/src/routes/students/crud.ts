@@ -123,20 +123,102 @@ router.get("/students", async (req, res): Promise<void> => {
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
   const riskStatusFilter = (params.success && params.data.riskStatus) ? params.data.riskStatus : null;
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  // Push riskStatus filtering down into SQL via a subquery that mirrors
+  // the per-student worst-risk aggregation done in computeAllActiveMinuteProgress.
+  // Including this in `conditions` means both the data query AND the count query
+  // apply it, so the returned `total` always matches the rows we actually return
+  // (even when more than one page exists).  Accepts a comma-separated list of
+  // statuses so the UI can map a tier (e.g. "at_risk" + "slightly_behind") to a
+  // single request.
+  if (riskStatusFilter) {
+    const wantedStatuses = riskStatusFilter
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
+    if (wantedStatuses.length === 0) {
+      // No valid statuses requested — short-circuit with an empty result.
+      res.json({ data: [], total: 0, page: 1, pageSize: pageLimit, hasMore: false });
+      return;
+    }
+    const statusList = sql.join(wantedStatuses.map((s: string) => sql`${s}`), sql`, `);
+    conditions.push(sql`${studentsTable.id} IN (
+      WITH req_calc AS (
+        SELECT
+          sr.id AS req_id,
+          sr.student_id,
+          sr.required_minutes,
+          CASE sr.interval_type
+            WHEN 'weekly' THEN (CURRENT_DATE - (EXTRACT(ISODOW FROM CURRENT_DATE)::int - 1))
+            WHEN 'monthly' THEN date_trunc('month', CURRENT_DATE)::date
+            WHEN 'quarterly' THEN date_trunc('quarter', CURRENT_DATE)::date
+            ELSE CURRENT_DATE
+          END AS interval_start,
+          CASE sr.interval_type
+            WHEN 'weekly' THEN (CURRENT_DATE - (EXTRACT(ISODOW FROM CURRENT_DATE)::int - 1) + 6)
+            WHEN 'monthly' THEN (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::date
+            WHEN 'quarterly' THEN (date_trunc('quarter', CURRENT_DATE) + INTERVAL '3 months' - INTERVAL '1 day')::date
+            ELSE CURRENT_DATE
+          END AS interval_end
+        FROM service_requirements sr
+        WHERE sr.active = true
+      ),
+      req_metrics AS (
+        SELECT
+          rc.student_id,
+          rc.required_minutes,
+          COALESCE((
+            SELECT SUM(sl.duration_minutes)::float
+            FROM session_logs sl
+            WHERE sl.service_requirement_id = rc.req_id
+              AND sl.session_date >= rc.interval_start
+              AND sl.session_date <= rc.interval_end
+              AND sl.is_compensatory = false
+              AND sl.deleted_at IS NULL
+              AND sl.status IN ('completed', 'makeup')
+          ), 0) AS delivered_minutes,
+          GREATEST(1, (rc.interval_end - rc.interval_start + 1))::float AS total_days,
+          GREATEST(0, LEAST((rc.interval_end - rc.interval_start + 1), (CURRENT_DATE - rc.interval_start)))::float AS elapsed_days
+        FROM req_calc rc
+      ),
+      req_status AS (
+        SELECT
+          student_id,
+          CASE
+            WHEN delivered_minutes >= required_minutes THEN 'completed'
+            WHEN delivered_minutes = 0 AND required_minutes > 0
+              AND (elapsed_days / NULLIF(total_days, 0)) < 0.10 THEN 'no_data'
+            WHEN (CASE WHEN elapsed_days > 0
+                       THEN delivered_minutes + (delivered_minutes / elapsed_days) * (total_days - elapsed_days)
+                       ELSE 0 END) >= required_minutes * 0.95 THEN 'on_track'
+            WHEN delivered_minutes < (required_minutes * elapsed_days / NULLIF(total_days, 0)) * 0.7  THEN 'out_of_compliance'
+            WHEN delivered_minutes < (required_minutes * elapsed_days / NULLIF(total_days, 0)) * 0.85 THEN 'at_risk'
+            WHEN delivered_minutes < (required_minutes * elapsed_days / NULLIF(total_days, 0)) * 0.95 THEN 'slightly_behind'
+            ELSE 'on_track'
+          END AS risk_status
+        FROM req_metrics
+      ),
+      student_risk AS (
+        SELECT
+          student_id,
+          CASE
+            WHEN bool_or(risk_status = 'out_of_compliance') THEN 'out_of_compliance'
+            WHEN bool_or(risk_status = 'at_risk')           THEN 'at_risk'
+            WHEN bool_or(risk_status = 'slightly_behind')   THEN 'slightly_behind'
+            ELSE 'on_track'
+          END AS agg_status
+        FROM req_status
+        GROUP BY student_id
+      )
+      SELECT student_id FROM student_risk WHERE agg_status IN (${statusList})
+    )`);
+  }
 
-  // When riskStatus is requested we must enrich ALL matching students first
-  // (riskStatus is a computed in-memory field, not a DB column), then filter
-  // and paginate the enriched slice.  We fetch up to 10 000 rows in one pass;
-  // for districts beyond that scale a materialised risk_status column should
-  // be added so the filter can be pushed down to the DB.
-  const fetchLimit  = riskStatusFilter ? 10_000 : pageLimit;
-  const fetchOffset = riskStatusFilter ? 0      : pageOffset;
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [students, totalResult] = await Promise.all([
     conditions.length > 0
-      ? query.where(and(...conditions)).orderBy(studentsTable.lastName).limit(fetchLimit).offset(fetchOffset)
-      : query.orderBy(studentsTable.lastName).limit(fetchLimit).offset(fetchOffset),
+      ? query.where(and(...conditions)).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset)
+      : query.orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset),
     db.select({ total: count() }).from(studentsTable).where(whereClause),
   ]);
   const dbTotal = totalResult[0]?.total ?? 0;
@@ -189,30 +271,15 @@ router.get("/students", async (req, res): Promise<void> => {
     };
   });
 
-  let finalResult: typeof enriched;
-  let total: number;
-  let page: number;
-  let resolvedPageSize: number;
-  let hasMore: boolean;
-
-  if (riskStatusFilter) {
-    // In-memory pagination over the filtered superset.
-    const filtered = enriched.filter((s: any) => s.riskStatus === riskStatusFilter);
-    total           = filtered.length;
-    resolvedPageSize = pageLimit;
-    page            = Math.floor(pageOffset / pageLimit) + 1;
-    finalResult     = filtered.slice(pageOffset, pageOffset + pageLimit);
-    hasMore         = pageOffset + pageLimit < total;
-  } else {
-    total           = dbTotal;
-    resolvedPageSize = pageLimit;
-    page            = Math.floor(pageOffset / pageLimit) + 1;
-    finalResult     = enriched;
-    hasMore         = pageOffset + students.length < total;
-  }
+  // riskStatus filtering is now applied in SQL above, so the standard
+  // DB-backed total and page slice are correct in all cases.
+  const total = dbTotal;
+  const resolvedPageSize = pageLimit;
+  const page = Math.floor(pageOffset / pageLimit) + 1;
+  const hasMore = pageOffset + students.length < total;
 
   res.json({
-    data: finalResult,
+    data: enriched,
     total,
     page,
     pageSize: resolvedPageSize,
