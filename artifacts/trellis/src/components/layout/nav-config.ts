@@ -377,69 +377,111 @@ export function getAdminNavForMode(isDemo: boolean, isPilot?: boolean): NavSecti
   return adminNav;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Derived role navs: filter adminNav by section/href. They automatically
-// inherit the Phase 1a clutter strip from adminNav above.
-// ─────────────────────────────────────────────────────────────────────────────
-const CASE_MANAGER_EXCLUDED_SECTIONS = new Set(["ABA & Behavior", "Financial / Executive", "Admin / Tools"]);
-const CASE_MANAGER_EXCLUDED_HREFS = new Set([
-  "/state-reporting",
-  "/protective-measures",
-  "/scheduling",
-  "/staff-calendar",
-  "/caseload-balancing",
-]);
-
-// Phase 2C-1: case_manager continues to derive from the legacy 7-section
-// adminNav so this role's sidebar is unchanged.
-export const caseManagerNav: NavSection[] = adminNavLegacy
-  .filter(s => !s.label || !CASE_MANAGER_EXCLUDED_SECTIONS.has(s.label))
-  .map(s => ({
-    ...s,
-    items: s.items.filter(i => !CASE_MANAGER_EXCLUDED_HREFS.has(i.href)),
-  }))
-  .filter(s => s.items.length > 0);
-
 // Phase 2C-1: coordinator inherits the new tight 3-section adminNav.
 // The previous label-based exclusion set targeted the old 7-section
 // structure and is no longer needed — the new structure is already
 // scoped to the buyer wedge.
 export const coordinatorNav: NavSection[] = adminNav;
 
-// SPED teachers do not see Financial/Executive, Admin/Tools, or ABA & Behavior
-// (Phase 1b: ABA was leaking into the teacher shell).
-const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools", "ABA & Behavior"]);
-const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
-  "Scheduling": "My Caseload",
-};
-const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
-  "Directory": "My Directory",
-  "Sessions": "My Sessions",
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2C-2: explicit, student/caseload-centered navs for case_manager and
+// sped_teacher. Previously these derived from adminNavLegacy and inherited
+// admin-shaped sections (Reports, Weekly Summary, Compensatory, Document
+// Workflow, etc.). They now stand alone and surface only the destinations
+// these roles actually need day-to-day. Routes that were dropped from the
+// sidebar remain reachable via direct URL — nothing was deleted.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Phase 2C-1: sped_teacher continues to derive from the legacy 7-section
-// adminNav so this role's sidebar is unchanged.
-export const spedTeacherNav: NavSection[] = adminNavLegacy
-  .filter(s => !s.label || !SPED_TEACHER_EXCLUDED_GROUPS.has(s.label))
-  .map(s => {
-    const label = s.label && SPED_TEACHER_LABEL_MAP[s.label] ? SPED_TEACHER_LABEL_MAP[s.label] : s.label;
-    let items = s.items.map(item => ({
-      ...item,
-      label: SPED_TEACHER_ITEM_LABEL_MAP[item.label] ?? item.label,
-    }));
-    if (s.label === "Overview") {
-      // Teachers use /today as their home — exclude the admin Dashboard (/)
-      // so it doesn't match every route via startsWith("/") active-state logic.
-      const teacherItems = items.filter(i => i.href !== "/");
-      items = [
-        { href: "/today", label: "Today", icon: Sun, primary: true },
-        ...teacherItems,
-        { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
-        { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
-      ];
-    }
-    return { ...s, label, items };
-  });
+// Children for the grouped "IEP & Documents" parent — shared between the
+// two roles since both work the same artifact lifecycle.
+const IEP_AND_DOCUMENTS_CHILDREN: SubNavItem[] = [
+  { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
+  { href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays },
+  { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+  { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+  { href: "/transitions", label: "Transition Planning", icon: Sprout },
+  { href: "/accommodation-lookup", label: "Accommodation Verification", icon: FileText },
+  { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
+];
+
+export const caseManagerNav: NavSection[] = [
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/students", label: "Students", icon: Users, primary: true },
+      { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+      { href: "/my-caseload", label: "My Caseload", icon: Briefcase, primary: true },
+    ],
+  },
+  {
+    label: "Compliance & Student Work",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      {
+        href: "/iep-builder", label: "IEP & Documents", icon: GraduationCap,
+        children: IEP_AND_DOCUMENTS_CHILDREN,
+      },
+    ],
+  },
+  {
+    label: "More",
+    icon: Library,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      { href: "/scheduling", label: "Scheduling", icon: CalendarDays },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
+];
+
+export const spedTeacherNav: NavSection[] = [
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/today", label: "Today", icon: Sun, primary: true },
+      { href: "/students", label: "Students", icon: Users, primary: true },
+      { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight, primary: true },
+    ],
+  },
+  {
+    label: "Compliance & Student Work",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      {
+        href: "/iep-builder", label: "IEP & Documents", icon: GraduationCap,
+        children: IEP_AND_DOCUMENTS_CHILDREN,
+      },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+    ],
+  },
+  {
+    label: "More",
+    icon: Library,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      { href: "/scheduling", label: "Scheduling", icon: CalendarDays },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BCBA nav — Phase 1a: ABA section flattened from 6 groups to 5 destinations.
