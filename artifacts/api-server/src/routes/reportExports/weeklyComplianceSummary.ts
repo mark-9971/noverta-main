@@ -84,6 +84,15 @@ interface ReportData {
     combinedExposure: number;
     rateConfigNote: string | null;
     riskCounts: { out_of_compliance: number; at_risk: number; slightly_behind: number; on_track: number };
+    /** Current-week session activity (partial week when run mid-week) */
+    thisWeek: {
+      completedSessions: number;
+      missedSessions: number;
+      cancelledSessions: number;
+      totalSessions: number;
+      deliveredMinutes: number;
+      missRatePct: number;
+    };
   };
   urgentFlags: string[];
   studentShortfalls: {
@@ -98,11 +107,12 @@ interface ReportData {
   }[];
   providersWithMissedThisWeek: {
     providerName: string; role: string; completedSessions: number;
-    missedSessions: number; deliveredMinutes: number;
+    missedSessions: number; deliveredMinutes: number; missRatePct: number;
   }[];
   weeklyTrend: {
     weekLabel: string; weekStart: string; deliveredMinutes: number;
     completedSessions: number; missedSessions: number; cancelledSessions: number;
+    missRatePct: number;
   }[];
 }
 
@@ -258,13 +268,18 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
   const weeklyMap = new Map(weeklySessionData.map(w => [w.week, w]));
   const weeklyTrend = weekRanges.map(wr => {
     const d = weeklyMap.get(wr.start);
+    const completed = Number(d?.completedSessions ?? 0);
+    const missed = Number(d?.missedSessions ?? 0);
+    const cancelled = Number(d?.cancelledSessions ?? 0);
+    const totalLogged = completed + missed + cancelled;
     return {
       weekLabel: wr.label,
       weekStart: wr.start,
       deliveredMinutes: Number(d?.deliveredMinutes ?? 0),
-      completedSessions: Number(d?.completedSessions ?? 0),
-      missedSessions: Number(d?.missedSessions ?? 0),
-      cancelledSessions: Number(d?.cancelledSessions ?? 0),
+      completedSessions: completed,
+      missedSessions: missed,
+      cancelledSessions: cancelled,
+      missRatePct: totalLogged > 0 ? Math.round((missed / totalLogged) * 100) : 0,
     };
   });
 
@@ -291,13 +306,31 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
 
   const providersWithMissed = currentWeekProviders
     .filter(p => Number(p.missedSessions) > 0)
-    .map(p => ({
-      providerName: p.providerName,
-      role: p.role ?? "",
-      completedSessions: Number(p.completedSessions),
-      missedSessions: Number(p.missedSessions),
-      deliveredMinutes: Number(p.deliveredMinutes),
-    }));
+    .map(p => {
+      const completed = Number(p.completedSessions);
+      const missed = Number(p.missedSessions);
+      const cancelled = 0;
+      const total = completed + missed + cancelled;
+      return {
+        providerName: p.providerName,
+        role: p.role ?? "",
+        completedSessions: completed,
+        missedSessions: missed,
+        deliveredMinutes: Number(p.deliveredMinutes),
+        missRatePct: total > 0 ? Math.round((missed / total) * 100) : 0,
+      };
+    });
+
+  // ── Derive this-week summary from the last weeklyTrend entry ──────────────
+  const thisWeekEntry = weeklyTrend[weeklyTrend.length - 1];
+  const thisWeekData = {
+    completedSessions: thisWeekEntry?.completedSessions ?? 0,
+    missedSessions: thisWeekEntry?.missedSessions ?? 0,
+    cancelledSessions: thisWeekEntry?.cancelledSessions ?? 0,
+    totalSessions: (thisWeekEntry?.completedSessions ?? 0) + (thisWeekEntry?.missedSessions ?? 0) + (thisWeekEntry?.cancelledSessions ?? 0),
+    deliveredMinutes: thisWeekEntry?.deliveredMinutes ?? 0,
+    missRatePct: thisWeekEntry?.missRatePct ?? 0,
+  };
 
   const urgentFlags: string[] = [];
   if (riskCounts.out_of_compliance > 0) {
@@ -306,7 +339,9 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
   if (riskCounts.at_risk > 0) {
     urgentFlags.push(`${riskCounts.at_risk} student${riskCounts.at_risk > 1 ? "s" : ""} at risk of non-compliance — schedule make-up sessions`);
   }
-  if (providersWithMissed.length > 0) {
+  if (thisWeekData.totalSessions > 0 && thisWeekData.missRatePct >= 40) {
+    urgentFlags.push(`${thisWeekData.missRatePct}% miss rate this week (${thisWeekData.missedSessions} of ${thisWeekData.totalSessions} sessions) — immediate follow-up required`);
+  } else if (providersWithMissed.length > 0) {
     const totalMissed = providersWithMissed.reduce((s, p) => s + p.missedSessions, 0);
     urgentFlags.push(`${totalMissed} missed session${totalMissed > 1 ? "s" : ""} this week across ${providersWithMissed.length} provider${providersWithMissed.length > 1 ? "s" : ""}`);
   }
@@ -318,6 +353,13 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
     const decreasing = recentTrend.every((w, i) => i === 0 || w.deliveredMinutes <= recentTrend[i - 1].deliveredMinutes);
     if (decreasing && recentTrend[0].deliveredMinutes > 0) {
       urgentFlags.push("Delivered minutes declining for 3+ consecutive weeks — investigate staffing/scheduling");
+    }
+    // Check if miss rate is climbing over the last 3 weeks (independent of absolute level)
+    const missRates = recentTrend.map(w => w.missRatePct);
+    const risingMissRate = missRates.length >= 3 &&
+      missRates[missRates.length - 1] > missRates[missRates.length - 3] + 10;
+    if (risingMissRate && missRates[missRates.length - 1] >= 25) {
+      urgentFlags.push(`Miss rate rising: ${missRates[missRates.length - 3]}% → ${missRates[missRates.length - 2]}% → ${missRates[missRates.length - 1]}% over last 3 weeks — review scheduling and provider availability`);
     }
   }
 
@@ -373,6 +415,7 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
           ? "Some service types do not have a configured hourly rate. Their minutes are reported but excluded from dollar exposure totals. Configure rates in Settings → Compensatory Finance → Rates."
           : null,
       riskCounts,
+      thisWeek: thisWeekData,
     },
     urgentFlags,
     studentShortfalls: studentShortfalls.slice(0, 25),
@@ -568,22 +611,24 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
       pdfSectionTitle(doc, `Providers with Missed Sessions This Week (${report.providersWithMissedThisWeek.length})`);
 
       const mCols = [
-        { text: "Provider", width: 140 },
-        { text: "Role", width: 90 },
-        { text: "Completed", width: 72 },
-        { text: "Missed", width: 72 },
-        { text: "Minutes Delivered", width: 90 },
+        { text: "Provider", width: 120 },
+        { text: "Role", width: 80 },
+        { text: "Completed", width: 62 },
+        { text: "Missed", width: 62 },
+        { text: "Miss Rate", width: 62 },
+        { text: "Min Delivered", width: 78 },
       ];
       pdfTableHeader(doc, mCols);
 
       for (let i = 0; i < report.providersWithMissedThisWeek.length; i++) {
         const r = report.providersWithMissedThisWeek[i];
         const cells = [
-          { text: r.providerName, width: 140 },
-          { text: r.role, width: 90 },
-          { text: r.completedSessions.toString(), width: 72, align: "right" as const },
-          { text: r.missedSessions.toString(), width: 72, align: "right" as const, bold: true },
-          { text: r.deliveredMinutes.toLocaleString(), width: 90, align: "right" as const },
+          { text: r.providerName, width: 120 },
+          { text: r.role, width: 80 },
+          { text: r.completedSessions.toString(), width: 62, align: "right" as const },
+          { text: r.missedSessions.toString(), width: 62, align: "right" as const, bold: true },
+          { text: `${r.missRatePct}%`, width: 62, align: "right" as const, bold: r.missRatePct >= 40 },
+          { text: r.deliveredMinutes.toLocaleString(), width: 78, align: "right" as const },
         ];
         const rh = estimateRowH(cells);
         if (doc.y + rh > 720) { doc.addPage(); doc.y = 50; pdfTableHeader(doc, mCols); }
@@ -636,11 +681,12 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
 
     if (report.weeklyTrend.length > 0) {
       const tCols = [
-        { text: "Week", width: 130 },
-        { text: "Delivered Min", width: 80 },
-        { text: "Completed", width: 80 },
-        { text: "Missed", width: 80 },
-        { text: "Cancelled", width: 80 },
+        { text: "Week", width: 115 },
+        { text: "Delivered Min", width: 72 },
+        { text: "Completed", width: 65 },
+        { text: "Missed", width: 65 },
+        { text: "Miss Rate", width: 65 },
+        { text: "Cancelled", width: 65 },
       ];
       pdfTableHeader(doc, tCols);
 
@@ -654,11 +700,12 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
           doc.rect(60, rowY - 2, PAGE_W, 13).fill("#fafafa");
         }
         pdfTableRow(doc, [
-          { text: w.weekLabel + (isCurrent ? " (current)" : ""), width: 130, bold: isCurrent },
-          { text: w.deliveredMinutes.toLocaleString(), width: 80, align: "right" },
-          { text: w.completedSessions.toString(), width: 80, align: "right" },
-          { text: w.missedSessions.toString(), width: 80, align: "right" },
-          { text: w.cancelledSessions.toString(), width: 80, align: "right" },
+          { text: w.weekLabel + (isCurrent ? " (current)" : ""), width: 115, bold: isCurrent },
+          { text: w.deliveredMinutes > 0 ? w.deliveredMinutes.toLocaleString() : "\u2014", width: 72, align: "right" },
+          { text: w.completedSessions > 0 ? w.completedSessions.toString() : "\u2014", width: 65, align: "right" },
+          { text: w.missedSessions > 0 ? w.missedSessions.toString() : "\u2014", width: 65, align: "right" },
+          { text: w.missRatePct > 0 ? `${w.missRatePct}%` : "\u2014", width: 65, align: "right", bold: w.missRatePct >= 40 },
+          { text: w.cancelledSessions > 0 ? w.cancelledSessions.toString() : "\u2014", width: 65, align: "right" },
         ], rowY);
         doc.y = rowY + 14;
       }

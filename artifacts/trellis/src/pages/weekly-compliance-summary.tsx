@@ -43,6 +43,7 @@ interface ProviderMissed {
   completedSessions: number;
   missedSessions: number;
   deliveredMinutes: number;
+  missRatePct: number;
 }
 
 interface WeeklyTrend {
@@ -52,6 +53,7 @@ interface WeeklyTrend {
   completedSessions: number;
   missedSessions: number;
   cancelledSessions: number;
+  missRatePct: number;
 }
 
 interface ReportData {
@@ -81,6 +83,14 @@ interface ReportData {
       at_risk: number;
       slightly_behind: number;
       on_track: number;
+    };
+    thisWeek: {
+      completedSessions: number;
+      missedSessions: number;
+      cancelledSessions: number;
+      totalSessions: number;
+      deliveredMinutes: number;
+      missRatePct: number;
     };
   };
   urgentFlags: string[];
@@ -159,23 +169,29 @@ function buildPrintHtml(data: ReportData): string {
       <td style="text-align:right">${r.complianceRate.toFixed(1)}%</td>
     </tr>`).join("");
 
-  const missedRows = data.providersWithMissedThisWeek.map(r => `
-    <tr>
+  const missedRows = data.providersWithMissedThisWeek.map(r => {
+    const missRateStyle = r.missRatePct >= 40 ? "color:#b91c1c;font-weight:700" : r.missRatePct >= 25 ? "color:#92400e;font-weight:600" : "";
+    return `<tr>
       <td>${esc(r.providerName)}</td>
       <td>${esc(r.role)}</td>
       <td style="text-align:right">${r.completedSessions}</td>
       <td style="text-align:right;font-weight:600;color:#b91c1c">${r.missedSessions}</td>
-      <td style="text-align:right">${r.deliveredMinutes}</td>
-    </tr>`).join("");
+      <td style="text-align:right;${missRateStyle}">${r.missRatePct}%</td>
+      <td style="text-align:right">${r.deliveredMinutes.toLocaleString()}</td>
+    </tr>`;
+  }).join("");
 
-  const trendRows = data.weeklyTrend.map(w => `
-    <tr>
+  const trendRows = data.weeklyTrend.map(w => {
+    const mrStyle = w.missRatePct >= 40 ? "color:#b91c1c;font-weight:700" : w.missRatePct >= 25 ? "color:#92400e;font-weight:600" : "";
+    return `<tr>
       <td>${esc(w.weekLabel)}</td>
-      <td style="text-align:right">${w.deliveredMinutes.toLocaleString()}</td>
-      <td style="text-align:right">${w.completedSessions}</td>
-      <td style="text-align:right;${w.missedSessions > 0 ? "color:#b91c1c" : ""}">${w.missedSessions}</td>
-      <td style="text-align:right">${w.cancelledSessions}</td>
-    </tr>`).join("");
+      <td style="text-align:right">${w.deliveredMinutes > 0 ? w.deliveredMinutes.toLocaleString() : "—"}</td>
+      <td style="text-align:right">${w.completedSessions || "—"}</td>
+      <td style="text-align:right;${w.missedSessions > 0 ? "color:#b91c1c" : ""}">${w.missedSessions || "—"}</td>
+      <td style="text-align:right;${mrStyle}">${w.missRatePct > 0 ? w.missRatePct + "%" : "—"}</td>
+      <td style="text-align:right">${w.cancelledSessions || "—"}</td>
+    </tr>`;
+  }).join("");
 
   const genDate = new Date(data.meta.generatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -262,7 +278,7 @@ function buildPrintHtml(data: ReportData): string {
   ${data.providersWithMissedThisWeek.length > 0 ? `
   <h2>Providers with Missed Sessions This Week (${data.providersWithMissedThisWeek.length})</h2>
   <table>
-    <thead><tr><th>Provider</th><th>Role</th><th style="text-align:right">Completed</th><th style="text-align:right">Missed</th><th style="text-align:right">Minutes Delivered</th></tr></thead>
+    <thead><tr><th>Provider</th><th>Role</th><th style="text-align:right">Completed</th><th style="text-align:right">Missed</th><th style="text-align:right">Miss Rate</th><th style="text-align:right">Min Delivered</th></tr></thead>
     <tbody>${missedRows}</tbody>
   </table>` : ""}
 
@@ -274,7 +290,7 @@ function buildPrintHtml(data: ReportData): string {
 
   <h2>8-Week Delivery Trend</h2>
   <table>
-    <thead><tr><th>Week</th><th style="text-align:right">Delivered Min</th><th style="text-align:right">Completed</th><th style="text-align:right">Missed</th><th style="text-align:right">Cancelled</th></tr></thead>
+    <thead><tr><th>Week</th><th style="text-align:right">Delivered Min</th><th style="text-align:right">Completed</th><th style="text-align:right">Missed</th><th style="text-align:right">Miss Rate</th><th style="text-align:right">Cancelled</th></tr></thead>
     <tbody>${trendRows}</tbody>
   </table>
 
@@ -422,6 +438,58 @@ export default function WeeklyComplianceSummaryPage() {
 
       {data && data.summary.totalStudents > 0 && (
         <>
+          {/* ── THIS WEEK AT A GLANCE ─────────────────────────────────────────── */}
+          {data.summary.thisWeek && data.summary.thisWeek.totalSessions > 0 && (
+            <div className={`rounded-xl border px-4 py-3 ${
+              data.summary.thisWeek.missRatePct >= 40
+                ? "bg-red-50 border-red-200"
+                : data.summary.thisWeek.missRatePct >= 25
+                ? "bg-amber-50 border-amber-200"
+                : "bg-emerald-50 border-emerald-200"
+            }`}>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">This Week (session activity)</p>
+                  <p className="text-sm text-gray-500 mt-0.5">Logged sessions {data.meta.weekStart} – today</p>
+                </div>
+                <div className="flex items-center gap-6 flex-wrap">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-emerald-700">{data.summary.thisWeek.completedSessions}</div>
+                    <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">Completed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${data.summary.thisWeek.missedSessions > 0 ? "text-red-700" : "text-gray-400"}`}>
+                      {data.summary.thisWeek.missedSessions}
+                    </div>
+                    <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">Missed</div>
+                  </div>
+                  {data.summary.thisWeek.cancelledSessions > 0 && (
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-500">{data.summary.thisWeek.cancelledSessions}</div>
+                      <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">Cancelled</div>
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${
+                      data.summary.thisWeek.missRatePct >= 40 ? "text-red-700" :
+                      data.summary.thisWeek.missRatePct >= 25 ? "text-amber-700" : "text-emerald-700"
+                    }`}>
+                      {data.summary.thisWeek.missRatePct}%
+                    </div>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide ${
+                      data.summary.thisWeek.missRatePct >= 40 ? "text-red-600" :
+                      data.summary.thisWeek.missRatePct >= 25 ? "text-amber-600" : "text-emerald-600"
+                    }`}>Miss Rate</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-700">{fmtNum(data.summary.thisWeek.deliveredMinutes)}</div>
+                    <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">Min Delivered</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="border-l-4 border-l-gray-400">
               <CardContent className="p-4">
@@ -568,7 +636,8 @@ export default function WeeklyComplianceSummaryPage() {
                         <th className="px-3 py-2 text-left font-semibold">Role</th>
                         <th className="px-3 py-2 text-right font-semibold">Completed</th>
                         <th className="px-3 py-2 text-right font-semibold">Missed</th>
-                        <th className="px-3 py-2 text-right font-semibold">Minutes Delivered</th>
+                        <th className="px-3 py-2 text-right font-semibold">Miss Rate</th>
+                        <th className="px-3 py-2 text-right font-semibold">Min Delivered</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -578,6 +647,10 @@ export default function WeeklyComplianceSummaryPage() {
                           <td className="px-3 py-2 text-muted-foreground text-xs">{r.role}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{r.completedSessions}</td>
                           <td className="px-3 py-2 text-right tabular-nums font-semibold text-red-700">{r.missedSessions}</td>
+                          <td className={`px-3 py-2 text-right tabular-nums font-semibold ${
+                            r.missRatePct >= 40 ? "text-red-700" :
+                            r.missRatePct >= 25 ? "text-amber-700" : "text-gray-600"
+                          }`}>{r.missRatePct}%</td>
                           <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.deliveredMinutes)}</td>
                         </tr>
                       ))}
@@ -635,22 +708,31 @@ export default function WeeklyComplianceSummaryPage() {
                     <thead>
                       <tr className="bg-gray-50 text-xs text-muted-foreground uppercase tracking-wide">
                         <th className="px-3 py-2 text-left font-semibold">Week</th>
-                        <th className="px-3 py-2 text-right font-semibold">Delivered Minutes</th>
-                        <th className="px-3 py-2 text-right font-semibold">Completed Sessions</th>
+                        <th className="px-3 py-2 text-right font-semibold">Delivered Min</th>
+                        <th className="px-3 py-2 text-right font-semibold">Completed</th>
                         <th className="px-3 py-2 text-right font-semibold">Missed</th>
+                        <th className="px-3 py-2 text-right font-semibold">Miss Rate</th>
                         <th className="px-3 py-2 text-right font-semibold">Cancelled</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.weeklyTrend.map((w, i) => (
-                        <tr key={w.weekStart} className={`border-t hover:bg-gray-50/50 ${i === data.weeklyTrend.length - 1 ? "bg-emerald-50/30 font-medium" : ""}`}>
-                          <td className="px-3 py-2">{w.weekLabel}{i === data.weeklyTrend.length - 1 ? " (current)" : ""}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{fmtNum(w.deliveredMinutes)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{w.completedSessions}</td>
-                          <td className={`px-3 py-2 text-right tabular-nums ${w.missedSessions > 0 ? "text-red-700" : ""}`}>{w.missedSessions}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{w.cancelledSessions}</td>
-                        </tr>
-                      ))}
+                      {data.weeklyTrend.map((w, i) => {
+                        const isCurrentWeek = i === data.weeklyTrend.length - 1;
+                        const missRateColor = w.missRatePct >= 40 ? "text-red-700 font-bold" :
+                          w.missRatePct >= 25 ? "text-amber-700 font-semibold" : "text-gray-600";
+                        return (
+                          <tr key={w.weekStart} className={`border-t hover:bg-gray-50/50 ${isCurrentWeek ? "bg-emerald-50/30 font-medium" : ""}`}>
+                            <td className="px-3 py-2">{w.weekLabel}{isCurrentWeek ? <span className="ml-1.5 text-[10px] bg-emerald-100 text-emerald-700 font-semibold px-1.5 py-0.5 rounded">current</span> : ""}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{w.deliveredMinutes > 0 ? fmtNum(w.deliveredMinutes) : <span className="text-gray-300">—</span>}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{w.completedSessions || <span className="text-gray-300">—</span>}</td>
+                            <td className={`px-3 py-2 text-right tabular-nums ${w.missedSessions > 0 ? "text-red-700" : ""}`}>{w.missedSessions || <span className="text-gray-300">—</span>}</td>
+                            <td className={`px-3 py-2 text-right tabular-nums ${w.missRatePct > 0 ? missRateColor : ""}`}>
+                              {w.missRatePct > 0 ? `${w.missRatePct}%` : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{w.cancelledSessions || <span className="text-gray-300">—</span>}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
