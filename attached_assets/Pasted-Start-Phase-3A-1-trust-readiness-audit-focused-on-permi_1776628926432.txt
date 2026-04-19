@@ -1,0 +1,78 @@
+Start Phase 3A-1: trust/readiness audit focused on permissions and multi-tenant isolation.
+
+Goal:
+Now that the app is much more demo-coherent, audit whether it is actually safe and trustworthy enough for a real pilot with district data. Focus first on authorization, tenant isolation, route protection, and role enforcement.
+
+This is an audit and prioritization pass first — not a giant implementation pass.
+
+Why this matters:
+A clean demo shell is not enough if users can access the wrong data, mutate records they should not touch, or cross tenant boundaries. I want the highest-risk trust/readiness issues identified and ranked before we start fixing them.
+
+Audit focus:
+
+1. Role enforcement
+
+   * where access is enforced only in the UI
+   * where routes/pages/actions are insufficiently protected
+   * where a lower-privilege role may be able to view or mutate something it should not
+
+2. Multi-tenant isolation
+
+   * how district scoping is enforced
+   * where tenant scoping is assumed rather than guaranteed
+   * where URL tampering, query params, or client-side state could expose cross-tenant or cross-user data
+
+3. Sensitive workflow mutations
+
+   * student edits
+   * session logging/editing/deleting
+   * IEP/document changes
+   * compensatory changes
+   * admin/support/internal surfaces
+
+4. Trust/readiness basics
+
+   * audit logging presence/absence
+   * empty/error state quality where it affects trust
+   * any especially risky debug/internal routes still mounted
+   * any “demo-safe but not pilot-safe” shortcuts currently present
+
+Hard constraints:
+
+* Audit only unless a tiny harmless validation improvement is clearly worthwhile to mention
+* No backend/schema/API refactor in this pass
+* Be blunt and specific
+* Prefer real pilot-risk issues over theoretical purity issues
+
+Files/areas likely relevant:
+
+* auth/session middleware
+* district/tenant scope enforcement
+* route registration and protected routes
+* sensitive API handlers
+* role context / capability checks
+* any existing support/admin-only routes
+* any docs or comments describing tenant enforcement
+
+Before executing, give me a strict pre-flight summary with:
+
+1. files/areas you plan to inspect
+2. what counts as a real pilot blocker vs a lower-priority issue
+3. biggest likely risk categories
+4. what is intentionally out of scope
+
+Then perform the audit and return:
+
+1. executive verdict
+2. top 5 trust/readiness risks
+3. which are true pilot blockers vs important-but-later
+4. where the app is already stronger than expected
+5. ranked next 5 Phase 3A build tasks
+6. which single Phase 3A task should be built first
+7. a copy-pasteable prompt for that first build task
+
+Important:
+
+* I do not want generic security advice
+* I want findings grounded in this actual codebase and current architecture
+* Separate “demo awkwardness” from “real data / real pilot risk”
