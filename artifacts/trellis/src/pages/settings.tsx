@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
@@ -52,6 +52,17 @@ export default function SettingsHubPage() {
   const search = useSearch();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>(() => resolveTab(search));
+
+  const { data: healthData } = useQuery<{ email: "configured" | "not_configured" }>({
+    queryKey: ["health"],
+    queryFn: async () => {
+      const r = await authFetch("/api/health");
+      if (!r.ok) throw new Error("health check failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+  const emailNotConfigured = healthData?.email === "not_configured";
 
   // Showcase tour requires sample data to be loaded; hide its replay
   // control otherwise so the button isn't a dead click.
@@ -107,6 +118,25 @@ export default function SettingsHubPage() {
           );
         })}
       </div>
+
+      {emailNotConfigured && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <MailX className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="font-semibold text-amber-900">Email delivery is not configured</p>
+            <p className="text-amber-800 text-xs mt-0.5">
+              Parent notifications, missed-service alerts, weekly compliance digests, and pilot scorecards are all silently skipped.{" "}
+              <button
+                type="button"
+                className="underline underline-offset-2 font-medium hover:text-amber-900"
+                onClick={() => handleTabChange("system-status")}
+              >
+                View setup instructions →
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
 
       <Suspense fallback={<TabLoader />}>
         {activeTab === "general" && (

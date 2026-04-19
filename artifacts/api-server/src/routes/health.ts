@@ -59,6 +59,7 @@ router.get("/health", async (_req, res) => {
     getRateLimitBreachCount24h(),
   ]);
 
+  const emailStatus: "configured" | "not_configured" = process.env.RESEND_API_KEY ? "configured" : "not_configured";
   const status = dbStatus === "connected" ? "ok" : "degraded";
   const httpStatus = dbStatus === "connected" ? 200 : 503;
 
@@ -76,6 +77,7 @@ router.get("/health", async (_req, res) => {
       breachesLast24h: rateLimitBreaches24h,
     },
     sentry: sentryInitialized() ? "enabled" : "disabled",
+    email: emailStatus,
   });
 });
 

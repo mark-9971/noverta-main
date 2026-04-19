@@ -13,6 +13,7 @@ interface HealthData {
   timestamp: string;
   errors: { last1h: number; last24h?: number };
   sentry: "enabled" | "disabled";
+  email: "configured" | "not_configured";
 }
 
 function formatUptime(seconds: number) {
@@ -226,17 +227,39 @@ export default function SystemStatusPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={!isLoading && data?.email === "not_configured" ? "border-amber-200 bg-amber-50/30" : ""}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <Mail className="w-4 h-4" /> Email Delivery
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-1">
-            <StatusDot ok={false} label="Not yet configured" />
-            <p className="text-xs text-gray-400">
-              Real email delivery and failure tracking will be shown here once email sending is enabled.
+          <CardContent className="pt-0 space-y-1.5">
+            {isLoading ? (
+              <Skeleton />
+            ) : (
+              <StatusDot
+                ok={data?.email === "configured"}
+                label={data?.email === "configured" ? "Resend configured" : "Not configured — email is disabled"}
+              />
+            )}
+            <p className="text-xs text-gray-500">
+              {data?.email === "configured"
+                ? "Email delivery is active. Parent notifications, missed-service alerts, and weekly digests will send."
+                : "No emails are being sent. Parent/guardian notifications, incident notifications, missed-service alerts, weekly compliance digests, and pilot scorecards are all silently skipped."}
             </p>
+            {!isLoading && data?.email === "not_configured" && (
+              <div className="mt-2 p-2.5 bg-amber-100 border border-amber-200 rounded-md text-xs text-amber-900 space-y-1">
+                <p className="font-semibold">To enable email delivery:</p>
+                <ol className="list-decimal list-inside space-y-0.5 pl-0.5">
+                  <li>Create a free account at <span className="font-mono">resend.com</span></li>
+                  <li>Verify your sending domain (or use Resend's shared domain for testing)</li>
+                  <li>Create an API key in the Resend dashboard</li>
+                  <li>Add it as <span className="font-mono font-semibold">RESEND_API_KEY</span> in the Replit Secrets panel</li>
+                  <li>Restart the API server — no code changes needed</li>
+                </ol>
+                <p className="text-amber-700 mt-1">The sending address is <span className="font-mono">noreply@trellis.education</span> — ensure your Resend domain matches or update <span className="font-mono">FROM_EMAIL</span> in <span className="font-mono">lib/email.ts</span>.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
