@@ -113,6 +113,7 @@ interface WeekTrend {
     evaluations?: { overdueEvaluations: number; overdueReEvaluations: number };
     transitions?: { missingPlan: number; overdueFollowups: number };
     meetings?: { overdueCount: number };
+    goalMastery?: { masteryRate: number | null };
   };
 }
 
@@ -391,6 +392,16 @@ export default function PilotAdminHome() {
     ? ((meetingDash as { overdueCount: number }).overdueCount - weekTrend.secondary.meetings.overdueCount)
     : null;
 
+  // Goal-mastery WoW delta: only show when both current and prior-week
+  // mastery rates are non-null (a brand-new district with zero rated goals
+  // returns null from both endpoints, so the delta is suppressed instead of
+  // showing a misleading "+0% vs. last week").
+  const goalMasteryDelta =
+    goalMasteryData?.masteryRate != null &&
+    weekTrend?.secondary?.goalMastery?.masteryRate != null
+      ? goalMasteryData.masteryRate - weekTrend.secondary.goalMastery.masteryRate
+      : null;
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6 md:space-y-8">
       {/* Header */}
@@ -575,6 +586,7 @@ export default function PilotAdminHome() {
               : "of rated goals on track or mastered"
         }
         href="/progress-reports"
+        footer={goalMasteryDelta !== null ? <RateTrendBadge delta={goalMasteryDelta} /> : null}
       />
 
       {/* 2. Where are we at risk? */}

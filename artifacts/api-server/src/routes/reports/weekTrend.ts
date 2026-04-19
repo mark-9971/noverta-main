@@ -215,6 +215,7 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
       evaluations?: { overdueEvaluations: number; overdueReEvaluations: number };
       transitions?: { missingPlan: number; overdueFollowups: number };
       meetings?: { overdueCount: number };
+      goalMastery?: { masteryRate: number | null };
     } = {};
 
     try {
@@ -349,6 +350,61 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
       secondary.accommodation = { overallComplianceRate: accRate };
     } catch (e) {
       console.warn("week-trend: prior accommodation rate failed", e);
+    }
+
+    try {
+      // Prior-week goal mastery rate. Mirrors /dashboard/goal-mastery-rate
+      // but caps the progress_reports snapshot at sevenDaysAgo so we can
+      // compute the same percentage as it would have been computed last
+      // week. Goal scope is held constant (currently active goals) so the
+      // delta reflects rating movement, not goal-roster churn.
+      //
+      // Unlike the other secondary metrics, the goal mastery card on the
+      // dashboard DOES respect the schoolId filter, so we apply the same
+      // school scope here for an apples-to-apples comparison. Per-caseload
+      // staff scoping is intentionally skipped — admin views always see
+      // district totals on this card.
+      // Always enforce district scope. When `schoolId` is provided, the
+      // school must ALSO belong to the caller's district — otherwise a
+      // forged schoolId could pull goal mastery numbers from a different
+      // tenant. Without an explicit schoolId, fall back to the caller's
+      // entire district.
+      const goalSchoolFilter = schoolId
+        ? sql`AND g.student_id IN (
+            SELECT id FROM students
+            WHERE school_id = ${schoolId}
+              AND school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})
+          )`
+        : sql`AND g.student_id IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId}))`;
+
+      const masteryRows = await db.execute(sql`
+        WITH latest_ratings AS (
+          SELECT DISTINCT ON ((entry->>'iepGoalId')::int)
+            (entry->>'iepGoalId')::int AS goal_id,
+            entry->>'progressRating'   AS rating
+          FROM progress_reports pr,
+               LATERAL jsonb_array_elements(pr.goal_progress) AS entry
+          WHERE jsonb_array_length(pr.goal_progress) > 0
+            AND pr.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
+          ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
+        )
+        SELECT
+          COUNT(g.id)                                                                       AS total_goals,
+          COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress')) AS on_track_goals
+        FROM iep_goals g
+        LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
+        WHERE g.active = true
+          AND g.status = 'active'
+          AND g.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
+          ${goalSchoolFilter}
+      `);
+      const mrow = masteryRows.rows[0] as { total_goals: number; on_track_goals: number } | undefined;
+      const totalGoals = Number(mrow?.total_goals ?? 0);
+      const onTrackGoals = Number(mrow?.on_track_goals ?? 0);
+      const masteryRate = totalGoals > 0 ? Math.round((onTrackGoals / totalGoals) * 100) : null;
+      secondary.goalMastery = { masteryRate };
+    } catch (e) {
+      console.warn("week-trend: prior goal mastery rate failed", e);
     }
 
     res.json({
