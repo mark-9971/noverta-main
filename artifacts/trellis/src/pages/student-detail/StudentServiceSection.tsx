@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
-import { ChevronUp, Maximize2, Plus, Pencil, Trash2, UserPlus, UserMinus } from "lucide-react";
+import { ChevronUp, Maximize2, Plus, Pencil, Trash2, UserPlus, UserMinus, CalendarPlus } from "lucide-react";
+import { Link } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { RISK_CONFIG } from "@/lib/constants";
@@ -131,6 +132,7 @@ export default function StudentServiceSection({
               const pct = p.requiredMinutes > 0 ? Math.round((p.deliveredMinutes / p.requiredMinutes) * 100) : 0;
               const rCfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
               const svcReq = s?.serviceRequirements?.find((r: any) => r.id === p.serviceRequirementId);
+              const isAtRisk = p.riskStatus === "at_risk" || p.riskStatus === "out_of_compliance";
               return (
                 <div key={p.serviceRequirementId ?? idx} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 group">
                   <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={rCfg.ringColor} />
@@ -139,6 +141,15 @@ export default function StudentServiceSection({
                     <p className="text-[11px] text-gray-400">
                       {p.deliveredMinutes} / {p.requiredMinutes} min · {p.minutesPerWeek} min/wk
                     </p>
+                    {isAtRisk && (
+                      <Link
+                        href={`/scheduling?tab=minutes&studentId=${s?.id ?? p.studentId}`}
+                        className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-medium text-blue-600 hover:text-blue-700"
+                        data-testid={`link-schedule-detail-${p.serviceRequirementId ?? idx}`}
+                      >
+                        <CalendarPlus className="w-3 h-3" /> Schedule sessions
+                      </Link>
+                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-gray-700">{pct}%</p>

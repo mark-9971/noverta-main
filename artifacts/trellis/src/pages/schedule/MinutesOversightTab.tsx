@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
@@ -6,7 +6,7 @@ import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import {
   AlertTriangle, Clock, TrendingDown, Users, Search,
   ArrowRight, CheckCircle2, CalendarPlus,
@@ -70,8 +70,22 @@ function SummaryBubble({
 
 export default function MinutesOversightTab() {
   const { filterParams } = useSchoolContext();
+  const searchStr = useSearch();
+  const preselectedStudentId = useMemo(() => {
+    const v = new URLSearchParams(searchStr).get("studentId");
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [searchStr]);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (preselectedStudentId != null) {
+      setSearch(String(preselectedStudentId));
+    }
+  }, [preselectedStudentId]);
 
   const queryParams = new URLSearchParams();
   if (filterParams.schoolId) queryParams.set("schoolId", filterParams.schoolId);
@@ -109,7 +123,8 @@ export default function MinutesOversightTab() {
       ? src.filter(r =>
           r.studentName.toLowerCase().includes(q) ||
           r.serviceTypeName.toLowerCase().includes(q) ||
-          (r.providerName ?? "").toLowerCase().includes(q),
+          (r.providerName ?? "").toLowerCase().includes(q) ||
+          String(r.studentId) === q,
         )
       : src;
   }, [needsAttention, statusFilter, search]);
@@ -259,7 +274,7 @@ export default function MinutesOversightTab() {
                         <Users className="w-3.5 h-3.5" /> View
                       </Link>
                       <Link
-                        href={`/scheduling?tab=schedule`}
+                        href={`/scheduling?tab=schedule&studentId=${row.studentId}`}
                         className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
                       >
                         <CalendarPlus className="w-3.5 h-3.5" /> Schedule

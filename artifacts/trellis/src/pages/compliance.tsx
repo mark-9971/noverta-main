@@ -12,7 +12,7 @@ import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
   Printer, ArrowRight, CheckCircle, FileBarChart, ShieldCheck, ShieldAlert, ExternalLink, Share2, Copy, Check,
-  FileText, Loader2, Mail,
+  FileText, Loader2, Mail, CalendarPlus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
@@ -799,11 +799,13 @@ function ServiceMinutesContent() {
                     <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Risk</th>
                     <th className="text-right px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Exposure</th>
                     <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Provider</th>
+                    <th className="px-4 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {riskReport!.needsAttention.slice(0, 10).map((r, i) => {
                     const cfg = RISK_CONFIG[r.riskStatus] ?? RISK_CONFIG.at_risk;
+                    const isAtRisk = r.riskStatus === "at_risk" || r.riskStatus === "out_of_compliance";
                     return (
                       <tr key={`${r.studentId}-${r.service}-${i}`} className="hover:bg-gray-50/50">
                         <td className="px-4 py-2.5">
@@ -837,6 +839,17 @@ function ServiceMinutesContent() {
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-[12px] text-gray-500">{r.providerName}</td>
+                        <td className="px-4 py-2.5">
+                          {isAtRisk && (
+                            <Link
+                              href={`/scheduling?tab=minutes&studentId=${r.studentId}`}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
+                              data-testid={`link-schedule-${r.studentId}`}
+                            >
+                              <CalendarPlus className="w-3 h-3" /> Schedule sessions
+                            </Link>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -971,27 +984,36 @@ function ServiceMinutesContent() {
         ) : filtered.slice(0, 50).map((p: any, i: number) => {
           const cfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
           const pct = Math.min(100, p.percentComplete ?? 0);
+          const isAtRisk = p.riskStatus === "at_risk" || p.riskStatus === "out_of_compliance";
           return (
-            <Link key={i} href={`/students/${p.studentId}`}>
-              <Card className="p-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-800 truncate">{p.studentName}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{p.serviceTypeName}</p>
-                  </div>
-                  <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0`}>
-                    {cfg.label}
-                  </span>
+            <Card key={i} className="p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <Link href={`/students/${p.studentId}`} className="text-sm font-medium text-gray-800 truncate hover:text-emerald-700 block">{p.studentName}</Link>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{p.serviceTypeName}</p>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                    <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: cfg.ringColor }} />
-                  </div>
-                  <span className="text-[11px] text-gray-500 font-medium">{pct}%</span>
+                <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0`}>
+                  {cfg.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                  <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: cfg.ringColor }} />
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">{p.deliveredMinutes} / {p.requiredMinutes} min · {p.remainingMinutes > 0 ? `${p.remainingMinutes} min remaining` : "Complete"}</p>
-              </Card>
-            </Link>
+                <span className="text-[11px] text-gray-500 font-medium">{pct}%</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-[11px] text-gray-400">{p.deliveredMinutes} / {p.requiredMinutes} min · {p.remainingMinutes > 0 ? `${p.remainingMinutes} min remaining` : "Complete"}</p>
+                {isAtRisk && (
+                  <Link
+                    href={`/scheduling?tab=minutes&studentId=${p.studentId}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap flex-shrink-0"
+                  >
+                    <CalendarPlus className="w-3 h-3" /> Schedule
+                  </Link>
+                )}
+              </div>
+            </Card>
           );
         })}
       </div>
@@ -1022,18 +1044,20 @@ function ServiceMinutesContent() {
                 <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Progress</th>
                 <th className="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Delivered</th>
                 <th className="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Remaining</th>
+                <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <EmptyState icon={ClipboardCheck} title="No records match filter" description="Try a different risk filter." compact />
                   </td>
                 </tr>
               ) : (showAllStudents ? filtered : filtered.slice(0, 50)).map((p: any, i: number) => {
                 const cfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
                 const pct = Math.min(100, p.percentComplete ?? 0);
+                const isAtRisk = p.riskStatus === "at_risk" || p.riskStatus === "out_of_compliance";
                 return (
                   <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-2.5">
@@ -1060,6 +1084,17 @@ function ServiceMinutesContent() {
                       <span className={`text-[12px] font-medium ${p.remainingMinutes > 0 ? cfg.color : "text-emerald-600"}`}>
                         {p.remainingMinutes > 0 ? `${p.remainingMinutes} min` : "Complete"}
                       </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {isAtRisk && (
+                        <Link
+                          href={`/scheduling?tab=minutes&studentId=${p.studentId}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
+                          data-testid={`link-schedule-row-${p.studentId}`}
+                        >
+                          <CalendarPlus className="w-3 h-3" /> Schedule sessions
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 );
