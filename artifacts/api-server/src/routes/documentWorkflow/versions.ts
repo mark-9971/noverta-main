@@ -75,7 +75,11 @@ router.post("/document-workflow/versions", async (req, res): Promise<void> => {
       }).returning();
       break;
     } catch (err: any) {
-      if (err?.code === "23505" && attempt < MAX_RETRIES - 1) {
+      // Drizzle wraps underlying pg errors in a DrizzleQueryError whose
+      // original error is on `.cause`; check both so the unique-constraint
+      // retry actually fires under concurrent saves.
+      const pgCode = err?.code ?? err?.cause?.code;
+      if (pgCode === "23505" && attempt < MAX_RETRIES - 1) {
         continue;
       }
       throw err;
