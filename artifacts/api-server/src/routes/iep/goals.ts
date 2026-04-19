@@ -7,6 +7,8 @@ import {
   serviceTypesTable, programStepsTable,
   studentsTable, schoolsTable,
   goalAnnotationsTable, staffAssignmentsTable,
+  behaviorTargetAnnotationsTable,
+  programTargetAnnotationsTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, asc, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
@@ -15,6 +17,10 @@ import {
   assertStudentInCallerDistrict,
   assertIepGoalInCallerDistrict,
   assertGoalAnnotationInCallerDistrict,
+  assertBehaviorTargetInCallerDistrict,
+  assertBehaviorTargetAnnotationInCallerDistrict,
+  assertProgramTargetInCallerDistrict,
+  assertProgramTargetAnnotationInCallerDistrict,
 } from "../../lib/districtScope";
 import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
 
@@ -688,6 +694,234 @@ router.delete("/goal-annotations/:id", async (req, res): Promise<void> => {
     res.json({ success: true });
   } catch (e: any) {
     console.error("DELETE goal annotation error:", e);
+    res.status(500).json({ error: "Failed to delete annotation" });
+  }
+});
+
+// ── Behavior Target Annotations ──────────────────────────────────────────────
+
+/** GET /api/students/:studentId/behavior-target-annotations — all annotations grouped by target */
+router.get("/students/:studentId/behavior-target-annotations", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+
+    const targets = await db.select({ id: behaviorTargetsTable.id })
+      .from(behaviorTargetsTable)
+      .where(eq(behaviorTargetsTable.studentId, studentId));
+
+    if (targets.length === 0) { res.json({}); return; }
+
+    const targetIds = targets.map(t => t.id);
+    const rows = await db.select().from(behaviorTargetAnnotationsTable)
+      .where(sql`${behaviorTargetAnnotationsTable.behaviorTargetId} IN (${sql.join(targetIds.map(id => sql`${id}`), sql`, `)})`)
+      .orderBy(asc(behaviorTargetAnnotationsTable.annotationDate));
+
+    const byTarget: Record<number, typeof rows> = {};
+    for (const row of rows) {
+      if (!byTarget[row.behaviorTargetId]) byTarget[row.behaviorTargetId] = [];
+      byTarget[row.behaviorTargetId].push(row);
+    }
+    res.json(byTarget);
+  } catch (e: any) {
+    console.error("GET student behavior-target-annotations error:", e);
+    res.status(500).json({ error: "Failed to fetch behavior target annotations" });
+  }
+});
+
+/** GET /api/behavior-targets/:targetId/annotations — list annotations for one target */
+router.get("/behavior-targets/:targetId/annotations", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId as string, 10);
+    if (isNaN(targetId)) { res.status(400).json({ error: "Invalid target ID" }); return; }
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
+
+    const rows = await db.select().from(behaviorTargetAnnotationsTable)
+      .where(eq(behaviorTargetAnnotationsTable.behaviorTargetId, targetId))
+      .orderBy(asc(behaviorTargetAnnotationsTable.annotationDate));
+
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch (e: any) {
+    console.error("GET behavior-target annotations error:", e);
+    res.status(500).json({ error: "Failed to fetch annotations" });
+  }
+});
+
+/** POST /api/behavior-targets/:targetId/annotations — add a new annotation */
+router.post("/behavior-targets/:targetId/annotations", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId as string, 10);
+    if (isNaN(targetId)) { res.status(400).json({ error: "Invalid target ID" }); return; }
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
+
+    const { annotationDate, label } = req.body as { annotationDate?: string; label?: string };
+    if (!annotationDate || !label?.trim()) {
+      res.status(400).json({ error: "annotationDate and label are required" });
+      return;
+    }
+
+    const staffId = (req as unknown as AuthedRequest).tenantStaffId ?? null;
+    const [created] = await db.insert(behaviorTargetAnnotationsTable).values({
+      behaviorTargetId: targetId,
+      annotationDate,
+      label: label.trim(),
+      createdBy: staffId ?? undefined,
+    }).returning();
+
+    logAudit(req, {
+      action: "create",
+      targetTable: "behavior_target_annotations",
+      targetId: created.id,
+      summary: `Added annotation "${label}" on ${annotationDate} to behavior target #${targetId}`,
+      newValues: { behaviorTargetId: targetId, annotationDate, label } as Record<string, unknown>,
+    });
+
+    res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("POST behavior-target annotation error:", e);
+    res.status(500).json({ error: "Failed to add annotation" });
+  }
+});
+
+/** DELETE /api/behavior-target-annotations/:id — remove an annotation */
+router.delete("/behavior-target-annotations/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid annotation ID" }); return; }
+    if (!(await assertBehaviorTargetAnnotationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
+
+    const [existing] = await db.select().from(behaviorTargetAnnotationsTable)
+      .where(eq(behaviorTargetAnnotationsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Annotation not found" }); return; }
+
+    await db.delete(behaviorTargetAnnotationsTable).where(eq(behaviorTargetAnnotationsTable.id, id));
+
+    logAudit(req, {
+      action: "delete",
+      targetTable: "behavior_target_annotations",
+      targetId: id,
+      summary: `Removed annotation "${existing.label}" from behavior target #${existing.behaviorTargetId}`,
+      oldValues: { behaviorTargetId: existing.behaviorTargetId, annotationDate: existing.annotationDate, label: existing.label } as Record<string, unknown>,
+    });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("DELETE behavior-target annotation error:", e);
+    res.status(500).json({ error: "Failed to delete annotation" });
+  }
+});
+
+// ── Program Target Annotations ───────────────────────────────────────────────
+
+/** GET /api/students/:studentId/program-target-annotations — all annotations grouped by target */
+router.get("/students/:studentId/program-target-annotations", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+
+    const targets = await db.select({ id: programTargetsTable.id })
+      .from(programTargetsTable)
+      .where(eq(programTargetsTable.studentId, studentId));
+
+    if (targets.length === 0) { res.json({}); return; }
+
+    const targetIds = targets.map(t => t.id);
+    const rows = await db.select().from(programTargetAnnotationsTable)
+      .where(sql`${programTargetAnnotationsTable.programTargetId} IN (${sql.join(targetIds.map(id => sql`${id}`), sql`, `)})`)
+      .orderBy(asc(programTargetAnnotationsTable.annotationDate));
+
+    const byTarget: Record<number, typeof rows> = {};
+    for (const row of rows) {
+      if (!byTarget[row.programTargetId]) byTarget[row.programTargetId] = [];
+      byTarget[row.programTargetId].push(row);
+    }
+    res.json(byTarget);
+  } catch (e: any) {
+    console.error("GET student program-target-annotations error:", e);
+    res.status(500).json({ error: "Failed to fetch program target annotations" });
+  }
+});
+
+/** GET /api/program-targets/:targetId/annotations — list annotations for one target */
+router.get("/program-targets/:targetId/annotations", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId as string, 10);
+    if (isNaN(targetId)) { res.status(400).json({ error: "Invalid target ID" }); return; }
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
+
+    const rows = await db.select().from(programTargetAnnotationsTable)
+      .where(eq(programTargetAnnotationsTable.programTargetId, targetId))
+      .orderBy(asc(programTargetAnnotationsTable.annotationDate));
+
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch (e: any) {
+    console.error("GET program-target annotations error:", e);
+    res.status(500).json({ error: "Failed to fetch annotations" });
+  }
+});
+
+/** POST /api/program-targets/:targetId/annotations — add a new annotation */
+router.post("/program-targets/:targetId/annotations", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId as string, 10);
+    if (isNaN(targetId)) { res.status(400).json({ error: "Invalid target ID" }); return; }
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
+
+    const { annotationDate, label } = req.body as { annotationDate?: string; label?: string };
+    if (!annotationDate || !label?.trim()) {
+      res.status(400).json({ error: "annotationDate and label are required" });
+      return;
+    }
+
+    const staffId = (req as unknown as AuthedRequest).tenantStaffId ?? null;
+    const [created] = await db.insert(programTargetAnnotationsTable).values({
+      programTargetId: targetId,
+      annotationDate,
+      label: label.trim(),
+      createdBy: staffId ?? undefined,
+    }).returning();
+
+    logAudit(req, {
+      action: "create",
+      targetTable: "program_target_annotations",
+      targetId: created.id,
+      summary: `Added annotation "${label}" on ${annotationDate} to program target #${targetId}`,
+      newValues: { programTargetId: targetId, annotationDate, label } as Record<string, unknown>,
+    });
+
+    res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("POST program-target annotation error:", e);
+    res.status(500).json({ error: "Failed to add annotation" });
+  }
+});
+
+/** DELETE /api/program-target-annotations/:id — remove an annotation */
+router.delete("/program-target-annotations/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid annotation ID" }); return; }
+    if (!(await assertProgramTargetAnnotationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
+
+    const [existing] = await db.select().from(programTargetAnnotationsTable)
+      .where(eq(programTargetAnnotationsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Annotation not found" }); return; }
+
+    await db.delete(programTargetAnnotationsTable).where(eq(programTargetAnnotationsTable.id, id));
+
+    logAudit(req, {
+      action: "delete",
+      targetTable: "program_target_annotations",
+      targetId: id,
+      summary: `Removed annotation "${existing.label}" from program target #${existing.programTargetId}`,
+      oldValues: { programTargetId: existing.programTargetId, annotationDate: existing.annotationDate, label: existing.label } as Record<string, unknown>,
+    });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("DELETE program-target annotation error:", e);
     res.status(500).json({ error: "Failed to delete annotation" });
   }
 });

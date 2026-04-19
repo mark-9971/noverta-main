@@ -109,6 +109,8 @@ export * from "./medicaidReportSnapshots";
 export * from "./caseloadSnapshots";
 export * from "./scheduleChangeRequests";
 export * from "./goalAnnotations";
+export * from "./behaviorTargetAnnotations";
+export * from "./programTargetAnnotations";
 export * from "./rateLimitBuckets";
 export * from "./uploadQuotas";
 export * from "./emailDeliveries";

@@ -6,13 +6,17 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Download, Plus, Trash2, TrendingUp, Target, Calendar, X, Save, ChevronDown, ChevronUp, Zap
+  Download, Plus, Trash2, TrendingUp, Target, Calendar, X, Save, ChevronDown, ChevronUp, Zap, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createPhaseChange, deletePhaseChange, getIoaSummary,
   listBehaviorTargetModificationMarkers, createBehaviorTargetModificationMarker, deleteModificationMarker,
   type ProtocolModificationMarker,
+  createBehaviorTargetAnnotation, deleteBehaviorTargetAnnotation, listBehaviorTargetAnnotations,
+  type BehaviorTargetAnnotation,
+  createProgramTargetAnnotation, deleteProgramTargetAnnotation, listProgramTargetAnnotations,
+  type ProgramTargetAnnotation,
 } from "@workspace/api-client-react";
 
 const MARKER_TYPE_CONFIG: Record<string, { label: string; abbr: string }> = {
@@ -48,12 +52,17 @@ interface TrendPoint {
   measurementType: string;
 }
 
+type TargetAnnotation = { id: number; annotationDate: string; label: string; createdBy: number | null; createdAt: string };
+
 interface AbaGraphProps {
   target: BehaviorTarget;
   data: TrendPoint[];
   phaseChanges: PhaseChange[];
   onPhaseChangesUpdate: () => void;
   readOnly?: boolean;
+  targetType?: "behavior" | "program";
+  annotations?: TargetAnnotation[];
+  onAnnotationsChange?: (annotations: TargetAnnotation[]) => void;
 }
 
 function leastSquaresLine(points: { x: number; y: number }[]) {
@@ -80,7 +89,7 @@ function measureLabel(t: string) {
   return "Value";
 }
 
-export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, readOnly }: AbaGraphProps) {
+export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, readOnly, targetType = "behavior", annotations: annotationsProp, onAnnotationsChange }: AbaGraphProps) {
   const [showTrend, setShowTrend] = useState(true);
   const [showAim, setShowAim] = useState(true);
   const [addingPhase, setAddingPhase] = useState(false);
@@ -99,11 +108,60 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
   const [newMarkerLabel, setNewMarkerLabel] = useState("");
   const [newMarkerNotes, setNewMarkerNotes] = useState("");
 
+  /* ── Annotations ── */
+  const [localAnnotations, setLocalAnnotations] = useState<TargetAnnotation[]>([]);
+  const [addingAnnotation, setAddingAnnotation] = useState(false);
+  const [newAnnotationDate, setNewAnnotationDate] = useState("");
+  const [newAnnotationLabel, setNewAnnotationLabel] = useState("");
+
+  const annotations = annotationsProp ?? localAnnotations;
+
   useEffect(() => {
+    if (targetType === "program") return;
     listBehaviorTargetModificationMarkers(target.id)
       .then(setModMarkers)
       .catch(() => {});
-  }, [target.id]);
+  }, [target.id, targetType]);
+
+  useEffect(() => {
+    if (annotationsProp !== undefined) return;
+    const loader = targetType === "program"
+      ? listProgramTargetAnnotations(target.id)
+      : listBehaviorTargetAnnotations(target.id);
+    loader.then(setLocalAnnotations).catch(() => {});
+  }, [target.id, targetType, annotationsProp]);
+
+  async function handleAddAnnotation() {
+    if (!newAnnotationDate || !newAnnotationLabel.trim()) return;
+    try {
+      const body = { annotationDate: newAnnotationDate, label: newAnnotationLabel.trim() };
+      const created = targetType === "program"
+        ? await createProgramTargetAnnotation(target.id, body)
+        : await createBehaviorTargetAnnotation(target.id, body);
+      const updated = [...annotations, created].sort((a, b) => a.annotationDate.localeCompare(b.annotationDate));
+      if (onAnnotationsChange) onAnnotationsChange(updated);
+      else setLocalAnnotations(updated);
+      toast.success("Annotation added");
+      setAddingAnnotation(false);
+      setNewAnnotationDate("");
+      setNewAnnotationLabel("");
+    } catch {
+      toast.error("Failed to add annotation");
+    }
+  }
+
+  async function handleDeleteAnnotation(id: number) {
+    try {
+      if (targetType === "program") await deleteProgramTargetAnnotation(id);
+      else await deleteBehaviorTargetAnnotation(id);
+      const updated = annotations.filter(a => a.id !== id);
+      if (onAnnotationsChange) onAnnotationsChange(updated);
+      else setLocalAnnotations(updated);
+      toast.success("Annotation removed");
+    } catch {
+      toast.error("Failed to remove annotation");
+    }
+  }
 
   async function handleAddMarker() {
     if (!newMarkerDate || !newMarkerLabel.trim()) return;
@@ -438,7 +496,7 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
                     />
                   ))}
 
-                  {modMarkers.map(m => {
+                  {targetType !== "program" && modMarkers.map(m => {
                     const abbr = MARKER_TYPE_CONFIG[m.markerType]?.abbr ?? "⚡";
                     return (
                       <ReferenceLine
@@ -452,6 +510,18 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
                       />
                     );
                   })}
+
+                  {annotations.map(a => (
+                    <ReferenceLine
+                      key={`ann-${a.id}`}
+                      x={a.annotationDate}
+                      stroke="#6366f1"
+                      strokeDasharray="4 3"
+                      strokeWidth={1.5}
+                      strokeOpacity={0.9}
+                      label={{ value: a.label, position: "top", fontSize: 8, fill: "#6366f1" }}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -520,8 +590,8 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
             )}
           </div>
 
-          {/* ── Protocol Modification Markers ── */}
-          <div className="mt-3 border-t border-orange-100 pt-3">
+          {/* ── Protocol Modification Markers (behavior targets only) ── */}
+          {targetType !== "program" && <div className="mt-3 border-t border-orange-100 pt-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold text-orange-600 flex items-center gap-1">
                 <Zap className="w-3 h-3" /> Protocol Modifications
@@ -615,6 +685,72 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
             ) : (
               <p className="text-[10px] text-gray-400">
                 No protocol modifications recorded. Use markers to document changes within a phase (prompt hierarchies, reinforcement schedules, etc.) that differ from phase transitions.
+              </p>
+            )}
+          </div>}
+
+          {/* ── Annotations ── */}
+          <div className="mt-3 border-t border-indigo-100 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold text-indigo-600 flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" /> Annotations
+              </span>
+              {!readOnly && (
+                <button
+                  onClick={() => setAddingAnnotation(!addingAnnotation)}
+                  className="text-[10px] text-indigo-500 hover:text-indigo-600 flex items-center gap-0.5"
+                >
+                  <Plus className="w-3 h-3" /> Add Annotation
+                </button>
+              )}
+            </div>
+
+            {addingAnnotation && (
+              <div className="flex items-center gap-2 mb-2 flex-wrap p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                <input
+                  type="date"
+                  value={newAnnotationDate}
+                  onChange={e => setNewAnnotationDate(e.target.value)}
+                  className="text-[11px] border border-indigo-200 rounded px-2 py-1 bg-white"
+                />
+                <input
+                  type="text"
+                  value={newAnnotationLabel}
+                  onChange={e => setNewAnnotationLabel(e.target.value)}
+                  placeholder="e.g., New reinforcement schedule started"
+                  className="text-[11px] border border-indigo-200 rounded px-2 py-1 flex-1 min-w-[180px] bg-white"
+                />
+                <Button size="sm" className="h-6 text-[10px] bg-indigo-500 hover:bg-indigo-600 text-white" onClick={handleAddAnnotation}>
+                  <Save className="w-3 h-3 mr-0.5" /> Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setAddingAnnotation(false)}>
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
+
+            {annotations.length > 0 ? (
+              <div className="space-y-1">
+                {annotations.map(a => (
+                  <div key={a.id} className="flex items-center justify-between text-[11px] px-2 py-1.5 bg-indigo-50 rounded border border-indigo-100">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Calendar className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                      <span className="text-gray-500 flex-shrink-0">
+                        {new Date(a.annotationDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                      <span className="font-medium text-indigo-700 truncate">{a.label}</span>
+                    </div>
+                    {!readOnly && (
+                      <button onClick={() => handleDeleteAnnotation(a.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0 ml-2">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400">
+                No annotations yet. Use annotations to mark key events like new reinforcement schedules or intervention changes.
               </p>
             )}
           </div>

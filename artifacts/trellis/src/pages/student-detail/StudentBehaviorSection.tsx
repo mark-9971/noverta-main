@@ -252,6 +252,7 @@ export default function StudentBehaviorSection({
                           }))}
                           phaseChanges={[]}
                           onPhaseChangesUpdate={() => {}}
+                          targetType="program"
                         />
                       ) : (
                         <InteractiveChart

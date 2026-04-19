@@ -742,6 +742,42 @@ export async function assertStaffAbsenceInCallerDistrict(req: AuthedRequest, abs
 }
 
 /** goal_annotations.goal_id -> iep_goals.student_id -> student.school.district_id */
+export async function programTargetAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM program_target_annotations pta
+        JOIN program_targets pt ON pt.id = pta.program_target_id
+        JOIN students s ON s.id = pt.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE pta.id = ${annotationId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertProgramTargetAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number, res: Response): Promise<boolean> {
+  if (await programTargetAnnotationInCallerDistrict(req, annotationId)) return true;
+  res.status(404).json({ error: "Program target annotation not found" });
+  return false;
+}
+
+export async function behaviorTargetAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM behavior_target_annotations bta
+        JOIN behavior_targets bt ON bt.id = bta.behavior_target_id
+        JOIN students s ON s.id = bt.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE bta.id = ${annotationId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertBehaviorTargetAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number, res: Response): Promise<boolean> {
+  if (await behaviorTargetAnnotationInCallerDistrict(req, annotationId)) return true;
+  res.status(404).json({ error: "Behavior target annotation not found" });
+  return false;
+}
+
 export async function goalAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number): Promise<boolean> {
   const did = getEnforcedDistrictId(req);
   if (did == null) return true;
