@@ -94,14 +94,14 @@ describe("GET /para/my-day — biweekly block filtering", () => {
 
   it("block appears on the on-week date", async () => {
     const res = await asUser({ userId: "u-bw-on", role: "coordinator", districtId })
-      .get(`/para/my-day?staffId=${staffId}&date=${ON_WEEK_DATE}`);
+      .get(`/api/para/my-day?staffId=${staffId}&date=${ON_WEEK_DATE}`);
     expect(res.status).toBe(200);
     expect((res.body.blocks as { id: number }[]).map(b => b.id)).toContain(blockId);
   });
 
   it("block is absent on the off-week date", async () => {
     const res = await asUser({ userId: "u-bw-off", role: "coordinator", districtId })
-      .get(`/para/my-day?staffId=${staffId}&date=${OFF_WEEK_DATE}`);
+      .get(`/api/para/my-day?staffId=${staffId}&date=${OFF_WEEK_DATE}`);
     expect(res.status).toBe(200);
     expect((res.body.blocks as { id: number }[]).map(b => b.id)).not.toContain(blockId);
   });

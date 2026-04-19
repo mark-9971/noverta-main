@@ -9,7 +9,8 @@
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "sync-test-db": "node ./scripts/sync-test-db.mjs"
   },
   "dependencies": {
     "@workspace/tiers": "workspace:*",

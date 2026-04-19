@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "export NODE_ENV=${NODE_ENV:-development} && pnpm run build && pnpm run start",
     "test:server": "export NODE_ENV=test && pnpm run build && pnpm run start",
+    "test": "pnpm run pretest && vitest run",
+    "pretest": "pnpm --filter @workspace/db run sync-test-db",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
