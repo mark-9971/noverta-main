@@ -43,12 +43,36 @@ export interface BuildDocumentOptions {
   studentGrade?: string | null;
   school?: string | null;
   district?: string | null;
+  districtLogoUrl?: string | null;
   generatedDate?: string;
   isDraft?: boolean;
   watermark?: string;
   sections: DocumentSection[];
   signatureLines?: string[];
   footerHtml?: string;
+}
+
+/**
+ * Best-effort fetch of the staff user's district logo URL for branding
+ * generated PDFs. Returns null when not configured or on any error so
+ * callers can fall back to a text-only header.
+ */
+export async function fetchDistrictLogoUrl(): Promise<string | null> {
+  try {
+    const statusRes = await authFetch("/api/district-data/status");
+    if (!statusRes.ok) return null;
+    const status = await statusRes.json() as { districtId?: number };
+    if (status.districtId == null) return null;
+    const dRes = await authFetch(`/api/districts/${status.districtId}`);
+    if (!dRes.ok) return null;
+    const d = await dRes.json() as { logoUrl?: string | null };
+    if (typeof d.logoUrl === "string" && d.logoUrl.trim().length > 0) {
+      return d.logoUrl;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 const SHARED_CSS = `
@@ -66,6 +90,17 @@ const SHARED_CSS = `
     border-bottom: 3px solid ${TRELLIS_GREEN};
     padding-bottom: 14px;
     margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .doc-header .doc-header-text { flex: 1; min-width: 0; }
+  .doc-header .district-logo {
+    max-height: 56px;
+    max-width: 140px;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
   }
   .doc-header h1 {
     font-size: 18px;
@@ -193,7 +228,7 @@ const SHARED_CSS = `
 export function buildDocumentHtml(opts: BuildDocumentOptions): string {
   const {
     documentTitle, documentSubtitle, studentName, studentDob, studentGrade,
-    school, district, isDraft = false, watermark, sections,
+    school, district, districtLogoUrl, isDraft = false, watermark, sections,
     signatureLines = [], footerHtml = "", generatedDate,
   } = opts;
 
@@ -225,11 +260,15 @@ export function buildDocumentHtml(opts: BuildDocumentOptions): string {
   const watermarkHtml = (isDraft || watermark) ?
     `<div class="draft-watermark">${esc(watermark ?? "DRAFT")}</div>` : "";
 
+  const logoHtml = districtLogoUrl
+    ? `<img src="${esc(districtLogoUrl)}" alt="${esc(district ?? "District")} logo" class="district-logo" />`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; script-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob: https: http:; script-src 'none'">
   <title>${esc(documentTitle)} — ${esc(studentName)}</title>
   <style>${SHARED_CSS}</style>
 </head>
@@ -237,9 +276,12 @@ export function buildDocumentHtml(opts: BuildDocumentOptions): string {
   ${watermarkHtml}
   <div class="page-wrap">
     <div class="doc-header">
-      <h1>${esc(documentTitle)}</h1>
-      ${documentSubtitle ? `<div class="subtitle">${esc(documentSubtitle)}</div>` : ""}
-      ${isDraft ? `<div class="subtitle" style="color:#b45309;font-weight:600">⚠ DRAFT — For IEP Team Review Only — Not a Final Document</div>` : ""}
+      ${logoHtml}
+      <div class="doc-header-text">
+        <h1>${esc(documentTitle)}</h1>
+        ${documentSubtitle ? `<div class="subtitle">${esc(documentSubtitle)}</div>` : ""}
+        ${isDraft ? `<div class="subtitle" style="color:#b45309;font-weight:600">⚠ DRAFT — For IEP Team Review Only — Not a Final Document</div>` : ""}
+      </div>
     </div>
     <div class="meta-grid">${metaHtml}</div>
     ${sectionsHtml}
@@ -858,9 +900,10 @@ export function buildIncidentReportHtml(opts: {
   studentDob?: string | null;
   school?: string | null;
   district?: string | null;
+  districtLogoUrl?: string | null;
   staffMap?: Record<number, string>;
 }): string {
-  const { incident: i, studentName, studentDob, school, district, staffMap = {} } = opts;
+  const { incident: i, studentName, studentDob, school, district, districtLogoUrl, staffMap = {} } = opts;
 
   function staffName(id: number | null | undefined): string {
     if (!id) return "—";
@@ -1008,6 +1051,7 @@ export function buildIncidentReportHtml(opts: {
     studentDob: studentDob ?? undefined,
     school: school ?? undefined,
     district: district ?? undefined,
+    districtLogoUrl: districtLogoUrl ?? undefined,
     sections,
     signatureLines: [
       "Reporting Staff Signature / Date",
@@ -1083,9 +1127,10 @@ export function buildGoalProgressReportHtml(opts: {
   studentGrade?: string | null;
   school?: string | null;
   district?: string | null;
+  districtLogoUrl?: string | null;
   goals: GoalPrintData[];
 }): string {
-  const { studentName, studentDob, studentGrade, school, district, goals } = opts;
+  const { studentName, studentDob, studentGrade, school, district, districtLogoUrl, goals } = opts;
 
   const RATING_LABELS: Record<string, string> = {
     mastered: "Mastered",
@@ -1265,6 +1310,7 @@ export function buildGoalProgressReportHtml(opts: {
     studentGrade: studentGrade ?? undefined,
     school: school ?? undefined,
     district: district ?? undefined,
+    districtLogoUrl: districtLogoUrl ?? undefined,
     sections: [
       { heading: `Progress Summary (${goals.length} Goal${goals.length !== 1 ? "s" : ""})`, html: summaryHtml },
       { heading: "Goal Details", html: goalsHtml },

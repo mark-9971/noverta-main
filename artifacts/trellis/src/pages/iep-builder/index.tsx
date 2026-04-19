@@ -518,7 +518,7 @@ export default function IepBuilderPage() {
 
   function printDraft() {
     if (!draft) return;
-    printDraftHtml(draft, studentId);
+    void printDraftHtml(draft, studentId);
   }
 
   function setParentField(field: keyof ParentQuestionnaire, value: string) {

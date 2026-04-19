@@ -1,7 +1,8 @@
-import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, type DocumentSection } from "@/lib/print-document";
+import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, fetchDistrictLogoUrl, type DocumentSection } from "@/lib/print-document";
 import type { GeneratedDraft } from "./types";
 
-export function printDraft(draft: GeneratedDraft, studentId: number) {
+export async function printDraft(draft: GeneratedDraft, studentId: number) {
+  const districtLogoUrl = await fetchDistrictLogoUrl();
   const goalRows = draft.goalRecommendations.map(g => {
     const a = g.recommendation;
     return `<tr>
@@ -93,6 +94,7 @@ export function printDraft(draft: GeneratedDraft, studentId: number) {
     documentTitle: "IEP Annual Review — Draft Recommendations",
     documentSubtitle: `School Year: ${escDoc(draft.generatedFor)} · IEP Period: ${escDoc(draft.iepStartDate)} to ${escDoc(draft.iepEndDate)}`,
     studentName: draft.studentName,
+    districtLogoUrl,
     isDraft: true,
     watermark: "DRAFT",
     generatedDate: new Date(draft.generatedAt).toLocaleDateString(),

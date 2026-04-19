@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, Clock, AlertTriangle, Minus as MinusIcon, BarChart3
 } from "lucide-react";
 import { generateProgressReport, updateProgressReport } from "@workspace/api-client-react";
-import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, type DocumentSection } from "@/lib/print-document";
+import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, fetchDistrictLogoUrl, type DocumentSection } from "@/lib/print-document";
 
 export interface GoalProgressEntry {
   iepGoalId: number; goalArea: string; goalNumber: number; annualGoal: string;
@@ -190,7 +190,8 @@ export function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
     setSaving(false);
   }
 
-  function printReport() {
+  async function printReport() {
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const goalRows = goalProgress.map(gp => `
       <tr>
         <td>${escDoc(String(gp.goalNumber))}</td>
@@ -257,6 +258,7 @@ export function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
       studentGrade: report.studentGrade,
       school: report.schoolName,
       district: report.districtName,
+      districtLogoUrl,
       isDraft: report.status !== "final",
       generatedDate: `${formatDate(report.periodStart)} — ${formatDate(report.periodEnd)}`,
       sections,

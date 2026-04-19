@@ -3,7 +3,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, FileText, MessageSquarePlus, Printer } from "lucide-react";
-import { openPrintWindow, buildDocumentHtml, buildIncidentReportHtml, fmtDate, fmtTime, esc } from "@/lib/print-document";
+import { openPrintWindow, buildDocumentHtml, buildIncidentReportHtml, fmtDate, fmtTime, esc, fetchDistrictLogoUrl } from "@/lib/print-document";
 
 interface GoalProgressEntry {
   iepGoalId: number;
@@ -104,7 +104,8 @@ function IepPreview({ preview, studentName, onCommentSection, activeSectionRef }
     : preview.iepType === "amendment" ? "Amendment"
     : String(preview.iepType ?? "");
 
-  function handlePrint() {
+  async function handlePrint() {
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const s = (v: unknown) => esc(String(v ?? ""));
     const sections = [
       { heading: "Student & Team Concerns", html: [
@@ -128,6 +129,7 @@ function IepPreview({ preview, studentName, onCommentSection, activeSectionRef }
     const html = buildDocumentHtml({
       documentTitle: `${iepTypeLabel} — v${preview.version ?? 1}`,
       studentName,
+      districtLogoUrl,
       isDraft: preview.status === "draft",
       sections,
     });
@@ -171,7 +173,8 @@ function EvaluationPreview({ preview, studentName, onCommentSection, activeSecti
   const areas = Array.isArray(preview.evaluationAreas) ? preview.evaluationAreas as { area: string; status: string; summary?: string }[] : [];
   const members = Array.isArray(preview.teamMembers) ? preview.teamMembers as { name: string; role: string; evaluationArea?: string }[] : [];
 
-  function handlePrint() {
+  async function handlePrint() {
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const s = (v: unknown) => esc(String(v ?? ""));
     const areasHtml = areas.length > 0
       ? `<table><thead><tr><th>Area</th><th>Status</th><th>Summary</th></tr></thead><tbody>${areas.map(a =>
@@ -188,7 +191,7 @@ function EvaluationPreview({ preview, studentName, onCommentSection, activeSecti
       { heading: "Evaluation Areas", html: areasHtml },
       { heading: "Team Members", html: membersHtml },
     ];
-    const html = buildDocumentHtml({ documentTitle: "Evaluation Report", studentName, isDraft: preview.status === "draft", sections });
+    const html = buildDocumentHtml({ documentTitle: "Evaluation Report", studentName, districtLogoUrl, isDraft: preview.status === "draft", sections });
     openPrintWindow(html);
   }
 
@@ -254,7 +257,8 @@ function ProgressReportPreview({ preview, studentName, onCommentSection, activeS
     not_started: "text-gray-600 bg-gray-50 border-gray-200",
   };
 
-  function handlePrint() {
+  async function handlePrint() {
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const e = (v: unknown) => esc(String(v ?? ""));
     const goalsHtml = goals.length > 0
       ? `<table><thead><tr><th>#</th><th>Goal Area</th><th>Progress</th><th>Narrative</th></tr></thead><tbody>${goals.map(g =>
@@ -272,7 +276,7 @@ function ProgressReportPreview({ preview, studentName, onCommentSection, activeS
       ...(servicesHtml ? [{ heading: "Service Delivery Breakdown", html: servicesHtml }] : []),
       ...(preview.parentNotes ? [{ heading: "Parent Notes", html: `<div class="field-box">${e(preview.parentNotes)}</div>` }] : []),
     ];
-    const html = buildDocumentHtml({ documentTitle: "Progress Report", documentSubtitle: e(preview.reportingPeriod), studentName, isDraft: preview.status === "draft", sections });
+    const html = buildDocumentHtml({ documentTitle: "Progress Report", documentSubtitle: e(preview.reportingPeriod), studentName, districtLogoUrl, isDraft: preview.status === "draft", sections });
     openPrintWindow(html);
   }
 
@@ -337,7 +341,8 @@ function ProgressReportPreview({ preview, studentName, onCommentSection, activeS
 }
 
 function PwnPreview({ preview, studentName, onCommentSection, activeSectionRef }: { preview: DocumentPreview; studentName: string } & SectionCommentProps) {
-  function handlePrint() {
+  async function handlePrint() {
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const s = (v: unknown) => esc(String(v ?? ""));
     const sections = [
       { heading: "Action Details", html: [
@@ -353,7 +358,7 @@ function PwnPreview({ preview, studentName, onCommentSection, activeSectionRef }
       ].filter(Boolean).join("") || "<p>None recorded.</p>" },
       ...(preview.notes ? [{ heading: "Notes", html: `<div class="field-box">${s(preview.notes)}</div>` }] : []),
     ];
-    const html = buildDocumentHtml({ documentTitle: "Prior Written Notice", documentSubtitle: s(String(preview.noticeType ?? "").replace(/_/g, " ")), studentName, isDraft: preview.status === "draft", sections });
+    const html = buildDocumentHtml({ documentTitle: "Prior Written Notice", documentSubtitle: s(String(preview.noticeType ?? "").replace(/_/g, " ")), studentName, districtLogoUrl, isDraft: preview.status === "draft", sections });
     openPrintWindow(html);
   }
 
@@ -389,8 +394,9 @@ function IncidentReportPreview({ preview, studentName, onCommentSection, activeS
     .replace(/_/g, " ")
     .replace(/\b\w/g, c => c.toUpperCase());
 
-  function handlePrint() {
-    const html = buildIncidentReportHtml({ incident: preview, studentName });
+  async function handlePrint() {
+    const districtLogoUrl = await fetchDistrictLogoUrl();
+    const html = buildIncidentReportHtml({ incident: preview, studentName, districtLogoUrl });
     openPrintWindow(html);
   }
 

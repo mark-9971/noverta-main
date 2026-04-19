@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateIncidentDraft } from "@workspace/api-client-react";
-import { buildIncidentReportHtml, openPrintWindow, saveGeneratedDocument } from "@/lib/print-document";
+import { buildIncidentReportHtml, openPrintWindow, saveGeneratedDocument, fetchDistrictLogoUrl } from "@/lib/print-document";
 import { Signature, Staff, StatusHistoryEntry, SIG_ROLE_LABELS } from "@/pages/protective-measures/constants";
 import { Clock } from "lucide-react";
 
@@ -56,18 +56,20 @@ export function ParentNotificationPanel({ incident, staff, incidentId, saveDraft
   // GET /api/protective-measures/incidents/:id/report-pdf and is what
   // the parent-notification email attaches; this UI button just gives
   // staff a quick on-screen preview / printable copy.)
-  const handlePrintReport = () => {
+  const handlePrintReport = async () => {
     const staffMap: Record<number, string> = {};
     staff.forEach(s => { staffMap[s.id] = `${s.firstName} ${s.lastName}`; });
     const studentName = incident.studentFirstName
       ? `${incident.studentFirstName} ${incident.studentLastName}`
       : incident.student ? `${incident.student.firstName} ${incident.student.lastName}` : "Student";
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const html = buildIncidentReportHtml({
       incident: incident as Record<string, unknown>,
       studentName,
       studentDob: incident.student?.dateOfBirth ?? null,
       school: incident.schoolName ?? incident.school?.name ?? null,
       district: incident.districtName ?? incident.district?.name ?? null,
+      districtLogoUrl,
       staffMap,
     });
     openPrintWindow(html);

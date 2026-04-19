@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer, Trophy, X, MessageSquare, User, Trash2, Download } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { AbaGraph } from "@/components/aba-graph";
-import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow, saveGeneratedDocument, downloadHtmlAsPdf } from "@/lib/print-document";
+import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow, saveGeneratedDocument, downloadHtmlAsPdf, fetchDistrictLogoUrl } from "@/lib/print-document";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -109,16 +109,18 @@ export default function StudentGoalSection({
     setGoalAbaView(prev => ({ ...prev, [`goal-${id}`]: !prev[`goal-${id}`] }));
   }
 
-  function buildReportHtml(): { html: string; studentName: string } {
+  async function buildReportHtml(): Promise<{ html: string; studentName: string }> {
     const studentName = student
       ? `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim()
       : "Student";
+    const districtLogoUrl = await fetchDistrictLogoUrl();
     const html = buildGoalProgressReportHtml({
       studentName,
       studentDob: student?.dob ?? null,
       studentGrade: student?.grade ? String(student.grade) : null,
       school: student?.school ?? null,
       district: student?.district ?? null,
+      districtLogoUrl,
       goals: filteredPrintGoals,
     });
     return { html, studentName };
@@ -136,8 +138,8 @@ export default function StudentGoalSection({
     });
   }
 
-  function handlePrintReport() {
-    const { html } = buildReportHtml();
+  async function handlePrintReport() {
+    const { html } = await buildReportHtml();
     openPrintWindow(html);
     setPrintFilterOpen(false);
     persistSnapshot(html);
@@ -145,7 +147,7 @@ export default function StudentGoalSection({
 
   async function handleDownloadPdf() {
     if (pdfDownloading) return;
-    const { html, studentName } = buildReportHtml();
+    const { html, studentName } = await buildReportHtml();
     const safeStudent = studentName.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "student";
     const today = new Date().toISOString().slice(0, 10);
     const filename = `goal-progress-report-${safeStudent}-${today}.pdf`;
