@@ -511,15 +511,15 @@ export default function PilotAdminHome() {
             )}
           </div>
           <div className="hidden sm:grid grid-cols-3 gap-3 text-right">
-            <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} />
-            <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" delta={atRiskDelta} positiveIsGood={false} />
-            <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" delta={onTrackDelta} positiveIsGood={true} />
+            <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} href="/compliance-risk-report" />
+            <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" delta={atRiskDelta} positiveIsGood={false} href="/compliance-risk-report" />
+            <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" delta={onTrackDelta} positiveIsGood={true} href="/compliance" />
           </div>
         </div>
         <div className="sm:hidden grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-100">
-          <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} />
-          <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" delta={atRiskDelta} positiveIsGood={false} />
-          <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" delta={onTrackDelta} positiveIsGood={true} />
+          <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} href="/compliance-risk-report" />
+          <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" delta={atRiskDelta} positiveIsGood={false} href="/compliance-risk-report" />
+          <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" delta={onTrackDelta} positiveIsGood={true} href="/compliance" />
         </div>
         {riskError && (
           <p className="mt-3 text-xs text-red-600">Couldn't load the compliance report. Refresh in a minute.</p>
@@ -712,13 +712,14 @@ export default function PilotAdminHome() {
 }
 
 function Stat({
-  label, value, accent, delta, positiveIsGood,
+  label, value, accent, delta, positiveIsGood, href,
 }: {
   label: string;
   value: number;
   accent: "red" | "amber" | "green";
   delta?: number | null;
   positiveIsGood?: boolean;
+  href?: string;
 }) {
   const color = accent === "red" ? "text-red-700" : accent === "amber" ? "text-amber-700" : "text-emerald-700";
   const hasDelta = delta !== null && delta !== undefined;
@@ -727,8 +728,8 @@ function Stat({
   const deltaColor = isGood ? "text-emerald-600" : isBad ? "text-red-600" : "text-gray-400";
   const DeltaIcon = hasDelta && delta !== 0 ? (delta! > 0 ? TrendingUp : TrendingDown) : Minus;
   const sign = hasDelta && delta! > 0 ? "+" : "";
-  return (
-    <div>
+  const content = (
+    <div className={href ? "hover:opacity-80 transition-opacity cursor-pointer" : undefined}>
       <div className={`text-xl font-bold tabular-nums ${color}`}>{value}</div>
       <div className="text-[11px] text-gray-500 leading-tight">{label}</div>
       {hasDelta && (
@@ -739,6 +740,7 @@ function Stat({
       )}
     </div>
   );
+  return href ? <Link href={href}>{content}</Link> : content;
 }
 
 function RateTrendBadge({ delta }: { delta: number }) {

@@ -98,8 +98,8 @@ export default function ProviderDelivery() {
               return (
                 <tr key={p.staffId} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-5 py-3">
-                    <Link href={`/staff/${p.staffId}`}>
-                      <a className="font-medium text-gray-900 text-[13px] hover:text-indigo-700">{p.staffName}</a>
+                    <Link href={`/staff/${p.staffId}`} className="font-medium text-gray-900 text-[13px] hover:text-indigo-700">
+                      {p.staffName}
                     </Link>
                     <div className="text-[11px] text-gray-400 truncate max-w-[180px] capitalize">
                       {p.role?.replace(/_/g, " ")}
@@ -139,8 +139,8 @@ export default function ProviderDelivery() {
         ) : (
           <span className="text-xs text-gray-400 flex-1">All providers delivering above 70%</span>
         )}
-        <Link href="/staff">
-          <a className="text-xs text-indigo-700 hover:text-indigo-800 font-medium flex-shrink-0">View all →</a>
+        <Link href="/staff" className="text-xs text-indigo-700 hover:text-indigo-800 font-medium flex-shrink-0">
+          View all →
         </Link>
       </div>
     </div>

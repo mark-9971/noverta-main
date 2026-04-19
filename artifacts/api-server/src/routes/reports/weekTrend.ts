@@ -227,14 +227,14 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
             JOIN students s ON s.id = e.student_id
             WHERE e.deleted_at IS NULL
               AND e.status IN ('pending', 'in_progress')
-              AND e.due_date <= ${sevenDaysAgoDateStr}::date
+              AND e.due_date::date <= ${sevenDaysAgoDateStr}::date
               AND ${districtStudentScope}
           ) AS overdue_evals,
           (
             SELECT COUNT(*)::int FROM eligibility_determinations ed
             JOIN students s ON s.id = ed.student_id
             WHERE ed.deleted_at IS NULL
-              AND ed.next_re_eval_date <= ${sevenDaysAgoDateStr}::date
+              AND ed.next_re_eval_date::date <= ${sevenDaysAgoDateStr}::date
               AND ${districtStudentScope}
           ) AS overdue_re_evals
       `);
@@ -258,7 +258,7 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
           WHERE s.status = 'active'
             AND s.deleted_at IS NULL
             AND s.date_of_birth IS NOT NULL
-            AND s.date_of_birth <= (${sevenDaysAgoDateStr}::date - INTERVAL '14 years')
+            AND s.date_of_birth::date <= (${sevenDaysAgoDateStr}::date - INTERVAL '14 years')
             AND ${districtStudentScope}
         ),
         students_with_plan AS (
@@ -278,7 +278,7 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
               AND tar.status = 'pending'
               AND tar.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
               AND tar.follow_up_date IS NOT NULL
-              AND tar.follow_up_date < ${sevenDaysAgoDateStr}::date
+              AND tar.follow_up_date::date < ${sevenDaysAgoDateStr}::date
               AND ${districtStudentScope}
           ) AS overdue_followups
       `);
@@ -300,7 +300,7 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
         FROM team_meetings tm
         JOIN students s ON s.id = tm.student_id
         WHERE tm.status = 'scheduled'
-          AND tm.scheduled_date < ${sevenDaysAgoDateStr}::date
+          AND tm.scheduled_date::date < ${sevenDaysAgoDateStr}::date
           AND tm.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
           AND ${districtStudentScope}
       `);

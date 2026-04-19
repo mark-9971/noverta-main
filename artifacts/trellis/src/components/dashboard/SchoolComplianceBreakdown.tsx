@@ -85,27 +85,25 @@ export default function SchoolComplianceBreakdown() {
             : "/compliance";
           return (
             <li key={s.schoolId ?? s.schoolName}>
-              <Link href={href}>
-                <a className="px-5 py-3.5 hover:bg-gray-50 cursor-pointer flex items-center gap-3 group">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[13px] font-medium text-gray-800 truncate">{s.schoolName}</span>
-                      <span className={`text-xs font-bold tabular-nums ml-2 flex-shrink-0 ${c.text}`}>{s.rate}%</span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${c.bar}`} style={{ width: `${s.rate}%` }} />
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-[11px] text-gray-400">{s.totalStudents} student{s.totalStudents !== 1 ? "s" : ""}</span>
-                      {s.atRisk > 0 && (
-                        <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${c.bg} ${c.text}`}>
-                          {s.atRisk} at risk
-                        </span>
-                      )}
-                    </div>
+              <Link href={href} className="px-5 py-3.5 hover:bg-gray-50 cursor-pointer flex items-center gap-3 group">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[13px] font-medium text-gray-800 truncate">{s.schoolName}</span>
+                    <span className={`text-xs font-bold tabular-nums ml-2 flex-shrink-0 ${c.text}`}>{s.rate}%</span>
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 flex-shrink-0" />
-                </a>
+                  <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${c.bar}`} style={{ width: `${s.rate}%` }} />
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="text-[11px] text-gray-400">{s.totalStudents} student{s.totalStudents !== 1 ? "s" : ""}</span>
+                    {s.atRisk > 0 && (
+                      <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${c.bg} ${c.text}`}>
+                        {s.atRisk} at risk
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 flex-shrink-0" />
               </Link>
             </li>
           );
@@ -116,8 +114,8 @@ export default function SchoolComplianceBreakdown() {
         <span className="text-xs text-gray-400">
           District average: <span className="font-semibold text-gray-600">{districtAvg}%</span>
         </span>
-        <Link href="/compliance">
-          <a className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">View full report →</a>
+        <Link href="/compliance" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">
+          View full report →
         </Link>
       </div>
     </div>
