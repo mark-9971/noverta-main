@@ -379,7 +379,9 @@ export function FloatingTimer() {
         e.preventDefault();
         const activeTimers = activeTimersRef.current;
         if (activeTimers.length === 1) {
-          handleStopRef.current(activeTimers[0]);
+          const t = activeTimers[0];
+          toast.success(`Timer stopped for ${t.studentName}`, { duration: 2000 });
+          handleStopRef.current(t);
         } else if (activeTimers.length === 0 && !showStartRef.current) {
           openStartFlowRef.current();
         }
