@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,6 +78,7 @@ interface QuickLogPrefill {
 
 export function TodayScheduleCard() {
   const { teacherId } = useRole();
+  const queryClient = useQueryClient();
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [prefill, setPrefill] = useState<QuickLogPrefill>({});
 
@@ -110,7 +111,9 @@ export function TodayScheduleCard() {
   const handleSuccess = useCallback(() => {
     setQuickLogOpen(false);
     refetch();
-  }, [refetch]);
+    queryClient.invalidateQueries({ queryKey: ["provider-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard/provider-summary"] });
+  }, [refetch, queryClient]);
 
   const blockList = blocks ?? [];
 
