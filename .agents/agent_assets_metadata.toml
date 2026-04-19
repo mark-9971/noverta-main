@@ -125,3 +125,39 @@ id = "WczndQE4Jc0TvNQTL-7w-"
 uri = "file://.local/exports/phase-2c-audit.txt"
 type = "text"
 title = "Phase 2C — Pilot/Demo Story Audit"
+
+[[outputs]]
+id = "DqXDFjcgiS8ptlwR2mgjR"
+uri = "file://exports/batch1-repo-meta.tar.gz"
+type = "unspecified"
+title = "Batch 1 — Repo metadata (tree, package.json, workspace, configs, scripts, docs, architecture notes)"
+
+[[outputs]]
+id = "F48uAaBtj2sTwdB-wtggy"
+uri = "file://exports/batch2-api-server-src.tar.gz"
+type = "unspecified"
+title = "Batch 2 — artifacts/api-server/src (app.ts, middlewares, routes, RBAC, audit, rate limit)"
+
+[[outputs]]
+id = "RBkeL5p4RCUZXUfC00BAb"
+uri = "file://exports/batch3-trellis-frontend.tar.gz"
+type = "unspecified"
+title = "Batch 3 — artifacts/trellis frontend (router, pages, components, hooks, vite/tailwind config)"
+
+[[outputs]]
+id = "J9jkGTyrwI2h-Pv46dsqk"
+uri = "file://exports/batch4-db-schema-seeds.tar.gz"
+type = "unspecified"
+title = "Batch 4 — lib/db (Drizzle schema, migrations, seeds, demo data, backfill)"
+
+[[outputs]]
+id = "luvtfra58_SoWRjClSQX4"
+uri = "file://exports/batch5-api-spec-tests-integrations.tar.gz"
+type = "unspecified"
+title = "Batch 5 — OpenAPI/Orval, api-zod, api-client-react, object-storage, OpenAI integration, api-server tests, e2e tests"
+
+[[outputs]]
+id = "LLCYeP1LhCbXg5aI3GeBB"
+uri = "file://exports/batch6-other-artifacts.tar.gz"
+type = "unspecified"
+title = "Batch 6 — Other artifacts (decks, dashboard concepts, mockup-sandbox, .github)"
