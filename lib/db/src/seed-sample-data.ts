@@ -94,6 +94,29 @@ type Scenario =
   | "annual_review_due"
   | "esy_eligible";
 
+/**
+ * District size profile. Controls how many students and staff a sample
+ * district receives so pilot demos can show realistic range — a small
+ * single-school district shouldn't look the same as a large urban one.
+ *
+ *   - "small":  ~20 students,  3 staff   (caseload ~20:1)
+ *   - "medium": ~60 students, 10 staff   (caseload ~20:1) — DEFAULT
+ *   - "large":  ~120 students, 18 staff  (caseload ~20:1)
+ *   - "random": picks small / medium / large at random
+ *
+ * All profiles keep the case-manager-to-student ratio within MA SPED
+ * guidance (~15–22 students per case manager) and preserve the canonical
+ * narrative scenarios (crisis, transition, BIP, incident history, etc.)
+ * so dashboards always have meaningful storylines to show.
+ */
+export type SizeProfile = "small" | "medium" | "large" | "random";
+
+const SIZE_PROFILES = {
+  small:  { students: 20,  staff: 3  },
+  medium: { students: 60,  staff: 10 },
+  large:  { students: 120, staff: 18 },
+} as const;
+
 const COMPLETION_RATE_RANGES: Record<Scenario, readonly [number, number]> = {
   healthy:           [0.78, 0.98],
   shortfall:         [0.45, 0.78],
@@ -187,16 +210,97 @@ interface SampleStaffSeed {
   firstName: string; lastName: string; role: string;
   title: string; qualifications: string;
 }
-const SAMPLE_STAFF: SampleStaffSeed[] = [
-  { firstName: "Katherine", lastName: "Reilly",   role: "bcba",         title: "Board Certified Behavior Analyst",    qualifications: "BCBA, M.Ed." },
-  { firstName: "Rachel",    lastName: "Ferreira",  role: "provider",     title: "Speech-Language Pathologist",         qualifications: "CCC-SLP, M.S." },
-  { firstName: "Jennifer",  lastName: "Walsh",     role: "provider",     title: "Occupational Therapist",              qualifications: "OTR/L, M.S." },
-  { firstName: "David",     lastName: "Ostrowski", role: "provider",     title: "Physical Therapist",                  qualifications: "DPT, CSCS" },
-  { firstName: "Lisa",      lastName: "Kowalski",  role: "provider",     title: "School Adjustment Counselor",         qualifications: "LICSW, M.S.W." },
+
+/**
+ * Pool of named staff members the seeder draws from. Each profile picks a
+ * subset so that role coverage scales with district size while keeping
+ * MA SPED-realistic caseloads (~15–22 students per case manager).
+ *
+ * Order matters: items earlier in each role's group are preferred when a
+ * profile only needs one (so the medium profile keeps the same primary
+ * BCBA / SLP / OT names that earlier seeds produced).
+ */
+const SAMPLE_STAFF_POOL: SampleStaffSeed[] = [
+  // Case managers (added in order as profile size grows)
   { firstName: "Andrew",    lastName: "Costa",     role: "case_manager", title: "SPED Case Manager",                   qualifications: "M.Ed. Special Education" },
+  { firstName: "Nicole",    lastName: "Hartmann",  role: "case_manager", title: "SPED Case Manager",                   qualifications: "M.Ed. Special Education" },
+  { firstName: "Brian",     lastName: "O'Connell", role: "case_manager", title: "SPED Case Manager",                   qualifications: "M.Ed. Special Education" },
+  { firstName: "Sandra",    lastName: "Vasquez",   role: "case_manager", title: "SPED Case Manager",                   qualifications: "M.Ed. Special Education" },
+  { firstName: "Daniel",    lastName: "Park",      role: "case_manager", title: "SPED Case Manager",                   qualifications: "M.Ed. Special Education" },
+  { firstName: "Allison",   lastName: "Greene",    role: "case_manager", title: "SPED Case Manager",                   qualifications: "M.Ed. Special Education" },
+  // BCBAs
+  { firstName: "Katherine", lastName: "Reilly",    role: "bcba",         title: "Board Certified Behavior Analyst",    qualifications: "BCBA, M.Ed." },
+  { firstName: "Marcus",    lastName: "Whitfield", role: "bcba",         title: "Board Certified Behavior Analyst",    qualifications: "BCBA, M.S." },
+  // Speech-language pathologists
+  { firstName: "Rachel",    lastName: "Ferreira",  role: "provider",     title: "Speech-Language Pathologist",         qualifications: "CCC-SLP, M.S." },
+  { firstName: "Hannah",    lastName: "Bishop",    role: "provider",     title: "Speech-Language Pathologist",         qualifications: "CCC-SLP, M.S." },
+  // Occupational therapists
+  { firstName: "Jennifer",  lastName: "Walsh",     role: "provider",     title: "Occupational Therapist",              qualifications: "OTR/L, M.S." },
+  { firstName: "Olivia",    lastName: "Sanderson", role: "provider",     title: "Occupational Therapist",              qualifications: "OTR/L, M.S." },
+  // Physical therapists
+  { firstName: "David",     lastName: "Ostrowski", role: "provider",     title: "Physical Therapist",                  qualifications: "DPT, CSCS" },
+  // Counselors
+  { firstName: "Lisa",      lastName: "Kowalski",  role: "provider",     title: "School Adjustment Counselor",         qualifications: "LICSW, M.S.W." },
+  { firstName: "Gregory",   lastName: "Talbot",    role: "provider",     title: "School Adjustment Counselor",         qualifications: "LICSW, M.S.W." },
+  // Paraprofessionals
   { firstName: "Maria",     lastName: "Delgado",   role: "provider",     title: "Special Education Paraprofessional",  qualifications: "B.A., 504 Training" },
+  { firstName: "Joseph",    lastName: "Mendes",    role: "provider",     title: "Special Education Paraprofessional",  qualifications: "B.A., 504 Training" },
+  // Admin
   { firstName: "Thomas",    lastName: "Burke",     role: "admin",        title: "Director of Special Education",       qualifications: "Ed.D., SPED Administration" },
 ];
+
+/**
+ * Per-profile staff composition. Counts are tuned so the case-manager-to-
+ * student ratio stays within MA SPED guidance (~15–22:1) while every
+ * specialty role required by the seeded scenarios is covered:
+ *   - small  (20/3):  1 CM, 1 BCBA, 1 SLP — CM doubles for OT/PT/counseling
+ *                     fall-throughs (the seeder already has `?? insertedStaff[0]`
+ *                     fallbacks for those service types)
+ *   - medium (60/10): 3 CMs (~20 students each) + full specialty coverage
+ *   - large  (120/18): 6 CMs (~20 each) + duplicated specialists for realism
+ */
+const STAFF_BY_PROFILE: Record<Exclude<SizeProfile, "random">, Array<{ role: string; titleIncludes?: string; count: number }>> = {
+  small: [
+    { role: "case_manager", count: 1 },
+    { role: "bcba",         count: 1 },
+    { role: "provider", titleIncludes: "Speech",       count: 1 },
+  ],
+  medium: [
+    { role: "case_manager", count: 3 },
+    { role: "bcba",         count: 1 },
+    { role: "provider", titleIncludes: "Speech",       count: 1 },
+    { role: "provider", titleIncludes: "Occupational", count: 1 },
+    { role: "provider", titleIncludes: "Physical",     count: 1 },
+    { role: "provider", titleIncludes: "Counselor",    count: 1 },
+    { role: "provider", titleIncludes: "Paraprofessional", count: 1 },
+    { role: "admin",        count: 1 },
+  ],
+  large: [
+    { role: "case_manager", count: 6 },
+    { role: "bcba",         count: 2 },
+    { role: "provider", titleIncludes: "Speech",       count: 2 },
+    { role: "provider", titleIncludes: "Occupational", count: 2 },
+    { role: "provider", titleIncludes: "Physical",     count: 1 },
+    { role: "provider", titleIncludes: "Counselor",    count: 2 },
+    { role: "provider", titleIncludes: "Paraprofessional", count: 2 },
+    { role: "admin",        count: 1 },
+  ],
+};
+
+function buildStaffSeeds(profile: Exclude<SizeProfile, "random">): SampleStaffSeed[] {
+  const out: SampleStaffSeed[] = [];
+  for (const slot of STAFF_BY_PROFILE[profile]) {
+    const candidates = SAMPLE_STAFF_POOL.filter(p =>
+      p.role === slot.role
+      && (slot.titleIncludes ? p.title.includes(slot.titleIncludes) : true)
+      && !out.includes(p)
+    );
+    for (let i = 0; i < slot.count && i < candidates.length; i++) {
+      out.push(candidates[i]);
+    }
+  }
+  return out;
+}
 
 const SERVICE_TYPE_DEFAULTS = [
   { name: "Speech-Language Therapy", category: "speech",     color: "#06b6d4", defaultIntervalType: "monthly", cptCode: "92507", defaultBillingRate: "68.00" },
@@ -275,6 +379,149 @@ export interface SeedSampleResult {
   sessionsLogged: number;
   alerts: number;
   compensatoryObligations: number;
+  sizeProfile: Exclude<SizeProfile, "random">;
+}
+
+export interface SeedSampleOptions {
+  /** District size profile. Defaults to "medium". See `SizeProfile` for details. */
+  sizeProfile?: SizeProfile;
+}
+
+/**
+ * Per-profile breakdown of "narrative" students (the canonical scenarios
+ * that drive dashboard storylines). Healthy students fill the remainder
+ * up to the profile's total student count.
+ *
+ * Small profiles only get one of each scenario so storylines remain
+ * recognizable without overflowing the small roster. Large profiles
+ * scale specials modestly so dashboards still show a meaningful mix
+ * even with 90+ healthy students.
+ */
+const SCENARIO_COUNTS_BY_PROFILE: Record<Exclude<SizeProfile, "random">, Partial<Record<Exclude<Scenario, "healthy">, number>>> = {
+  small: {
+    shortfall: 2,
+    urgent: 1,
+    compensatory_risk: 1,
+    recovered: 1,
+    sliding: 1,
+    crisis: 1,
+    transition: 1,
+    behavior_plan: 1,
+    incident_history: 1,
+    annual_review_due: 1,
+    esy_eligible: 1,
+  },
+  medium: {
+    shortfall: 8,
+    urgent: 3,
+    compensatory_risk: 4,
+    recovered: 2,
+    sliding: 2,
+    crisis: 2,
+    transition: 1,
+    behavior_plan: 2,
+    incident_history: 1,
+    annual_review_due: 3,
+    esy_eligible: 2,
+  },
+  large: {
+    shortfall: 12,
+    urgent: 4,
+    compensatory_risk: 6,
+    recovered: 3,
+    sliding: 3,
+    crisis: 3,
+    transition: 2,
+    behavior_plan: 3,
+    incident_history: 2,
+    annual_review_due: 4,
+    esy_eligible: 3,
+  },
+};
+
+function resolveSizeProfile(profile: SizeProfile | undefined): Exclude<SizeProfile, "random"> {
+  if (!profile || profile === "random") {
+    if (profile === "random") {
+      return pick(["small", "medium", "large"] as const);
+    }
+    return "medium";
+  }
+  return profile;
+}
+
+type StudentDef = { scenario: Scenario; schoolIdx: number; grades: string[]; disability?: string };
+
+/**
+ * Build the per-student definition list for the chosen profile. Layout:
+ *   1. All canonical scenarios (counts per `SCENARIO_COUNTS_BY_PROFILE`)
+ *   2. Healthy students fill the remainder up to profile.students
+ *
+ * Schools and grade bands cycle so students are spread across all 5
+ * sample schools (or as many as exist) and across K–12.
+ */
+function buildStudentDefs(profile: Exclude<SizeProfile, "random">, schoolCount: number): StudentDef[] {
+  const target = SIZE_PROFILES[profile].students;
+  const defs: StudentDef[] = [];
+  const counts = SCENARIO_COUNTS_BY_PROFILE[profile];
+
+  // Special-scenario presets: choose grades / disabilities that match the
+  // narrative (transition student must be high-school age, behavior_plan
+  // students get ASD/ED disabilities, etc.).
+  const SPECIAL_PRESETS: Record<Exclude<Scenario, "healthy">, { grades: string[]; disability?: string }> = {
+    shortfall:         { grades: GRADES_ALL },
+    urgent:            { grades: GRADES_ALL },
+    compensatory_risk: { grades: GRADES_ALL },
+    recovered:         { grades: [...GRADES_ELEM, ...GRADES_MIDDLE] },
+    sliding:           { grades: [...GRADES_ELEM, ...GRADES_MIDDLE] },
+    crisis:            { grades: [...GRADES_ELEM, ...GRADES_MIDDLE], disability: "Emotional Disturbance" },
+    transition:        { grades: ["10", "11"], disability: "Intellectual Disability" },
+    behavior_plan:     { grades: GRADES_ELEM, disability: "Autism Spectrum Disorder" },
+    incident_history:  { grades: GRADES_MIDDLE, disability: "Emotional Disturbance" },
+    annual_review_due: { grades: GRADES_ALL },
+    esy_eligible:      { grades: GRADES_ELEM, disability: "Autism Spectrum Disorder" },
+  };
+
+  let schoolCursor = 0;
+  const nextSchool = () => {
+    const idx = schoolCursor % Math.max(schoolCount, 1);
+    schoolCursor++;
+    return idx;
+  };
+
+  // Add specials in stable order so the first matching student per scenario
+  // is deterministic (downstream code uses `.find(... === scenario)` for
+  // restraint incidents and transition plans).
+  const SCENARIO_ORDER: Array<Exclude<Scenario, "healthy">> = [
+    "shortfall", "urgent", "compensatory_risk", "recovered", "sliding",
+    "crisis", "transition", "behavior_plan", "incident_history",
+    "annual_review_due", "esy_eligible",
+  ];
+  for (const scenario of SCENARIO_ORDER) {
+    const n = counts[scenario] ?? 0;
+    const preset = SPECIAL_PRESETS[scenario];
+    for (let i = 0; i < n; i++) {
+      defs.push({
+        scenario,
+        schoolIdx: nextSchool(),
+        grades: preset.grades,
+        disability: preset.disability,
+      });
+    }
+  }
+
+  // Fill the remainder with healthy students spread across grade bands.
+  const healthyGradePools = [GRADES_ELEM, GRADES_MIDDLE, GRADES_HIGH];
+  let i = 0;
+  while (defs.length < target) {
+    defs.push({
+      scenario: "healthy",
+      schoolIdx: nextSchool(),
+      grades: healthyGradePools[i % healthyGradePools.length],
+    });
+    i++;
+  }
+
+  return defs;
 }
 
 export interface SampleDataStatus {
@@ -360,7 +607,11 @@ function buildSessionRows(
 // Main seeder
 // ──────────────────────────────────────────────────────────────────
 
-export async function seedSampleDataForDistrict(districtId: number): Promise<SeedSampleResult> {
+export async function seedSampleDataForDistrict(
+  districtId: number,
+  options: SeedSampleOptions = {},
+): Promise<SeedSampleResult> {
+  const sizeProfile = resolveSizeProfile(options.sizeProfile);
   // ── 1. Prerequisites: district, schools, school year, service types ──
 
   // Auto-provision a minimal district stub if the caller's enforced district
@@ -437,27 +688,39 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
 
   // ── 2. Sample staff (8 members covering all roles) ──
 
+  const staffSeeds = buildStaffSeeds(sizeProfile);
   const insertedStaff = await db.insert(staffTable).values(
-    SAMPLE_STAFF.map(s => ({
+    staffSeeds.map(s => ({
       firstName: s.firstName,
       lastName: s.lastName,
       role: s.role,
       title: s.title,
       qualifications: s.qualifications,
-      email: `${s.firstName.toLowerCase()}.${s.lastName.toLowerCase()}@sample.trellis.local`,
+      email: `${s.firstName.toLowerCase()}.${s.lastName.toLowerCase().replace(/'/g, "")}@sample.trellis.local`,
       schoolId: schools[0].id,
       status: "active",
       isSample: true,
     })),
   ).returning();
 
-  const caseManager = insertedStaff.find(s => s.role === "case_manager") ?? insertedStaff[0];
+  // Primary references (used for transition coordinator, evaluation lead,
+  // restraint debrief, etc.). Falls back to insertedStaff[0] for tiny
+  // profiles that don't include every specialty role.
+  const caseManagers = insertedStaff.filter(s => s.role === "case_manager");
+  const caseManager = caseManagers[0] ?? insertedStaff[0];
   const bcba        = insertedStaff.find(s => s.role === "bcba") ?? insertedStaff[0];
-  const slp         = insertedStaff.find(s => s.title?.includes("Speech")) ?? insertedStaff[1];
-  const otStaff     = insertedStaff.find(s => s.title?.includes("Occupational")) ?? insertedStaff[2];
-  const ptStaff     = insertedStaff.find(s => s.title?.includes("Physical")) ?? insertedStaff[3];
-  const counselor   = insertedStaff.find(s => s.title?.includes("Counselor")) ?? insertedStaff[4];
+  const slp         = insertedStaff.find(s => s.title?.includes("Speech")) ?? insertedStaff[0];
+  const otStaff     = insertedStaff.find(s => s.title?.includes("Occupational")) ?? insertedStaff[0];
+  const ptStaff     = insertedStaff.find(s => s.title?.includes("Physical")) ?? insertedStaff[0];
+  const counselor   = insertedStaff.find(s => s.title?.includes("Counselor")) ?? insertedStaff[0];
   const providers   = insertedStaff.filter(s => s.role === "provider" || s.role === "bcba");
+
+  // Round-robin case manager assignment so caseloads stay realistic when
+  // multiple case managers exist (medium = 3 CMs split ~20 students each;
+  // large = 6 CMs split ~20 students each). Falls back to the lone case
+  // manager when only one is present (small profile).
+  const cmPool = caseManagers.length > 0 ? caseManagers : [caseManager];
+  const caseManagerForStudent = (i: number) => cmPool[i % cmPool.length].id;
 
   // ── 3. Student roster: 50 students across 5 schools ──
   //
@@ -494,73 +757,10 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     return { y, m, d };
   }
 
-  const STUDENT_DEFS: Array<{
-    scenario: Scenario; schoolIdx: number;
-    grades: string[]; disability?: string;
-  }> = [
-    // Healthy — 20
-    { scenario: "healthy", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 0, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 1, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 1, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 1, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 2, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 2, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 2, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 3, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 3, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 3, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 4, grades: GRADES_HIGH },
-    { scenario: "healthy", schoolIdx: 4, grades: GRADES_HIGH },
-    { scenario: "healthy", schoolIdx: 4, grades: GRADES_HIGH },
-    { scenario: "healthy", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 1, grades: GRADES_MIDDLE },
-    { scenario: "healthy", schoolIdx: 2, grades: GRADES_ELEM },
-    { scenario: "healthy", schoolIdx: 3, grades: GRADES_MIDDLE },
-    // Shortfall — 8
-    { scenario: "shortfall", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "shortfall", schoolIdx: 0, grades: GRADES_MIDDLE },
-    { scenario: "shortfall", schoolIdx: 1, grades: GRADES_ELEM },
-    { scenario: "shortfall", schoolIdx: 1, grades: GRADES_MIDDLE },
-    { scenario: "shortfall", schoolIdx: 2, grades: GRADES_ELEM },
-    { scenario: "shortfall", schoolIdx: 2, grades: GRADES_MIDDLE },
-    { scenario: "shortfall", schoolIdx: 3, grades: GRADES_ELEM },
-    { scenario: "shortfall", schoolIdx: 3, grades: GRADES_MIDDLE },
-    // Urgent — 3
-    { scenario: "urgent", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "urgent", schoolIdx: 0, grades: GRADES_MIDDLE },
-    { scenario: "urgent", schoolIdx: 1, grades: GRADES_ELEM },
-    // Compensatory Risk — 4
-    { scenario: "compensatory_risk", schoolIdx: 1, grades: GRADES_MIDDLE },
-    { scenario: "compensatory_risk", schoolIdx: 2, grades: GRADES_ELEM },
-    { scenario: "compensatory_risk", schoolIdx: 2, grades: GRADES_MIDDLE },
-    { scenario: "compensatory_risk", schoolIdx: 3, grades: GRADES_ELEM },
-    // Recovered — 2
-    { scenario: "recovered", schoolIdx: 0, grades: GRADES_ELEM },
-    { scenario: "recovered", schoolIdx: 1, grades: GRADES_MIDDLE },
-    // Sliding — 2
-    { scenario: "sliding", schoolIdx: 2, grades: GRADES_MIDDLE },
-    { scenario: "sliding", schoolIdx: 3, grades: GRADES_ELEM },
-    // Crisis — 2
-    { scenario: "crisis", schoolIdx: 0, grades: GRADES_ELEM, disability: "Emotional Disturbance" },
-    { scenario: "crisis", schoolIdx: 0, grades: GRADES_MIDDLE, disability: "Autism Spectrum Disorder" },
-    // Transition — 1 (16-year-old, grade 10–11)
-    { scenario: "transition", schoolIdx: 4, grades: ["10", "11"], disability: "Intellectual Disability" },
-    // Behavior Plan — 2
-    { scenario: "behavior_plan", schoolIdx: 0, grades: GRADES_ELEM, disability: "Autism Spectrum Disorder" },
-    { scenario: "behavior_plan", schoolIdx: 1, grades: GRADES_ELEM, disability: "Emotional Disturbance" },
-    // Incident History — 1
-    { scenario: "incident_history", schoolIdx: 2, grades: GRADES_MIDDLE, disability: "Emotional Disturbance" },
-    // Annual Review Due — 3
-    { scenario: "annual_review_due", schoolIdx: 2, grades: GRADES_ELEM },
-    { scenario: "annual_review_due", schoolIdx: 3, grades: GRADES_MIDDLE },
-    { scenario: "annual_review_due", schoolIdx: 4, grades: GRADES_HIGH },
-    // ESY Eligible — 2
-    { scenario: "esy_eligible", schoolIdx: 0, grades: GRADES_ELEM, disability: "Intellectual Disability" },
-    { scenario: "esy_eligible", schoolIdx: 2, grades: GRADES_ELEM, disability: "Autism Spectrum Disorder" },
-  ];
+  // Roster size and scenario mix come from the chosen size profile so a
+  // small district doesn't look identical to a large one. See
+  // `SCENARIO_COUNTS_BY_PROFILE` for the per-profile scenario distribution.
+  const STUDENT_DEFS = buildStudentDefs(sizeProfile, schools.length);
 
   const today = new Date().toISOString().split("T")[0];
   const usedNames = new Set<string>();
@@ -586,7 +786,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
       disabilityCategory: def.disability ?? pick(DISABILITY_POOL),
       schoolId: schools[def.schoolIdx].id,
       districtId,
-      caseManagerId: caseManager.id,
+      caseManagerId: caseManagerForStudent(i),
       status: "active",
       primaryLanguage: i % 7 === 0 ? "Spanish" : (i % 11 === 0 ? "Portuguese" : "English"),
       isSample: true,
@@ -1589,6 +1789,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     sessionsLogged: sessionRows.length,
     alerts: alertRows.length,
     compensatoryObligations: compRows.length,
+    sizeProfile,
   };
 }
 
