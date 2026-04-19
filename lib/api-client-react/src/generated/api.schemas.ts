@@ -2574,7 +2574,40 @@ export type AssignSubstituteBody = {
   absenceDate?: string | null;
 };
 
-export type AssignSubstitute200 = { [key: string]: unknown };
+export type AssignSubstitute200NotificationEmailStatus =
+  (typeof AssignSubstitute200NotificationEmailStatus)[keyof typeof AssignSubstitute200NotificationEmailStatus];
+
+export const AssignSubstitute200NotificationEmailStatus = {
+  sent: "sent",
+  skipped: "skipped",
+  not_configured: "not_configured",
+  failed: "failed",
+} as const;
+
+/**
+ * Status of the notification email sent to the substitute.
+ */
+export type AssignSubstitute200Notification = {
+  emailStatus: AssignSubstitute200NotificationEmailStatus;
+  /** @nullable */
+  emailRecipient?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  message: string;
+};
+
+export type AssignSubstitute200 = {
+  instanceId?: number;
+  scheduleBlockId?: number;
+  /** @nullable */
+  absenceDate?: string | null;
+  substituteStaffId?: number;
+  substituteStaffName?: string;
+  isCovered?: boolean;
+  message?: string;
+  /** Status of the notification email sent to the substitute. */
+  notification?: AssignSubstitute200Notification;
+};
 
 export type ListAlertsParams = {
   /**

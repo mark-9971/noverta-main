@@ -9,8 +9,48 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { useListStaff } from "@workspace/api-client-react";
-import { UserCheck, AlertTriangle, RefreshCw, Clock, User, Star, ChevronDown, ChevronRight, UserX } from "lucide-react";
+import { UserCheck, AlertTriangle, RefreshCw, Clock, User, Star, ChevronDown, ChevronRight, UserX, Mail, MailX, MailWarning } from "lucide-react";
 import { DAY_LABELS, fmt12, today } from "./utils";
+
+interface NotificationStatus {
+  emailStatus: "sent" | "skipped" | "not_configured" | "failed";
+  emailRecipient: string | null;
+  reason: string | null;
+  message: string;
+}
+
+function NotificationBadge({ notif }: { notif: NotificationStatus }) {
+  if (notif.emailStatus === "sent") {
+    return (
+      <span title={notif.message} className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0 leading-4 flex items-center gap-1">
+        <Mail className="h-3 w-3" />
+        Email sent
+      </span>
+    );
+  }
+  if (notif.emailStatus === "skipped") {
+    return (
+      <span title={notif.message} className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded px-1.5 py-0 leading-4 flex items-center gap-1">
+        <MailX className="h-3 w-3" />
+        No email — in-app only
+      </span>
+    );
+  }
+  if (notif.emailStatus === "not_configured") {
+    return (
+      <span title={notif.message} className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded px-1.5 py-0 leading-4 flex items-center gap-1">
+        <MailX className="h-3 w-3" />
+        Email provider not configured
+      </span>
+    );
+  }
+  return (
+    <span title={notif.reason ?? notif.message} className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0 leading-4 flex items-center gap-1">
+      <MailWarning className="h-3 w-3" />
+      Email failed
+    </span>
+  );
+}
 
 interface Suggestion {
   staffId: number;
@@ -47,6 +87,12 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
   const [excluded, setExcluded] = useState<ExcludedStaff[]>([]);
   const [showExcluded, setShowExcluded] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [lastNotifications, setLastNotifications] = useState<Record<number, {
+    emailStatus: "sent" | "skipped" | "not_configured" | "failed";
+    emailRecipient: string | null;
+    reason: string | null;
+    message: string;
+  }>>({});
 
   const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId: String(schoolId) } : {}) });
   const staffList = (staffData as any[]) ?? [];
@@ -108,7 +154,21 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "Failed to assign substitute");
-      toast.success(data.message ?? "Substitute assigned");
+      const notif = data.notification as
+        | { emailStatus: "sent" | "skipped" | "not_configured" | "failed"; emailRecipient: string | null; reason: string | null; message: string }
+        | undefined;
+      if (notif) {
+        if (notif.emailStatus === "sent") {
+          toast.success(data.message ?? "Substitute assigned", { description: notif.message });
+        } else if (notif.emailStatus === "failed") {
+          toast.warning(data.message ?? "Substitute assigned", { description: notif.message });
+        } else {
+          toast.success(data.message ?? "Substitute assigned", { description: notif.message });
+        }
+        setLastNotifications(prev => ({ ...prev, [assignDialog.id]: notif }));
+      } else {
+        toast.success(data.message ?? "Substitute assigned");
+      }
       setAssignDialog(null);
       setSubstituteId("");
       setSuggestions([]);
@@ -218,10 +278,15 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {s.substituteStaffId ? (
-                  <span className="text-emerald-700 text-[12px] font-medium flex items-center gap-1">
-                    <UserCheck className="h-3.5 w-3.5" />
-                    {s.substituteStaffName ?? "Sub assigned"}
-                  </span>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="text-emerald-700 text-[12px] font-medium flex items-center gap-1">
+                      <UserCheck className="h-3.5 w-3.5" />
+                      {s.substituteStaffName ?? "Sub assigned"}
+                    </span>
+                    {lastNotifications[s.id] && (
+                      <NotificationBadge notif={lastNotifications[s.id]} />
+                    )}
+                  </div>
                 ) : (
                   <Button
                     size="sm"

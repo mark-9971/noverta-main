@@ -1500,6 +1500,35 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  instanceId:
+                    type: integer
+                  scheduleBlockId:
+                    type: integer
+                  absenceDate:
+                    type: ["string", "null"]
+                  substituteStaffId:
+                    type: integer
+                  substituteStaffName:
+                    type: string
+                  isCovered:
+                    type: boolean
+                  message:
+                    type: string
+                  notification:
+                    type: object
+                    description: Status of the notification email sent to the substitute.
+                    properties:
+                      emailStatus:
+                        type: string
+                        enum: [sent, skipped, not_configured, failed]
+                      emailRecipient:
+                        type: ["string", "null"]
+                      reason:
+                        type: ["string", "null"]
+                      message:
+                        type: string
+                    required: [emailStatus, message]
 
   /scheduler/generate:
     post:

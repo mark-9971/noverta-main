@@ -1824,7 +1824,24 @@ export const AssignSubstituteBody = zod.object({
   absenceDate: zod.string().nullish(),
 });
 
-export const AssignSubstituteResponse = zod.object({}).passthrough();
+export const AssignSubstituteResponse = zod.object({
+  instanceId: zod.number().optional(),
+  scheduleBlockId: zod.number().optional(),
+  absenceDate: zod.string().nullish(),
+  substituteStaffId: zod.number().optional(),
+  substituteStaffName: zod.string().optional(),
+  isCovered: zod.boolean().optional(),
+  message: zod.string().optional(),
+  notification: zod
+    .object({
+      emailStatus: zod.enum(["sent", "skipped", "not_configured", "failed"]),
+      emailRecipient: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      message: zod.string(),
+    })
+    .optional()
+    .describe("Status of the notification email sent to the substitute."),
+});
 
 /**
  * @summary Run auto-schedule generation

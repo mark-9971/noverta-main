@@ -374,8 +374,29 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
     suggestedAction: "Review session details and prepare for coverage",
   }).onConflictDoNothing();
 
-  if (sub.email) {
-    const subName = `${sub.firstName} ${sub.lastName}`;
+  // Notification status reported back to the caller so admins know whether
+  // the substitute received an email or only an in-app alert. Possible
+  // statuses:
+  //   - "sent"            email accepted by provider
+  //   - "skipped"         intentionally not attempted (no address on file)
+  //   - "not_configured"  RESEND_API_KEY missing — provider not configured
+  //   - "failed"          provider returned an error
+  let notification: {
+    emailStatus: "sent" | "skipped" | "not_configured" | "failed";
+    emailRecipient: string | null;
+    reason: string | null;
+    message: string;
+  };
+
+  const subName = `${sub.firstName} ${sub.lastName}`;
+  if (!sub.email) {
+    notification = {
+      emailStatus: "skipped",
+      emailRecipient: null,
+      reason: "no_email_on_file",
+      message: `No email on file for ${subName} — in-app alert only`,
+    };
+  } else {
     const dateLabel = instance.absenceDate;
     const timeLabel = block ? `${block.startTime}–${block.endTime}` : "";
     const locationLabel = block?.location ?? "";
@@ -398,9 +419,37 @@ ${notesLabel ? `<div class="notes-box"><strong>Special Notes:</strong><br>${note
 <div class="footer"><p>Trellis SPED Compliance Platform — Confidential. This message was sent because you were assigned as a substitute provider.</p></div>
 </div></body></html>`;
     const text = `Hi ${subName},\n\nYou have been assigned to cover a session.\n\nDate: ${dateLabel}${timeLabel ? `\nTime: ${timeLabel}` : ""}${locationLabel ? `\nLocation: ${locationLabel}` : ""}${studentName ? `\nStudent: ${studentName}` : ""}${notesLabel ? `\nSpecial Notes: ${notesLabel}` : ""}\n\nPlease log in to Trellis to view full session details.\n\nTrellis SPED Compliance Platform`;
-    sendAdminEmail({ to: [sub.email], subject, html, text, notificationType: "coverage_assignment" }).catch((err: unknown) => {
-      console.error("[coverage_assignment] Email send error:", err instanceof Error ? err.message : String(err));
-    });
+    let sendResult: Awaited<ReturnType<typeof sendAdminEmail>>;
+    try {
+      sendResult = await sendAdminEmail({ to: [sub.email], subject, html, text, notificationType: "coverage_assignment" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[coverage_assignment] Email send error:", msg);
+      sendResult = { success: false, error: msg };
+    }
+
+    if (sendResult.success) {
+      notification = {
+        emailStatus: "sent",
+        emailRecipient: sub.email,
+        reason: null,
+        message: `Email sent to ${subName}`,
+      };
+    } else if (sendResult.notConfigured) {
+      notification = {
+        emailStatus: "not_configured",
+        emailRecipient: sub.email,
+        reason: "provider_not_configured",
+        message: `Email provider not configured — in-app alert only`,
+      };
+    } else {
+      notification = {
+        emailStatus: "failed",
+        emailRecipient: sub.email,
+        reason: sendResult.error ?? "send_failed",
+        message: `Email failed to send — in-app alert delivered`,
+      };
+    }
   }
 
   res.json({
@@ -411,6 +460,7 @@ ${notesLabel ? `<div class="notes-box"><strong>Special Notes:</strong><br>${note
     substituteStaffName: `${sub.firstName} ${sub.lastName}`,
     isCovered: true,
     message: `${sub.firstName} ${sub.lastName} assigned as substitute`,
+    notification,
   });
 });
 
