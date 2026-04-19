@@ -42,6 +42,7 @@ import {
   evaluationsTable,
   complianceEventsTable,
   communicationEventsTable,
+  sessionGoalDataTable,
 } from "./schema";
 import type { GoalProgressEntry } from "./schema";
 
@@ -56,9 +57,42 @@ function daysAgo(n: number): Date {
 // ──────────────────────────────────────────────────────────────────
 // Constants & helpers
 // ──────────────────────────────────────────────────────────────────
-function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function randf(min: number, max: number) { return min + Math.random() * (max - min); }
-function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+//
+// Seeded RNG (mulberry32). All `rand`/`randf`/`pick`/`srand`/`sshuffle`
+// calls below route through this state so two runs against the same
+// district id produce byte-identical rosters, sessions, etc. — a hard
+// requirement for reproducible 30-district pilot demos. `setSeed()` is
+// invoked at the top of `seedSampleDataForDistrict()`.
+let _seedState = 0x9e3779b9 >>> 0;
+function setSeed(seedSrc: number) {
+  // Mix the input through a small avalanche so adjacent district ids
+  // (6, 7, 8, …) produce visibly different streams instead of nearby ones.
+  let x = (seedSrc | 0) || 0x9e3779b9;
+  x = (x ^ 0xdeadbeef) >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x85ebca6b) >>> 0;
+  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  _seedState = x || 0x9e3779b9;
+}
+function srand(): number {
+  // mulberry32
+  _seedState = (_seedState + 0x6d2b79f5) >>> 0;
+  let t = _seedState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function rand(min: number, max: number) { return Math.floor(srand() * (max - min + 1)) + min; }
+function randf(min: number, max: number) { return min + srand() * (max - min); }
+function pick<T>(arr: ReadonlyArray<T>): T { return arr[Math.floor(srand() * arr.length)]; }
+function sshuffle<T>(arr: ReadonlyArray<T>): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(srand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 const SAMPLE_BOUNDS = {
   requiredMinutes: [60, 360] as const,
@@ -449,6 +483,14 @@ function resolveSizeProfile(profile: SizeProfile | undefined): Exclude<SizeProfi
   return profile;
 }
 
+/**
+ * For the *default* (no explicit profile) path the user wants each district
+ * to ship with a randomized 50–100 student roster — large enough to feel
+ * like a real district but bounded so demos stay snappy. The seeded RNG
+ * makes the choice reproducible per district id.
+ */
+const DEFAULT_RANDOM_ROSTER_RANGE: readonly [number, number] = [50, 100];
+
 type StudentDef = { scenario: Scenario; schoolIdx: number; grades: string[]; disability?: string };
 
 /**
@@ -459,8 +501,8 @@ type StudentDef = { scenario: Scenario; schoolIdx: number; grades: string[]; dis
  * Schools and grade bands cycle so students are spread across all 5
  * sample schools (or as many as exist) and across K–12.
  */
-function buildStudentDefs(profile: Exclude<SizeProfile, "random">, schoolCount: number): StudentDef[] {
-  const target = SIZE_PROFILES[profile].students;
+function buildStudentDefs(profile: Exclude<SizeProfile, "random">, schoolCount: number, overrideTarget?: number): StudentDef[] {
+  const target = overrideTarget ?? SIZE_PROFILES[profile].students;
   const defs: StudentDef[] = [];
   const counts = SCENARIO_COUNTS_BY_PROFILE[profile];
 
@@ -564,6 +606,90 @@ export async function getSampleDataStatus(districtId: number): Promise<SampleDat
 // Session generation helpers
 // ──────────────────────────────────────────────────────────────────
 
+/**
+ * Cadence-based session emitter — Path B.
+ *
+ * Replaces the previous "pick N random dates from a fixed window" approach
+ * with a per-week cadence derived from the service requirement itself
+ * (monthly minutes ÷ ~4.345 weeks ÷ session duration). This is what a real
+ * provider's caseload looks like: a fixed weekly schedule with the
+ * occasional miss, not a random spray.
+ *
+ * `rateAt(weekIdx, totalWeeks)` lets callers shape completion over time
+ * (sliding scenarios start high and decline; recovered scenarios start
+ * low and recover; crisis stays low; etc.).
+ */
+function buildCadenceSessionRows(
+  spec: StudentSpec,
+  sr: { id: number; studentId: number; providerId: number | null; serviceTypeId: number; requiredMinutes: number; startDate?: string | null },
+  startDate: string,
+  endDate: string,
+  schoolYearId: number,
+  rateAt: (weekIdx: number, totalWeeks: number) => number,
+): (typeof sessionLogsTable.$inferInsert)[] {
+  const rows: (typeof sessionLogsTable.$inferInsert)[] = [];
+  const sessionMin = 30;
+  // Monthly minutes ÷ 4.345 weeks ÷ 30-min sessions, clamped 1..5/week.
+  const sessionsPerWeek = Math.max(1, Math.min(5, Math.round(sr.requiredMinutes / 4.345 / sessionMin)));
+
+  // Walk week-by-week. Each iteration picks `sessionsPerWeek` weekdays
+  // from Monday→Friday of that ISO week and emits a session per pick.
+  const startTs = new Date(startDate + "T00:00:00Z");
+  const endTs = new Date(endDate + "T00:00:00Z");
+  if (startTs >= endTs) return rows;
+
+  // Snap startTs back to its Monday so weekly buckets line up.
+  const startDow = startTs.getUTCDay();
+  const monOffset = startDow === 0 ? -6 : 1 - startDow;
+  const cursor = new Date(startTs);
+  cursor.setUTCDate(cursor.getUTCDate() + monOffset);
+
+  // Pre-compute total weeks for trend shaping.
+  const totalWeeks = Math.max(1, Math.ceil((endTs.getTime() - cursor.getTime()) / (7 * 86400_000)));
+  let weekIdx = 0;
+
+  while (cursor <= endTs) {
+    const weekDays: string[] = [];
+    for (let d = 0; d < 5; d++) {
+      const day = new Date(cursor);
+      day.setUTCDate(day.getUTCDate() + d);
+      const ds = day.toISOString().split("T")[0];
+      // Skip days before sr.startDate or after today.
+      if (ds < startDate || ds > endDate) continue;
+      weekDays.push(ds);
+    }
+    if (weekDays.length > 0) {
+      const picks = sshuffle(weekDays).slice(0, Math.min(sessionsPerWeek, weekDays.length));
+      const rate = Math.max(0, Math.min(1, rateAt(weekIdx, totalWeeks)));
+      for (const date of picks) {
+        const completed = srand() < rate;
+        const startMin = Math.round(
+          rand(SAMPLE_BOUNDS.startMinuteOfDay[0], SAMPLE_BOUNDS.startMinuteOfDay[1]) / 5,
+        ) * 5;
+        rows.push({
+          studentId: spec.id,
+          staffId: sr.providerId,
+          serviceTypeId: sr.serviceTypeId,
+          serviceRequirementId: sr.id,
+          sessionDate: date,
+          startTime: minToTime(startMin),
+          endTime: minToTime(startMin + sessionMin),
+          durationMinutes: sessionMin,
+          status: completed ? "completed" : "missed",
+          location: "Resource Room",
+          schoolYearId,
+          notes: completed
+            ? "Sample session — student engaged and made progress on goal."
+            : "Sample session — student absent.",
+        });
+      }
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 7);
+    weekIdx++;
+  }
+  return rows;
+}
+
 function buildSessionRows(
   spec: StudentSpec,
   sr: { id: number; studentId: number; providerId: number | null; serviceTypeId: number },
@@ -577,9 +703,9 @@ function buildSessionRows(
   const rows: (typeof sessionLogsTable.$inferInsert)[] = [];
   const maxSessions = Math.min(sessionsRange[1], dates.length);
   const numSessions = rand(Math.min(sessionsRange[0], maxSessions), maxSessions);
-  const chosenDates = [...dates].sort(() => Math.random() - 0.5).slice(0, numSessions);
+  const chosenDates = sshuffle(dates).slice(0, numSessions);
   for (const date of chosenDates) {
-    const completed = Math.random() < completionRate;
+    const completed = srand() < completionRate;
     const startMin = Math.round(
       rand(SAMPLE_BOUNDS.startMinuteOfDay[0], SAMPLE_BOUNDS.startMinuteOfDay[1]) / 5,
     ) * 5;
@@ -611,7 +737,19 @@ export async function seedSampleDataForDistrict(
   districtId: number,
   options: SeedSampleOptions = {},
 ): Promise<SeedSampleResult> {
+  // Deterministic seeding: every random choice below routes through a
+  // mulberry32 stream keyed on districtId, so two reseeds of the same
+  // district produce identical rows. Different districts get visibly
+  // different rosters (names, scenario assignments, completion patterns).
+  setSeed(districtId);
+
   const sizeProfile = resolveSizeProfile(options.sizeProfile);
+  // When the caller does not specify a profile, randomize the roster size
+  // in the 50–100 range so each of the ~30 pilot districts looks unique
+  // out of the box. Explicit small/medium/large keep their fixed counts.
+  const rosterOverride = options.sizeProfile === undefined
+    ? rand(DEFAULT_RANDOM_ROSTER_RANGE[0], DEFAULT_RANDOM_ROSTER_RANGE[1])
+    : undefined;
   // ── 1. Prerequisites: district, schools, school year, service types ──
 
   // Auto-provision a minimal district stub if the caller's enforced district
@@ -760,7 +898,7 @@ export async function seedSampleDataForDistrict(
   // Roster size and scenario mix come from the chosen size profile so a
   // small district doesn't look identical to a large one. See
   // `SCENARIO_COUNTS_BY_PROFILE` for the per-profile scenario distribution.
-  const STUDENT_DEFS = buildStudentDefs(sizeProfile, schools.length);
+  const STUDENT_DEFS = buildStudentDefs(sizeProfile, schools.length, rosterOverride);
 
   const today = new Date().toISOString().split("T")[0];
   const usedNames = new Set<string>();
@@ -823,7 +961,7 @@ export async function seedSampleDataForDistrict(
         // 2–3 services, varied by student index
         const palette = [speech.id, ot.id, counseling.id, aba.id, pt.id];
         const numSvc = rand(2, 3);
-        serviceTypeIds = [...palette].sort(() => Math.random() - 0.5).slice(0, numSvc);
+        serviceTypeIds = sshuffle(palette).slice(0, numSvc);
         break;
       }
     }
@@ -894,7 +1032,7 @@ export async function seedSampleDataForDistrict(
       ? ["Transition", "Academics", "Social Skills"]
       : def.scenario === "behavior_plan" || def.scenario === "incident_history"
         ? ["Behavior", "Self-Regulation", "Communication"]
-        : [...goalAreas].sort(() => Math.random() - 0.5);
+        : sshuffle(goalAreas);
 
     const chosenAreas = priorityAreas.slice(0, numGoals);
     for (let g = 0; g < chosenAreas.length; g++) {
@@ -928,7 +1066,15 @@ export async function seedSampleDataForDistrict(
     }
   }
 
-  await db.insert(iepGoalsTable).values(goalRows);
+  const insertedGoals = await db.insert(iepGoalsTable).values(goalRows).returning();
+  // Index goals by student so the session→goal linkage step (right after
+  // sessions land) can pick a real iep_goal id without re-querying.
+  const goalsByStudentEarly = new Map<number, typeof insertedGoals>();
+  for (const g of insertedGoals) {
+    const list = goalsByStudentEarly.get(g.studentId) ?? [];
+    list.push(g);
+    goalsByStudentEarly.set(g.studentId, list);
+  }
 
   // ── 6. Service requirements ──
 
@@ -978,37 +1124,41 @@ export async function seedSampleDataForDistrict(
     srByStudent.set(sr.studentId, list);
   }
 
-  // ── 7. Session history (180 weekdays for narrative students, 14 for others) ──
-
-  const dates180 = collectWeekdays(today, 180);
-  const dates14  = collectWeekdays(today, 14);
-  // Split for recovered / sliding scenarios — first ~120 days early, last ~60 days recent
-  const datesEarly = dates180.slice(0, Math.floor(dates180.length * 0.66));
-  const datesRecent = dates180.slice(Math.floor(dates180.length * 0.66));
+  // ── 7. Session history (cadence-based, full sr.startDate→today window) ──
+  //
+  // Each service requirement emits a deterministic weekly cadence
+  // (sessions/week derived from requiredMinutes) spanning its own
+  // startDate up to today. Completion rate is shaped per scenario via
+  // a small `rateAt(week, totalWeeks)` closure so trend lines remain
+  // visually distinct (sliding declines, recovered improves, crisis stays
+  // low, etc.) without going back to random scatter.
 
   const sessionRows: (typeof sessionLogsTable.$inferInsert)[] = [];
 
   for (const spec of studentSpecs) {
     const srs = srByStudent.get(spec.id) ?? [];
     for (const sr of srs) {
-      const NR = SAMPLE_BOUNDS.sessionsPerRequirementNarrative;
+      const srStart = sr.startDate ?? addDays(today, -180);
       switch (spec.scenario) {
         case "recovered": {
-          // Early: low compliance (~30%), recent: high (95%+) — both use
-          // narrative density so trend lines are clearly visible on the graph.
-          sessionRows.push(...buildSessionRows(spec, sr, datesEarly,  0.30, schoolYear.id, NR));
-          sessionRows.push(...buildSessionRows(spec, sr, datesRecent, randf(0.92, 0.98), schoolYear.id, NR));
+          // Linear ramp from ~30% in week 0 → ~95% by the final week.
+          const lo = 0.30;
+          const hi = randf(0.92, 0.98);
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id,
+            (w, tw) => lo + ((hi - lo) * (w / Math.max(1, tw - 1)))));
           break;
         }
         case "sliding": {
-          // Early: high compliance (90%+), recent: declining (~40%)
-          sessionRows.push(...buildSessionRows(spec, sr, datesEarly,  randf(0.88, 0.96), schoolYear.id, NR));
-          sessionRows.push(...buildSessionRows(spec, sr, datesRecent, randf(0.35, 0.48), schoolYear.id, NR));
+          // Inverse: starts high then declines steadily.
+          const hi = randf(0.88, 0.96);
+          const lo = randf(0.35, 0.48);
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id,
+            (w, tw) => hi - ((hi - lo) * (w / Math.max(1, tw - 1)))));
           break;
         }
         case "crisis": {
-          // Low across full 180-day window (~28%), dense history for realism
-          sessionRows.push(...buildSessionRows(spec, sr, dates180, randf(0.22, 0.32), schoolYear.id, NR));
+          const r = randf(0.22, 0.32);
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r));
           break;
         }
         case "behavior_plan":
@@ -1016,25 +1166,53 @@ export async function seedSampleDataForDistrict(
         case "transition":
         case "annual_review_due":
         case "esy_eligible": {
-          // Full 180-day history with scenario rate, dense session log
           const [lo, hi] = COMPLETION_RATE_RANGES[spec.scenario];
-          sessionRows.push(...buildSessionRows(spec, sr, dates180, randf(lo, hi), schoolYear.id, NR));
+          const r = randf(lo, hi);
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r));
           break;
         }
         default: {
-          // Standard 14-day window, standard density
+          // Cadence-based fallback for any unhandled scenario
           const [lo, hi] = COMPLETION_RATE_RANGES[spec.scenario];
-          const rate = randf(lo, hi);
-          sessionRows.push(...buildSessionRows(spec, sr, dates14, rate, schoolYear.id));
+          const r = randf(lo, hi);
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r));
           break;
         }
       }
     }
   }
 
+  // Insert sessions in batches and capture the inserted ids so each
+  // completed row can be linked to a real iep_goal via session_goal_data.
+  // The dashboard's "goal data captured" rate reads this table directly.
+  const insertedSessionIds: Array<{ id: number; studentId: number; status: string | null }> = [];
   if (sessionRows.length > 0) {
     for (let i = 0; i < sessionRows.length; i += 200) {
-      await db.insert(sessionLogsTable).values(sessionRows.slice(i, i + 200));
+      const ret = await db.insert(sessionLogsTable)
+        .values(sessionRows.slice(i, i + 200))
+        .returning({ id: sessionLogsTable.id, studentId: sessionLogsTable.studentId, status: sessionLogsTable.status });
+      insertedSessionIds.push(...ret);
+    }
+  }
+
+  // ── 7.5. Goal data per completed session (session_goal_data) ──
+  // Every completed session links to one of the student's active iep_goals.
+  // This is what powers the dashboard's "goals with recent data" metric.
+  const sgdRows: (typeof sessionGoalDataTable.$inferInsert)[] = [];
+  for (const row of insertedSessionIds) {
+    if (row.status !== "completed") continue;
+    const goals = goalsByStudentEarly.get(row.studentId);
+    if (!goals || goals.length === 0) continue;
+    const goal = goals[Math.floor(srand() * goals.length)];
+    sgdRows.push({
+      sessionLogId: row.id,
+      iepGoalId: goal.id,
+      notes: "Sample data — progress observed on goal during session.",
+    });
+  }
+  if (sgdRows.length > 0) {
+    for (let i = 0; i < sgdRows.length; i += 500) {
+      await db.insert(sessionGoalDataTable).values(sgdRows.slice(i, i + 500));
     }
   }
 
@@ -1117,7 +1295,7 @@ export async function seedSampleDataForDistrict(
   const accomRows: (typeof iepAccommodationsTable.$inferInsert)[] = [];
   for (const s of insertedStudents) {
     const numAccom = rand(3, 4);
-    const chosen = [...ACCOM_BANK].sort(() => Math.random() - 0.5).slice(0, numAccom);
+    const chosen = sshuffle(ACCOM_BANK).slice(0, numAccom);
     for (const a of chosen) {
       accomRows.push({
         studentId: s.id,
@@ -1148,7 +1326,7 @@ export async function seedSampleDataForDistrict(
       contactPriority: 1,
     });
     // Second guardian (optional, ~60% of students)
-    if (Math.random() < 0.6) {
+    if (srand() < 0.6) {
       guardianRows.push({
         studentId: s.id,
         name: `${pick(GUARDIAN_FIRST)} ${s.lastName}`,
@@ -1187,7 +1365,7 @@ export async function seedSampleDataForDistrict(
   ];
   const medicalRows: (typeof medicalAlertsTable.$inferInsert)[] = [];
   for (const s of insertedStudents) {
-    if (Math.random() < 0.25) {
+    if (srand() < 0.25) {
       const sc = pick(SERIOUS_CONDITIONS);
       medicalRows.push({
         studentId: s.id,
@@ -1478,7 +1656,7 @@ export async function seedSampleDataForDistrict(
     });
 
     // ── Past annual review (completed) for ~70% of students ──
-    if (Math.random() < 0.7 && iep) {
+    if (srand() < 0.7 && iep) {
       const completedDate = addDays(iep.iepStartDate, -rand(0, 14));
       complianceEventRows.push({
         studentId: s.id,
@@ -1556,7 +1734,7 @@ export async function seedSampleDataForDistrict(
     });
 
     // ── Parent communication: progress report shared (~80% of students) ──
-    if (Math.random() < 0.8) {
+    if (srand() < 0.8) {
       const sentAt = daysAgo(rand(7, 60));
       communicationRows.push({
         studentId: s.id,
@@ -1575,7 +1753,7 @@ export async function seedSampleDataForDistrict(
     }
 
     // ── Meeting notice email for upcoming meetings (~40%) ──
-    if (def.scenario === "annual_review_due" || Math.random() < 0.3) {
+    if (def.scenario === "annual_review_due" || srand() < 0.3) {
       const sentAt = daysAgo(rand(2, 14));
       communicationRows.push({
         studentId: s.id,
@@ -1595,11 +1773,11 @@ export async function seedSampleDataForDistrict(
   }
 
   // ── In-flight evaluations for ~15% of students (3-year reevaluation cycle) ──
-  const evalCandidates = insertedStudents.filter(() => Math.random() < 0.15);
+  const evalCandidates = insertedStudents.filter(() => srand() < 0.15);
   for (const s of evalCandidates) {
     const startDate = addDays(today, -rand(15, 50));
     const dueDate = addDays(startDate, 60);
-    const isOverdue = Math.random() < 0.2;
+    const isOverdue = srand() < 0.2;
     evaluationRows.push({
       studentId: s.id,
       evaluationType: pick(["reevaluation", "initial", "reevaluation"]),
@@ -1695,7 +1873,7 @@ export async function seedSampleDataForDistrict(
 
   function pickWeighted<T extends { weight: number }>(items: T[]): T {
     const total = items.reduce((s, i) => s + i.weight, 0);
-    let r = Math.random() * total;
+    let r = srand() * total;
     for (const item of items) {
       r -= item.weight;
       if (r <= 0) return item;
@@ -1712,10 +1890,27 @@ export async function seedSampleDataForDistrict(
     goalsByStudent.set(g.studentId, list);
   }
 
-  const periodEnd = today;
-  const periodStart = addDays(today, -90);
-  const reportingPeriod = `Q${Math.ceil((new Date(today).getMonth() + 1) / 3)} ${new Date(today).getFullYear()}`;
+  // Two reporting periods (Q-1 and current) so the dashboard shows a real
+  // before/after trend and so historical mastery has a place to land.
+  // Q1 covers days -180..-91; Q2 covers days -90..0.
+  const codeMap: Record<string, string> = {
+    mastered: "M",
+    sufficient_progress: "S",
+    some_progress: "P",
+    insufficient_progress: "I",
+    not_addressed: "N",
+  };
+  const quarterLabel = (refDate: string) => {
+    const d = new Date(refDate);
+    return `Q${Math.ceil((d.getMonth() + 1) / 3)} ${d.getFullYear()}`;
+  };
+  const periods = [
+    { start: addDays(today, -180), end: addDays(today, -91), label: quarterLabel(addDays(today, -91)) },
+    { start: addDays(today, -90),  end: today,               label: quarterLabel(today) },
+  ];
+
   const progressReportRows: (typeof progressReportsTable.$inferInsert)[] = [];
+  const goalsToMaster = new Set<number>();
 
   for (const s of insertedStudents) {
     const idx = insertedStudents.indexOf(s);
@@ -1724,64 +1919,83 @@ export async function seedSampleDataForDistrict(
     const goals = goalsByStudent.get(s.id) ?? [];
     if (goals.length === 0) continue;
 
-    const goalProgress: GoalProgressEntry[] = goals
-      .filter(g => g.active)
-      .map(g => {
-        // Already-mastered goals stay mastered
-        const rating = g.status === "mastered" || g.masteredAt
-          ? "mastered"
-          : pickWeighted(mix).rating;
-        const codeMap: Record<string, string> = {
-          mastered: "M",
-          sufficient_progress: "S",
-          some_progress: "P",
-          insufficient_progress: "I",
-          not_addressed: "N",
-        };
-        return {
-          iepGoalId: g.id,
-          goalArea: g.goalArea,
-          goalNumber: g.goalNumber,
-          annualGoal: g.annualGoal,
-          baseline: g.baseline,
-          targetCriterion: g.targetCriterion,
-          currentPerformance: rating === "mastered"
-            ? "Mastery criteria met across the most recent reporting period."
-            : rating === "sufficient_progress"
-              ? "Steady progress observed; on track to meet annual goal."
-              : rating === "some_progress"
-                ? "Some progress observed; additional supports may be needed."
-                : "Insufficient progress; team to review program modifications.",
-          progressRating: rating,
-          progressCode: codeMap[rating] ?? "N",
-          dataPoints: rand(8, 24),
-          trendDirection: rating === "mastered" || rating === "sufficient_progress"
-            ? "improving"
-            : rating === "insufficient_progress" ? "declining" : "stable",
-          narrative: `${s.firstName} ${rating === "mastered" ? "has met mastery criteria" : rating === "sufficient_progress" ? "is making sufficient progress" : rating === "some_progress" ? "is making some progress" : "is making insufficient progress"} on this goal during the reporting period.`,
-          measurementMethod: g.measurementMethod ?? null,
-          serviceArea: g.serviceArea ?? null,
-        };
-      });
+    // Track ratings the prior period assigned per goal so we never
+    // regress (e.g. mastered in Q-1 then "some_progress" in Q2). Periods
+    // are processed earliest-first so this carry-forward is correct.
+    const priorRatingByGoal = new Map<number, string>();
+    for (const period of periods) {
+      const isCurrent = period.end === today;
+      const goalProgress: GoalProgressEntry[] = goals
+        .filter(g => g.active)
+        .map(g => {
+          // Already-mastered goals stay mastered. Prior-period mastery
+          // also locks subsequent periods to "mastered" — mastery does
+          // not regress. New mastery in the current quarter is mirrored
+          // back onto iep_goals (status + masteredAt) so the goal-status
+          // pipeline reflects the report.
+          const wasPreviouslyMastered = priorRatingByGoal.get(g.id) === "mastered";
+          const rating = g.status === "mastered" || g.masteredAt || wasPreviouslyMastered
+            ? "mastered"
+            : pickWeighted(mix).rating;
+          priorRatingByGoal.set(g.id, rating);
+          if (isCurrent && rating === "mastered" && g.status !== "mastered" && !g.masteredAt) {
+            goalsToMaster.add(g.id);
+          }
+          return {
+            iepGoalId: g.id,
+            goalArea: g.goalArea,
+            goalNumber: g.goalNumber,
+            annualGoal: g.annualGoal,
+            baseline: g.baseline,
+            targetCriterion: g.targetCriterion,
+            currentPerformance: rating === "mastered"
+              ? "Mastery criteria met across the reporting period."
+              : rating === "sufficient_progress"
+                ? "Steady progress observed; on track to meet annual goal."
+                : rating === "some_progress"
+                  ? "Some progress observed; additional supports may be needed."
+                  : "Insufficient progress; team to review program modifications.",
+            progressRating: rating,
+            progressCode: codeMap[rating] ?? "N",
+            dataPoints: rand(8, 24),
+            trendDirection: rating === "mastered" || rating === "sufficient_progress"
+              ? "improving"
+              : rating === "insufficient_progress" ? "declining" : "stable",
+            narrative: `${s.firstName} ${rating === "mastered" ? "has met mastery criteria" : rating === "sufficient_progress" ? "is making sufficient progress" : rating === "some_progress" ? "is making some progress" : "is making insufficient progress"} on this goal during the reporting period.`,
+            measurementMethod: g.measurementMethod ?? null,
+            serviceArea: g.serviceArea ?? null,
+          };
+        });
 
-    progressReportRows.push({
-      studentId: s.id,
-      reportingPeriod,
-      periodStart,
-      periodEnd,
-      preparedBy: caseManager?.id ?? null,
-      status: "finalized",
-      overallSummary: `Quarterly progress summary for ${s.firstName} ${s.lastName}.`,
-      goalProgress,
-      parentNotificationDate: addDays(today, -rand(1, 14)),
-      parentNotificationMethod: "email",
-    });
+      progressReportRows.push({
+        studentId: s.id,
+        reportingPeriod: period.label,
+        periodStart: period.start,
+        periodEnd: period.end,
+        preparedBy: caseManager?.id ?? null,
+        status: "finalized",
+        overallSummary: `Quarterly progress summary for ${s.firstName} ${s.lastName} (${period.label}).`,
+        goalProgress,
+        parentNotificationDate: addDays(period.end, -rand(0, 7)),
+        parentNotificationMethod: "email",
+      });
+    }
   }
 
   if (progressReportRows.length > 0) {
     for (let i = 0; i < progressReportRows.length; i += 100) {
       await db.insert(progressReportsTable).values(progressReportRows.slice(i, i + 100));
     }
+  }
+
+  // Mirror the current-quarter "mastered" ratings back onto iep_goals so
+  // status pipelines (recent wins, mastery rate, completed-goals report)
+  // see them. Done in one bulk UPDATE for speed.
+  if (goalsToMaster.size > 0) {
+    const ids = Array.from(goalsToMaster);
+    await db.update(iepGoalsTable)
+      .set({ status: "mastered", masteredAt: new Date(today) })
+      .where(inArray(iepGoalsTable.id, ids));
   }
 
   // ── 16. Mark district ──
