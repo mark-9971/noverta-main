@@ -1,0 +1,115 @@
+Audit the most recent seed run and verify that it accurately and completely populates the product for a realistic, demo-ready school district experience.
+
+Goal:
+I want to know whether the latest seeded data truly supports a believable live demo of the product — not just whether rows were inserted. Check that the seeded data maps onto the actual product surfaces, produces realistic workflows, and tells a strong district story.
+
+Important framing:
+This is not just a technical seed-success check.
+It is a product realism + demo readiness + data completeness audit.
+
+Please inspect the most recent seed run end to end and answer:
+
+1. Did the seed actually populate all major product surfaces with usable data?
+   Check at minimum:
+   - Dashboard
+   - Action Center
+   - Compliance
+   - Students list
+   - Student Detail
+   - Sessions
+   - My Day
+   - Compensatory
+   - Reports / Executive surfaces
+   - Progress Reports
+   - IEP / documents surfaces
+   - Behavior / ABA surfaces if seeded
+   - Parent / guardian / portal surfaces only if they are part of the seeded district story
+
+2. Does the data look like a real district, not random filler?
+   Audit for realism such as:
+   - plausible student counts and school distribution
+   - plausible staffing ratios
+   - realistic caseloads
+   - realistic service-minute requirements
+   - realistic session history / backfill
+   - realistic overdue / at-risk / missed-service patterns
+   - realistic IEP goal counts
+   - realistic progress-report coverage
+   - realistic compensatory exposure if present
+   - realistic behavior/BIP data if present
+   - realistic timestamps and trends over time
+   - realistic variation between students and staff
+
+3. Does the seed support the actual demo story?
+   Specifically verify whether the seeded district gives a compelling demo of:
+   - compliance risk
+   - missed-minute / service-delivery tracking
+   - action-taking workflow
+   - student drill-down
+   - quick logging
+   - compensatory exposure / recovery
+   - executive reporting
+   If any of those are weak because the seed is too sparse, too clean, too broken, or too uniform, call it out clearly.
+
+4. Does the data map cleanly to the current product?
+   Flag places where:
+   - seed creates data the UI barely uses
+   - key pages look empty despite seed effort
+   - related records are missing
+   - counts don’t reconcile across dashboards and drill-downs
+   - seeded workflows dead-end because one dependency is missing
+   - seeded data shape does not match current IA / role flows
+
+5. Are there gaps, contradictions, or fake-feeling artifacts?
+   Look for:
+   - empty hero pages
+   - impossible ratios
+   - orphaned records
+   - duplicated patterns that feel synthetic
+   - too many perfect records
+   - too many random inconsistent records
+   - labels/statuses that don’t match the product language
+   - seeded routes/pages that are no longer core to the demo
+
+6. What is missing for a truly strong district demo?
+   Be specific:
+   - which tables or workflows are under-seeded
+   - which roles have weak seeded views
+   - which pages need more data density
+   - which “hero student” or “problem case” stories are missing
+   - whether the executive story is strong enough
+
+7. Give me a blunt verdict
+   One of:
+   - demo-ready
+   - mostly demo-ready with a few weak spots
+   - seeded technically, but not convincingly demo-ready
+   - needs major seed revision
+
+Required process:
+Before executing, give me a strict pre-flight summary with:
+1. where the most recent seed logic lives
+2. what seed outputs / tables / scripts you plan to inspect
+3. which product surfaces you will verify
+4. biggest likely realism risks
+5. anything you cannot verify directly
+
+Then perform the audit and return a strict post-flight report with:
+
+1. Executive verdict
+2. What seeded well
+3. What is missing or weak
+4. Which pages are strongest for demo
+5. Which pages still feel empty / fake / under-seeded
+6. Most important data inconsistencies or realism problems
+7. Top 10 seed improvements to make
+8. Which 3 improvements matter most for demo quality
+9. Whether the current seed should be used in a live district demo right now
+10. A copy-pasteable prompt for the single highest-priority seed improvement task
+
+Important rules:
+- Do not just say the seed "completed successfully"
+- Be brutally honest about realism and demo usefulness
+- Check the current product surfaces, not just the database
+- Prioritize what a district buyer would notice in a live walkthrough
+- If something is seeded but not visible/useful in the current product, say so clearly

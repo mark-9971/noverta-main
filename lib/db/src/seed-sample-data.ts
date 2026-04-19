@@ -48,6 +48,33 @@ import type { GoalProgressEntry } from "./schema";
 
 import { eq, and, inArray, sql } from "drizzle-orm";
 
+/**
+ * Insert a row array in chunks to stay below PostgreSQL's 65 535 bind-param
+ * limit. With 2 000-student demos, several tables (iep_goals, students,
+ * service_requirements, accommodations, …) blow past the limit when sent as
+ * a single VALUES list. Default chunk of 400 keeps every table comfortably
+ * under the cap (400 × ~30 cols = 12 000 params).
+ */
+async function chunkedInsert<T extends Record<string, unknown>>(
+  table: any,
+  rows: T[],
+  opts: { chunk?: number; returning?: boolean } = {},
+): Promise<any[]> {
+  const chunk = opts.chunk ?? 400;
+  const out: any[] = [];
+  for (let i = 0; i < rows.length; i += chunk) {
+    const slice = rows.slice(i, i + chunk);
+    if (slice.length === 0) continue;
+    if (opts.returning) {
+      const r = await (db.insert(table).values(slice) as any).returning();
+      out.push(...r);
+    } else {
+      await db.insert(table).values(slice);
+    }
+  }
+  return out;
+}
+
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -419,6 +446,18 @@ export interface SeedSampleResult {
 export interface SeedSampleOptions {
   /** District size profile. Defaults to "medium". See `SizeProfile` for details. */
   sizeProfile?: SizeProfile;
+  /**
+   * Optional override for total student count. Bypasses the per-profile cap
+   * (small=20 / medium=60 / large=120) and the default 50-100 random range.
+   * Special-scenario counts still come from the chosen sizeProfile; the
+   * remainder is filled with healthy students. Useful for stress / load
+   * scenarios where dashboards need to render against a much larger roster
+   * (e.g. district-wide demos with ~2000 students). Staff count is NOT
+   * auto-scaled — it follows the chosen `sizeProfile` (use "large" when
+   * paired with a big `targetStudents` to get the fullest staff roster the
+   * SAMPLE_STAFF_POOL allows).
+   */
+  targetStudents?: number;
 }
 
 /**
@@ -761,9 +800,11 @@ export async function seedSampleDataForDistrict(
   // When the caller does not specify a profile, randomize the roster size
   // in the 50–100 range so each of the ~30 pilot districts looks unique
   // out of the box. Explicit small/medium/large keep their fixed counts.
-  const rosterOverride = options.sizeProfile === undefined
-    ? rand(DEFAULT_RANDOM_ROSTER_RANGE[0], DEFAULT_RANDOM_ROSTER_RANGE[1])
-    : undefined;
+  const rosterOverride = options.targetStudents !== undefined
+    ? options.targetStudents
+    : options.sizeProfile === undefined
+      ? rand(DEFAULT_RANDOM_ROSTER_RANGE[0], DEFAULT_RANDOM_ROSTER_RANGE[1])
+      : undefined;
   // ── 1. Prerequisites: district, schools, school year, service types ──
 
   // Auto-provision a minimal district stub if the caller's enforced district
@@ -918,12 +959,20 @@ export async function seedSampleDataForDistrict(
   const usedNames = new Set<string>();
 
   const studentRows = STUDENT_DEFS.map((def, i) => {
-    // Unique name
+    // Unique name. With FIRST_NAMES x LAST_NAMES = 50 x 20 = 1 000 unique
+    // combinations, large rosters (e.g. 2 000-student stress demos) will
+    // exhaust the pool and fall back to a numeric suffix on the last name
+    // to keep names distinct (and parent-pickup-line readable) without
+    // adding a schema-level uniqueness constraint.
     let firstName = "", lastName = "";
     let attempts = 0;
     do {
       firstName = FIRST_NAMES[rand(0, FIRST_NAMES.length - 1)];
       lastName  = LAST_NAMES[rand(0, LAST_NAMES.length - 1)];
+      if (usedNames.has(`${firstName}${lastName}`) && attempts >= 25) {
+        lastName = `${lastName}-${i + 1}`;
+        break;
+      }
       attempts++;
     } while (usedNames.has(`${firstName}${lastName}`) && attempts < 50);
     usedNames.add(`${firstName}${lastName}`);
@@ -950,9 +999,11 @@ export async function seedSampleDataForDistrict(
   });
 
   // Insert students (strip meta fields)
-  const insertedStudents = await db.insert(studentsTable).values(
+  const insertedStudents = await chunkedInsert(
+    studentsTable,
     studentRows.map(({ _scenario, _schoolIdx, ...row }) => row),
-  ).returning();
+    { returning: true },
+  );
 
   const studentSpecs: StudentSpec[] = insertedStudents.map((s, i) => {
     const def = STUDENT_DEFS[i];
@@ -1028,7 +1079,7 @@ export async function seedSampleDataForDistrict(
       esyJustification,
     };
   });
-  const insertedIeps = await db.insert(iepDocumentsTable).values(iepRows).returning();
+  const insertedIeps = await chunkedInsert(iepDocumentsTable, iepRows, { returning: true });
   const iepByStudent = new Map(insertedIeps.map(d => [d.studentId, d.id]));
 
   // ── 5. IEP goals (3–5 measurable goals per student) ──
@@ -1080,7 +1131,7 @@ export async function seedSampleDataForDistrict(
     }
   }
 
-  const insertedGoals = await db.insert(iepGoalsTable).values(goalRows).returning();
+  const insertedGoals = await chunkedInsert(iepGoalsTable, goalRows, { returning: true });
   // Index goals by student so the session→goal linkage step (right after
   // sessions land) can pick a real iep_goal id without re-querying.
   const goalsByStudentEarly = new Map<number, typeof insertedGoals>();
@@ -1129,7 +1180,7 @@ export async function seedSampleDataForDistrict(
       });
     }
   }
-  const insertedSrs = await db.insert(serviceRequirementsTable).values(srRows).returning();
+  const insertedSrs = await chunkedInsert(serviceRequirementsTable, srRows, { returning: true });
 
   const srByStudent = new Map<number, typeof insertedSrs>();
   for (const sr of insertedSrs) {
@@ -1283,7 +1334,7 @@ export async function seedSampleDataForDistrict(
     }
   }
   if (blockRows.length > 0) {
-    await db.insert(scheduleBlocksTable).values(blockRows);
+    await chunkedInsert(scheduleBlocksTable, blockRows);
   }
 
   // ── 8.5. Future scheduled sessions (next 14 weekdays) ──
@@ -1349,7 +1400,7 @@ export async function seedSampleDataForDistrict(
       });
     }
   }
-  await db.insert(iepAccommodationsTable).values(accomRows);
+  await chunkedInsert(iepAccommodationsTable, accomRows);
 
   // ── 10. Guardians + emergency contacts ──
 
@@ -1389,8 +1440,8 @@ export async function seedSampleDataForDistrict(
       priority: 1,
     });
   }
-  await db.insert(guardiansTable).values(guardianRows);
-  await db.insert(emergencyContactsTable).values(emergencyRows);
+  await chunkedInsert(guardiansTable, guardianRows);
+  await chunkedInsert(emergencyContactsTable, emergencyRows);
 
   // ── 10.5. Medical alerts (100% coverage — every student has at least one) ──
   // Pilot requirement: providers should never see a "no medical info on file"
@@ -1429,7 +1480,7 @@ export async function seedSampleDataForDistrict(
       });
     }
   }
-  await db.insert(medicalAlertsTable).values(medicalRows);
+  await chunkedInsert(medicalAlertsTable, medicalRows);
 
   // ── 11. Alerts ──
 
@@ -1494,7 +1545,7 @@ export async function seedSampleDataForDistrict(
         break;
     }
   }
-  if (alertRows.length > 0) await db.insert(alertsTable).values(alertRows);
+  if (alertRows.length > 0) await chunkedInsert(alertsTable, alertRows);
 
   // ── 12. Compensatory obligations (urgent + compensatory_risk + crisis) ──
 
@@ -1536,7 +1587,7 @@ export async function seedSampleDataForDistrict(
       });
     }
   }
-  if (compRows.length > 0) await db.insert(compensatoryObligationsTable).values(compRows);
+  if (compRows.length > 0) await chunkedInsert(compensatoryObligationsTable, compRows);
 
   // ── 13. Restraint incidents for incident_history student ──
 
@@ -1851,7 +1902,7 @@ export async function seedSampleDataForDistrict(
     }
   }
   if (evaluationRows.length > 0) {
-    await db.insert(evaluationsTable).values(evaluationRows);
+    await chunkedInsert(evaluationsTable, evaluationRows);
   }
   if (communicationRows.length > 0) {
     for (let i = 0; i < communicationRows.length; i += 200) {

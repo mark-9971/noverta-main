@@ -1,0 +1,73 @@
+Phase 3A-4: enforce district scoping on /api/audit-logs.
+
+Goal:
+Ensure district admins can only read audit-log rows that belong to their own district. The audit-log viewer is a high-trust surface, and it must not leak cross-district audit history.
+
+Why this matters:
+During Phase 3A-3 inspection, the audit noted that GET /api/audit-logs appears to lack district scoping even though it is customer-visible and admin-gated. If true, that is a higher-priority trust issue than dashboard aggregate leakage and should be fixed before broader pilot use.
+
+Hard constraints:
+
+* Surgical backend fix only
+* No schema changes unless absolutely unavoidable
+* No route changes
+* No UI changes
+* Keep the existing audit-log API contract as stable as possible
+* Preserve platform-admin / support visibility only if the current design explicitly intends broader access
+* District-admin users must be scoped to their own district only
+
+What to inspect:
+
+* artifacts/api-server/src/routes/auditLog.ts
+* audit-log schema and any joins/foreign keys available
+* helper(s) already used for district scoping elsewhere
+* whether audit rows already carry enough metadata to scope directly, or whether scoping must happen through joins / known target relationships / actor relationships
+* how platform-admin/support should behave
+
+What to do:
+
+1. Confirm whether /api/audit-logs currently returns cross-district rows to district admins
+2. Implement proper district scoping for district-admin callers
+3. Preserve intended broader access only for clearly internal/platform-admin contexts if that is already part of the design
+4. Add tests proving:
+    * district A admin cannot see district B audit rows
+    * district A admin can still see district A audit rows
+    * any intended platform-admin behavior still works
+5. Be explicit in post-flight about the scoping strategy used:
+    * direct district column
+    * join path
+    * metadata-based filter
+    * mixed strategy
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. exact current /api/audit-logs scoping behavior
+3. exact scoping strategy you plan to use
+4. how platform-admin/support behavior will be handled
+5. test strategy
+6. biggest regression risks
+7. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact /api/audit-logs scoping behavior after change
+3. how district-admin visibility now works
+4. how platform-admin/support visibility works
+5. exact tests added and what they prove
+6. validation performed
+7. known issues still remaining
+8. blunt verdict
+9. copy-pasteable commit message
+
+Acceptance:
+
+* district-admin callers only see audit-log rows for their own district
+* cross-district audit-log leakage is closed
+* intended internal/platform-admin visibility is preserved if applicable
+* API contract remains stable
+* tests prove the fix
+    :::
