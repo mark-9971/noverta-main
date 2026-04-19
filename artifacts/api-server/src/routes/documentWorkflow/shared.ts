@@ -1,7 +1,18 @@
 import { db, workflowReviewersTable, schoolsTable, staffTable, studentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
-import { sendEmail } from "../../lib/email";
+import { sendEmail, getAppBaseUrl } from "../../lib/email";
+
+function buildWorkflowLink(workflowId: number, focus: "review" | "overview"): string | null {
+  const base = getAppBaseUrl();
+  if (!base) return null;
+  return `${base}/document-workflow?workflowId=${workflowId}&focus=${focus}`;
+}
+
+function linkButtonHtml(url: string, label: string, color: string): string {
+  return `<p style="margin:20px 0"><a href="${url}" style="display:inline-block;background:${color};color:white;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600">${label}</a></p>
+        <p style="color:#6b7280;font-size:12px;word-break:break-all">Or paste this link into your browser:<br><a href="${url}" style="color:#6b7280">${url}</a></p>`;
+}
 
 export const DEFAULT_STAGES = ["draft", "team_review", "director_signoff", "parent_delivery"];
 export const VALID_DOC_TYPES = ["iep", "evaluation", "progress_report", "prior_written_notice", "incident_report"];
@@ -108,6 +119,7 @@ export async function notifyReviewersForStage(workflowId: number, stage: string,
     const email = staffRows[0]?.email;
     if (!email) continue;
 
+    const link = buildWorkflowLink(workflowId, "review");
     sendWorkflowNotification(
       studentId,
       email,
@@ -124,14 +136,14 @@ export async function notifyReviewersForStage(workflowId: number, stage: string,
             <li><strong>Student:</strong> ${studentName}</li>
             <li><strong>Stage:</strong> ${stageLabel}</li>
           </ul>
-          <p style="color:#6b7280;font-size:13px">Log in to Trellis to review and take action.</p>
+          ${link ? linkButtonHtml(link, "Review document", "#059669") : `<p style="color:#6b7280;font-size:13px">Log in to Trellis to review and take action.</p>`}
         </div>
       </div>`,
     );
   }
 }
 
-export async function notifyWorkflowCreator(workflow: { createdByUserId: string; createdByName: string; title: string; studentId: number }, action: string, reviewerName: string, comment: string | null, studentName: string, districtId: number) {
+export async function notifyWorkflowCreator(workflow: { id: number; createdByUserId: string; createdByName: string; title: string; studentId: number }, action: string, reviewerName: string, comment: string | null, studentName: string, districtId: number) {
   const staffRows = await db.select({ email: staffTable.email })
     .from(staffTable)
     .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
@@ -140,6 +152,8 @@ export async function notifyWorkflowCreator(workflow: { createdByUserId: string;
   if (!email) return;
 
   const actionLabel = action === "completed" ? "approved (all stages)" : action === "rejected" ? "rejected" : "returned for changes";
+  const headerColor = action === "rejected" ? "#dc2626" : action === "completed" ? "#059669" : "#d97706";
+  const link = buildWorkflowLink(workflow.id, "overview");
 
   sendWorkflowNotification(
     workflow.studentId,
@@ -147,13 +161,13 @@ export async function notifyWorkflowCreator(workflow: { createdByUserId: string;
     workflow.createdByName,
     `Trellis: Document ${actionLabel} — ${workflow.title}`,
     `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
-      <div style="background:${action === "rejected" ? "#dc2626" : action === "completed" ? "#059669" : "#d97706"};color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+      <div style="background:${headerColor};color:white;padding:16px 24px;border-radius:8px 8px 0 0">
         <h2 style="margin:0;font-size:18px">Document ${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)}</h2>
       </div>
       <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
         <p>Your document <strong>${workflow.title}</strong> for <strong>${studentName}</strong> has been ${actionLabel} by ${reviewerName}.</p>
         ${comment ? `<p style="margin-top:12px;padding:12px;background:#f3f4f6;border-radius:6px;color:#374151"><em>"${comment}"</em></p>` : ""}
-        <p style="color:#6b7280;font-size:13px;margin-top:16px">Log in to Trellis to view details.</p>
+        ${link ? linkButtonHtml(link, "View document workflow", headerColor) : `<p style="color:#6b7280;font-size:13px;margin-top:16px">Log in to Trellis to view details.</p>`}
       </div>
     </div>`,
   );

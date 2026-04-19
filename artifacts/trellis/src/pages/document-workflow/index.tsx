@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearch, useLocation } from "wouter";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,9 @@ export default function DocumentWorkflowPage() {
   const [pwnForm, setPwnForm] = useState({ studentId: "", meetingId: "" });
   const [pwnLoading, setPwnLoading] = useState(false);
   const [agingExpanded, setAgingExpanded] = useState(false);
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  const deepLinkHandledRef = useRef<number | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -83,6 +87,40 @@ export default function DocumentWorkflowPage() {
       setDetailLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const wfIdRaw = params.get("workflowId");
+    if (!wfIdRaw) return;
+    const wfId = parseInt(wfIdRaw, 10);
+    if (!Number.isFinite(wfId) || wfId <= 0) return;
+    if (deepLinkHandledRef.current === wfId) return;
+    deepLinkHandledRef.current = wfId;
+    const focus = params.get("focus") === "review" ? "review" : "overview";
+    (async () => {
+      try {
+        const res = await authFetch(`/api/document-workflow/workflows/${wfId}`);
+        if (!res.ok) {
+          toast.error("Could not load that workflow");
+          return;
+        }
+        const detail = await res.json() as WorkflowDetail;
+        await openDetail(detail as unknown as Workflow);
+        if (focus === "review" && detail.status === "in_progress") {
+          const authorized = (detail.reviewers || []).some(
+            r => r.stage === detail.currentStage,
+          );
+          if (authorized) {
+            setActionDialog({ type: "approve", workflowId: detail.id });
+          }
+        }
+      } catch {
+        toast.error("Could not load that workflow");
+      } finally {
+        setLocation("/document-workflow", { replace: true });
+      }
+    })();
+  }, [search, openDetail, setLocation]);
 
   async function handleAction() {
     if (!actionDialog) return;

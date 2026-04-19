@@ -140,10 +140,11 @@ const FROM_EMAIL_FALLBACK = "hello@noreply.trellis.education";
 
 /**
  * Resolve the base URL for deep links into the app from emails.
- * Prefers APP_BASE_URL; falls back to REPLIT_DEV_DOMAIN; returns null otherwise.
+ * Prefers APP_URL, then APP_BASE_URL; falls back to REPLIT_DEV_DOMAIN; returns null otherwise.
  */
 export function getAppBaseUrl(): string | null {
   const raw =
+    process.env.APP_URL ??
     process.env.APP_BASE_URL ??
     (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
   return raw ? raw.replace(/\/+$/, "") : null;
