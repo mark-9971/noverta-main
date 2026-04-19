@@ -19,8 +19,22 @@ import {
 import { sendParentFacingEmail, buildIepMeetingInvitationEmail } from "../../lib/email";
 
 /**
+ * Cooldown window (in minutes) suppressing repeat invitation sends for the
+ * same meeting. Prevents parents from receiving multiple invitation emails
+ * when a case manager makes several quick edits in succession.
+ */
+const INVITATION_RESEND_COOLDOWN_MINUTES = 5;
+
+/**
  * Send meeting invitation emails to all attendees who have an email address.
  * Non-blocking / best-effort: failures are logged but do not abort the route.
+ *
+ * When `enforceCooldown` is true, the helper first checks `email_deliveries`
+ * for a recent `iep_meeting_invitation` send for this meeting; if any such
+ * row's `attemptedAt` falls within the cooldown window, the entire send is
+ * skipped. This is used by the PATCH path so rapid edits don't fan out into
+ * multiple parent emails. The initial POST send leaves this off so the very
+ * first invitation always goes out.
  */
 async function sendMeetingInvitations(
   meetingId: number,
@@ -34,7 +48,28 @@ async function sendMeetingInvitations(
   schoolName: string | undefined,
   senderName: string | undefined,
   attendees: { name: string; email: string | null }[],
+  enforceCooldown: boolean = false,
 ): Promise<void> {
+  if (enforceCooldown) {
+    const cutoff = new Date(Date.now() - INVITATION_RESEND_COOLDOWN_MINUTES * 60 * 1000);
+    const [recent] = await db
+      .select({ id: emailDeliveriesTable.id })
+      .from(emailDeliveriesTable)
+      .where(and(
+        eq(emailDeliveriesTable.iepMeetingId, meetingId),
+        eq(emailDeliveriesTable.messageType, "iep_meeting_invitation"),
+        gte(emailDeliveriesTable.attemptedAt, cutoff),
+      ))
+      .orderBy(desc(emailDeliveriesTable.attemptedAt))
+      .limit(1);
+    if (recent) {
+      console.log(
+        `[IEP Meeting] Skipping invitation resend for meeting #${meetingId}: ` +
+        `another send occurred within the last ${INVITATION_RESEND_COOLDOWN_MINUTES} minutes.`,
+      );
+      return;
+    }
+  }
   const emailAttendees = attendees.filter((a) => a.email && /\S+@\S+\.\S+/.test(a.email));
   await Promise.allSettled(
     emailAttendees.map(async (a) => {
@@ -370,6 +405,7 @@ router.patch("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void>
           row.agendaItems as string[] | null, schoolName,
           (req as unknown as AuthedRequest).displayName ?? undefined,
           existingAttendees.map((a) => ({ name: a.name, email: a.email })),
+          true,
         );
       } catch (err) {
         console.error("[IEP PATCH] Failed to resend invitations:", err);
