@@ -118,6 +118,7 @@ const AgenciesPage = lazy(() => import("@/pages/agencies"));
 const AgencyDetailPage = lazy(() => import("@/pages/agency-detail"));
 const ContractUtilizationPage = lazy(() => import("@/pages/contract-utilization"));
 const BillingPage = lazy(() => import("@/pages/billing"));
+const UpgradePage = lazy(() => import("@/pages/upgrade"));
 const PilotDecisionPage = lazy(() => import("@/pages/pilot-decision"));
 const MedicaidBillingPage = lazy(() => import("@/pages/medicaid-billing"));
 const CostAvoidancePage = lazy(() => import("@/pages/cost-avoidance"));
@@ -348,6 +349,7 @@ function StaffRouter() {
       <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" featureKey="district.resource_management" />
       <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" featureKey="district.resource_management" />
       <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" featureKey="district.contract_utilization" />
+      <BoundedRoute path="/upgrade" component={UpgradePage} fallbackTitle="Upgrade error" />
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
       <BoundedRoute path="/pilot-decision" component={PilotDecisionPage} fallbackTitle="Pilot decision error" />
       <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" featureKey="district.medicaid_billing" />

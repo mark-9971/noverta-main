@@ -68,6 +68,11 @@ export function ProUpgradeModal({ open, onClose, featureName }: ProUpgradeModalP
               View Plans & Upgrade
             </Link>
           </Button>
+          <Button asChild variant="ghost" className="w-full text-emerald-600 text-sm hover:text-emerald-700">
+            <Link href="/upgrade" onClick={onClose}>
+              See full comparison →
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             className="w-full text-gray-500 text-sm"

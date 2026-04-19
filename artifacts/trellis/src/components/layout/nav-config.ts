@@ -178,6 +178,7 @@ export const adminNav: NavSection[] = [
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/upgrade", label: "Plans & Features", icon: Sparkles },
       { href: "/billing", label: "Subscription & Billing", icon: CreditCard },
       { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
     ],

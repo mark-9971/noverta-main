@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,11 @@ export function EliteUpgradeModal({ open, onClose, featureName }: EliteUpgradeMo
               <Crown className="w-4 h-4" />
               Talk to Sales
             </a>
+          </Button>
+          <Button asChild variant="ghost" className="w-full text-violet-600 text-sm hover:text-violet-700">
+            <Link href="/upgrade" onClick={onClose}>
+              See full comparison →
+            </Link>
           </Button>
           <Button
             variant="ghost"
