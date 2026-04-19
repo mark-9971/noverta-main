@@ -1,0 +1,75 @@
+Phase 2B Task PR3: make /sessions role-appropriate for hands-on staff by scoping it to “mine only”.
+
+Goal:
+The Sessions page should feel like a hands-on staff workflow for para, provider, and direct_provider — not like an admin reporting screen. For these roles, default the page to their own sessions only and hide global staff-filter controls that imply district-wide visibility.
+
+Roles in scope:
+
+* para
+* provider
+* direct_provider
+
+Why this matters:
+We have already improved:
+
+* provider nav/home
+* /my-day role shaping
+* student-detail quick-log CTA
+
+The remaining workflow mismatch is that /sessions may still present admin-style filtering or broad visibility to hands-on users. This task should make the Sessions page feel appropriately scoped for daily use.
+
+Hard constraints:
+
+* Low-risk UI/workflow change only
+* No API changes
+* No schema changes
+* Do not change admin/coordinator/case_manager/sped_teacher/bcba workflows unless required for shared safety
+* Preserve the existing sessions data model and page structure as much as possible
+* Do not remove useful session-history/edit capabilities for hands-on staff if they already exist for their own records
+
+What to do:
+
+1. Audit the /sessions page and any related filter/state logic
+2. Determine how staff/global filters currently work
+3. For para, provider, and direct_provider:
+    * scope the default view to the current user’s own sessions
+    * hide or disable staff/global filters that should not be used by these roles
+    * preserve student/date/status filters if they are still useful
+4. For out-of-scope roles:
+    * keep current behavior unchanged
+
+Implementation preference:
+
+* Prefer using existing role context (teacherId, role, etc.)
+* Prefer defaulting/filtering existing queries instead of building a separate page
+* Keep the change additive and maintainable
+* If there is a “staff” filter control, remove it from the UI for hands-on roles rather than merely disabling it, unless removing it is risky
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. how /sessions currently scopes data
+3. what filters/controls are currently visible
+4. exact behavior planned for para/provider/direct_provider
+5. exact behavior that will remain unchanged for admin/coordinator/teacher/bcba
+6. biggest regression risks
+7. anything intentionally out of scope
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact /sessions behavior for para
+3. exact /sessions behavior for provider
+4. exact /sessions behavior for direct_provider
+5. exact behavior unchanged for other roles
+6. validation performed
+7. known issues still remaining
+8. blunt verdict
+9. copy-pasteable commit message
+
+Important rules:
+
+* Do not broaden this into a permissions rewrite
+* Do not claim success unless the role-specific behavior was actually validated
+* Preserve existing admin/reporting utility for non-hands-on roles
+    :::
