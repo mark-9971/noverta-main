@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Trash2, AlertTriangle, CheckCircle, Clock, XCircle, Shield, RefreshCw, X } from "lucide-react";
+import { Download, Trash2, AlertTriangle, CheckCircle, Clock, XCircle, Shield, RefreshCw, X, Upload, BookOpen, Mail } from "lucide-react";
 
 interface ArchiveJob {
   id: number;
@@ -282,6 +282,58 @@ export default function DistrictDataPage() {
           {!loading && jobs.length === 0 && (
             <p className="text-xs text-gray-400">No archive jobs yet.</p>
           )}
+        </div>
+      </div>
+
+      {/* Restore from Archive Section */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+            <Upload className="w-4 h-4 text-violet-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Restore from an Archive</h2>
+            <p className="text-xs text-gray-500">Re-importing a downloaded archive ZIP back into Trellis.</p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>
+              Restoration is a <strong>manual process</strong>. There is no one-click "restore" button — the
+              CSVs in your archive must be re-imported in a specific order so that foreign key relationships
+              (district → schools → students → IEPs → sessions) are preserved.
+            </span>
+          </div>
+
+          <div className="text-sm text-gray-600 space-y-2">
+            <p>The restoration guide covers:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 pl-1">
+              <li>The correct table import order</li>
+              <li>Which columns to omit before re-import (auto-generated IDs, timestamps)</li>
+              <li>How to use the <code className="px-1 py-0.5 bg-gray-100 rounded text-xs font-mono">/api/imports</code> endpoints for bulk student, staff, and session data</li>
+            </ul>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <a
+              href="/docs/restoration-guide.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+            >
+              <BookOpen className="w-4 h-4" />
+              Open restoration guide
+            </a>
+            <a
+              href="mailto:support@trellis.education?subject=Restoration%20assistance%20request"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Mail className="w-4 h-4" />
+              Contact support for restoration assistance
+            </a>
+          </div>
         </div>
       </div>
 
