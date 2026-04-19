@@ -53,16 +53,29 @@ export const platformAdminSection: NavSection = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 1a IA cleanup (additive, sidebar only — no routes/APIs changed):
-//   • Stripped every `?tab=*` sidebar shortcut. Tabs still work on the page;
-//     they just no longer pollute the sidebar tree.
-//   • Removed self-link children (where child.href === parent.href).
-//   • Preserved real standalone destinations as siblings.
-//   • Removed sidebar entries for routes that now redirect elsewhere
-//     (/action-center, /district, /leadership-packet, /iep, /program-data —
-//     redirects defined in App.tsx).
+// Phase 2C-1: collapse admin/coordinator IA into a tight demo-ready sidebar.
+//   • 3 visible sections (Overview, Compliance & Risk, More).
+//   • "More" is collapsed by default and groups secondary items as
+//     parent-with-children rows so the sidebar surface stays small.
+//   • The legacy /_action-center-legacy?tab=alerts pill is replaced with
+//     a single canonical Action Center entry pointing at /action-center.
+//   • Pages still routable (per App.tsx) but removed from primary nav:
+//     /pilot-*, /admin/demo-*, /tenants, /support, /audit-log,
+//     /email-delivery-report, /recently-deleted, /data-health,
+//     /data-visualized, /data-panel, /billing, /upgrade, /billing-rates,
+//     /pricing, /district-overview, /district-data, /legal-compliance,
+//     /protective-measures, /weekly-compliance-summary,
+//     /compliance-{checklist,trends,timeline,risk-report},
+//     /ComplianceSnapshotPage, /state-reporting, /iep-search,
+//     /my-settings, /onboarding, /leadership-packet, /_*-legacy.
+//
+// The previous 7-section adminNav is preserved as `adminNavLegacy` (private
+// to this module) so caseManagerNav and spedTeacherNav — which derive from
+// it — continue to render exactly as before. This keeps Phase 2C-1 scoped
+// to admin and coordinator only.
 // ─────────────────────────────────────────────────────────────────────────────
-export const adminNav: NavSection[] = [
+
+const adminNavLegacy: NavSection[] = [
   // ── 1. Overview ──────────────────────────────────────────────────────────
   {
     label: "Overview",
@@ -78,15 +91,10 @@ export const adminNav: NavSection[] = [
           { href: "/staff", label: "Staff", icon: UserCheck },
         ],
       },
-      { href: "/_action-center-legacy?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
-      // Phase 1b: promote Session Log into Overview so minute-tracking is
-      // above the fold for admins. Removed from the Scheduling section to
-      // avoid duplication.
+      { href: "/action-center?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
       { href: "/sessions", label: "Session Log", icon: Clipboard, primary: true },
     ],
   },
-  // ── 2. Compliance & Risk ────────────────────────────────────────────────
-  // Phase 1b: flattened "Reports" and "Compensatory" one-child submenus.
   {
     label: "Compliance & Risk",
     icon: ListChecks,
@@ -100,8 +108,6 @@ export const adminNav: NavSection[] = [
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
     ],
   },
-  // ── 3. IEP & Services ────────────────────────────────────────────────────
-  // Phase 1b: flattened "IEP Builder" and "Evaluations & Progress" one-child submenus.
   {
     label: "IEP & Services",
     icon: GraduationCap,
@@ -117,7 +123,6 @@ export const adminNav: NavSection[] = [
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
     ],
   },
-  // ── 4. ABA & Behavior — Phase 1b: flattened "Learners" submenu ──────────
   {
     label: "ABA & Behavior",
     icon: Activity,
@@ -130,8 +135,6 @@ export const adminNav: NavSection[] = [
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
-  // ── 5. Scheduling ────────────────────────────────────────────────────────
-  // Phase 1b: /sessions promoted to Overview; this section is now scheduling-only.
   {
     label: "Scheduling",
     icon: Users,
@@ -150,9 +153,6 @@ export const adminNav: NavSection[] = [
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
     ],
   },
-  // ── 6. Financial / Executive ─────────────────────────────────────────────
-  // /district and /leadership-packet are now redirected onto /executive tabs;
-  // sidebar only exposes the canonical entry points.
   {
     label: "Financial / Executive",
     icon: Gauge,
@@ -166,7 +166,6 @@ export const adminNav: NavSection[] = [
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
     ],
   },
-  // ── 7. Admin / Tools ─────────────────────────────────────────────────────
   {
     label: "Admin / Tools",
     icon: Settings,
@@ -181,6 +180,101 @@ export const adminNav: NavSection[] = [
       { href: "/upgrade", label: "Plans & Features", icon: Sparkles },
       { href: "/billing", label: "Subscription & Billing", icon: CreditCard },
       { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
+    ],
+  },
+];
+
+export const adminNav: NavSection[] = [
+  // ── 1. Overview ──────────────────────────────────────────────────────────
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/action-center", label: "Action Center", icon: AlertTriangle, primary: true, alertBadge: true },
+      { href: "/students", label: "Students", icon: Users, primary: true },
+      { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+    ],
+  },
+  // ── 2. Compliance & Risk ─────────────────────────────────────────────────
+  {
+    label: "Compliance & Risk",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ListChecks, primary: true, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/compensatory", label: "Compensatory", icon: Scale, primary: true, featureKey: "compliance.compensatory" as FeatureKey },
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+    ],
+  },
+  // ── 3. More — collapsed by default ──────────────────────────────────────
+  {
+    label: "More",
+    icon: Library,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      {
+        href: "/iep-builder", label: "IEP & Documents", icon: GraduationCap,
+        children: [
+          { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
+          { href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays },
+          { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+          { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+          { href: "/accommodation-lookup", label: "Accommodation Verification", icon: FileText },
+          { href: "/transitions", label: "Transition Planning", icon: Sprout },
+          { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
+        ],
+      },
+      {
+        href: "/scheduling", label: "Scheduling", icon: Clock, pendingChangeRequestBadge: true,
+        children: [
+          { href: "/scheduling", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
+          { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
+          { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
+        ],
+      },
+      {
+        href: "/staff", label: "People", icon: UserCheck,
+        children: [
+          { href: "/staff", label: "Staff", icon: UserCheck },
+        ],
+      },
+      {
+        href: "/aba", label: "Clinical", icon: Brain, featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba", label: "Learners", icon: Users },
+          { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
+          { href: "/iep-suggestions", label: "Programs", icon: Library },
+          { href: "/supervision", label: "Supervision", icon: UserCheck },
+        ],
+      },
+      {
+        href: "/executive", label: "Finance", icon: DollarSign,
+        children: [
+          { href: "/executive", label: "Executive Dashboard", icon: Gauge },
+          { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase },
+          { href: "/resource-management", label: "Resource Management", icon: Database },
+          { href: "/cost-avoidance", label: "Cost Avoidance", icon: Scale },
+          { href: "/agencies", label: "Agencies", icon: Truck },
+          { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard },
+        ],
+      },
+      {
+        href: "/settings", label: "Settings", icon: Settings,
+        children: [
+          { href: "/settings", label: "Settings", icon: Settings },
+          { href: "/school-year", label: "School Year", icon: CalendarDays },
+          { href: "/notification-preferences", label: "Notification Preferences", icon: Mail },
+          { href: "/import", label: "Data Import", icon: Upload },
+        ],
+      },
     ],
   },
 ];
@@ -203,7 +297,7 @@ export const focusedAdminNav: NavSection[] = [
           { href: "/staff", label: "Staff", icon: UserCheck },
         ],
       },
-      { href: "/_action-center-legacy?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+      { href: "/action-center?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
   {
@@ -296,7 +390,9 @@ const CASE_MANAGER_EXCLUDED_HREFS = new Set([
   "/caseload-balancing",
 ]);
 
-export const caseManagerNav: NavSection[] = adminNav
+// Phase 2C-1: case_manager continues to derive from the legacy 7-section
+// adminNav so this role's sidebar is unchanged.
+export const caseManagerNav: NavSection[] = adminNavLegacy
   .filter(s => !s.label || !CASE_MANAGER_EXCLUDED_SECTIONS.has(s.label))
   .map(s => ({
     ...s,
@@ -304,22 +400,11 @@ export const caseManagerNav: NavSection[] = adminNav
   }))
   .filter(s => s.items.length > 0);
 
-const COORDINATOR_EXCLUDED_SECTIONS = new Set(["IEP & Services", "ABA & Behavior", "Financial / Executive", "Admin / Tools"]);
-const COORDINATOR_COMPLIANCE_ALLOWED = new Set(["/compliance", "/compensatory"]);
-// Phase 1b: mirror case-manager's scheduling exclusions. Coordinator now keeps
-// only Sessions (which lives in Overview after the 1b move). The Scheduling
-// section ends up empty and gets filtered out below.
-const COORDINATOR_EXCLUDED_HREFS = new Set(["/scheduling", "/caseload-balancing"]);
-
-export const coordinatorNav: NavSection[] = adminNav
-  .filter(s => !s.label || !COORDINATOR_EXCLUDED_SECTIONS.has(s.label))
-  .map(s => {
-    if (s.label === "Compliance & Risk") {
-      return { ...s, items: s.items.filter(i => COORDINATOR_COMPLIANCE_ALLOWED.has(i.href)) };
-    }
-    return { ...s, items: s.items.filter(i => !COORDINATOR_EXCLUDED_HREFS.has(i.href)) };
-  })
-  .filter(s => s.items.length > 0);
+// Phase 2C-1: coordinator inherits the new tight 3-section adminNav.
+// The previous label-based exclusion set targeted the old 7-section
+// structure and is no longer needed — the new structure is already
+// scoped to the buyer wedge.
+export const coordinatorNav: NavSection[] = adminNav;
 
 // SPED teachers do not see Financial/Executive, Admin/Tools, or ABA & Behavior
 // (Phase 1b: ABA was leaking into the teacher shell).
@@ -332,7 +417,9 @@ const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
   "Sessions": "My Sessions",
 };
 
-export const spedTeacherNav: NavSection[] = adminNav
+// Phase 2C-1: sped_teacher continues to derive from the legacy 7-section
+// adminNav so this role's sidebar is unchanged.
+export const spedTeacherNav: NavSection[] = adminNavLegacy
   .filter(s => !s.label || !SPED_TEACHER_EXCLUDED_GROUPS.has(s.label))
   .map(s => {
     const label = s.label && SPED_TEACHER_LABEL_MAP[s.label] ? SPED_TEACHER_LABEL_MAP[s.label] : s.label;

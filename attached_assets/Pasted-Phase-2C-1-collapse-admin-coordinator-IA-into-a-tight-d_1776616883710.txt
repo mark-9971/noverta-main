@@ -1,0 +1,105 @@
+Phase 2C-1: collapse admin/coordinator IA into a tight demo-ready sidebar.
+
+Goal:
+The admin/coordinator sidebar still feels too wide for a 10-minute district demo. Reduce the visible default IA so the product foregrounds the core wedge: compliance, comp-ed exposure, action-taking, student drill-down, and proof/reporting.
+
+This is a nav-information-architecture task, not a route/product rewrite.
+
+Hard constraints:
+
+* Structural/nav-only change unless a tiny additive renderer change is absolutely necessary
+* No route changes
+* No API changes
+* No schema changes
+* No capability/auth changes
+* Do not delete pages or routes
+* Keep all current destinations reachable; we are only changing what is surfaced in the sidebar by default
+* coordinatorNav should inherit from the admin structure if that is already the pattern
+* Keep all non-admin/coordinator navs unchanged in this PR
+
+Primary objective:
+Reduce admin/coordinator default sidebar exposure to 3 sections with a much smaller visible surface, while moving secondary/advanced items into a collapsed “More” section.
+
+Target structure:
+
+Section 1: Overview
+
+* Dashboard (/)
+* Action Center (/action-center) — primary
+* Students (/students) — primary
+* Sessions (/sessions) — primary
+
+Section 2: Compliance & Risk
+
+* Compliance (/compliance) — primary
+* Compensatory (/compensatory) — primary
+* Reports (/reports)
+
+Section 3: More
+
+* rendered collapsed by default
+* should contain grouped parent items using the closest existing routes/items, such as:
+    * IEP & Documents
+    * Scheduling
+    * People
+    * Clinical
+    * Finance
+    * Settings
+
+Important:
+
+* Use the nearest existing nav items/routes already present in nav-config.ts
+* Do not invent new routes
+* Do not rename product concepts unless necessary for grouping clarity
+* Preserve current child routes where possible
+
+Also fix this small regression while you are in the same pass:
+
+* any admin/coordinator nav link still pointing to /_action-center-legacy?tab=alerts should instead point to the current canonical Action Center alerts destination
+
+Hidden from admin/coordinator primary nav entirely (still routable, do not add to More):
+
+* pilot/internal Trellis ops pages
+* demo-readiness/internal demo pages
+* tenants/support/internal admin surfaces
+* audit/debug/health pages
+* legacy redirect destinations
+* pricing/billing/upgrade surfaces not needed in the pilot story
+* orphaned or redundant compliance/report variants already replaced by canonical destinations
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. current admin/coordinator nav shape
+3. exact target admin/coordinator nav shape
+4. whether the nav renderer already supports collapsed sections
+5. whether any tiny renderer change is needed
+6. exact legacy alert-link fix planned
+7. biggest regression risks
+8. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact admin nav after change
+3. exact coordinator nav after change
+4. whether a renderer change was required
+5. which items were moved under “More”
+6. which items were removed from visible nav entirely but left routable
+7. exact legacy-link fix made
+8. validation performed
+9. known issues still remaining
+10. blunt verdict
+11. copy-pasteable commit message
+
+Acceptance:
+
+* Admin/coordinator sidebar is materially smaller and cleaner by default
+* “More” is collapsed by default
+* Core pilot pages are clearly foregrounded
+* All existing routes remain reachable
+* Non-admin/coordinator navs are unchanged
+* Typecheck remains clean aside from known unrelated warnings
+    :::
