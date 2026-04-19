@@ -90,7 +90,14 @@ export async function validateDocumentExists(
   }
 }
 
-export function sendWorkflowNotification(studentId: number, reviewerEmail: string, reviewerName: string, subject: string, bodyHtml: string) {
+export function sendWorkflowNotification(
+  studentId: number,
+  reviewerEmail: string,
+  reviewerName: string,
+  subject: string,
+  bodyHtml: string,
+  meta: { workflowId: number; stage: string; kind: "reviewer_assigned" | "creator_update" },
+) {
   sendEmail({
     studentId,
     type: "general",
@@ -98,6 +105,11 @@ export function sendWorkflowNotification(studentId: number, reviewerEmail: strin
     bodyHtml,
     toEmail: reviewerEmail,
     toName: reviewerName,
+    metadata: {
+      workflowId: meta.workflowId,
+      workflowStage: meta.stage,
+      workflowNotificationKind: meta.kind,
+    },
   }).catch(err => {
     console.error("[DocumentWorkflow] Notification failed:", err);
   });
@@ -139,11 +151,12 @@ export async function notifyReviewersForStage(workflowId: number, stage: string,
           ${link ? linkButtonHtml(link, "Review document", "#059669") : `<p style="color:#6b7280;font-size:13px">Log in to Trellis to review and take action.</p>`}
         </div>
       </div>`,
+      { workflowId, stage, kind: "reviewer_assigned" },
     );
   }
 }
 
-export async function notifyWorkflowCreator(workflow: { id: number; createdByUserId: string; createdByName: string; title: string; studentId: number }, action: string, reviewerName: string, comment: string | null, studentName: string, districtId: number) {
+export async function notifyWorkflowCreator(workflow: { id: number; createdByUserId: string; createdByName: string; title: string; studentId: number; currentStage: string }, action: string, reviewerName: string, comment: string | null, studentName: string, districtId: number) {
   const staffRows = await db.select({ email: staffTable.email })
     .from(staffTable)
     .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
@@ -170,6 +183,7 @@ export async function notifyWorkflowCreator(workflow: { id: number; createdByUse
         ${link ? linkButtonHtml(link, "View document workflow", headerColor) : `<p style="color:#6b7280;font-size:13px;margin-top:16px">Log in to Trellis to view details.</p>`}
       </div>
     </div>`,
+    { workflowId: workflow.id, stage: workflow.currentStage, kind: "creator_update" },
   );
 }
 

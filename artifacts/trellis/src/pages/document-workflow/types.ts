@@ -52,10 +52,26 @@ export interface WorkflowReviewer {
   reviewerName: string;
 }
 
+export interface WorkflowNotification {
+  id: number;
+  toEmail: string | null;
+  toName: string | null;
+  subject: string;
+  status: string;
+  stage: string | null;
+  kind: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  deliveredAt: string | null;
+  failedReason: string | null;
+}
+
 export interface WorkflowDetail extends Workflow {
   createdByUserId: string;
   approvals: WorkflowApproval[];
   reviewers: WorkflowReviewer[];
+  notifications: WorkflowNotification[];
 }
 
 export interface DocumentVersion {

@@ -9,8 +9,9 @@ import {
   evaluationsTable,
   progressReportsTable,
   priorWrittenNoticesTable,
+  communicationEventsTable,
 } from "@workspace/db";
-import { eq, and, desc, SQL } from "drizzle-orm";
+import { eq, and, desc, SQL, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import {
@@ -107,15 +108,35 @@ router.get("/document-workflow/workflows/:id", async (req, res): Promise<void> =
 
   if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
 
-  const [approvals, reviewers] = await Promise.all([
+  const [approvals, reviewers, notifications] = await Promise.all([
     db.select().from(workflowApprovalsTable)
       .where(eq(workflowApprovalsTable.workflowId, id))
       .orderBy(desc(workflowApprovalsTable.createdAt)),
     db.select().from(workflowReviewersTable)
       .where(eq(workflowReviewersTable.workflowId, id)),
+    db.select({
+      id: communicationEventsTable.id,
+      toEmail: communicationEventsTable.toEmail,
+      toName: communicationEventsTable.toName,
+      subject: communicationEventsTable.subject,
+      status: communicationEventsTable.status,
+      stage: sql<string | null>`${communicationEventsTable.metadata}->>'workflowStage'`,
+      kind: sql<string | null>`${communicationEventsTable.metadata}->>'workflowNotificationKind'`,
+      createdAt: communicationEventsTable.createdAt,
+      sentAt: communicationEventsTable.sentAt,
+      acceptedAt: communicationEventsTable.acceptedAt,
+      deliveredAt: communicationEventsTable.deliveredAt,
+      failedReason: communicationEventsTable.failedReason,
+    })
+      .from(communicationEventsTable)
+      .where(and(
+        eq(communicationEventsTable.studentId, workflow.studentId),
+        sql`${communicationEventsTable.metadata}->>'workflowId' = ${String(id)}`,
+      ))
+      .orderBy(desc(communicationEventsTable.createdAt)),
   ]);
 
-  res.json({ ...workflow, approvals, reviewers });
+  res.json({ ...workflow, approvals, reviewers, notifications });
 });
 
 router.post("/document-workflow/workflows", async (req, res): Promise<void> => {

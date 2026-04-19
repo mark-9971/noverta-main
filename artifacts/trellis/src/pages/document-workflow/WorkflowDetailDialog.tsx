@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, RotateCcw, ArrowRight, UserPlus, History, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { CheckCircle, XCircle, RotateCcw, ArrowRight, UserPlus, History, ChevronDown, ChevronUp, Clock, Mail, AlertCircle } from "lucide-react";
 import { WorkflowDetail, DocumentVersion, ActionType, STAGE_LABELS, ACTION_CONFIG } from "./types";
 import { AgingBadge, StatusBadge, StageBadge, daysAgo, formatDateTime, groupApprovalsByStage, buildThreadTree } from "./shared";
 import { InlineDocumentViewer } from "./InlineDocumentViewer";
@@ -247,6 +247,56 @@ export function WorkflowDetailDialog({
                         Cancel
                       </Button>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-3">
+                <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                  <Mail className="w-4 h-4" />
+                  Notifications ({selectedWorkflow.notifications?.length ?? 0})
+                </p>
+                {!selectedWorkflow.notifications || selectedWorkflow.notifications.length === 0 ? (
+                  <p className="text-xs text-gray-400">No notifications sent yet</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {selectedWorkflow.notifications.map(n => {
+                      const isFailed = n.status === "failed" || n.status === "bounced" || n.status === "complained";
+                      const isNotConfigured = n.status === "not_configured";
+                      const isDelivered = n.status === "delivered";
+                      const isAccepted = n.status === "accepted" || n.status === "sent";
+                      const statusColor = isFailed ? "text-red-600 bg-red-50 border-red-200"
+                        : isNotConfigured ? "text-gray-600 bg-gray-100 border-gray-200"
+                        : isDelivered ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                        : isAccepted ? "text-blue-700 bg-blue-50 border-blue-200"
+                        : "text-gray-600 bg-gray-50 border-gray-200";
+                      const statusLabel = isNotConfigured ? "not configured" : n.status;
+                      return (
+                        <div key={n.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50 text-xs">
+                          {isFailed || isNotConfigured ? (
+                            <AlertCircle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+                          ) : (
+                            <Mail className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
+                          )}
+                          <div className="flex-1 space-y-0.5 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-medium text-gray-700 truncate">
+                                {n.toName ? `${n.toName} ` : ""}&lt;{n.toEmail || "unknown"}&gt;
+                              </span>
+                              {n.stage && <StageBadge stage={n.stage} />}
+                              <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                            <p className="text-gray-600 truncate">{n.subject}</p>
+                            <p className="text-gray-400">{formatDateTime(n.createdAt)}</p>
+                            {n.failedReason && (
+                              <p className="text-red-600 mt-1 bg-white p-1.5 rounded border border-red-100">{n.failedReason}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
