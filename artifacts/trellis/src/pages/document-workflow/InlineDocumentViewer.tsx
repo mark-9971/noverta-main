@@ -24,7 +24,7 @@ interface ServiceDeliveryBreakdown {
   [key: string]: unknown;
 }
 
-interface DocumentPreview {
+export interface DocumentPreview {
   documentType: string;
   documentId: number;
   [key: string]: unknown;
@@ -34,6 +34,10 @@ interface Props {
   workflowId: number;
   documentType: string;
   studentName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  preview: DocumentPreview | null;
+  onPreviewLoaded: (preview: DocumentPreview) => void;
 }
 
 function PreviewField({ label, value }: { label: string; value: unknown }) {
@@ -403,17 +407,13 @@ function GenericPreview({ preview }: { preview: DocumentPreview }) {
   );
 }
 
-export function InlineDocumentViewer({ workflowId, documentType, studentName }: Props) {
-  const [open, setOpen] = useState(false);
+export function InlineDocumentViewer({ workflowId, documentType, studentName, open, onOpenChange, preview, onPreviewLoaded }: Props) {
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<DocumentPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setPreview(null);
     setError(null);
-    setOpen(false);
-  }, [workflowId]);
+  }, [workflowId, preview]);
 
   useEffect(() => {
     if (!open || preview) return;
@@ -424,17 +424,17 @@ export function InlineDocumentViewer({ workflowId, documentType, studentName }: 
         if (!res.ok) throw new Error("Failed to load document preview");
         return res.json() as Promise<DocumentPreview>;
       })
-      .then(setPreview)
+      .then(onPreviewLoaded)
       .catch(() => setError("Could not load document preview."))
       .finally(() => setLoading(false));
-  }, [open, workflowId, preview]);
+  }, [open, workflowId, preview, onPreviewLoaded]);
 
   const docTypeLabel = documentType.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
   return (
     <div className="border rounded-lg overflow-hidden">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => onOpenChange(!open)}
         className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-medium text-gray-700"
       >
         <div className="flex items-center gap-2">

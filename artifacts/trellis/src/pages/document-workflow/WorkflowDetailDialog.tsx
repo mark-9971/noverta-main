@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, RotateCcw, ArrowRight, UserPlus, History, ChevronDown, ChevronUp, Clock, Mail, AlertCircle } from "lucide-react";
 import { WorkflowDetail, DocumentVersion, ActionType, STAGE_LABELS, ACTION_CONFIG } from "./types";
 import { AgingBadge, StatusBadge, StageBadge, daysAgo, formatDateTime, groupApprovalsByStage, buildThreadTree } from "./shared";
-import { InlineDocumentViewer } from "./InlineDocumentViewer";
+import { InlineDocumentViewer, DocumentPreview } from "./InlineDocumentViewer";
 
 interface Props {
   detailLoading: boolean;
@@ -19,6 +19,10 @@ interface Props {
   onReplyToChange: (v: { id: number; workflowId: number; reviewerName: string } | null) => void;
   onReplyCommentChange: (v: string) => void;
   onReplySubmit: () => void;
+  documentViewerOpen: boolean;
+  documentViewerPreview: DocumentPreview | null;
+  onDocumentViewerOpenChange: (open: boolean) => void;
+  onDocumentViewerPreviewLoaded: (preview: DocumentPreview) => void;
 }
 
 export function WorkflowDetailDialog({
@@ -34,6 +38,10 @@ export function WorkflowDetailDialog({
   onReplyToChange,
   onReplyCommentChange,
   onReplySubmit,
+  documentViewerOpen,
+  documentViewerPreview,
+  onDocumentViewerOpenChange,
+  onDocumentViewerPreviewLoaded,
 }: Props) {
   const open = detailLoading || !!selectedWorkflow;
   if (!open) return null;
@@ -133,6 +141,10 @@ export function WorkflowDetailDialog({
                 workflowId={selectedWorkflow.id}
                 documentType={selectedWorkflow.documentType}
                 studentName={`${selectedWorkflow.studentFirstName ?? ""} ${selectedWorkflow.studentLastName ?? ""}`.trim()}
+                open={documentViewerOpen}
+                onOpenChange={onDocumentViewerOpenChange}
+                preview={documentViewerPreview}
+                onPreviewLoaded={onDocumentViewerPreviewLoaded}
               />
 
               {selectedWorkflow.status === "in_progress" && (

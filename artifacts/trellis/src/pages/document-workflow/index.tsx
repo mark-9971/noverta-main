@@ -17,6 +17,7 @@ import {
 import { WorkflowSummaryPanel } from "./WorkflowSummaryPanel";
 import { WorkflowList } from "./WorkflowList";
 import { WorkflowDetailDialog } from "./WorkflowDetailDialog";
+import { DocumentPreview } from "./InlineDocumentViewer";
 import { ActionDialog } from "./ActionDialog";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
 import { GeneratePwnDialog } from "./GeneratePwnDialog";
@@ -44,6 +45,7 @@ export default function DocumentWorkflowPage() {
   const [pwnForm, setPwnForm] = useState({ studentId: "", meetingId: "" });
   const [pwnLoading, setPwnLoading] = useState(false);
   const [agingExpanded, setAgingExpanded] = useState(false);
+  const [documentViewerState, setDocumentViewerState] = useState<Record<number, { open: boolean; preview: DocumentPreview | null }>>({});
   const search = useSearch();
   const [, setLocation] = useLocation();
   const deepLinkHandledRef = useRef<number | null>(null);
@@ -275,13 +277,25 @@ export default function DocumentWorkflowPage() {
         versionHistory={versionHistory}
         versionExpanded={versionExpanded}
         onVersionToggle={() => setVersionExpanded(!versionExpanded)}
-        onClose={() => { setSelectedWorkflow(null); setVersionExpanded(false); }}
+        onClose={() => { setSelectedWorkflow(null); setVersionExpanded(false); setDocumentViewerState({}); }}
         onAction={(type, workflowId) => setActionDialog({ type, workflowId })}
         replyTo={replyTo}
         replyComment={replyComment}
         onReplyToChange={setReplyTo}
         onReplyCommentChange={setReplyComment}
         onReplySubmit={handleReply}
+        documentViewerOpen={selectedWorkflow ? documentViewerState[selectedWorkflow.id]?.open ?? false : false}
+        documentViewerPreview={selectedWorkflow ? documentViewerState[selectedWorkflow.id]?.preview ?? null : null}
+        onDocumentViewerOpenChange={(open) => {
+          if (!selectedWorkflow) return;
+          const wfId = selectedWorkflow.id;
+          setDocumentViewerState(prev => ({ ...prev, [wfId]: { open, preview: prev[wfId]?.preview ?? null } }));
+        }}
+        onDocumentViewerPreviewLoaded={(preview) => {
+          if (!selectedWorkflow) return;
+          const wfId = selectedWorkflow.id;
+          setDocumentViewerState(prev => ({ ...prev, [wfId]: { open: prev[wfId]?.open ?? true, preview } }));
+        }}
       />
 
       <ActionDialog
