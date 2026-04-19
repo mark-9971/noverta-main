@@ -124,7 +124,7 @@ export const adminNav: NavSection[] = [
     label: "ABA & Behavior",
     icon: Activity,
     collapsible: true,
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { href: "/aba", label: "Learners", icon: Users, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
@@ -143,6 +143,9 @@ export const adminNav: NavSection[] = [
       {
         href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true,
         children: [
+          { href: "/scheduling", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
           { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
         ],
       },
@@ -226,6 +229,9 @@ export const focusedAdminNav: NavSection[] = [
       {
         href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true,
         children: [
+          { href: "/scheduling", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
           { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
         ],
       },
@@ -235,7 +241,7 @@ export const focusedAdminNav: NavSection[] = [
     label: "ABA & Behavior",
     icon: Activity,
     collapsible: true,
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { href: "/aba", label: "ABA Hub", icon: Brain, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
@@ -254,15 +260,28 @@ export const focusedAdminNav: NavSection[] = [
 ];
 
 /**
+ * Demo-focused nav: focusedAdminNav minus ABA & Behavior.
+ * Shown to coordinators when the district is marked as a demo district.
+ * Keeps only the ~8 pilot-relevant items so stakeholder walk-throughs
+ * aren't distracted by complex clinical features.
+ */
+export const demoFocusedAdminNav: NavSection[] = focusedAdminNav.filter(
+  s => s.label !== "ABA & Behavior",
+);
+
+/**
  * Returns the appropriate admin nav based on district mode.
  *
- * - demo or pilot: focusedAdminNav — tighter wedge layout for pilot stakeholders.
+ * - demo:          demoFocusedAdminNav — ~8 pilot-relevant items for demo walk-throughs.
+ * - pilot (non-demo): focusedAdminNav — tighter wedge layout for pilot stakeholders.
  * - full (paid):   adminNav — complete layout for configured districts.
  *
  * Routes remain accessible via direct URL — nothing is removed.
  */
 export function getAdminNavForMode(isDemo: boolean, isPilot?: boolean): NavSection[] {
-  return isDemo || isPilot ? focusedAdminNav : adminNav;
+  if (isDemo) return demoFocusedAdminNav;
+  if (isPilot) return focusedAdminNav;
+  return adminNav;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
