@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Building2, Mail, Pencil, Phone, Plus, Trash2, Users } from "lucide-react";
 import type { AgencyReferral, TransitionGoal, TransitionPlan } from "./types";
 import { DOMAIN_META, STATUS_STYLES } from "./constants";
+import { TransitionPlanBadge } from "@/components/transition-plan-badge";
 
 export function PlanDetailTab({ plan, onEditPlan, onDeletePlan, onNewGoal, onEditGoal, onDeleteGoal, onNewReferral, onEditReferral, onDeleteReferral }: {
   plan: TransitionPlan;
@@ -28,7 +29,12 @@ export function PlanDetailTab({ plan, onEditPlan, onDeletePlan, onNewGoal, onEdi
       <Card className="border-gray-200/60">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold text-gray-700">Plan Overview</CardTitle>
+            <div className="flex items-center gap-3 flex-wrap">
+              <CardTitle className="text-sm font-semibold text-gray-700">Plan Overview</CardTitle>
+              <span className="text-[12px] text-gray-600">{plan.studentName ?? `#${plan.studentId}`}</span>
+              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${STATUS_STYLES[plan.status] ?? "bg-gray-100"}`}>{plan.status}</span>
+              <TransitionPlanBadge plan={plan} />
+            </div>
             <div className="flex gap-1">
               <Button size="sm" variant="outline" onClick={onEditPlan} className="text-[11px] h-7"><Pencil className="w-3 h-3 mr-1" /> Edit</Button>
               <Button size="sm" variant="outline" onClick={onDeletePlan} className="text-[11px] h-7 text-red-600 hover:text-red-700"><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
