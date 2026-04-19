@@ -11,12 +11,18 @@ import {
   UpdateScheduleBlockBody,
   DeleteScheduleBlockParams,
 } from "@workspace/api-zod";
-import { eq, and, sql, isNull } from "drizzle-orm";
+import { eq, and, or, sql, isNull, lte, gte } from "drizzle-orm";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { assertScheduleBlockInCallerDistrict } from "../../lib/districtScope";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { resolveActiveYearId, blockToJson } from "./shared";
+import { isBlockActiveOnDate } from "../../lib/scheduleUtils";
+
+const DAY_INDEX: Record<string, number> = {
+  monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
+  friday: 4, saturday: 5, sunday: 6,
+};
 
 const router: IRouter = Router();
 
@@ -27,7 +33,34 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
     if (params.data.staffId) conditions.push(eq(scheduleBlocksTable.staffId, Number(params.data.staffId)));
     if (params.data.studentId) conditions.push(eq(scheduleBlocksTable.studentId, Number(params.data.studentId)));
     if (params.data.dayOfWeek) conditions.push(eq(scheduleBlocksTable.dayOfWeek, params.data.dayOfWeek));
-    if (params.data.weekOf) conditions.push(eq(scheduleBlocksTable.weekOf, params.data.weekOf));
+    if (params.data.weekOf) {
+      // weekOf semantics: "blocks active during the week starting weekOf".
+      // Match either a one-off block tagged with that exact weekOf, OR a recurring
+      // block whose effective_from/to range covers that week. Biweekly off-week
+      // recurring blocks are filtered out post-query via isBlockActiveOnDate.
+      const weekStart = params.data.weekOf;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+        res.status(400).json({ error: "weekOf must be YYYY-MM-DD" });
+        return;
+      }
+      const weekEndDate = new Date(`${weekStart}T00:00:00Z`);
+      if (Number.isNaN(weekEndDate.getTime())) {
+        res.status(400).json({ error: "weekOf is not a valid date" });
+        return;
+      }
+      weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+      const weekEnd = weekEndDate.toISOString().substring(0, 10);
+      conditions.push(
+        or(
+          eq(scheduleBlocksTable.weekOf, weekStart),
+          and(
+            eq(scheduleBlocksTable.isRecurring, true),
+            or(isNull(scheduleBlocksTable.effectiveFrom), lte(scheduleBlocksTable.effectiveFrom, weekEnd)),
+            or(isNull(scheduleBlocksTable.effectiveTo), gte(scheduleBlocksTable.effectiveTo, weekStart)),
+          ),
+        )!,
+      );
+    }
   }
   if (params.success && params.data.schoolId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
   {
@@ -79,7 +112,29 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, scheduleBlocksTable.serviceTypeId))
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-  res.json(blocks.map(b => blockToJson(b,
+  // When weekOf is supplied this endpoint becomes a date-targeted enumeration
+  // for that week, so we must hide biweekly recurring blocks falling on their
+  // off-week. Weekly (or null/non-biweekly) blocks short-circuit to true in
+  // isBlockActiveOnDate and are unaffected.
+  const filteredBlocks = (params.success && params.data.weekOf)
+    ? blocks.filter(b => {
+        if (!b.isRecurring) return true;
+        const dayIdx = DAY_INDEX[b.dayOfWeek] ?? 0;
+        const target = new Date(`${params.data.weekOf}T12:00:00`);
+        target.setDate(target.getDate() + dayIdx);
+        return isBlockActiveOnDate(
+          {
+            id: b.id,
+            isRecurring: b.isRecurring,
+            recurrenceType: b.recurrenceType ?? "weekly",
+            effectiveFrom: b.effectiveFrom ?? null,
+          },
+          target,
+        );
+      })
+    : blocks;
+
+  res.json(filteredBlocks.map(b => blockToJson(b,
     b.staffFirst ? `${b.staffFirst} ${b.staffLast}` : null,
     b.studentFirst ? `${b.studentFirst} ${b.studentLast}` : null,
     b.serviceTypeName

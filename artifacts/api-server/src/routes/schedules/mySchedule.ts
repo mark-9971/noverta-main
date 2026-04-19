@@ -9,6 +9,7 @@ import { z } from "zod/v4";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { requireAuth, requireRoles } from "../../middlewares/auth";
 import { blockToJson } from "./shared";
+import { isBlockActiveOnDate } from "../../lib/scheduleUtils";
 
 const router: IRouter = Router();
 
@@ -188,11 +189,13 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
     id: number; staff_id: number; student_id: number | null; service_type_id: number | null;
     start_time: string; end_time: string; location: string | null; block_label: string | null;
     block_type: string | null; notes: string | null;
+    is_recurring: boolean; recurrence_type: string; effective_from: string | null;
     student_first: string | null; student_last: string | null; service_type_name: string | null;
   }>(`
     SELECT
       sb.id, sb.staff_id, sb.student_id, sb.service_type_id,
       sb.start_time, sb.end_time, sb.location, sb.block_label, sb.block_type, sb.notes,
+      sb.is_recurring, sb.recurrence_type, sb.effective_from,
       stu.first_name AS student_first, stu.last_name AS student_last,
       st.name AS service_type_name
     FROM schedule_blocks sb
@@ -206,6 +209,14 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
     ORDER BY sb.start_time
   `, [staffId, todayDayName, todayStr]);
 
+  const targetDate = new Date(todayStr + "T12:00:00");
+  const activeBlockRows = blocksResult.rows.filter(b =>
+    isBlockActiveOnDate(
+      { id: b.id, isRecurring: b.is_recurring, recurrenceType: b.recurrence_type, effectiveFrom: b.effective_from },
+      targetDate,
+    )
+  );
+
   const logsResult = await pool.query<{
     id: number; student_id: number | null; service_type_id: number | null; start_time: string | null; status: string;
   }>(`
@@ -216,7 +227,7 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
 
   const logs = logsResult.rows;
 
-  const blocks = blocksResult.rows.map(b => {
+  const blocks = activeBlockRows.map(b => {
     const [sh = 0, sm = 0] = (b.start_time ?? "00:00").split(":").map(Number);
     const [eh = 0, em = 0] = (b.end_time ?? "00:00").split(":").map(Number);
     const startMin = sh * 60 + sm;
