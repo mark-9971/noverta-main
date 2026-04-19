@@ -30,5 +30,6 @@ export const ROLE_LABELS: Record<string, string> = {
   psychologist: "Psychologist",
   teacher: "Teacher",
   para: "Paraeducator",
+  direct_provider: "Direct Provider",
   case_manager: "Case Manager",
 };

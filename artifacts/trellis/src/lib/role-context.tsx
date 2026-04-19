@@ -12,12 +12,13 @@ export type UserRole =
   | "coordinator"
   | "provider"
   | "para"
+  | "direct_provider"
   | "sped_student"
   | "sped_parent"
   | "trellis_support";
 
 export const STAFF_ROLES: UserRole[] = [
-  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para",
+  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "direct_provider",
 ];
 
 export const ROLE_SUBTITLES: Record<UserRole, string> = {
@@ -28,6 +29,7 @@ export const ROLE_SUBTITLES: Record<UserRole, string> = {
   coordinator: "Coordinator",
   provider: "Provider",
   para: "Paraprofessional",
+  direct_provider: "Direct Provider",
   sped_student: "Student",
   sped_parent: "Parent / Guardian",
   trellis_support: "Trellis Support (read-only)",
@@ -40,14 +42,15 @@ const ROLE_HOME: Record<UserRole, string> = {
   sped_teacher: "/",
   coordinator: "/",
   provider: "/",
-  para: "/",
+  para: "/my-day",
+  direct_provider: "/my-day",
   sped_student: "/sped-portal",
   sped_parent: "/guardian-portal",
   trellis_support: "/support-session",
 };
 
 const VALID_ROLES = new Set<string>([
-  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para",
+  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "direct_provider",
   "sped_student", "sped_parent", "trellis_support",
 ]);
 

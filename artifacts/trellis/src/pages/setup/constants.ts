@@ -64,6 +64,7 @@ export const STAFF_ROLES = [
   { value: "bcba", label: "BCBA" },
   { value: "provider", label: "Provider / Therapist" },
   { value: "para", label: "Paraprofessional" },
+  { value: "direct_provider", label: "Direct Provider (ABA tutor, para, related service)" },
   { value: "case_manager", label: "Case Manager" },
   { value: "coordinator", label: "Coordinator" },
 ];

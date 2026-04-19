@@ -137,7 +137,7 @@ const queryClient = new QueryClient({
 // trellis_support users are not actually staff; they hit the standard router
 // only so they can land on /support-session and (after opening a session)
 // browse the rest of the app under the read-only override.
-const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "trellis_support"];
+const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "direct_provider", "trellis_support"];
 
 function SentryUserSync() {
   const { isSignedIn, isLoaded } = useAuth();

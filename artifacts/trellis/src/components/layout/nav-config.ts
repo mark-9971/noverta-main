@@ -679,7 +679,6 @@ export const paraNav: NavSection[] = [
   {
     items: [
       { href: "/my-day", label: "My Day", icon: Sun, primary: true },
-      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
     ],
   },
   {
@@ -688,6 +687,27 @@ export const paraNav: NavSection[] = [
       { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight, primary: true },
       { href: "/sessions", label: "Session Log", icon: Clipboard },
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+    ],
+  },
+];
+
+export const directProviderNav: NavSection[] = [
+  {
+    items: [
+      { href: "/my-day", label: "My Day", icon: Sun, primary: true },
+    ],
+  },
+  {
+    label: "Session Work",
+    items: [
+      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight, primary: true },
+      { href: "/sessions", label: "Session Log", icon: Clipboard },
+    ],
+  },
+  {
+    label: "My Students",
+    items: [
+      { href: "/my-caseload", label: "Caseload", icon: Users, primary: true },
     ],
   },
 ];
@@ -794,6 +814,16 @@ export const roleConfig: Record<string, RoleThemeConfig> = {
     iconActive: "text-emerald-600",
     label: "Trellis",
     subtitle: "Your day, at a glance.",
+    homeHref: "/my-day",
+  },
+  direct_provider: {
+    nav: directProviderNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-600 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Your schedule & students.",
     homeHref: "/my-day",
   },
   sped_student: {

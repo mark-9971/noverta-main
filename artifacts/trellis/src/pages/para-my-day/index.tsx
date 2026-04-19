@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
 import {
   getParaMyDay, paraQuickStartSession, paraStopSession, createSession,
-  getParaStudentTargets,
+  getParaStudentTargets, useListMinuteProgress,
 } from "@workspace/api-client-react";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 import { authFetch } from "@/lib/auth-fetch";
@@ -50,6 +50,11 @@ export default function ParaMyDayPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const staffId = teacherId;
+
+  const { data: caseloadProgressRaw } = useListMinuteProgress(
+    staffId ? ({ staffId } as any) : (undefined as any)
+  );
+  const caseloadProgress = staffId && Array.isArray(caseloadProgressRaw) ? (caseloadProgressRaw as any[]) : undefined;
 
   const loadDay = useCallback(async () => {
     if (!staffId) {
@@ -343,6 +348,7 @@ export default function ParaMyDayPage() {
         onShowMyBips={() => setView("my-bips")}
         onStartSession={startSession}
         onQuickLog={openQuickLog}
+        caseloadProgress={caseloadProgress}
       />
 
       <button
