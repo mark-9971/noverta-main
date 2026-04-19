@@ -351,14 +351,15 @@ export const adminNav: NavSection[] = [
 // A hand-crafted structure (not derived by filtering adminNav) so we control
 // both which top-level items appear AND which children each item exposes.
 //
-// Four sections, each with curated subnav:
+// Five sections, each with curated subnav:
 //   1. Overview        — Dashboard, Alerts, Students & Staff
 //   2. Compliance      — Compliance (3 tabs), Reports (5 curated items)
 //   3. Service Delivery — Sessions, Schedule (3 sub-items)
-//   4. Settings        — collapsed, 3 sub-items
+//   4. ABA & Behavior  — ABA Hub (4 tabs), Data Collection, Supervision
+//   5. Settings        — collapsed, 3 sub-items
 //
 // Hidden (NOT removed — routes still resolve, deep links still work):
-//   IEP & Services, ABA & Behavior, Compensatory Services, Financial/Executive,
+//   IEP & Services, Compensatory Services, Financial/Executive,
 //   Evaluations, Transitions, Parent Comms, Document Workflow, State Reports,
 //   Agencies, Medicaid Billing, Resource Management, Data Import, Data Health,
 //   Compliance Timeline/Trends tabs, Reports Audit Package/Parent Summary/
@@ -449,7 +450,44 @@ export const focusedAdminNav: NavSection[] = [
       },
     ],
   },
-  // ── 4. Settings ───────────────────────────────────────────────────────────
+  // ── 4. ABA & Behavior ─────────────────────────────────────────────────────
+  // Restored for BCBAs and clinical staff. Exposes the four core surfaces of
+  // the ABA hub: caseload overview, per-learner programs & data, behavior
+  // assessments / BIP, and the maintenance probe schedule. Also surfaces the
+  // standalone Data Collection entry and Supervision (feature-gated).
+  {
+    label: "ABA & Behavior",
+    icon: Activity,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      {
+        href: "/aba",
+        label: "ABA Hub",
+        icon: Brain,
+        featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba", label: "Caseload Overview", icon: Users },
+          { href: "/aba?tab=programs", label: "Programs & Data", icon: Activity },
+          { href: "/aba?tab=fba", label: "Behavior / BIP", icon: Shield },
+          { href: "/aba?tab=maintenance", label: "Maintenance", icon: Target },
+        ],
+      },
+      { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
+      {
+        href: "/supervision",
+        label: "Supervision",
+        icon: UserCheck,
+        featureKey: "clinical.supervision" as FeatureKey,
+        children: [
+          { href: "/supervision?tab=log", label: "Supervision Sessions", icon: Clipboard },
+          { href: "/supervision?tab=compliance", label: "IOA & Fidelity", icon: CheckCircle },
+          { href: "/supervision?tab=trend", label: "Staff Performance", icon: TrendingDown },
+        ],
+      },
+    ],
+  },
+  // ── 5. Settings ───────────────────────────────────────────────────────────
   // Collapsed by default. Only the three settings a pilot admin actually needs:
   // General (district name, timezone), School Year (date bounds), Audit Log.
   {
