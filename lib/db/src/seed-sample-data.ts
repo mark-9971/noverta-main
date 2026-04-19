@@ -827,7 +827,7 @@ export async function seedSampleDataForDistrict(
         break;
       }
     }
-    return { id: s.id, scenario: def.scenario, serviceTypeIds, caseManagerId: caseManager.id, schoolIndex: def.schoolIdx };
+    return { id: s.id, scenario: def.scenario, serviceTypeIds, caseManagerId: caseManager.id, schoolIndex: def.schoolIdx, enrolledAt: s.enrolledAt ?? undefined };
   });
 
   // ── 4. IEP documents (scenario-specific dates) ──
@@ -948,6 +948,14 @@ export async function seedSampleDataForDistrict(
         ? rand(240, 360)
         : rand(SAMPLE_BOUNDS.requiredMinutes[0], SAMPLE_BOUNDS.requiredMinutes[1]);
 
+      // Backdate startDate to span the full session history window so historical
+      // compliance reports can render (sessions go back ~180 weekdays).
+      // Use earlier of: 240 days ago or the student's enrollment date.
+      const sessionWindowStart = addDays(today, -240);
+      const enrolledAt = (spec as { enrolledAt?: string }).enrolledAt;
+      const startDate = enrolledAt && enrolledAt < sessionWindowStart
+        ? sessionWindowStart
+        : (enrolledAt ?? sessionWindowStart);
       srRows.push({
         studentId: spec.id,
         serviceTypeId: stId,
@@ -957,7 +965,7 @@ export async function seedSampleDataForDistrict(
         deliveryType: "direct",
         setting: pick(["Resource Room", "General Education Classroom", "Therapy Room", "Self-Contained Classroom"]),
         active: true,
-        startDate: addDays(today, -rand(30, 120)),
+        startDate,
       });
     }
   }

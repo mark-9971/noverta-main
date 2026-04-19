@@ -610,6 +610,7 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
       lastName,
       grade,
       schoolId: school.id,
+      districtId: district.id,
       status: "active",
       dateOfBirth: dob,
       disabilityCategory: disability,
