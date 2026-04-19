@@ -828,11 +828,12 @@ async function tuneComplianceForStudents(
       CROSS JOIN LATERAL generate_series(0, p.num_sessions - 1) AS gs(idx)
     )
     INSERT INTO session_logs
-      (student_id, service_requirement_id, staff_id, session_date,
-       start_time, end_time, duration_minutes, status, notes)
+      (student_id, service_requirement_id, service_type_id, staff_id, session_date,
+       start_time, end_time, duration_minutes, status, school_year_id, notes)
     SELECT
       sched.student_id,
       sched.req_id,
+      (SELECT service_type_id FROM service_requirements WHERE id = sched.req_id),
       (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
       TO_CHAR(sched.d, 'YYYY-MM-DD'),
       -- Spread start times across 8:00–15:30 using session-level hash so
@@ -844,6 +845,13 @@ async function tuneComplianceForStudents(
         LPAD(LEAST(59, (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN 0 ELSE 30 END) + sched.dur)::text, 2, '0'),
       sched.dur,
       'completed',
+      (SELECT sy.id FROM school_years sy
+        JOIN students st ON st.id = sched.student_id
+        JOIN schools sc ON sc.id = st.school_id
+        WHERE sy.district_id = sc.district_id
+          AND sched.d::date BETWEEN sy.start_date::date AND sy.end_date::date
+        ORDER BY sy.start_date::date DESC
+        LIMIT 1),
       'Sample minute log'
     FROM schedule sched
   `);
@@ -915,11 +923,12 @@ async function tuneComplianceForStudents(
       FROM missed_reasons
     )
     INSERT INTO session_logs
-      (student_id, service_requirement_id, staff_id, session_date,
-       start_time, end_time, duration_minutes, status, missed_reason_id, notes)
+      (student_id, service_requirement_id, service_type_id, staff_id, session_date,
+       start_time, end_time, duration_minutes, status, school_year_id, missed_reason_id, notes)
     SELECT
       sched.student_id,
       sched.req_id,
+      (SELECT service_type_id FROM service_requirements WHERE id = sched.req_id),
       (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
       TO_CHAR(sched.d, 'YYYY-MM-DD'),
       LPAD((8 + ((sched.req_id * 7 + sched.idx * 3) % 8))::text, 2, '0') ||
@@ -929,6 +938,13 @@ async function tuneComplianceForStudents(
         LPAD(LEAST(59, (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN 0 ELSE 30 END) + sched.dur)::text, 2, '0'),
       sched.dur,
       'missed',
+      (SELECT sy.id FROM school_years sy
+        JOIN students st ON st.id = sched.student_id
+        JOIN schools sc ON sc.id = st.school_id
+        WHERE sy.district_id = sc.district_id
+          AND sched.d::date BETWEEN sy.start_date::date AND sy.end_date::date
+        ORDER BY sy.start_date::date DESC
+        LIMIT 1),
       (SELECT id FROM reasons WHERE rn = ((sched.req_id + sched.idx) % (SELECT total FROM reasons LIMIT 1))),
       'Sample missed log'
     FROM schedule sched
