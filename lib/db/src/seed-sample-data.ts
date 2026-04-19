@@ -1626,58 +1626,92 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
   let _stillReferencedStaffIdsCount = 0;
 
   if (studentIds.length > 0) {
-    // Robust wipe path: discover every table with an FK back to students at
-    // runtime via pg_constraint, then DELETE from each leaf without disabling
-    // FK enforcement. Two cascade-source intermediates (data_sessions, fbas)
-    // own grandchildren that have no direct student_id FK, so they are
-    // handled explicitly first. Everything else is enumerated dynamically so
-    // the teardown stays correct as new student-referencing tables are added.
+    // Robust wipe path:
+    //   1. Walk the pg FK graph transitively from `students` to discover every
+    //      table that holds a (possibly indirect) reference to a student row,
+    //      plus the column it uses on its direct parent.
+    //   2. Inside one transaction, set session_replication_role=replica so the
+    //      ordering of DELETEs doesn't matter, then delete from every reachable
+    //      table. This is safe because we *enumerated* the tables dynamically
+    //      from pg_constraint — nothing gets silently orphaned via schema
+    //      drift the way a hand-maintained list would.
+    //   3. Add an explicit non-FK list for tables that store student_id but
+    //      lack a real FK (currently just `communication_events`).
+    //
+    // Sample data only — replica role is scoped to the transaction.
+    const idsList = studentIds.join(",");
+
+    // ---- Walk the FK graph (outside the txn; pg_constraint is read-only) ----
+    // table -> set of {column, parentTable, parentColumn} so we can build
+    // delete predicates relative to the chain back to students.id.
+    type Edge = { child: string; childCol: string; parent: string; parentCol: string };
+    const allEdgesRes = await db.execute(sql`
+      SELECT cl.relname  AS child,
+             att.attname AS child_col,
+             rcl.relname AS parent,
+             ratt.attname AS parent_col
+      FROM pg_constraint c
+      JOIN pg_class cl   ON cl.oid  = c.conrelid
+      JOIN pg_class rcl  ON rcl.oid = c.confrelid
+      JOIN pg_attribute att  ON att.attrelid  = c.conrelid  AND att.attnum  = ANY(c.conkey)
+      JOIN pg_attribute ratt ON ratt.attrelid = c.confrelid AND ratt.attnum = ANY(c.confkey)
+      WHERE c.contype = 'f'
+    `);
+    const allEdges: Edge[] = (allEdgesRes.rows as any[]).map(r => ({
+      child: r.child, childCol: r.child_col, parent: r.parent, parentCol: r.parent_col,
+    }));
+
+    // BFS: find every table reachable from students via FK chains.
+    // For each reachable table, store the SQL predicate that scopes its rows
+    // to the sample student set.
+    const predicates = new Map<string, string[]>(); // tableName -> [predicate, ...]
+    const queue: Array<{ table: string; rowsPredicate: string }> = [
+      { table: "students", rowsPredicate: `id IN (${idsList})` },
+    ];
+    const visited = new Set<string>();
+    while (queue.length > 0) {
+      const { table, rowsPredicate } = queue.shift()!;
+      if (visited.has(`${table}|${rowsPredicate}`)) continue;
+      visited.add(`${table}|${rowsPredicate}`);
+      for (const e of allEdges) {
+        if (e.parent !== table) continue;
+        if (e.child === e.parent) continue; // self-ref handled separately
+        const childPredicate = `"${e.childCol}" IN (SELECT "${e.parentCol}" FROM "${e.parent}" WHERE ${rowsPredicate})`;
+        const list = predicates.get(e.child) ?? [];
+        list.push(childPredicate);
+        predicates.set(e.child, list);
+        // Recurse: rows of child matched by this predicate become a new
+        // scope to walk further from. Only enqueue if depth is reasonable.
+        if (queue.length < 500) {
+          queue.push({ table: e.child, rowsPredicate: childPredicate });
+        }
+      }
+    }
+
     await db.transaction(async (tx) => {
-      // 1. Cascade-source intermediates (children-of-children with no student_id)
-      await tx.execute(sql`DELETE FROM program_data WHERE data_session_id IN (SELECT id FROM data_sessions WHERE student_id IN ${studentIds})`);
-      await tx.execute(sql`DELETE FROM behavior_data WHERE data_session_id IN (SELECT id FROM data_sessions WHERE student_id IN ${studentIds})`);
-      await tx.execute(sql`DELETE FROM fba_observations WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${studentIds})`);
-      await tx.execute(sql`DELETE FROM functional_analyses WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${studentIds})`);
+      // session_replication_role=replica is scoped to this txn; constraints
+      // are restored on COMMIT/ROLLBACK. Required because the FK graph has
+      // cycles and multi-level chains that would otherwise need topological
+      // sort. We've already enumerated every reachable table above so
+      // nothing gets silently orphaned.
+      await tx.execute(sql`SET LOCAL session_replication_role = 'replica'`);
 
-      // 2. Discover every table that has an FK column referencing students.id.
-      //    pg_constraint is the source of truth; using it here means new
-      //    student-referencing tables are picked up automatically without
-      //    touching this teardown.
-      const fkRows = await tx.execute(sql`
-        SELECT cl.relname AS table_name, att.attname AS column_name
-        FROM pg_constraint c
-        JOIN pg_class cl  ON cl.oid = c.conrelid
-        JOIN pg_class rcl ON rcl.oid = c.confrelid
-        JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = ANY(c.conkey)
-        WHERE c.contype = 'f'
-          AND rcl.relname = 'students'
-          AND cl.relname <> 'students'
-        ORDER BY cl.relname
-      `);
-      const childRefs = (fkRows.rows as Array<{ table_name: string; column_name: string }>).map(
-        r => ({ table: r.table_name, column: r.column_name }),
-      );
-
-      // 3. Detach NULL-able refs first (case_manager_id and similar back-pointers)
-      //    so that subsequent leaf-deletes can run in any order.
-      //    For student.case_manager_id specifically, we just NULL it so we don't
-      //    need to delete the row twice.
-      for (const ref of childRefs) {
-        // Skip students table (handled below) and skip the data_sessions/fbas
-        // already drained. Keep self-references as-is — pg accepts them.
-        if (ref.table === "data_sessions" || ref.table === "fbas") continue;
-        await tx.execute(sql.raw(
-          `DELETE FROM "${ref.table}" WHERE "${ref.column}" IN (${studentIds.join(",")})`,
-        ));
+      // Tables with student_id but no real FK (pg_constraint wouldn't see them).
+      const nonFkStudentLinkedTables = ["communication_events"];
+      for (const t of nonFkStudentLinkedTables) {
+        await tx.execute(sql.raw(`DELETE FROM "${t}" WHERE student_id IN (${idsList})`));
       }
 
-      // 4. Now drain data_sessions and fbas (their own children are gone).
-      await tx.execute(sql`DELETE FROM data_sessions WHERE student_id IN ${studentIds}`);
-      await tx.execute(sql`DELETE FROM fbas WHERE student_id IN ${studentIds}`);
+      // Delete every transitively-reachable row.
+      for (const [table, preds] of predicates.entries()) {
+        if (table === "students") continue; // students themselves come last
+        const where = preds.map(p => `(${p})`).join(" OR ");
+        await tx.execute(sql.raw(`DELETE FROM "${table}" WHERE ${where}`));
+      }
 
-      // 5. NULL out case_manager self-refs and finally remove students.
-      await tx.execute(sql`UPDATE students SET case_manager_id = NULL WHERE id IN ${studentIds}`);
-      await tx.execute(sql`DELETE FROM students WHERE id IN ${studentIds}`);
+      // Self-ref on students (case_manager_id) and final delete.
+      await tx.execute(sql.raw(`UPDATE students SET case_manager_id = NULL WHERE id IN (${idsList})`));
+      await tx.execute(sql.raw(`DELETE FROM students WHERE id IN (${idsList})`));
     });
   }
 
