@@ -12,6 +12,7 @@ import {
   backfillPilotBaselines,
 } from "./lib/pilotBaselineSnapshots";
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
+import { ensureDemoReadinessRunsTable } from "./lib/demoReadinessHistory";
 import { startMedicaidReportSnapshotScheduler } from "./lib/medicaidReportSnapshotsScheduler";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -167,4 +168,6 @@ app.listen(port, (err) => {
         logger.warn({ err }, "backfillPilotBaselines failed (non-fatal)"),
       );
     });
+  ensureDemoReadinessRunsTable()
+    .catch((err: unknown) => logger.warn({ err }, "ensureDemoReadinessRunsTable failed (non-fatal)"));
 });

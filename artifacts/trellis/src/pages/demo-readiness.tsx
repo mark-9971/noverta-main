@@ -7,9 +7,10 @@ import {
   XCircle,
   RefreshCw,
   ArrowRight,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 
@@ -29,6 +30,16 @@ interface ReadinessReport {
   demoDistrict: { id: number; name: string } | null;
   checks: ReadinessCheck[];
   summary: { pass: number; warn: number; fail: number; total: number };
+}
+
+interface HistoryRun {
+  id: number;
+  generatedAt: string;
+  summary: { pass: number; warn: number; fail: number; total: number };
+}
+
+interface HistoryResponse {
+  runs: HistoryRun[];
 }
 
 function statusIcon(status: Status) {
@@ -61,12 +72,136 @@ function summaryBadge(s: ReadinessReport["summary"]) {
   );
 }
 
+function runOverallStatus(run: HistoryRun): Status {
+  if (run.summary.fail > 0) return "fail";
+  if (run.summary.warn > 0) return "warn";
+  return "pass";
+}
+
+function SparklineBar({ run, maxTotal }: { run: HistoryRun; maxTotal: number }) {
+  const status = runOverallStatus(run);
+  const barColor =
+    status === "pass"
+      ? "bg-emerald-500"
+      : status === "warn"
+        ? "bg-amber-400"
+        : "bg-red-500";
+
+  const heightPct = maxTotal > 0 ? Math.max(20, Math.round((run.summary.pass / maxTotal) * 100)) : 20;
+  const time = new Date(run.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const date = new Date(run.generatedAt).toLocaleDateString([], { month: "short", day: "numeric" });
+
+  return (
+    <div
+      className="group flex flex-col items-center gap-1 cursor-default"
+      title={`${date} ${time} — ${run.summary.pass}/${run.summary.total} passing${run.summary.warn > 0 ? `, ${run.summary.warn} warn` : ""}${run.summary.fail > 0 ? `, ${run.summary.fail} fail` : ""}`}
+    >
+      <div className="relative w-full flex items-end justify-center h-10">
+        <div
+          className={`w-full rounded-sm transition-opacity group-hover:opacity-80 ${barColor}`}
+          style={{ height: `${heightPct}%` }}
+        />
+      </div>
+      <div className="w-px h-1 bg-gray-300" />
+    </div>
+  );
+}
+
+function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
+  if (runs.length === 0) {
+    return (
+      <Card className="border-dashed border-gray-200">
+        <CardContent className="py-4 text-xs text-gray-400 text-center">
+          No history yet — check results will appear here after the first run.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const maxTotal = Math.max(...runs.map(r => r.summary.total), 1);
+  const latestFails = runs[0]?.summary.fail ?? 0;
+  const latestWarns = runs[0]?.summary.warn ?? 0;
+
+  const allPassCount = runs.filter(r => runOverallStatus(r) === "pass").length;
+  const anyFailCount = runs.filter(r => runOverallStatus(r) === "fail").length;
+
+  let trendLabel: string;
+  let trendClass: string;
+  if (anyFailCount === 0 && runs.length >= 2) {
+    trendLabel = "Stable — no failures across all recorded runs";
+    trendClass = "text-emerald-700";
+  } else if (latestFails > 0) {
+    trendLabel = `${latestFails} failing now`;
+    trendClass = "text-red-700";
+  } else if (latestWarns > 0) {
+    trendLabel = `${latestWarns} warning(s) now`;
+    trendClass = "text-amber-700";
+  } else {
+    trendLabel = "Currently passing";
+    trendClass = "text-emerald-700";
+  }
+
+  const displayRuns = [...runs].reverse();
+
+  return (
+    <Card className="border-gray-200">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-gray-400" />
+            <CardTitle className="text-sm font-medium text-gray-700">
+              Run history ({runs.length} run{runs.length !== 1 ? "s" : ""}, most-recent on right)
+            </CardTitle>
+          </div>
+          <span className={`text-xs font-semibold ${trendClass}`}>{trendLabel}</span>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500" /> All-pass runs: {allPassCount}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="inline-block w-2 h-2 rounded-sm bg-amber-400" /> Warn
+          </span>
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="inline-block w-2 h-2 rounded-sm bg-red-500" /> Fail
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="px-5 pb-4">
+        <div
+          className="grid gap-0.5 items-end"
+          style={{ gridTemplateColumns: `repeat(${displayRuns.length}, minmax(0, 1fr))` }}
+        >
+          {displayRuns.map(run => (
+            <SparklineBar key={run.id} run={run} maxTotal={maxTotal} />
+          ))}
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-xs text-gray-400">
+            {new Date(displayRuns[0]?.generatedAt ?? "").toLocaleDateString([], { month: "short", day: "numeric" })}
+          </span>
+          <span className="text-xs text-gray-400">
+            {new Date(displayRuns[displayRuns.length - 1]?.generatedAt ?? "").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DemoReadinessPage() {
   const { isPlatformAdmin } = useRole();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<ReadinessReport>({
     queryKey: ["demo-readiness"],
     queryFn: () => apiGet<ReadinessReport>("/api/support/demo-readiness"),
+    enabled: isPlatformAdmin,
+    refetchInterval: 60_000,
+  });
+
+  const { data: historyData, refetch: refetchHistory } = useQuery<HistoryResponse>({
+    queryKey: ["demo-readiness-history"],
+    queryFn: () => apiGet<HistoryResponse>("/api/support/demo-readiness/history"),
     enabled: isPlatformAdmin,
     refetchInterval: 60_000,
   });
@@ -97,7 +232,11 @@ export default function DemoReadinessPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => refetch()}
+          onClick={() => {
+            refetch();
+            // Delay history refetch slightly so the new row has been written first.
+            setTimeout(() => { void refetchHistory(); }, 1500);
+          }}
           disabled={isFetching}
           className="gap-2 shrink-0"
         >
@@ -134,6 +273,8 @@ export default function DemoReadinessPage() {
           </CardContent>
         </Card>
       )}
+
+      <HistorySparkline runs={historyData?.runs ?? []} />
 
       {isLoading && (
         <div className="space-y-3">

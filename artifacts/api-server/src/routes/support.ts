@@ -6,7 +6,7 @@ import {
   db, districtsTable, districtSubscriptionsTable, schoolsTable, studentsTable,
   staffTable, sisConnectionsTable, sisSyncLogsTable, importsTable,
   communicationEventsTable, onboardingProgressTable, auditLogsTable,
-  viewAsSessionsTable,
+  viewAsSessionsTable, demoReadinessRunsTable,
   TIER_MODULES, MODULE_FEATURES, MODULE_LABELS, TIER_LABELS,
   type DistrictTier, type ProductModule, type FeatureKey,
 } from "@workspace/db";
@@ -1140,8 +1140,32 @@ router.get("/support/demo-readiness", async (_req: Request, res: Response) => {
       { pass: 0, warn: 0, fail: 0, total: 0 },
     );
 
+    const generatedAt = new Date();
+
+    // Persist this run to history (fire-and-forget; never blocks the response).
+    db.insert(demoReadinessRunsTable).values({
+      generatedAt,
+      pass: summary.pass,
+      warn: summary.warn,
+      fail: summary.fail,
+      total: summary.total,
+      checks: checks as unknown as Record<string, unknown>[],
+    }).then(() =>
+      // Cap at last 50 runs.
+      db.execute(sql`
+        DELETE FROM demo_readiness_runs
+        WHERE id NOT IN (
+          SELECT id FROM demo_readiness_runs
+          ORDER BY generated_at DESC
+          LIMIT 50
+        )
+      `)
+    ).catch((e: unknown) => {
+      console.error("[Support] demo-readiness history write error:", e);
+    });
+
     res.json({
-      generatedAt: new Date().toISOString(),
+      generatedAt: generatedAt.toISOString(),
       demoDistrict: { id: demoRow.id, name: demoRow.name },
       checks,
       summary,
@@ -1149,6 +1173,42 @@ router.get("/support/demo-readiness", async (_req: Request, res: Response) => {
   } catch (err) {
     console.error("[Support] demo-readiness error:", err);
     res.status(500).json({ error: "Failed to compute demo readiness" });
+  }
+});
+
+/**
+ * GET /api/support/demo-readiness/history?limit=50
+ * Returns the last N demo-readiness check runs (most-recent first).
+ * Each row contains the timestamp and pass/warn/fail summary counts.
+ * The per-check detail is omitted here to keep payloads small — the
+ * UI only needs the summary for the sparkline.
+ */
+router.get("/support/demo-readiness/history", async (req: Request, res: Response) => {
+  const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 50));
+  try {
+    const rows = await db
+      .select({
+        id: demoReadinessRunsTable.id,
+        generatedAt: demoReadinessRunsTable.generatedAt,
+        pass: demoReadinessRunsTable.pass,
+        warn: demoReadinessRunsTable.warn,
+        fail: demoReadinessRunsTable.fail,
+        total: demoReadinessRunsTable.total,
+      })
+      .from(demoReadinessRunsTable)
+      .orderBy(desc(demoReadinessRunsTable.generatedAt))
+      .limit(limit);
+
+    res.json({
+      runs: rows.map(r => ({
+        id: r.id,
+        generatedAt: r.generatedAt,
+        summary: { pass: r.pass, warn: r.warn, fail: r.fail, total: r.total },
+      })),
+    });
+  } catch (err) {
+    console.error("[Support] demo-readiness history error:", err);
+    res.status(500).json({ error: "Failed to load demo readiness history" });
   }
 });
 
