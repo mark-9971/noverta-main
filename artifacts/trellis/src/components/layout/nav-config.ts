@@ -110,7 +110,6 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/iep-builder", label: "IEP Builder", icon: Sparkles, primary: true },
-      { href: "/iep-search", label: "IEP Search", icon: FileSearch },
       { href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays },
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },

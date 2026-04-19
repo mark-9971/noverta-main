@@ -249,7 +249,7 @@ function StaffRouter() {
       <BoundedRoute path="/staff/:id" component={StaffDetailPage} fallbackTitle="Staff details error" />
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
-      <BoundedRoute path="/iep-search" component={IepSearchPage} fallbackTitle="Search error" />
+      <Route path="/iep-search">{() => <Redirect to="/iep-builder" />}</Route>
       {/* Phase 1a silent redirect: deprecated work-queue surface → Today */}
       <Route path="/action-center">{() => <Redirect to="/today" />}</Route>
       <BoundedRoute path="/_action-center-legacy" component={ActionCenterPage} fallbackTitle="Action center error" />

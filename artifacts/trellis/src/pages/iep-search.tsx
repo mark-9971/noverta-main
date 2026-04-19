@@ -6,7 +6,7 @@ import { Search, Target, BookOpen, Users, ChevronRight, Filter } from "lucide-re
 import { searchIep } from "@workspace/api-client-react";
 
 
-export default function IepSearch({ embedded = false }: { embedded?: boolean } = {}) {
+export default function IepSearch({ embedded = false, routeToBuilder = false }: { embedded?: boolean; routeToBuilder?: boolean } = {}) {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState("all");
   const [results, setResults] = useState<any>(null);
@@ -79,7 +79,7 @@ export default function IepSearch({ embedded = false }: { embedded?: boolean } =
                 </div>
                 <div className="space-y-2">
                   {results.goals.map((g: any) => (
-                    <Link key={g.id} href={`/students/${g.studentId}/iep`}>
+                    <Link key={g.id} href={routeToBuilder ? `/students/${g.studentId}/iep-builder` : `/students/${g.studentId}/iep`}>
                       <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
@@ -107,7 +107,7 @@ export default function IepSearch({ embedded = false }: { embedded?: boolean } =
                 </div>
                 <div className="space-y-2">
                   {results.accommodations.map((a: any) => (
-                    <Link key={a.id} href={`/students/${a.studentId}/iep`}>
+                    <Link key={a.id} href={routeToBuilder ? `/students/${a.studentId}/iep-builder` : `/students/${a.studentId}/iep`}>
                       <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
@@ -135,7 +135,7 @@ export default function IepSearch({ embedded = false }: { embedded?: boolean } =
                 </div>
                 <div className="space-y-2">
                   {results.students.map((s: any) => (
-                    <Link key={s.id} href={`/students/${s.id}`}>
+                    <Link key={s.id} href={routeToBuilder ? `/students/${s.id}/iep-builder` : `/students/${s.id}`}>
                       <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group">
                         <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-[11px] font-bold text-emerald-600">
                           {(s.firstName?.[0] || "")}{(s.lastName?.[0] || "")}
