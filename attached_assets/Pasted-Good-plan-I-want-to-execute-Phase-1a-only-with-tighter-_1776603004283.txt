@@ -1,0 +1,84 @@
+Good plan. I want to execute Phase 1a only, with tighter scope and lower risk.
+
+Do NOT implement the full redesign.
+Do NOT start workspace consolidation yet.
+Do NOT do broad page rewrites yet.
+
+Implement only these changes:
+
+1. Strip all sidebar items that are really internal tabs / ?tab=* links
+Apply across:
+- adminNav
+- focusedAdminNav
+- caseManagerNav
+- coordinatorNav
+- spedTeacherNav
+- bcbaNav
+- paraNav
+- directProviderNav
+
+2. Trim BCBA and para shells
+- BCBA shell should remove tab-spam and reduce to strong top-level destinations only
+- Para shell must remove “Programs & Behaviors”
+- Para/direct staff should only have:
+  - My Day
+  - My Schedule
+  - Session Log
+  - Incidents only if both role + feature flag allow it
+
+3. Hide admin/internal/platform routes from non-admin shells
+Start with the most obvious non-daily / non-provider routes only:
+- /data-health
+- /import
+- /state-reporting
+- /medicaid-billing
+- /contract-utilization
+- /resource-management
+- /pilot-status
+- /admin/*
+- /tenants
+- /support-session
+- platform-only tools
+Be conservative and explicit. Do not accidentally hide routes that active provider workflows still need.
+
+4. Add silent redirects for deprecated duplicate routes
+- /action-center -> /today
+- /program-data -> /aba?tab=programs
+- /iep -> /students
+- /district -> /executive?tab=district
+- /leadership-packet -> /executive?tab=leadership
+
+5. Fix the /behavior-assessment dead-end
+If no FBA context exists, show an inline picker instead of an unusable empty state.
+
+Important refinements to your plan:
+
+A. Keep this as a shell-cleanup release only.
+No major business-logic rewrites.
+No workspace consolidation yet.
+No broad widget-registry work.
+No role-aware student page work yet.
+
+B. Do NOT fully redesign /today in this pass.
+You may wire redirects and prepare for role-based landing, but do not turn this into a large dashboard/widget rewrite.
+If needed, keep /today mostly as-is for now.
+
+C. Be careful with role-home logic.
+I want a recommendation before changing default landing behavior:
+- should all non-para staff land on /today?
+- should admins also land on /today?
+- what is the safest fallback if Clerk role metadata is missing?
+Do not silently make a risky landing-page switch without explaining it first.
+
+Before coding, give me:
+
+1. Exact files you will edit
+2. Exact nav items that will be removed per role shell
+3. Exact routes that will be hidden per role
+4. Any backward-compatibility or role-metadata risks
+5. Whether you recommend including or excluding default landing-page changes in this Phase 1a PR
+
+Then implement only this Phase 1a slice and summarize:
+- what changed
+- what was intentionally left untouched
+- what should be next in Phase 1b
