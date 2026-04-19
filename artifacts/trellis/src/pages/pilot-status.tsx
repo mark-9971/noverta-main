@@ -181,7 +181,16 @@ export default function PilotStatusPage() {
       ? `/pilot-status?districtId=${encodeURIComponent(activeDistrictId)}`
       : "/pilot-status";
     apiGet<PilotStatusResponse>(path)
-      .then((r) => { if (!cancelled) { setData(r); setError(null); } })
+      .then((r) => {
+        if (cancelled) return;
+        if (r && typeof r === "object" && "error" in r && !(r as any).district) {
+          setError((r as any).error ?? "Failed to load pilot status");
+          setData(null);
+        } else {
+          setData(r);
+          setError(null);
+        }
+      })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -239,7 +248,7 @@ export default function PilotStatusPage() {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !data.district) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-6">
