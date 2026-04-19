@@ -17,6 +17,19 @@ export const districtsTable = pgTable("districts", {
   hasSampleData: boolean("has_sample_data").notNull().default(false),
   complianceMinuteThreshold: integer("compliance_minute_threshold").notNull().default(85),
   alertDigestMode: boolean("alert_digest_mode").notNull().default(false),
+  // Per-district kill switch for the weekly cost-avoidance / risk digest
+  // email. Created at runtime by costAvoidanceWeeklyDigest.ts; declared here
+  // so drizzle-kit push does not propose dropping/renaming it. Default true
+  // matches the runtime DDL.
+  weeklyRiskEmailEnabled: boolean("weekly_risk_email_enabled").notNull().default(true),
+  // Enables the weekly pilot scorecard email for districts on a pilot.
+  // Created at runtime alongside weekly_risk_email_enabled; declared here for
+  // the same reason. Default true.
+  pilotScorecardEmailEnabled: boolean("pilot_scorecard_email_enabled").notNull().default(true),
+  // Last week-start date for which a pilot scorecard email was successfully
+  // sent. Created at runtime by pilotScorecard.ts; declared here so
+  // drizzle-kit push does not propose dropping/renaming it.
+  pilotScorecardLastSentWeekStart: date("pilot_scorecard_last_sent_week_start"),
   // When true, newly-critical risks (not previously critical) bypass the
   // digest and trigger an immediate individual email even if digest mode is on.
   spikeAlertEnabled: boolean("spike_alert_enabled").notNull().default(true),

@@ -1,4 +1,6 @@
 export { db, pool } from "./db";
+export { runMigrations, assertCoreSchemaPresent } from "./migrate";
+export type { MigrationRunResult } from "./migrate";
 export * from "./schema";
 export * from "./seed-sample-data";
 export * from "./backfill-goal-progress";

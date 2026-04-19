@@ -15,7 +15,10 @@ import {
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
 import { ensureDemoReadinessRunsTable } from "./lib/demoReadinessHistory";
 import { startMedicaidReportSnapshotScheduler } from "./lib/medicaidReportSnapshotsScheduler";
-import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
+import { db, districtSubscriptionsTable, districtsTable, runMigrations as runDbMigrations, assertCoreSchemaPresent } from "@workspace/db";
+import path from "node:path";
+import fs from "node:fs";
+import { spawn } from "node:child_process";
 import { sql } from "drizzle-orm";
 import { ensureDbConstraints } from "./lib/activeSchoolYear";
 import { initDevDistrictFallback } from "./middlewares/auth";
@@ -137,6 +140,95 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+// Spawns `drizzle-kit push --force` to provision the base schema from
+// `lib/db/src/schema/`. Used to bootstrap empty DBs at startup so a fresh
+// environment can come up without a manual operator step. Resolved via
+// `pnpm exec` so it works in dev (tsx) and in deployed builds where
+// node_modules is available.
+async function runDrizzlePush(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      "pnpm",
+      ["--filter", "@workspace/db", "push-force"],
+      { stdio: ["ignore", "inherit", "inherit"] },
+    );
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`drizzle-kit push exited with code ${code}`));
+    });
+  });
+}
+
+async function isCoreSchemaMissing(): Promise<boolean> {
+  try {
+    await assertCoreSchemaPresent();
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+// Apply pending SQL migrations from @workspace/db before opening the listening
+// socket. Failure here is fatal: serving traffic against a stale schema is
+// what produced the 500-storms this runner is meant to prevent.
+async function applyPendingMigrations() {
+  // In dev (tsx) the migrations live next to the source under
+  // node_modules/@workspace/db/src/migrations (resolved by import.meta.url
+  // inside @workspace/db). In the bundled build, build.mjs copies them next
+  // to dist/index.mjs, so we point the runner at that directory.
+  const bundledDir = path.join(__dirname, "migrations");
+  const migrationsDir = fs.existsSync(bundledDir) ? bundledDir : undefined;
+
+  // If the DB is empty (no `districts` table, etc.), bootstrap the base
+  // schema declaratively from `lib/db/src/schema/` first. Migration 001 and
+  // others backfill data against tables that must already exist, so this
+  // step has to come before the SQL migration runner. After bootstrapping,
+  // SQL files for objects already created by drizzle-kit push will be
+  // recorded as applied via the runner's "already exists" idempotency path.
+  if (await isCoreSchemaMissing()) {
+    logger.warn(
+      "Core schema missing — bootstrapping with `drizzle-kit push --force`",
+    );
+    try {
+      await runDrizzlePush();
+    } catch (err) {
+      logger.error({ err }, "drizzle-kit push failed during bootstrap");
+      throw err;
+    }
+  }
+
+  const result = await runDbMigrations({
+    migrationsDir,
+    logger: {
+      info: (msg) => logger.info({ subsystem: "migrate" }, msg),
+      warn: (msg) => logger.warn({ subsystem: "migrate" }, msg),
+    },
+  });
+  logger.info(
+    {
+      applied: result.applied,
+      appliedCount: result.applied.length,
+      baselinedCount: result.baselined.length,
+      skippedCount: result.skipped.length,
+      dir: result.migrationsDir,
+    },
+    "DB migrations complete",
+  );
+  // Fail fast if migrations did not produce a usable schema. Better to
+  // refuse to start than to serve 500s against a half-configured DB.
+  await assertCoreSchemaPresent();
+}
+
+try {
+  await applyPendingMigrations();
+} catch (err) {
+  logger.error({ err }, "FATAL: DB migrations failed");
+  captureException(err instanceof Error ? err : new Error(String(err)), { source: "applyPendingMigrations" });
+  await flushSentry(2000);
+  process.exit(1);
 }
 
 await initDevDistrictFallback().catch((e) => logger.warn({ err: e }, "initDevDistrictFallback failed (non-fatal)"));

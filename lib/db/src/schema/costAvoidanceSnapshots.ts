@@ -16,6 +16,10 @@ export const costAvoidanceSnapshotsTable = pgTable("cost_avoidance_snapshots", {
   studentsAtRisk: integer("students_at_risk").notNull().default(0),
   unpricedRiskCount: integer("unpriced_risk_count").notNull().default(0),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+  // Tracks the most recent successful weekly digest dispatch for idempotency.
+  // Created at runtime by costAvoidanceWeeklyDigest.ts; declared here so
+  // drizzle-kit push does not propose dropping/renaming it.
+  weeklyDigestSentAt: timestamp("weekly_digest_sent_at", { withTimezone: true }),
 }, (table) => [
   index("cas_district_week_idx").on(table.districtId, table.weekStart),
   unique("cas_district_week_unique").on(table.districtId, table.weekStart),

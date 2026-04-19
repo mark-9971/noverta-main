@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, mkdir, cp } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -120,6 +120,13 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // Copy SQL migrations next to dist/index.mjs so the bundled server can
+  // apply them at startup (esbuild does not bundle filesystem reads).
+  const migrationsSrc = path.resolve(artifactDir, "../../lib/db/src/migrations");
+  const migrationsDest = path.join(distDir, "migrations");
+  await mkdir(migrationsDest, { recursive: true });
+  await cp(migrationsSrc, migrationsDest, { recursive: true });
 }
 
 buildAll().catch((err) => {

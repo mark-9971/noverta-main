@@ -11,4 +11,8 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
+  // Exclude internal tables managed by the SQL migration runner
+  // (lib/db/src/migrate.ts) — these are not part of the application schema
+  // and must not appear in drizzle-kit diffs.
+  tablesFilter: ["!_app_migrations"],
 });
