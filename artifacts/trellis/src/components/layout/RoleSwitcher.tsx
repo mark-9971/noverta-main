@@ -1,23 +1,24 @@
 import { useRole, type UserRole } from "@/lib/role-context";
-import { Shield, Brain, User, Users, Sun, Briefcase, Activity, ClipboardList, Stethoscope, HandHelping } from "lucide-react";
+import { Shield, Briefcase, Activity, HandHelping } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
-// Phase 2A follow-up: switcher now exposes every staff role plus the
-// student/parent personas so all role-gated views are testable from the UI.
-// Order roughly mirrors org seniority (admin → coordinator → case mgr →
-// teacher → BCBA → provider → direct provider → para → student → parent).
+// Phase 2B demo simplification: collapse the visible demo personas to four
+// grouped roles. Underlying UserRole keys (coordinator, sped_teacher,
+// provider, direct_provider, sped_student, sped_parent) still exist and
+// continue to work when reached directly — they're just hidden from the
+// main demo switcher to keep the demo story focused.
+//
+// Visible persona      →  underlying role used by the shell
+//   Admin              →  admin
+//   Case Mgr / Teacher →  case_manager   (cleaner case-mgmt shell)
+//   BCBA / Provider    →  bcba           (preserves ABA differentiation)
+//   Para               →  para
 const roles: { value: UserRole; label: string; icon: LucideIcon; activeClass: string }[] = [
-  { value: "admin",           label: "Admin",             icon: Shield,        activeClass: "bg-emerald-800 text-white shadow-sm" },
-  { value: "coordinator",     label: "Coordinator",       icon: ClipboardList, activeClass: "bg-emerald-700 text-white shadow-sm" },
-  { value: "case_manager",    label: "Case Manager",      icon: Briefcase,     activeClass: "bg-emerald-700 text-white shadow-sm" },
-  { value: "sped_teacher",    label: "SPED Teacher",      icon: Brain,         activeClass: "bg-emerald-700 text-white shadow-sm" },
-  { value: "bcba",            label: "BCBA",              icon: Activity,      activeClass: "bg-emerald-600 text-white shadow-sm" },
-  { value: "provider",        label: "Provider",          icon: Stethoscope,   activeClass: "bg-emerald-600 text-white shadow-sm" },
-  { value: "direct_provider", label: "Direct Provider",   icon: Sun,           activeClass: "bg-emerald-600 text-white shadow-sm" },
-  { value: "para",            label: "Paraprofessional",  icon: HandHelping,   activeClass: "bg-emerald-500 text-white shadow-sm" },
-  { value: "sped_student",    label: "SPED Student",      icon: User,          activeClass: "bg-emerald-500 text-white shadow-sm" },
-  { value: "sped_parent",     label: "Parent / Guardian", icon: Users,         activeClass: "bg-purple-600 text-white shadow-sm" },
+  { value: "admin",        label: "Admin",                  icon: Shield,      activeClass: "bg-emerald-800 text-white shadow-sm" },
+  { value: "case_manager", label: "Case Manager / Teacher", icon: Briefcase,   activeClass: "bg-emerald-700 text-white shadow-sm" },
+  { value: "bcba",         label: "BCBA / Provider",        icon: Activity,    activeClass: "bg-emerald-600 text-white shadow-sm" },
+  { value: "para",         label: "Para",                   icon: HandHelping, activeClass: "bg-emerald-500 text-white shadow-sm" },
 ];
 
 export function RoleSwitcher() {
@@ -37,6 +38,7 @@ export function RoleSwitcher() {
                 ? r.activeClass
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             )}
+            data-testid={`button-role-${r.value}`}
           >
             <r.icon className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{r.label}</span>
