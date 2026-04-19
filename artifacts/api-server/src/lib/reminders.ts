@@ -17,6 +17,8 @@ import {
   districtsTable,
   caseloadSnapshotsTable,
   staffAssignmentsTable,
+  rateLimitBucketsTable,
+  uploadQuotasTable,
   type InsertAlert,
 } from "@workspace/db";
 import { eq, and, lt, ne, sql, isNull, or, lte, gt, inArray } from "drizzle-orm";
@@ -1037,6 +1039,36 @@ async function runDemoDistrictExpiry(): Promise<void> {
   }
 }
 
+/**
+ * Prune stale rate limit buckets and old upload quota rows to prevent
+ * unbounded DB growth. Rate limit windows are 60s in practice; deleting
+ * rows older than 2 minutes is safely past the window boundary. Upload
+ * quotas are kept for 30 days for reporting/audit purposes.
+ */
+async function runStaleBucketCleanup(): Promise<void> {
+  try {
+    const rateCutoff = new Date(Date.now() - 2 * 60 * 1000);
+    const deletedBuckets = await db
+      .delete(rateLimitBucketsTable)
+      .where(lt(rateLimitBucketsTable.windowStart, rateCutoff))
+      .returning({ key: rateLimitBucketsTable.bucketKey });
+
+    const quotaCutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .substring(0, 10);
+    const deletedQuotas = await db
+      .delete(uploadQuotasTable)
+      .where(lt(uploadQuotasTable.quotaDate, quotaCutoffDate))
+      .returning({ id: uploadQuotasTable.id });
+
+    console.log(
+      `[Reminders] Stale bucket cleanup: pruned ${deletedBuckets.length} rate_limit_buckets, ${deletedQuotas.length} upload_quotas`,
+    );
+  } catch (err) {
+    console.error("[Reminders] Stale bucket cleanup failed:", err);
+  }
+}
+
 async function runAllReminders(): Promise<void> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
   try {
@@ -1051,6 +1083,7 @@ async function runAllReminders(): Promise<void> {
       runComplianceRiskAlerts(),
       runCaseloadSnapshots(),
       runDemoDistrictExpiry(),
+      runStaleBucketCleanup(),
       runProviderActivationNudges().then(() => undefined),
       runApprovalReminders(),
       runCoverageReminders().then(() => undefined),
