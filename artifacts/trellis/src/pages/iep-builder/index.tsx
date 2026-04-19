@@ -15,7 +15,9 @@ import { useRole } from "@/lib/role-context";
 import {
   type Step, type BuilderContext, type GeneratedDraft,
   type ParentQuestionnaire, type TeacherQuestionnaire, type TransitionInput,
+  type LocalRecoverySnapshot,
   EMPTY_PARENT, EMPTY_TEACHER, EMPTY_TRANSITION, API_BASE,
+  readLocalRecoverySnapshot, writeLocalRecoverySnapshot, clearLocalRecoverySnapshot,
 } from "./types";
 import { StepIndicator } from "./shared";
 import { Step1Context } from "./Step1Context";
@@ -45,7 +47,10 @@ export default function IepBuilderPage() {
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<{ wizardStep: number; formData: any; updatedAt: string; lastEditorName: string | null } | null>(null);
   const [draftResolved, setDraftResolved] = useState(false);
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [pendingRecovery, setPendingRecovery] = useState<LocalRecoverySnapshot | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -97,11 +102,29 @@ export default function IepBuilderPage() {
     isDirtyRef.current = isDirty;
   }, [isDirty]);
 
+  const scheduleLocalRecoverySave = useCallback(() => {
+    if (localSaveTimerRef.current) clearTimeout(localSaveTimerRef.current);
+    localSaveTimerRef.current = setTimeout(() => {
+      writeLocalRecoverySnapshot(studentId, {
+        wizardStep: stepRef.current,
+        formData: {
+          parent: parentRef.current,
+          teacher: teacherRef.current,
+          transition: transitionRef.current,
+        },
+        updatedAt: new Date().toISOString(),
+      });
+    }, 500);
+  }, [studentId]);
+
   const markDirty = useCallback(() => {
     changeVersionRef.current += 1;
     setIsDirty(true);
     isDirtyRef.current = true;
-  }, []);
+    // Persist a recovery snapshot only on real user edits so we never
+    // overwrite an authoritative server state with passively-loaded data.
+    scheduleLocalRecoverySave();
+  }, [scheduleLocalRecoverySave]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -204,6 +227,8 @@ export default function IepBuilderPage() {
         if (changeVersionRef.current === versionAtSave) {
           setIsDirty(false);
           isDirtyRef.current = false;
+          // Server now holds the authoritative copy; drop the local recovery snapshot.
+          clearLocalRecoverySnapshot(studentId);
         }
       }
     } catch {}
@@ -221,6 +246,7 @@ export default function IepBuilderPage() {
       await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft`, { method: "DELETE" });
     } catch {}
     setDraftSavedAt(null);
+    clearLocalRecoverySnapshot(studentId);
   }, [studentId]);
 
   useEffect(() => {
@@ -233,11 +259,33 @@ export default function IepBuilderPage() {
         ]);
         if (cancelled) return;
         setContext(ctxData as any);
-        if (draftRes && draftRes.formData) {
-          setPendingDraft({ wizardStep: draftRes.wizardStep, formData: draftRes.formData, updatedAt: draftRes.updatedAt, lastEditorName: draftRes.lastEditorName ?? null });
-          setShowResumeDialog(true);
+
+        const localSnap = readLocalRecoverySnapshot(studentId);
+        const serverDraft = draftRes && draftRes.formData
+          ? { wizardStep: draftRes.wizardStep, formData: draftRes.formData, updatedAt: draftRes.updatedAt, lastEditorName: draftRes.lastEditorName ?? null }
+          : null;
+
+        // Local snapshot wins only if it's strictly newer than what the server has.
+        // This means an unsaved/in-flight edit was lost before reaching the server.
+        const localIsNewer =
+          !!localSnap &&
+          (!serverDraft || new Date(localSnap.updatedAt).getTime() > new Date(serverDraft.updatedAt).getTime());
+
+        if (serverDraft) {
+          setPendingDraft(serverDraft);
+        }
+
+        if (localIsNewer && localSnap) {
+          setPendingRecovery(localSnap);
+          setShowRecoveryDialog(true);
         } else {
-          setDraftResolved(true);
+          // Local snapshot is stale (server already has these edits or newer); discard it.
+          if (localSnap) clearLocalRecoverySnapshot(studentId);
+          if (serverDraft) {
+            setShowResumeDialog(true);
+          } else {
+            setDraftResolved(true);
+          }
         }
       } catch {
         if (!cancelled) toast.error("Failed to load student context");
@@ -266,6 +314,37 @@ export default function IepBuilderPage() {
     setShowResumeDialog(false);
     setPendingDraft(null);
     setDraftResolved(true);
+  }
+
+  function recoverLocal() {
+    if (!pendingRecovery) return;
+    const fd = pendingRecovery.formData;
+    if (fd.parent) setParent({ ...EMPTY_PARENT, ...fd.parent });
+    if (fd.teacher) setTeacher({ ...EMPTY_TEACHER, ...fd.teacher });
+    if (fd.transition) setTransition({ ...EMPTY_TRANSITION, ...fd.transition });
+    setStep(pendingRecovery.wizardStep as Step);
+    setShowRecoveryDialog(false);
+    setPendingRecovery(null);
+    // Recovered changes haven't been saved to the server yet — mark dirty so
+    // the autosave / leave guard treat them as unsaved.
+    setIsDirty(true);
+    isDirtyRef.current = true;
+    changeVersionRef.current += 1;
+    // Skip the server "Resume" prompt; the user has already chosen recovery.
+    setShowResumeDialog(false);
+    setDraftResolved(true);
+  }
+
+  function discardLocal() {
+    clearLocalRecoverySnapshot(studentId);
+    setShowRecoveryDialog(false);
+    setPendingRecovery(null);
+    // Fall back to the server-draft prompt if one is available.
+    if (pendingDraft) {
+      setShowResumeDialog(true);
+    } else {
+      setDraftResolved(true);
+    }
   }
 
   const parentRef = useRef(parent);
@@ -397,6 +476,11 @@ export default function IepBuilderPage() {
     setStaleDraftWarning(null);
   }, [staleDraftWarning]);
 
+  // Cancel any in-flight local recovery write on unmount.
+  useEffect(() => {
+    return () => { if (localSaveTimerRef.current) clearTimeout(localSaveTimerRef.current); };
+  }, []);
+
   const changeStep = useCallback((newStep: Step) => {
     setStep(newStep);
     if (draftResolvedRef.current) {
@@ -505,6 +589,35 @@ export default function IepBuilderPage() {
               </Button>
               <Button className="flex-1" variant="outline" onClick={confirmLeave}>
                 Leave Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRecoveryDialog && pendingRecovery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <h2 className="text-base font-bold text-gray-900">Recover Unsaved Changes?</h2>
+            </div>
+            <p className="text-[13px] text-gray-600 mb-1">
+              We found unsaved IEP builder changes from this browser dated{" "}
+              <span className="font-semibold">
+                {new Date(pendingRecovery.updatedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+              . These changes were never saved to the server — likely due to a tab crash or lost connection.
+            </p>
+            <p className="text-[12px] text-gray-400 mb-5">The recovered draft is at step {pendingRecovery.wizardStep} of the wizard.</p>
+            <div className="flex gap-3">
+              <Button className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={recoverLocal}>
+                <RefreshCw className="w-4 h-4 mr-2" /> Recover Changes
+              </Button>
+              <Button className="flex-1" variant="outline" onClick={discardLocal}>
+                Discard
               </Button>
             </div>
           </div>

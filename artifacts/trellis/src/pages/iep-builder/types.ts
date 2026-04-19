@@ -153,3 +153,45 @@ export const EMPTY_TRANSITION: TransitionInput = {
 };
 
 export const API_BASE = "/api";
+
+export interface LocalRecoverySnapshot {
+  wizardStep: number;
+  formData: {
+    parent: ParentQuestionnaire;
+    teacher: TeacherQuestionnaire;
+    transition: TransitionInput;
+  };
+  updatedAt: string;
+}
+
+export const LOCAL_RECOVERY_KEY = (studentId: number) =>
+  `iep-builder-recovery:v1:${studentId}`;
+
+export function readLocalRecoverySnapshot(
+  studentId: number
+): LocalRecoverySnapshot | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_RECOVERY_KEY(studentId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LocalRecoverySnapshot;
+    if (!parsed?.formData || !parsed.updatedAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLocalRecoverySnapshot(
+  studentId: number,
+  snap: LocalRecoverySnapshot
+) {
+  try {
+    localStorage.setItem(LOCAL_RECOVERY_KEY(studentId), JSON.stringify(snap));
+  } catch {}
+}
+
+export function clearLocalRecoverySnapshot(studentId: number) {
+  try {
+    localStorage.removeItem(LOCAL_RECOVERY_KEY(studentId));
+  } catch {}
+}
