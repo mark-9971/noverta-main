@@ -18,6 +18,17 @@ export const SCHOOL_COLORS = [
   { bg: "bg-indigo-100", border: "border-indigo-300", text: "text-indigo-800", dot: "bg-indigo-500" },
 ];
 
+export const SCHOOL_COLOR_HEX = [
+  { bg: "#d1fae5", border: "#6ee7b7", text: "#065f46", dot: "#10b981" },
+  { bg: "#dbeafe", border: "#93c5fd", text: "#1e40af", dot: "#3b82f6" },
+  { bg: "#fef3c7", border: "#fcd34d", text: "#92400e", dot: "#f59e0b" },
+  { bg: "#f3e8ff", border: "#d8b4fe", text: "#6b21a8", dot: "#a855f7" },
+  { bg: "#ffe4e6", border: "#fda4af", text: "#9f1239", dot: "#f43f5e" },
+  { bg: "#cffafe", border: "#67e8f9", text: "#155e75", dot: "#06b6d4" },
+  { bg: "#ffedd5", border: "#fdba74", text: "#9a3412", dot: "#f97316" },
+  { bg: "#e0e7ff", border: "#a5b4fc", text: "#3730a3", dot: "#6366f1" },
+];
+
 export interface StaffSchedule {
   id: number;
   staff_id: number;

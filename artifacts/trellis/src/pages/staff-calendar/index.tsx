@@ -19,7 +19,7 @@ import { openPrintWindow, esc } from "@/lib/print-document";
 import {
   StaffSchedule, Conflict, CoverageGap, ProviderSummary,
   StaffOption, SchoolOption, ServiceTypeOption, FormDataT,
-  SCHOOL_COLORS, WEEKDAYS, WEEKDAY_LABELS, formatTime, timeToMinutes,
+  SCHOOL_COLORS, SCHOOL_COLOR_HEX, WEEKDAYS, WEEKDAY_LABELS, formatTime, timeToMinutes,
 } from "./types";
 import { FilterBar } from "./FilterBar";
 import { ScheduleGrid } from "./ScheduleGrid";
@@ -162,17 +162,29 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
     }
     const sortedStaff = Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
+    const schoolLegend = new Map<number, { name: string; color: typeof SCHOOL_COLOR_HEX[0] }>();
+    const uniqueSchools: Array<{ id: number; name: string }> = [];
+    for (const s of filteredSchedules) {
+      if (!schoolLegend.has(s.school_id)) {
+        const color = SCHOOL_COLOR_HEX[schoolLegend.size % SCHOOL_COLOR_HEX.length];
+        schoolLegend.set(s.school_id, { name: s.schoolName, color });
+        uniqueSchools.push({ id: s.school_id, name: s.schoolName });
+      }
+    }
+    const fallback = SCHOOL_COLOR_HEX[0];
+
     const rowsHtml = sortedStaff.map(({ name, blocks }) => {
       const cells = WEEKDAYS.map(day => {
         const dayBlocks = blocks.filter(b => b.day_of_week === day);
         if (!dayBlocks.length) return `<td style="background:#f9fafb;border:1px solid #e5e7eb;padding:6px;vertical-align:top;min-width:100px">&nbsp;</td>`;
-        const entries = dayBlocks.map(b =>
-          `<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:11px">
-            <div style="font-weight:600">${esc(formatTime(b.start_time))}–${esc(formatTime(b.end_time))}</div>
-            <div style="color:#065f46">${esc(b.schoolName)}</div>
+        const entries = dayBlocks.map(b => {
+          const c = schoolLegend.get(b.school_id)?.color || fallback;
+          return `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:11px">
+            <div style="font-weight:600;color:${c.text}">${esc(formatTime(b.start_time))}–${esc(formatTime(b.end_time))}</div>
+            <div style="color:${c.text}">${esc(b.schoolName)}</div>
             ${b.label ? `<div style="color:#374151;font-style:italic">${esc(b.label)}</div>` : ""}
-          </div>`
-        ).join("");
+          </div>`;
+        }).join("");
         return `<td style="border:1px solid #e5e7eb;padding:6px;vertical-align:top;min-width:100px">${entries}</td>`;
       }).join("");
       return `<tr>
@@ -184,6 +196,20 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
     const dayHeaders = WEEKDAYS.map(d =>
       `<th style="border:1px solid #e5e7eb;padding:8px;background:#f3f4f6;font-weight:600;text-align:center">${WEEKDAY_LABELS[d]}</th>`
     ).join("");
+
+    const legendItems = uniqueSchools.map(s => {
+      const c = schoolLegend.get(s.id)!.color;
+      return `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid ${c.border};background:${c.bg};border-radius:4px;font-size:11px;color:${c.text};margin:0 8px 6px 0">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.dot}"></span>
+        <span style="font-weight:500">${esc(s.name)}</span>
+      </div>`;
+    }).join("");
+    const legendHtml = uniqueSchools.length
+      ? `<div style="margin-top:16px">
+          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">School color legend</div>
+          <div>${legendItems}</div>
+        </div>`
+      : "";
 
     return `<!DOCTYPE html>
 <html>
@@ -210,6 +236,7 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
     </thead>
     <tbody>${rowsHtml}</tbody>
   </table>
+  ${legendHtml}
 </body>
 </html>`;
   }
