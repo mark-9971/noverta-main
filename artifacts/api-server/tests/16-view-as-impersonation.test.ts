@@ -256,3 +256,146 @@ describe("view-as: expiry", () => {
     expect(row.endReason).toBe("expired");
   });
 });
+
+/**
+ * Phase 3A-3 additions: implicit-end paths (supersede on a re-start, and
+ * expiry self-heal) must also write to the customer-visible audit_logs so
+ * a district admin can see *every* time a support impersonation ended,
+ * not just the manual ones. Also verifies the GET /api/audit-logs query
+ * surfaces these rows by targetTable=view_as_sessions.
+ */
+describe("view-as: implicit-end audit coverage", () => {
+  test("supersede on /start writes a 'superseded' audit row in addition to the new 'create' row", async () => {
+    // First start.
+    const first = await adminAgent(ADMIN_USER).post("/api/support/view-as/start").send({
+      targetUserId: TARGET_USER,
+      reason: "Phase 3A-3: first session before supersede check",
+      targetSnapshot: { role: "case_manager", displayName: "Target Case Manager", districtId: testDistrictId, staffId: testStaffId },
+    });
+    expect(first.status).toBe(200);
+    const firstSessionId = first.body.sessionId as number;
+
+    // Snapshot the highest audit id so we can scope the supersede lookup to
+    // rows produced by the next request only — avoids picking up the prior
+    // 'create' row by accident.
+    const [{ id: maxIdBefore }] = await db.select({ id: auditLogsTable.id })
+      .from(auditLogsTable).orderBy(desc(auditLogsTable.id)).limit(1);
+
+    // Second start by the same admin → should supersede the first.
+    const second = await adminAgent(ADMIN_USER).post("/api/support/view-as/start").send({
+      targetUserId: TARGET_USER_2,
+      reason: "Phase 3A-3: second session triggers supersede",
+      targetSnapshot: { role: "case_manager", displayName: "T2", districtId: testDistrictId, staffId: testStaffId },
+    });
+    expect(second.status).toBe(200);
+    const secondToken = second.body.token as string;
+
+    // The first session row should now be marked superseded.
+    const [firstRowAfter] = await db.select().from(viewAsSessionsTable)
+      .where(eq(viewAsSessionsTable.id, firstSessionId));
+    expect(firstRowAfter.endReason).toBe("superseded");
+    expect(firstRowAfter.endedAt).not.toBeNull();
+
+    // Poll for the new supersede audit row produced by the second /start.
+    let supersedeRow: typeof auditLogsTable.$inferSelect | null = null;
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const candidates = await db.select().from(auditLogsTable)
+        .where(and(
+          eq(auditLogsTable.action, "update"),
+          eq(auditLogsTable.targetTable, "view_as_sessions"),
+        )).orderBy(desc(auditLogsTable.id)).limit(20);
+      const found = candidates.find(c => {
+        const m = c.metadata as { endReason?: string } | null;
+        return c.id > maxIdBefore && m?.endReason === "superseded";
+      });
+      if (found) { supersedeRow = found; break; }
+      await new Promise(r => setTimeout(r, 25));
+    }
+    expect(supersedeRow).not.toBeNull();
+    expect(supersedeRow!.actorUserId).toBe(ADMIN_USER);
+    const meta = supersedeRow!.metadata as {
+      endReason: string; endedCount: number;
+      replacedByTargetUserId: string; replacedByTargetDistrictId: number | null;
+    };
+    expect(meta.endedCount).toBeGreaterThanOrEqual(1);
+    expect(meta.replacedByTargetUserId).toBe(TARGET_USER_2);
+    expect(meta.replacedByTargetDistrictId).toBe(testDistrictId);
+    // Cleanup the still-open second session.
+    await adminAgent(ADMIN_USER).post("/api/support/view-as/end").set("X-View-As-Token", secondToken);
+  });
+
+  test("expiry self-heal on /active writes an 'expired' audit row", async () => {
+    const startRes = await adminAgent(ADMIN_USER).post("/api/support/view-as/start").send({
+      targetUserId: TARGET_USER_2,
+      reason: "Phase 3A-3: expiry self-heal audit check",
+      targetSnapshot: { role: "case_manager", displayName: "T2", districtId: testDistrictId, staffId: testStaffId },
+    });
+    expect(startRes.status).toBe(200);
+    const { token, sessionId } = startRes.body as { token: string; sessionId: number };
+
+    // Backdate so the next /active poll trips the self-heal branch.
+    await db.update(viewAsSessionsTable)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(viewAsSessionsTable.id, sessionId));
+
+    const r = await adminAgent(ADMIN_USER).get("/api/support/view-as/active").set("X-View-As-Token", token);
+    expect(r.status).toBe(404);
+
+    // Poll for the expired audit row keyed by sessionId. Only the self-heal
+    // branch produces an 'update' on this targetId with endReason=expired.
+    let expiredAudit: typeof auditLogsTable.$inferSelect | null = null;
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const rows = await db.select().from(auditLogsTable)
+        .where(and(
+          eq(auditLogsTable.action, "update"),
+          eq(auditLogsTable.targetTable, "view_as_sessions"),
+          eq(auditLogsTable.targetId, String(sessionId)),
+        )).orderBy(desc(auditLogsTable.id)).limit(5);
+      const found = rows.find(r => (r.metadata as { endReason?: string } | null)?.endReason === "expired");
+      if (found) { expiredAudit = found; break; }
+      await new Promise(r => setTimeout(r, 25));
+    }
+    expect(expiredAudit).not.toBeNull();
+    const m = expiredAudit!.metadata as { endReason: string; targetUserId: string; targetRole: string };
+    expect(m.endReason).toBe("expired");
+    expect(m.targetUserId).toBe(TARGET_USER_2);
+    expect(m.targetRole).toBe("case_manager");
+  });
+
+  test("customer-visible GET /api/audit-logs surfaces view-as rows when filtered by targetTable", async () => {
+    // Prior tests in this file already produced plenty of view_as_sessions
+    // audit rows (lifecycle start+end, hijack, supersede, expiry self-heal).
+    // The point of this test is purely to confirm those rows are reachable
+    // from the customer-facing GET /api/audit-logs endpoint — i.e. that view-as
+    // activity is not hidden from a district admin.
+    //
+    // Wait briefly for fire-and-forget logAudit inserts from prior tests to
+    // settle, then query as a non-platform-admin district admin.
+    let data: Array<{ action: string; targetTable: string; targetId: string; summary: string | null }> = [];
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const districtAdminRes = await request(app)
+        .get("/api/audit-logs")
+        .query({ targetTable: "view_as_sessions", limit: "50" })
+        .set("x-test-user-id", "user_district_admin_audit_view")
+        .set("x-test-role", "admin")
+        .set("x-test-district-id", String(testDistrictId));
+      expect(districtAdminRes.status).toBe(200);
+      data = districtAdminRes.body.data as typeof data;
+      const hasCreate = data.some(r => r.action === "create" && r.targetTable === "view_as_sessions");
+      const hasUpdate = data.some(r => r.action === "update" && r.targetTable === "view_as_sessions");
+      if (hasCreate && hasUpdate) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    // Should see at least one create (start) and one update (end/superseded/expired).
+    const creates = data.filter(r => r.action === "create" && r.targetTable === "view_as_sessions");
+    const updates = data.filter(r => r.action === "update" && r.targetTable === "view_as_sessions");
+    expect(creates.length).toBeGreaterThanOrEqual(1);
+    expect(updates.length).toBeGreaterThanOrEqual(1);
+    expect(creates[0].summary).toMatch(/started view-as/i);
+    // At least one update summary should mention ended/auto-ended/expired view-as.
+    expect(updates.some(u => /(ended|auto-ended|expired) view-as|expired view-as/i.test(u.summary ?? ""))).toBe(true);
+  });
+});

@@ -1561,7 +1561,12 @@ router.post("/support/view-as/start", async (req: Request, res: Response) => {
   }
 
   const authed = req as unknown as AuthedRequest;
-  const adminUserId = authed.userId;
+  // If the caller already has an active view-as token in their session, the
+  // requireAuth override has rewritten authed.userId to the *target* user.
+  // Always prefer viewAsAdminUserId (the real platform admin recorded on the
+  // session row) so supersede / new-row attribution / audit actor stay tied
+  // to the human admin, never the impersonated identity.
+  const adminUserId = authed.viewAsAdminUserId ?? authed.userId;
   if (targetUserId === adminUserId) {
     // No-op vanity impersonation; reject so audit reviewers don't see noise.
     res.status(400).json({ error: "Cannot start a view-as session targeting yourself" });
@@ -1594,6 +1599,26 @@ router.post("/support/view-as/start", async (req: Request, res: Response) => {
   // End any pre-existing open sessions for this admin so there is exactly one
   // active impersonation per admin at any time. Captures the supersede in audit.
   const supersededCount = await endActiveSessionsForAdmin(adminUserId, "superseded");
+
+  // Implicit-end audit row: the explicit start/end handlers already write to
+  // audit_logs, but the supersede path silently closes prior open sessions.
+  // Surface that in the customer-visible audit log so a district admin can
+  // still see every time a support impersonation ended, not just the manual
+  // ones.
+  if (supersededCount > 0) {
+    logAudit(req, {
+      action: "update",
+      targetTable: "view_as_sessions",
+      summary: `Platform admin auto-ended ${supersededCount} prior open view-as session(s) before starting a new one for ${snap.displayName} (${snap.userId})`,
+      metadata: {
+        endReason: "superseded",
+        endedCount: supersededCount,
+        replacedByTargetUserId: snap.userId,
+        replacedByTargetRole: snap.role,
+        replacedByTargetDistrictId: snap.districtId,
+      },
+    });
+  }
 
   const { token, tokenHash } = generateToken();
   const now = new Date();
@@ -1671,7 +1696,32 @@ router.get("/support/view-as/active", async (req: Request, res: Response) => {
     const [row] = await db.select().from(viewAsSessionsTable)
       .where(eq(viewAsSessionsTable.tokenHash, tokenHash)).limit(1);
     if (row && row.adminUserId === adminUserId && !row.endedAt && row.expiresAt.getTime() <= Date.now()) {
-      await endSessionByToken(token, "expired");
+      const endedRow = await endSessionByToken(token, "expired");
+      // Implicit-end audit row: this branch is the *only* place a session
+      // transitions from active → expired in the customer-visible audit log,
+      // so without this write a session that times out would never surface
+      // in the audit history. Only fire when endSessionByToken actually
+      // closed the row (i.e., we won the race against another concurrent
+      // poll), to avoid duplicate audit rows from parallel pollers.
+      if (endedRow) {
+        logAudit(req, {
+          action: "update",
+          targetTable: "view_as_sessions",
+          targetId: endedRow.id,
+          summary: `View-as session for ${endedRow.targetDisplayName} (${endedRow.targetUserId}) auto-expired`,
+          metadata: {
+            endReason: "expired",
+            expiresAt: endedRow.expiresAt.toISOString(),
+            startedAt: endedRow.startedAt.toISOString(),
+            durationMs: endedRow.endedAt
+              ? endedRow.endedAt.getTime() - endedRow.startedAt.getTime()
+              : null,
+            targetUserId: endedRow.targetUserId,
+            targetRole: endedRow.targetRole,
+            targetDistrictId: endedRow.targetDistrictId,
+          },
+        });
+      }
     }
     res.status(404).json({ active: false });
     return;

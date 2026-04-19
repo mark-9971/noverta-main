@@ -1,0 +1,87 @@
+Phase 3A-3: mirror support view-as start/end into the customer-visible audit log.
+
+Goal:
+When Trellis support starts or ends a view-as session, that event should be written not only to the dedicated `view_as_sessions` tracking table, but also to the same customer-visible audit log surface used for other sensitive actions. District admins should be able to answer: “show me every time Trellis support accessed our data.”
+
+Why this matters:
+The current system already tracks support impersonation in a dedicated table, which is good, but that is not the same thing as having those events appear in the customer-facing audit history. For pilot trust, support access should be visible in the same audit stream as other sensitive actions.
+
+Hard constraints:
+
+* Surgical change only
+* No schema changes if avoidable
+* No route changes
+* No UI changes unless a tiny audit-log display adjustment is required
+* Do not break the existing `view_as_sessions` tracking
+* Keep support sessions read-only exactly as they are today
+* Prefer additive logging over refactoring the support flow
+
+What to inspect:
+
+* support view-as start handler
+* support view-as end / clear / stop flow if present
+* auth middleware or helpers that apply the active support-session override
+* existing `logAudit` / `recordAuditEntry` / audit-log helper usage
+* audit-log schema fields needed to represent these events clearly
+
+What to implement:
+
+1. On support view-as start:
+
+   * keep the existing `view_as_sessions` write
+   * also write an audit-log entry in the customer-visible audit log
+   * action should be something explicit like `view_as.start` or the closest existing naming pattern
+   * include enough metadata to identify:
+
+     * support actor
+     * target district
+     * target role/user if already available
+     * session ID if useful
+
+2. On support view-as end/stop:
+
+   * keep the existing `view_as_sessions` tracking behavior
+   * also write an audit-log entry such as `view_as.end`
+   * include matching metadata if possible
+
+3. If there is a middleware-driven implicit end or expiry path, audit whether that also needs coverage
+
+   * if too large, document it clearly in post-flight instead of broadening scope
+
+4. Add tests that prove:
+
+   * start writes both records
+   * end writes both records
+   * customer-visible audit log now includes these actions
+   * existing support-session behavior is otherwise unchanged
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. where support view-as start/end currently write
+3. where customer-visible audit logging already happens
+4. exact audit-log actions/metadata planned
+5. test strategy
+6. biggest regression risks
+7. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact audit-log entries now written on start/end
+3. whether `view_as_sessions` behavior remained unchanged
+4. exact tests added and what they prove
+5. validation performed
+6. known issues still remaining
+7. blunt verdict
+8. copy-pasteable commit message
+
+Acceptance:
+
+* support view-as start and end are now visible in the same customer-facing audit log used for other sensitive actions
+* existing `view_as_sessions` tracking still works
+* support sessions remain read-only
+* no schema or route breakage
+* tests prove both dual-write behavior and audit-log visibility
