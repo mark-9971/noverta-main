@@ -134,6 +134,17 @@ function DashboardFull() {
   const studentsNeedingSetup = s?.studentsNeedingSetup ?? 0;
   const hasTrackedData = trackedStudents > 0;
   const onTrackPct = hasTrackedData ? Math.round((onTrack / trackedStudents) * 100) : 0;
+
+  // Apples-to-apples on-track-student percentage that pairs with the
+  // prior-week endpoint's `onTrackStudentRate` field. Both sides exclude
+  // the slightly_behind bucket (the trend snapshot does not store it), so
+  // the WoW arrow on the Compliance Rate card reflects movement in this
+  // shared definition rather than the broader displayed percentage.
+  const outOfComplianceStudentsForCmp = s?.outOfComplianceStudents ?? 0;
+  const trackedComparable = onTrack + (ro?.atRisk ?? 0) + outOfComplianceStudentsForCmp;
+  const currentOnTrackComparable = trackedComparable > 0
+    ? Math.round((onTrack / trackedComparable) * 100)
+    : null;
   const complianceSubtitle = hasTrackedData
     ? `${onTrack} of ${trackedStudents} on track${noDataStudents > 0 ? ` · ${noDataStudents} not started` : ""}`
     : (studentsNeedingSetup > 0
@@ -225,6 +236,7 @@ function DashboardFull() {
         weekTrend={weekTrend ?? null}
         currentHighRiskCount={outOfComplianceStudents + (ro?.atRisk ?? 0)}
         currentGoalMasteryRate={goalMasteryData?.masteryRate ?? null}
+        currentOnTrackComparable={currentOnTrackComparable}
       />
     </div>
   );

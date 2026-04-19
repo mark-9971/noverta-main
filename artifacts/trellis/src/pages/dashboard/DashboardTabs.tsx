@@ -88,6 +88,13 @@ export interface WeekTrendSnapshot {
   studentsAtRisk?: number;
   studentsOnTrack?: number;
   overallComplianceRate?: number;
+  /**
+   * Prior-week on-track-student percentage matching the dashboard's hero
+   * Compliance Rate card definition (studentsOnTrack / tracked, where tracked
+   * is the same three-bucket sum exposed here). Null when no students were
+   * tracked at all in the prior-week window.
+   */
+  onTrackStudentRate?: number | null;
   secondary?: {
     goalMastery?: { masteryRate: number | null };
   };
@@ -119,6 +126,13 @@ export interface DashboardTabsProps {
   currentHighRiskCount?: number;
   /** Current value displayed on the Goal Mastery Rate card (percent, or null). */
   currentGoalMasteryRate?: number | null;
+  /**
+   * Current on-track-student percentage computed with the same denominator
+   * as `WeekTrendSnapshot.onTrackStudentRate` (excludes slightly_behind), so
+   * the WoW delta on the Compliance Rate card is apples-to-apples. Null when
+   * no students fall into the three comparable buckets.
+   */
+  currentOnTrackComparable?: number | null;
 }
 
 export function DashboardTabs({
@@ -127,6 +141,7 @@ export function DashboardTabs({
   transitionDash, meetingDash, accommodationCompliance, deadlines,
   goalMasteryRate, goalMasterySubtitle, goalMasteryBreakdown,
   evalTimelineRisk, weekTrend, currentHighRiskCount, currentGoalMasteryRate,
+  currentOnTrackComparable,
 }: DashboardTabsProps) {
   const quickActions = [
     { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
@@ -159,6 +174,22 @@ export function DashboardTabs({
     : null;
   const goalMasteryDelta = priorGoalMastery !== null && currentGoalMasteryRate !== null && currentGoalMasteryRate !== undefined
     ? currentGoalMasteryRate - priorGoalMastery
+    : null;
+
+  // Compliance Rate WoW delta. Both sides use the same three-bucket
+  // denominator (on_track + at_risk + out_of_compliance), excluding
+  // slightly_behind which the snapshot does not store. The displayed
+  // percentage on the card still uses the broader trackedStudents
+  // denominator — only the arrow is computed from comparable values.
+  const priorComplianceRate = trendAvailable
+    && weekTrend!.onTrackStudentRate !== undefined
+    && weekTrend!.onTrackStudentRate !== null
+    ? weekTrend!.onTrackStudentRate
+    : null;
+  const complianceRateDelta = priorComplianceRate !== null
+    && currentOnTrackComparable !== null
+    && currentOnTrackComparable !== undefined
+    ? currentOnTrackComparable - priorComplianceRate
     : null;
 
   // Operational counters from dashboard summary
@@ -243,6 +274,9 @@ export function DashboardTabs({
             subtitle={myCaseload ? "students assigned" : complianceSubtitle}
             emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href={myCaseload ? "/students" : "/compliance?tab=minutes"}
+            delta={!myCaseload && complianceRateDelta !== null
+              ? <TrendDelta delta={complianceRateDelta} positiveIsGood={true} suffix="% vs. last wk" />
+              : null}
           />
           <MetricCard
             title={myCaseload ? "Sessions Delivered" : "High-Risk Students"}

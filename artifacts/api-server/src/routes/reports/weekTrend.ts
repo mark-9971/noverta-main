@@ -407,10 +407,26 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
       console.warn("week-trend: prior goal mastery rate failed", e);
     }
 
+    // On-track-student-based percentage that mirrors the dashboard's hero
+    // "Compliance Rate" card definition (studentsOnTrack / trackedStudents).
+    // Snapshot rows do not store the slightly_behind bucket, so the
+    // denominator here is the same three buckets we already expose. The
+    // dashboard computes the current-side comparable value the same way so
+    // the WoW delta is apples-to-apples even though the displayed
+    // percentage uses a slightly broader denominator (which includes
+    // slightly_behind).
+    const trackedComparable =
+      studentsOnTrack + studentsAtRisk + studentsOutOfCompliance;
+    const onTrackStudentRate =
+      trackedComparable > 0
+        ? Math.round((studentsOnTrack / trackedComparable) * 100)
+        : null;
+
     res.json({
       available: true,
       priorWeekEndDate: priorWeekEndDateOut,
       overallComplianceRate,
+      onTrackStudentRate,
       studentsOutOfCompliance,
       studentsAtRisk,
       studentsOnTrack,
