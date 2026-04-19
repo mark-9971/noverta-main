@@ -36,12 +36,8 @@ function computeChangedFields(
   return { summary, diff };
 }
 
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    ("code" in err ? (err as { code: string }).code === "23505" : false)
-  );
+export function buildVersionLockKey(documentType: string, documentId: number, districtId: number): string {
+  return `docver:${documentType}:${documentId}:${districtId}`;
 }
 
 export async function createAutoVersion(params: AutoVersionParams): Promise<void> {
@@ -51,10 +47,12 @@ export async function createAutoVersion(params: AutoVersionParams): Promise<void
   const description = changeDescription || changes?.summary || "Document updated";
   const snapshotData = changes?.diff ? JSON.stringify(changes.diff) : null;
 
-  const MAX_RETRIES = 5;
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const existing = await db.select({ max: sql<number>`COALESCE(MAX(${documentVersionsTable.versionNumber}), 0)` })
+  try {
+    await db.transaction(async (tx) => {
+      const lockKey = buildVersionLockKey(documentType, documentId, districtId);
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+
+      const existing = await tx.select({ max: sql<number>`COALESCE(MAX(${documentVersionsTable.versionNumber}), 0)` })
         .from(documentVersionsTable)
         .where(and(
           eq(documentVersionsTable.documentType, documentType),
@@ -64,7 +62,7 @@ export async function createAutoVersion(params: AutoVersionParams): Promise<void
 
       const nextVersion = (existing[0]?.max ?? 0) + 1;
 
-      await db.insert(documentVersionsTable).values({
+      await tx.insert(documentVersionsTable).values({
         documentType,
         documentId,
         studentId,
@@ -76,14 +74,8 @@ export async function createAutoVersion(params: AutoVersionParams): Promise<void
         authorUserId,
         authorName,
       });
-
-      return;
-    } catch (err) {
-      if (isUniqueViolation(err) && attempt < MAX_RETRIES - 1) {
-        continue;
-      }
-      console.error("[DocumentVersioning] Failed to create auto-version:", err);
-      return;
-    }
+    });
+  } catch (err) {
+    console.error("[DocumentVersioning] Failed to create auto-version:", err);
   }
 }

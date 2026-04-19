@@ -3,6 +3,7 @@ import { db, documentVersionsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
+import { buildVersionLockKey } from "../../lib/documentVersioning";
 import { assertStudentInDistrict, getUserInfo, parsePositiveInt, VALID_DOC_TYPES } from "./shared";
 
 const router = Router();
@@ -46,11 +47,11 @@ router.post("/document-workflow/versions", async (req, res): Promise<void> => {
   const student = await assertStudentInDistrict(studentId, districtId);
   if (!student) return void res.status(404).json({ error: "Student not found in your district" });
 
-  const MAX_RETRIES = 5;
-  let version: typeof documentVersionsTable.$inferSelect | undefined;
+  const version = await db.transaction(async (tx) => {
+    const lockKey = buildVersionLockKey(documentType, documentId, districtId);
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const existing = await db.select({ max: sql<number>`COALESCE(MAX(${documentVersionsTable.versionNumber}), 0)` })
+    const existing = await tx.select({ max: sql<number>`COALESCE(MAX(${documentVersionsTable.versionNumber}), 0)` })
       .from(documentVersionsTable)
       .where(and(
         eq(documentVersionsTable.documentType, documentType),
@@ -60,34 +61,23 @@ router.post("/document-workflow/versions", async (req, res): Promise<void> => {
 
     const nextVersion = (existing[0]?.max ?? 0) + 1;
 
-    try {
-      [version] = await db.insert(documentVersionsTable).values({
-        documentType,
-        documentId,
-        studentId,
-        districtId,
-        versionNumber: nextVersion,
-        title,
-        changeDescription: typeof changeDescription === "string" ? changeDescription.slice(0, 2000) : null,
-        snapshotData: typeof snapshotData === "string" ? snapshotData : null,
-        authorUserId: user.userId,
-        authorName: user.name,
-      }).returning();
-      break;
-    } catch (err: any) {
-      // Drizzle wraps underlying pg errors in a DrizzleQueryError whose
-      // original error is on `.cause`; check both so the unique-constraint
-      // retry actually fires under concurrent saves.
-      const pgCode = err?.code ?? err?.cause?.code;
-      if (pgCode === "23505" && attempt < MAX_RETRIES - 1) {
-        continue;
-      }
-      throw err;
-    }
-  }
+    const [inserted] = await tx.insert(documentVersionsTable).values({
+      documentType,
+      documentId,
+      studentId,
+      districtId,
+      versionNumber: nextVersion,
+      title,
+      changeDescription: typeof changeDescription === "string" ? changeDescription.slice(0, 2000) : null,
+      snapshotData: typeof snapshotData === "string" ? snapshotData : null,
+      authorUserId: user.userId,
+      authorName: user.name,
+    }).returning();
+    return inserted;
+  });
 
   if (!version) {
-    return void res.status(409).json({ error: "Could not allocate a unique version number. Please try again." });
+    return void res.status(500).json({ error: "Failed to create document version" });
   }
 
   logAudit(req, {
