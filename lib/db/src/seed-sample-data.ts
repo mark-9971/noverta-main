@@ -2163,17 +2163,40 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
       // nothing gets silently orphaned.
       await tx.execute(sql`SET LOCAL session_replication_role = 'replica'`);
 
+      // ---- Snapshot phase ----
+      // The reachable predicates reference parent rows (e.g. SGD's predicate
+      // is `session_log_id IN (SELECT id FROM session_logs WHERE ...)`). If
+      // we DELETE in BFS order, the parent (`session_logs`) is wiped first
+      // and the child (`session_goal_data`) predicate evaluates to an empty
+      // set — leaving orphans. Fix: snapshot each reachable table's row
+      // identifiers (ctid is stable within a txn) into a temp table while
+      // every parent is still intact, then delete by ctid.
+      const tableNames: string[] = [];
+      let tmpIdx = 0;
+      for (const [table, preds] of predicates.entries()) {
+        if (table === "students") continue;
+        const where = preds.map(p => `(${p})`).join(" OR ");
+        const tmp = `_td_snap_${tmpIdx++}`;
+        await tx.execute(sql.raw(
+          `CREATE TEMP TABLE "${tmp}" ON COMMIT DROP AS SELECT ctid AS row_ctid FROM "${table}" WHERE ${where}`
+        ));
+        tableNames.push(`${table}|${tmp}`);
+      }
+
       // Tables with student_id but no real FK (pg_constraint wouldn't see them).
       const nonFkStudentLinkedTables = ["communication_events"];
       for (const t of nonFkStudentLinkedTables) {
         await tx.execute(sql.raw(`DELETE FROM "${t}" WHERE student_id IN (${idsList})`));
       }
 
-      // Delete every transitively-reachable row.
-      for (const [table, preds] of predicates.entries()) {
-        if (table === "students") continue; // students themselves come last
-        const where = preds.map(p => `(${p})`).join(" OR ");
-        await tx.execute(sql.raw(`DELETE FROM "${table}" WHERE ${where}`));
+      // ---- Delete phase ---- (snapshots already captured; order no longer matters)
+      // Note: temp table column was aliased to row_ctid so the inner SELECT
+      // returns the *parent* table's ctids (not the temp table's own ctid).
+      for (const entry of tableNames) {
+        const [table, tmp] = entry.split("|");
+        await tx.execute(sql.raw(
+          `DELETE FROM "${table}" WHERE ctid IN (SELECT row_ctid FROM "${tmp}")`
+        ));
       }
 
       // Self-ref on students (case_manager_id) and final delete.
@@ -2183,25 +2206,57 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
   }
 
   if (staffIds.length > 0) {
-    await db.update(sessionLogsTable)
-      .set({ staffId: null })
-      .where(inArray(sessionLogsTable.staffId, staffIds));
+    // Nullify every FK that points at these sample staff rows but lives
+    // on a row that did NOT come from this seed cycle (e.g. left over from
+    // a prior failed teardown, or from real data in the same district).
+    // We discover them dynamically from pg_constraint so schema drift
+    // doesn't silently re-introduce dangling references.
+    const staffFksRes = await db.execute(sql`
+      SELECT cl.relname AS child, att.attname AS child_col
+      FROM pg_constraint c
+      JOIN pg_class cl  ON cl.oid  = c.conrelid
+      JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = ANY(c.conkey)
+      WHERE c.contype = 'f'
+        AND c.confrelid = 'staff'::regclass
+    `);
+    const staffFks = (staffFksRes.rows as any[]).map(r => ({ table: r.child, column: r.child_col }));
+    const staffIdList = staffIds.join(",");
 
-    const realStudentBlocks = await db.select({ staffId: scheduleBlocksTable.staffId })
-      .from(scheduleBlocksTable)
-      .where(inArray(scheduleBlocksTable.staffId, staffIds));
-    const stillReferencedStaffIds = [...new Set(realStudentBlocks.map(b => b.staffId))];
+    for (const { table, column } of staffFks) {
+      // Nullify in a single statement per FK. Safe because these are sample
+      // staff slated for deletion or graduation — nothing in the system
+      // should be relying on a hard pointer to them after this point.
+      try {
+        await db.execute(sql.raw(
+          `UPDATE "${table}" SET "${column}" = NULL WHERE "${column}" IN (${staffIdList})`
+        ));
+      } catch {
+        // Some FKs are NOT NULL (e.g. join tables). Skip — those rows will
+        // either have been wiped via the student-graph walk or will block
+        // the staff delete and force the row into the "graduated" branch.
+      }
+    }
+
+    // Anything still referencing these staff (e.g. NOT NULL FKs we couldn't
+    // null out) → graduate that staff (mark isSample=false) instead of
+    // deleting. Otherwise → delete cleanly.
+    const stillReferencedRes = await db.execute(sql.raw(`
+      SELECT DISTINCT staff_id_ref FROM (
+        SELECT staff_id AS staff_id_ref FROM schedule_blocks WHERE staff_id IN (${staffIdList})
+        UNION ALL
+        SELECT staff_id FROM staff_assignments WHERE staff_id IN (${staffIdList})
+        UNION ALL
+        SELECT teacher_id FROM classes WHERE teacher_id IN (${staffIdList})
+      ) t WHERE staff_id_ref IS NOT NULL
+    `));
+    const stillReferencedStaffIds = (stillReferencedRes.rows as any[])
+      .map(r => Number(r.staff_id_ref))
+      .filter(n => Number.isFinite(n));
     const safelyDeletableStaffIds = staffIds.filter(id => !stillReferencedStaffIds.includes(id));
     _safelyDeletableStaffIdsCount = safelyDeletableStaffIds.length;
     _stillReferencedStaffIdsCount = stillReferencedStaffIds.length;
 
     if (safelyDeletableStaffIds.length > 0) {
-      await db.update(serviceRequirementsTable)
-        .set({ providerId: null })
-        .where(inArray(serviceRequirementsTable.providerId, safelyDeletableStaffIds));
-      await db.update(studentsTable)
-        .set({ caseManagerId: null })
-        .where(inArray(studentsTable.caseManagerId, safelyDeletableStaffIds));
       await db.delete(staffTable).where(inArray(staffTable.id, safelyDeletableStaffIds));
     }
 
