@@ -831,22 +831,45 @@ export async function ensureCaseloadSnapshotsTable(): Promise<void> {
   }
 }
 
-async function runCaseloadSnapshots(): Promise<void> {
-  const today = new Date();
+/**
+ * Configurable threshold (percentage points of week-over-week growth) above
+ * which a caseload_spike alert is generated. Defaults to 20%.
+ */
+function getCaseloadSpikeThresholdPct(): number {
+  const raw = process.env.CASELOAD_SPIKE_THRESHOLD_PCT;
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return 20;
+}
+
+/**
+ * Capture this week's caseload snapshot per active provider, then compare
+ * against the prior week's snapshot. When a provider's caseload grows by
+ * more than the configurable threshold (default +20%), insert a
+ * `caseload_spike` alert so admins can rebalance early.
+ *
+ * Exported so tests can inject a fixed Monday without mocking the system clock.
+ */
+export async function runCaseloadSnapshots(today: Date = new Date()): Promise<void> {
   if (today.getDay() !== 1) {
     return;
   }
 
   try {
     const weekStart = getCaseloadWeekStart(today);
+    const prevWeekStart = new Date(weekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const weekStartStr = weekStart.toISOString().substring(0, 10);
+    const thresholdPct = getCaseloadSpikeThresholdPct();
 
     const districts = await db.select({ id: districtsTable.id }).from(districtsTable);
 
     let totalUpserted = 0;
+    let totalSpikeAlerts = 0;
 
     for (const district of districts) {
       const providers = await db
-        .select({ id: staffTable.id })
+        .select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName })
         .from(staffTable)
         .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
         .where(
@@ -896,9 +919,83 @@ async function runCaseloadSnapshots(): Promise<void> {
       }
 
       totalUpserted += rows.length;
+
+      // Fetch previous week's snapshots for these providers to compute deltas.
+      const prevSnapshots = await db
+        .select({
+          staffId: caseloadSnapshotsTable.staffId,
+          studentCount: caseloadSnapshotsTable.studentCount,
+        })
+        .from(caseloadSnapshotsTable)
+        .where(
+          and(
+            eq(caseloadSnapshotsTable.districtId, district.id),
+            eq(caseloadSnapshotsTable.weekStart, prevWeekStart),
+            inArray(caseloadSnapshotsTable.staffId, staffIds),
+          )
+        );
+      const prevMap = new Map(prevSnapshots.map(s => [s.staffId, s.studentCount]));
+
+      // Identify providers whose caseload grew beyond the threshold.
+      type Spike = { staffId: number; prev: number; curr: number; deltaPct: number; firstName: string; lastName: string };
+      const spikes: Spike[] = [];
+      for (const p of providers) {
+        const curr = countMap.get(p.id) ?? 0;
+        const prev = prevMap.get(p.id);
+        if (prev == null || prev <= 0) continue; // Need a real baseline.
+        const deltaPct = ((curr - prev) / prev) * 100;
+        if (deltaPct > thresholdPct) {
+          spikes.push({ staffId: p.id, prev, curr, deltaPct, firstName: p.firstName, lastName: p.lastName });
+        }
+      }
+
+      if (spikes.length === 0) continue;
+
+      // Dedupe against existing caseload_spike alerts already created for
+      // these providers for the current week (resolved or unresolved).
+      const spikeStaffIds = spikes.map(s => s.staffId);
+      const existing = await db
+        .select({ staffId: alertsTable.staffId, message: alertsTable.message })
+        .from(alertsTable)
+        .where(
+          and(
+            eq(alertsTable.type, "caseload_spike"),
+            inArray(alertsTable.staffId, spikeStaffIds),
+            sql`${alertsTable.message} LIKE ${`%[week:${weekStartStr}]%`}`,
+          )
+        );
+      const alreadyAlertedStaff = new Set(existing.map(a => a.staffId));
+
+      const alertsToInsert: InsertAlert[] = [];
+      for (const s of spikes) {
+        if (alreadyAlertedStaff.has(s.staffId)) continue;
+        const deltaInt = Math.round(s.deltaPct);
+        const addedStudents = s.curr - s.prev;
+        const severity = deltaInt >= 50 ? "critical" : deltaInt >= 30 ? "high" : "medium";
+        const providerName = `${s.firstName} ${s.lastName}`.trim();
+        alertsToInsert.push({
+          type: "caseload_spike",
+          severity,
+          staffId: s.staffId,
+          message:
+            `${providerName}'s caseload grew +${deltaInt}% week-over-week ` +
+            `(${s.prev} → ${s.curr} students, +${addedStudents}) [week:${weekStartStr}]`,
+          suggestedAction:
+            "Review recent assignments and rebalance the caseload if the growth was unintentional.",
+          resolved: false,
+        });
+      }
+
+      if (alertsToInsert.length > 0) {
+        const inserted = await db.insert(alertsTable).values(alertsToInsert).returning({ id: alertsTable.id });
+        totalSpikeAlerts += inserted.length;
+      }
     }
 
-    console.log(`[Reminders] Caseload snapshots: ${totalUpserted} provider rows captured for week starting ${weekStart.toISOString().substring(0, 10)}`);
+    console.log(
+      `[Reminders] Caseload snapshots: ${totalUpserted} provider rows captured for week starting ${weekStartStr}; ` +
+      `${totalSpikeAlerts} caseload_spike alerts created (threshold +${thresholdPct}%)`
+    );
   } catch (err) {
     console.error("[Reminders] Caseload snapshot error:", err);
   }

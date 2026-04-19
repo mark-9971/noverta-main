@@ -47,8 +47,22 @@ router.get("/alerts", async (req, res): Promise<void> => {
     if (params.data.studentId) conditions.push(eq(alertsTable.studentId, Number(params.data.studentId)));
     if (params.data.staffId) conditions.push(eq(alertsTable.staffId, Number(params.data.staffId)));
     if (params.data.type) conditions.push(eq(alertsTable.type, params.data.type));
-    if (params.data.schoolId) conditions.push(sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(params.data.schoolId)})`);
-    if (params.data.districtId) conditions.push(sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+    if (params.data.schoolId) {
+      const schoolId = Number(params.data.schoolId);
+      // Include staff-linked alerts (e.g. caseload_spike) where studentId is null
+      // by also matching alerts whose staff member belongs to the school.
+      conditions.push(sql`(
+        ${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${schoolId})
+        OR ${alertsTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${schoolId})
+      )`);
+    }
+    if (params.data.districtId) {
+      const districtId = Number(params.data.districtId);
+      conditions.push(sql`(
+        ${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId}))
+        OR ${alertsTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId}))
+      )`);
+    }
   }
 
   const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : NaN;
