@@ -37,7 +37,13 @@ import {
   medicalAlertsTable, parentMessagesTable,
   restraintIncidentsTable,
   transitionPlansTable,
+  progressReportsTable,
+  teamMeetingsTable,
+  evaluationsTable,
+  complianceEventsTable,
+  communicationEventsTable,
 } from "./schema";
+import type { GoalProgressEntry } from "./schema";
 
 import { eq, and, inArray, sql } from "drizzle-orm";
 
@@ -851,6 +857,52 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     await db.insert(scheduleBlocksTable).values(blockRows);
   }
 
+  // ── 8.5. Future scheduled sessions (next 14 weekdays) ──
+  // Mirrors recurring schedule_blocks forward so the calendar UI shows
+  // upcoming work, not just historical completion data. status='scheduled'
+  // is excluded from compliance % so it can't distort the dashboard.
+  const futureWeekdays: string[] = [];
+  for (let i = 1; i <= 21; i++) {
+    const ds = addDays(today, i);
+    if (isWeekday(ds)) futureWeekdays.push(ds);
+  }
+  const dayIdx: Record<string, number> = {
+    sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+    thursday: 4, friday: 5, saturday: 6,
+  };
+  const futureSessionRows: (typeof sessionLogsTable.$inferInsert)[] = [];
+  for (const block of blockRows) {
+    const sr = insertedSrs.find(r => r.studentId === block.studentId && r.serviceTypeId === block.serviceTypeId);
+    if (!sr) continue;
+    const targetDow = dayIdx[block.dayOfWeek];
+    if (targetDow === undefined) continue;
+    const matchingDates = futureWeekdays.filter(d => new Date(d + "T00:00:00").getDay() === targetDow);
+    for (const sessionDate of matchingDates.slice(0, 2)) {
+      const startTime = block.startTime;
+      const endTime = block.endTime;
+      const [sh, sm] = startTime.split(":").map(Number);
+      const [eh, em] = endTime.split(":").map(Number);
+      futureSessionRows.push({
+        studentId: block.studentId!,
+        serviceRequirementId: sr.id,
+        serviceTypeId: block.serviceTypeId!,
+        staffId: block.staffId,
+        sessionDate,
+        startTime,
+        endTime,
+        durationMinutes: (eh * 60 + em) - (sh * 60 + sm),
+        location: block.location ?? "Resource Room",
+        status: "scheduled",
+        schoolYearId: schoolYear.id,
+      });
+    }
+  }
+  if (futureSessionRows.length > 0) {
+    for (let i = 0; i < futureSessionRows.length; i += 200) {
+      await db.insert(sessionLogsTable).values(futureSessionRows.slice(i, i + 200));
+    }
+  }
+
   // ── 9. Accommodations (3–4 per student) ──
 
   const accomRows: (typeof iepAccommodationsTable.$inferInsert)[] = [];
@@ -910,6 +962,45 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   }
   await db.insert(guardiansTable).values(guardianRows);
   await db.insert(emergencyContactsTable).values(emergencyRows);
+
+  // ── 10.5. Medical alerts (100% coverage — every student has at least one) ──
+  // Pilot requirement: providers should never see a "no medical info on file"
+  // student. Most students get a single mild allergy/no-known-allergies note;
+  // ~25% get a clinically meaningful alert.
+  const MILD_ALLERGIES = ["No known allergies", "Seasonal pollen — mild", "Dairy — mild lactose intolerance", "Tree nuts — avoid in shared snacks"];
+  const SERIOUS_CONDITIONS: Array<{ alertType: "allergy" | "medication" | "condition" | "seizure" | "other"; description: string; severity: "moderate" | "severe" | "life_threatening"; epi?: boolean; treatmentNotes?: string }> = [
+    { alertType: "allergy", description: "Peanut allergy", severity: "life_threatening", epi: true, treatmentNotes: "EpiPen on file in nurse's office. Avoid all peanut/tree-nut exposure." },
+    { alertType: "allergy", description: "Bee sting allergy", severity: "severe", epi: true, treatmentNotes: "EpiPen on file. Notify nurse if outside time exceeds 15 minutes." },
+    { alertType: "medication", description: "ADHD medication — Concerta 36mg, daily 8:00 AM", severity: "moderate", treatmentNotes: "Administered by school nurse. Parent will refill weekly." },
+    { alertType: "condition", description: "Type 1 Diabetes", severity: "severe", treatmentNotes: "Glucose monitoring 4x/day. Insulin pump in use. Diabetes care plan on file." },
+    { alertType: "condition", description: "Asthma — exercise-induced", severity: "moderate", treatmentNotes: "Inhaler in nurse's office and backpack. Pre-medicate before PE." },
+    { alertType: "seizure", description: "Absence seizures — controlled with medication", severity: "moderate", treatmentNotes: "Seizure action plan on file. Notify nurse immediately if seizure lasts >2 minutes." },
+  ];
+  const medicalRows: (typeof medicalAlertsTable.$inferInsert)[] = [];
+  for (const s of insertedStudents) {
+    if (Math.random() < 0.25) {
+      const sc = pick(SERIOUS_CONDITIONS);
+      medicalRows.push({
+        studentId: s.id,
+        alertType: sc.alertType,
+        description: sc.description,
+        severity: sc.severity,
+        treatmentNotes: sc.treatmentNotes ?? null,
+        epiPenOnFile: sc.epi ?? false,
+        notifyAllStaff: sc.severity === "life_threatening",
+      });
+    } else {
+      medicalRows.push({
+        studentId: s.id,
+        alertType: "allergy",
+        description: pick(MILD_ALLERGIES),
+        severity: "mild",
+        epiPenOnFile: false,
+        notifyAllStaff: false,
+      });
+    }
+  }
+  await db.insert(medicalAlertsTable).values(medicalRows);
 
   // ── 11. Alerts ──
 
@@ -1148,10 +1239,341 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     });
   }
 
+  // ── 14.5. Team meetings, evaluations, compliance events, parent communications ──
+  // Adds the cross-functional surface that case managers and admins expect to
+  // see in a real district: scheduled annual reviews, in-flight evaluations,
+  // upcoming compliance deadlines, and a parent-communication audit trail.
+
+  const teamMeetingRows: (typeof teamMeetingsTable.$inferInsert)[] = [];
+  const complianceEventRows: (typeof complianceEventsTable.$inferInsert)[] = [];
+  const evaluationRows: (typeof evaluationsTable.$inferInsert)[] = [];
+  const communicationRows: (typeof communicationEventsTable.$inferInsert)[] = [];
+
+  for (const s of insertedStudents) {
+    const idx = insertedStudents.indexOf(s);
+    const def = STUDENT_DEFS[idx];
+    const iepDocId = iepByStudent.get(s.id);
+    const iep = insertedIeps.find(d => d.studentId === s.id);
+
+    // ── Annual IEP review compliance event (every student) ──
+    const annualReviewDate = def.scenario === "annual_review_due"
+      ? addDays(today, rand(7, 28))
+      : iep?.iepEndDate ?? addDays(today, rand(60, 280));
+    complianceEventRows.push({
+      studentId: s.id,
+      schoolYearId: schoolYear.id,
+      eventType: "annual_iep_review",
+      title: "Annual IEP Review",
+      dueDate: annualReviewDate,
+      status: def.scenario === "annual_review_due" ? "due_soon" : "upcoming",
+    });
+
+    // ── Past annual review (completed) for ~70% of students ──
+    if (Math.random() < 0.7 && iep) {
+      const completedDate = addDays(iep.iepStartDate, -rand(0, 14));
+      complianceEventRows.push({
+        studentId: s.id,
+        schoolYearId: schoolYear.id,
+        eventType: "annual_iep_review",
+        title: "Annual IEP Review (Completed)",
+        dueDate: iep.iepStartDate,
+        completedDate,
+        status: "completed",
+        resolvedAt: completedDate,
+        resolvedBy: caseManager?.id ?? null,
+      });
+
+      // Past annual IEP team meeting
+      teamMeetingRows.push({
+        studentId: s.id,
+        iepDocumentId: iepDocId ?? null,
+        schoolId: s.schoolId,
+        meetingType: "annual_review",
+        scheduledDate: completedDate,
+        scheduledTime: "09:00",
+        endTime: "10:30",
+        duration: 90,
+        location: "Conference Room A",
+        meetingFormat: "in_person",
+        status: "completed",
+        attendees: [
+          { name: `${caseManager?.firstName} ${caseManager?.lastName}`, role: "Case Manager", present: true },
+          { name: "Parent/Guardian", role: "Parent", present: true },
+          { name: "Special Education Teacher", role: "Teacher", present: true },
+        ],
+        outcome: "IEP reviewed and updated. Goals carried forward with revised baselines. Family in agreement.",
+        minutesFinalized: true,
+        consentStatus: "obtained",
+        noticeSentDate: addDays(completedDate, -10),
+        schoolYearId: schoolYear.id,
+      });
+    }
+
+    // ── Upcoming annual review meeting for annual_review_due scenario ──
+    if (def.scenario === "annual_review_due") {
+      teamMeetingRows.push({
+        studentId: s.id,
+        iepDocumentId: iepDocId ?? null,
+        schoolId: s.schoolId,
+        meetingType: "annual_review",
+        scheduledDate: annualReviewDate,
+        scheduledTime: "10:00",
+        endTime: "11:30",
+        duration: 90,
+        location: "Conference Room A",
+        meetingFormat: "in_person",
+        status: "scheduled",
+        agendaItems: [
+          "Review progress on current IEP goals",
+          "Discuss present levels of performance",
+          "Develop new annual goals",
+          "Determine service needs",
+          "Review accommodations",
+        ],
+        consentStatus: "pending",
+        noticeSentDate: addDays(today, -rand(3, 10)),
+        schoolYearId: schoolYear.id,
+      });
+    }
+
+    // ── Quarterly progress report compliance event ──
+    complianceEventRows.push({
+      studentId: s.id,
+      schoolYearId: schoolYear.id,
+      eventType: "progress_report",
+      title: "Quarterly Progress Report Due",
+      dueDate: addDays(today, rand(10, 45)),
+      status: "upcoming",
+    });
+
+    // ── Parent communication: progress report shared (~80% of students) ──
+    if (Math.random() < 0.8) {
+      const sentAt = daysAgo(rand(7, 60));
+      communicationRows.push({
+        studentId: s.id,
+        channel: "email",
+        status: "delivered",
+        type: "progress_report",
+        subject: `Quarterly progress report for ${s.firstName} ${s.lastName}`,
+        bodyText: `Dear Family,\n\nAttached is the quarterly progress report for ${s.firstName}. Please review and reach out with any questions.\n\nBest,\nThe IEP Team`,
+        toEmail: `parent.${s.lastName.toLowerCase()}${s.id}@sample.trellis.local`,
+        toName: `Family of ${s.firstName} ${s.lastName}`,
+        fromEmail: "noreply@trellis.local",
+        sentAt,
+        acceptedAt: sentAt,
+        deliveredAt: new Date(sentAt.getTime() + 30_000),
+      });
+    }
+
+    // ── Meeting notice email for upcoming meetings (~40%) ──
+    if (def.scenario === "annual_review_due" || Math.random() < 0.3) {
+      const sentAt = daysAgo(rand(2, 14));
+      communicationRows.push({
+        studentId: s.id,
+        channel: "email",
+        status: "delivered",
+        type: "meeting_notice",
+        subject: `IEP team meeting notice for ${s.firstName} ${s.lastName}`,
+        bodyText: `Dear Family,\n\nThis is a notice that we have scheduled a team meeting to discuss ${s.firstName}'s IEP. Please confirm your availability.\n\nBest,\nThe IEP Team`,
+        toEmail: `parent.${s.lastName.toLowerCase()}${s.id}@sample.trellis.local`,
+        toName: `Family of ${s.firstName} ${s.lastName}`,
+        fromEmail: "noreply@trellis.local",
+        sentAt,
+        acceptedAt: sentAt,
+        deliveredAt: new Date(sentAt.getTime() + 30_000),
+      });
+    }
+  }
+
+  // ── In-flight evaluations for ~15% of students (3-year reevaluation cycle) ──
+  const evalCandidates = insertedStudents.filter(() => Math.random() < 0.15);
+  for (const s of evalCandidates) {
+    const startDate = addDays(today, -rand(15, 50));
+    const dueDate = addDays(startDate, 60);
+    const isOverdue = Math.random() < 0.2;
+    evaluationRows.push({
+      studentId: s.id,
+      evaluationType: pick(["reevaluation", "initial", "reevaluation"]),
+      evaluationAreas: [
+        { area: "Academic", assignedTo: caseManager ? `${caseManager.firstName} ${caseManager.lastName}` : "Case Manager", status: "in_progress" },
+        { area: "Speech-Language", assignedTo: slp ? `${slp.firstName} ${slp.lastName}` : "SLP", status: "in_progress" },
+        { area: "Cognitive", assignedTo: caseManager ? `${caseManager.firstName} ${caseManager.lastName}` : "Case Manager", status: "pending" },
+      ],
+      teamMembers: [
+        { name: caseManager ? `${caseManager.firstName} ${caseManager.lastName}` : "Case Manager", role: "Case Manager" },
+        { name: slp ? `${slp.firstName} ${slp.lastName}` : "SLP", role: "Speech-Language Pathologist" },
+      ],
+      leadEvaluatorId: caseManager?.id ?? null,
+      startDate,
+      dueDate,
+      status: isOverdue ? "overdue" : "in_progress",
+    });
+  }
+
+  if (teamMeetingRows.length > 0) {
+    for (let i = 0; i < teamMeetingRows.length; i += 200) {
+      await db.insert(teamMeetingsTable).values(teamMeetingRows.slice(i, i + 200));
+    }
+  }
+  if (complianceEventRows.length > 0) {
+    for (let i = 0; i < complianceEventRows.length; i += 200) {
+      await db.insert(complianceEventsTable).values(complianceEventRows.slice(i, i + 200));
+    }
+  }
+  if (evaluationRows.length > 0) {
+    await db.insert(evaluationsTable).values(evaluationRows);
+  }
+  if (communicationRows.length > 0) {
+    for (let i = 0; i < communicationRows.length; i += 200) {
+      await db.insert(communicationEventsTable).values(communicationRows.slice(i, i + 200));
+    }
+  }
+
   // ── 15. Goal progress backfill (90 days of ABA/clinical data) ──
 
   const { backfillGoalProgressForStudents } = await import("./backfill-goal-progress");
   await backfillGoalProgressForStudents(insertedStudents.map((s) => s.id));
+
+  // ── 15.5. Progress reports with goal_progress JSONB (mastery rate fix) ──
+  // Every student gets one finalized progress report covering the most recent
+  // quarter. The goal_progress JSONB array contains an entry per active iep_goal
+  // — overviewStats.ts reads this array via jsonb_array_elements to compute the
+  // dashboard mastery rate. Distribution per student is roughly:
+  //   healthy / recovered:   65% mastered+sufficient, 25% some, 10% insufficient
+  //   shortfall / sliding:   35% mastered+sufficient, 40% some, 25% insufficient
+  //   crisis / urgent:       15% mastered+sufficient, 35% some, 50% insufficient
+  //   default:               50% mastered+sufficient, 30% some, 20% insufficient
+  const RATING_MIXES: Record<string, Array<{ rating: string; weight: number }>> = {
+    strong: [
+      { rating: "mastered", weight: 0.20 },
+      { rating: "sufficient_progress", weight: 0.50 },
+      { rating: "some_progress", weight: 0.20 },
+      { rating: "insufficient_progress", weight: 0.10 },
+    ],
+    weak: [
+      { rating: "mastered", weight: 0.05 },
+      { rating: "sufficient_progress", weight: 0.30 },
+      { rating: "some_progress", weight: 0.40 },
+      { rating: "insufficient_progress", weight: 0.25 },
+    ],
+    poor: [
+      { rating: "mastered", weight: 0.02 },
+      { rating: "sufficient_progress", weight: 0.13 },
+      { rating: "some_progress", weight: 0.35 },
+      { rating: "insufficient_progress", weight: 0.50 },
+    ],
+    standard: [
+      { rating: "mastered", weight: 0.15 },
+      { rating: "sufficient_progress", weight: 0.40 },
+      { rating: "some_progress", weight: 0.30 },
+      { rating: "insufficient_progress", weight: 0.15 },
+    ],
+  };
+  const SCENARIO_TO_MIX: Partial<Record<Scenario, keyof typeof RATING_MIXES>> = {
+    healthy: "strong",
+    recovered: "strong",
+    shortfall: "weak",
+    sliding: "weak",
+    compensatory_risk: "weak",
+    urgent: "poor",
+    crisis: "poor",
+    behavior_plan: "standard",
+    incident_history: "standard",
+    transition: "standard",
+    annual_review_due: "standard",
+    esy_eligible: "standard",
+  };
+
+  function pickWeighted<T extends { weight: number }>(items: T[]): T {
+    const total = items.reduce((s, i) => s + i.weight, 0);
+    let r = Math.random() * total;
+    for (const item of items) {
+      r -= item.weight;
+      if (r <= 0) return item;
+    }
+    return items[items.length - 1];
+  }
+
+  // Re-fetch goals so we have the autoincrement ids (some may have masteredAt set in step 5)
+  const allGoals = await db.select().from(iepGoalsTable).where(inArray(iepGoalsTable.studentId, insertedStudents.map(s => s.id)));
+  const goalsByStudent = new Map<number, typeof allGoals>();
+  for (const g of allGoals) {
+    const list = goalsByStudent.get(g.studentId) ?? [];
+    list.push(g);
+    goalsByStudent.set(g.studentId, list);
+  }
+
+  const periodEnd = today;
+  const periodStart = addDays(today, -90);
+  const reportingPeriod = `Q${Math.ceil((new Date(today).getMonth() + 1) / 3)} ${new Date(today).getFullYear()}`;
+  const progressReportRows: (typeof progressReportsTable.$inferInsert)[] = [];
+
+  for (const s of insertedStudents) {
+    const idx = insertedStudents.indexOf(s);
+    const def = STUDENT_DEFS[idx];
+    const mix = RATING_MIXES[SCENARIO_TO_MIX[def.scenario] ?? "standard"];
+    const goals = goalsByStudent.get(s.id) ?? [];
+    if (goals.length === 0) continue;
+
+    const goalProgress: GoalProgressEntry[] = goals
+      .filter(g => g.active)
+      .map(g => {
+        // Already-mastered goals stay mastered
+        const rating = g.status === "mastered" || g.masteredAt
+          ? "mastered"
+          : pickWeighted(mix).rating;
+        const codeMap: Record<string, string> = {
+          mastered: "M",
+          sufficient_progress: "S",
+          some_progress: "P",
+          insufficient_progress: "I",
+          not_addressed: "N",
+        };
+        return {
+          iepGoalId: g.id,
+          goalArea: g.goalArea,
+          goalNumber: g.goalNumber,
+          annualGoal: g.annualGoal,
+          baseline: g.baseline,
+          targetCriterion: g.targetCriterion,
+          currentPerformance: rating === "mastered"
+            ? "Mastery criteria met across the most recent reporting period."
+            : rating === "sufficient_progress"
+              ? "Steady progress observed; on track to meet annual goal."
+              : rating === "some_progress"
+                ? "Some progress observed; additional supports may be needed."
+                : "Insufficient progress; team to review program modifications.",
+          progressRating: rating,
+          progressCode: codeMap[rating] ?? "N",
+          dataPoints: rand(8, 24),
+          trendDirection: rating === "mastered" || rating === "sufficient_progress"
+            ? "improving"
+            : rating === "insufficient_progress" ? "declining" : "stable",
+          narrative: `${s.firstName} ${rating === "mastered" ? "has met mastery criteria" : rating === "sufficient_progress" ? "is making sufficient progress" : rating === "some_progress" ? "is making some progress" : "is making insufficient progress"} on this goal during the reporting period.`,
+          measurementMethod: g.measurementMethod ?? null,
+          serviceArea: g.serviceArea ?? null,
+        };
+      });
+
+    progressReportRows.push({
+      studentId: s.id,
+      reportingPeriod,
+      periodStart,
+      periodEnd,
+      preparedBy: caseManager?.id ?? null,
+      status: "finalized",
+      overallSummary: `Quarterly progress summary for ${s.firstName} ${s.lastName}.`,
+      goalProgress,
+      parentNotificationDate: addDays(today, -rand(1, 14)),
+      parentNotificationMethod: "email",
+    });
+  }
+
+  if (progressReportRows.length > 0) {
+    for (let i = 0; i < progressReportRows.length; i += 100) {
+      await db.insert(progressReportsTable).values(progressReportRows.slice(i, i + 100));
+    }
+  }
 
   // ── 16. Mark district ──
 
@@ -1204,62 +1626,58 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
   let _stillReferencedStaffIdsCount = 0;
 
   if (studentIds.length > 0) {
+    // Robust wipe path: discover every table with an FK back to students at
+    // runtime via pg_constraint, then DELETE from each leaf without disabling
+    // FK enforcement. Two cascade-source intermediates (data_sessions, fbas)
+    // own grandchildren that have no direct student_id FK, so they are
+    // handled explicitly first. Everything else is enumerated dynamically so
+    // the teardown stays correct as new student-referencing tables are added.
     await db.transaction(async (tx) => {
-      // program_data / behavior_data (cascade on data_sessions, but be explicit)
-      await tx.execute(sql`
-        DELETE FROM program_data
-        WHERE data_session_id IN (
-          SELECT id FROM data_sessions WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")}
-        )
-      `);
-      await tx.execute(sql`
-        DELETE FROM behavior_data
-        WHERE data_session_id IN (
-          SELECT id FROM data_sessions WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")}
-        )
-      `);
-      await tx.delete(dataSessionsTable).where(inArray(dataSessionsTable.studentId, studentIds));
+      // 1. Cascade-source intermediates (children-of-children with no student_id)
+      await tx.execute(sql`DELETE FROM program_data WHERE data_session_id IN (SELECT id FROM data_sessions WHERE student_id IN ${studentIds})`);
+      await tx.execute(sql`DELETE FROM behavior_data WHERE data_session_id IN (SELECT id FROM data_sessions WHERE student_id IN ${studentIds})`);
+      await tx.execute(sql`DELETE FROM fba_observations WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${studentIds})`);
+      await tx.execute(sql`DELETE FROM functional_analyses WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${studentIds})`);
 
-      // Restraint incidents (no cascade from students)
-      await tx.delete(restraintIncidentsTable).where(inArray(restraintIncidentsTable.studentId, studentIds));
-
-      // Transition plans (no cascade from students)
-      await tx.delete(transitionPlansTable).where(inArray(transitionPlansTable.studentId, studentIds));
-
-      // BIPs / FBAs
-      await tx.delete(behaviorInterventionPlansTable).where(inArray(behaviorInterventionPlansTable.studentId, studentIds));
-      await tx.execute(sql`
-        DELETE FROM fba_observations
-        WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")})
+      // 2. Discover every table that has an FK column referencing students.id.
+      //    pg_constraint is the source of truth; using it here means new
+      //    student-referencing tables are picked up automatically without
+      //    touching this teardown.
+      const fkRows = await tx.execute(sql`
+        SELECT cl.relname AS table_name, att.attname AS column_name
+        FROM pg_constraint c
+        JOIN pg_class cl  ON cl.oid = c.conrelid
+        JOIN pg_class rcl ON rcl.oid = c.confrelid
+        JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = ANY(c.conkey)
+        WHERE c.contype = 'f'
+          AND rcl.relname = 'students'
+          AND cl.relname <> 'students'
+        ORDER BY cl.relname
       `);
-      await tx.execute(sql`
-        DELETE FROM functional_analyses
-        WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")})
-      `);
-      await tx.delete(fbasTable).where(inArray(fbasTable.studentId, studentIds));
+      const childRefs = (fkRows.rows as Array<{ table_name: string; column_name: string }>).map(
+        r => ({ table: r.table_name, column: r.column_name }),
+      );
 
-      // Sessions / schedule / compliance
-      await tx.delete(sessionLogsTable).where(inArray(sessionLogsTable.studentId, studentIds));
-      await tx.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.studentId, studentIds));
-      await tx.delete(compensatoryObligationsTable).where(inArray(compensatoryObligationsTable.studentId, studentIds));
-      await tx.delete(alertsTable).where(inArray(alertsTable.studentId, studentIds));
-      await tx.delete(serviceRequirementsTable).where(inArray(serviceRequirementsTable.studentId, studentIds));
-      await tx.delete(iepAccommodationsTable).where(inArray(iepAccommodationsTable.studentId, studentIds));
-      // Goals before targets
-      await tx.delete(iepGoalsTable).where(inArray(iepGoalsTable.studentId, studentIds));
-      await tx.delete(programTargetsTable).where(inArray(programTargetsTable.studentId, studentIds));
-      await tx.delete(behaviorTargetsTable).where(inArray(behaviorTargetsTable.studentId, studentIds));
-      await tx.delete(iepDocumentsTable).where(inArray(iepDocumentsTable.studentId, studentIds));
-      // Parent messages + medical alerts
-      await tx.delete(parentMessagesTable).where(inArray(parentMessagesTable.studentId, studentIds));
-      await tx.delete(medicalAlertsTable).where(inArray(medicalAlertsTable.studentId, studentIds));
-      await tx.delete(guardiansTable).where(inArray(guardiansTable.studentId, studentIds));
-      await tx.delete(emergencyContactsTable).where(inArray(emergencyContactsTable.studentId, studentIds));
-      // Detach case-manager refs before deleting students
-      await tx.update(studentsTable)
-        .set({ caseManagerId: null })
-        .where(inArray(studentsTable.id, studentIds));
-      await tx.delete(studentsTable).where(inArray(studentsTable.id, studentIds));
+      // 3. Detach NULL-able refs first (case_manager_id and similar back-pointers)
+      //    so that subsequent leaf-deletes can run in any order.
+      //    For student.case_manager_id specifically, we just NULL it so we don't
+      //    need to delete the row twice.
+      for (const ref of childRefs) {
+        // Skip students table (handled below) and skip the data_sessions/fbas
+        // already drained. Keep self-references as-is — pg accepts them.
+        if (ref.table === "data_sessions" || ref.table === "fbas") continue;
+        await tx.execute(sql.raw(
+          `DELETE FROM "${ref.table}" WHERE "${ref.column}" IN (${studentIds.join(",")})`,
+        ));
+      }
+
+      // 4. Now drain data_sessions and fbas (their own children are gone).
+      await tx.execute(sql`DELETE FROM data_sessions WHERE student_id IN ${studentIds}`);
+      await tx.execute(sql`DELETE FROM fbas WHERE student_id IN ${studentIds}`);
+
+      // 5. NULL out case_manager self-refs and finally remove students.
+      await tx.execute(sql`UPDATE students SET case_manager_id = NULL WHERE id IN ${studentIds}`);
+      await tx.execute(sql`DELETE FROM students WHERE id IN ${studentIds}`);
     });
   }
 

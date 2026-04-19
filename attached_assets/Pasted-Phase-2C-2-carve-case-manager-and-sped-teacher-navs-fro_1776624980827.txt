@@ -1,0 +1,95 @@
+Phase 2C-2: carve case_manager and sped_teacher navs from scratch so they feel student/caseload-centered instead of admin-derived.
+
+Goal:
+Now that admin/coordinator IA has been collapsed for demo clarity, the next weak point is the middle tier: `case_manager` and `sped_teacher` still inherit too much admin-shaped structure. Give them a tighter, role-appropriate nav built from scratch instead of deriving from adminNav.
+
+Why this matters:
+These roles should feel centered on students, caseload, compliance follow-through, documents, and progress — not district-wide operations or executive tooling.
+
+Hard constraints:
+
+* Nav/IA-only change unless a tiny additive renderer tweak is absolutely necessary
+* No route changes
+* No API changes
+* No schema changes
+* No capability/auth changes
+* Do not delete pages or routes
+* Keep all current destinations reachable; we are only changing what is surfaced in the sidebar
+* Do not change admin/coordinator nav in this PR
+* Do not change bcba/provider/para/direct_provider/student/parent navs in this PR
+
+What to do:
+
+1. Stop deriving `caseManagerNav` and `spedTeacherNav` from adminNav/adminNavLegacy
+2. Define them explicitly as their own compact navs
+3. Keep them clearly smaller and more student/caseload-oriented than admin/coordinator
+
+Target shape (approximate; use closest existing routes/items already present in nav-config.ts):
+
+For `case_manager`:
+Section 1: Overview / My Work
+
+* Dashboard or Today (choose the better existing front door for this role)
+* Students
+* Sessions
+* My Caseload (if a distinct route exists and is meaningful)
+
+Section 2: Compliance & Student Work
+
+* Compliance
+* Progress Reports
+* IEP & Documents (grouped parent with closest existing child items such as IEP Builder, IEP Meetings, Evaluations, Document Workflow, Transition Planning, Accommodation Verification, Parent Comms)
+
+Section 3: More (collapsed by default)
+
+* Scheduling
+* Staff / People only if truly useful
+* Settings
+
+For `sped_teacher`:
+Very similar to case_manager, but feel free to keep the cleaner of:
+
+* Dashboard vs Today
+* My Schedule if it is more central than My Caseload
+* Parent Comms if already relevant
+
+Important:
+
+* Use the closest existing routes/items
+* Do not invent new routes
+* Do not rename product concepts unless needed for grouping clarity
+* Prefer 6–8 visible items by default, not a sprawling shell
+* If grouped parent items are used, reuse the existing parent/children nav pattern
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. current case_manager nav shape
+3. current sped_teacher nav shape
+4. exact target case_manager nav shape
+5. exact target sped_teacher nav shape
+6. whether collapsed sections / parent items are already supported
+7. biggest regression risks
+8. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact case_manager nav after change
+3. exact sped_teacher nav after change
+4. whether they still derive from admin or are now explicit
+5. which items were removed from visible nav but left routable
+6. validation performed
+7. known issues still remaining
+8. blunt verdict
+9. copy-pasteable commit message
+
+Acceptance:
+
+* case_manager and sped_teacher navs are no longer admin-derived
+* both feel student/caseload-centered by default
+* admin/coordinator nav remains unchanged from Phase 2C-1
+* all other role navs remain unchanged
+* typecheck remains clean aside from known unrelated warnings
