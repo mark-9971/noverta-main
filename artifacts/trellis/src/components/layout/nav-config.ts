@@ -346,106 +346,140 @@ export const adminNav: NavSection[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Demo-focused admin nav.
+// Focused nav for pilot and demo districts.
 //
-// Used when the active district is a demo district. Trims the sprawling admin
-// IA down to the wedge-only surfaces a pilot prospect needs to see:
-//   Dashboard, Alerts, Compliance, Compensatory Services, Students/Staff,
-//   Sessions, Scheduling, Reports, Compensatory Finance, Executive Dashboard,
-//   Settings.
+// A hand-crafted structure (not derived by filtering adminNav) so we control
+// both which top-level items appear AND which children each item exposes.
+//
+// Four sections, each with curated subnav:
+//   1. Overview        — Dashboard, Alerts, Students & Staff
+//   2. Compliance      — Compliance (3 tabs), Reports (5 curated items)
+//   3. Service Delivery — Sessions, Schedule (3 sub-items)
+//   4. Settings        — collapsed, 3 sub-items
 //
 // Hidden (NOT removed — routes still resolve, deep links still work):
-//   IEP Hub, Evaluations, Transitions, Parent Comms, Document Workflow,
-//   State Reports, Restraint & Seclusion, ABA section, District Overview,
-//   Agencies, Leadership Packet, Contract Utilization, Resource Management,
-//   Medicaid Billing, Billing, Data Health Check, Data Import.
+//   IEP & Services, ABA & Behavior, Compensatory Services, Financial/Executive,
+//   Evaluations, Transitions, Parent Comms, Document Workflow, State Reports,
+//   Agencies, Medicaid Billing, Resource Management, Data Import, Data Health,
+//   Compliance Timeline/Trends tabs, Reports Audit Package/Parent Summary/
+//   Bulk Exports/Minutes Export/Leadership Packet.
 //
-// To switch back to the full admin nav, the user can leave demo mode
-// (district.isDemo = false) — no code change required.
+// To restore the full admin nav, set district.isDemo = false and isPilot = false.
 // ─────────────────────────────────────────────────────────────────────────────
-const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
-  "/",
-  "/action-center",
-  "/alerts",
-  "/compliance",
-  "/compensatory-services",
-  "/students",
-  "/staff",
-  "/sessions",
-  "/scheduling",
-  "/reports",
-  "/weekly-compliance-summary",
-  "/compensatory-finance",
-  "/executive",
-  "/leadership-packet",
-  "/settings",
-  // ABA & Behavior — include in demo for clinical story
-  "/aba",
-  "/behavior-assessment",
-  "/program-data",
-  "/iep-suggestions",
-  "/supervision",
-  // IEP — core clinical feature for pilot
-  "/iep-builder",
-  "/iep-meetings",
-  "/evaluations",
-  "/progress-reports",
-]);
-
-// Demo mode: IEP & ABA collapsed — prospects see compliance wedge front-and-centre.
-const DEMO_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
-  "Overview": true,
-  "Compliance & Risk": true,
-  "IEP & Services": false,
-  "ABA & Behavior": false,
-  "Scheduling": true,
-  "Financial / Executive": false,
-  "Admin / Tools": false,
-};
-
-// Pilot mode: real users doing real work — IEP & ABA open by default,
-// but thin/broken surfaces still hidden (same allowed-href set as demo).
-const PILOT_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
-  "Overview": true,
-  "Compliance & Risk": true,
-  "IEP & Services": true,
-  "ABA & Behavior": true,
-  "Scheduling": true,
-  "Financial / Executive": false,
-  "Admin / Tools": false,
-};
-
-function buildFocusedAdminNav(sectionDefaults: Record<string, boolean>): NavSection[] {
-  return adminNav
-    .map(section => {
-      const items = section.items.filter(item => DEMO_NAV_ALLOWED_HREFS.has(item.href));
-      if (items.length === 0) return null;
-      const defaultOpen = section.label && section.label in sectionDefaults
-        ? sectionDefaults[section.label]
-        : section.defaultOpen;
-      return { ...section, items, defaultOpen };
-    })
-    .filter((s): s is NavSection => s !== null);
-}
-
-export const demoFocusedAdminNav: NavSection[] = buildFocusedAdminNav(DEMO_SECTION_DEFAULT_OPEN);
-export const pilotFocusedAdminNav: NavSection[] = buildFocusedAdminNav(PILOT_SECTION_DEFAULT_OPEN);
+export const focusedAdminNav: NavSection[] = [
+  // ── 1. Overview ───────────────────────────────────────────────────────────
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      {
+        href: "/students", label: "Students & Staff", icon: Users, primary: true,
+        children: [
+          { href: "/students", label: "Students", icon: Users },
+          { href: "/staff", label: "Staff", icon: UserCheck },
+        ],
+      },
+      {
+        href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true,
+        children: [
+          { href: "/alerts?tab=open", label: "Open", icon: AlertTriangle },
+          { href: "/alerts?tab=snoozed", label: "Snoozed", icon: Clock },
+          { href: "/alerts?tab=resolved", label: "Resolved", icon: CheckCircle },
+        ],
+      },
+    ],
+  },
+  // ── 2. Compliance ─────────────────────────────────────────────────────────
+  // Only the three most decision-useful Compliance tabs (Risk Report, Service
+  // Minutes, Checklist). Timeline and Trends are accessible via URL but not
+  // foregrounded — they add noise for first-time pilot users.
+  // Reports trimmed to the five outputs a pilot stakeholder actually needs:
+  //   Executive Summary, Compliance Trend, Weekly Summary, At-Risk Export,
+  //   Missed Sessions. Audit Package, Bulk Exports, Parent Summary, Minutes
+  //   Export, Leadership Packet are all excluded from this nav.
+  {
+    label: "Compliance",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      {
+        href: "/compliance", label: "Compliance", icon: ListChecks,
+        featureKey: "compliance.service_minutes" as FeatureKey,
+        children: [
+          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
+          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
+          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
+        ],
+      },
+      {
+        href: "/reports", label: "Reports", icon: BarChart3,
+        children: [
+          { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
+          { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
+          { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
+          { href: "/reports?tab=risk", label: "At-Risk Export", icon: Shield },
+          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
+        ],
+      },
+    ],
+  },
+  // ── 3. Service Delivery ───────────────────────────────────────────────────
+  // "Service Delivery" over "Scheduling" — terminology that matches what SPED
+  // coordinators and providers actually say. Sessions first (most-visited
+  // daily surface), then Schedule with the three operational views.
+  {
+    label: "Service Delivery",
+    icon: Clipboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+      {
+        href: "/scheduling", label: "Schedule", icon: CalendarDays,
+        children: [
+          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
+        ],
+      },
+    ],
+  },
+  // ── 4. Settings ───────────────────────────────────────────────────────────
+  // Collapsed by default. Only the three settings a pilot admin actually needs:
+  // General (district name, timezone), School Year (date bounds), Audit Log.
+  {
+    label: "Settings",
+    icon: Settings,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      {
+        href: "/settings", label: "Settings", icon: Settings,
+        children: [
+          { href: "/settings?tab=general", label: "General", icon: Settings },
+          { href: "/settings?tab=school-year", label: "School Year", icon: CalendarDays },
+          { href: "/settings?tab=audit-log", label: "Audit Log", icon: FileText },
+        ],
+      },
+    ],
+  },
+];
 
 /**
  * Returns the appropriate admin nav based on district mode.
  *
- * - demo:  Wedge-focused, IEP & ABA collapsed (sales/prospect context).
- * - pilot: Wedge-focused, IEP & ABA open (real users doing real work).
- * - full:  Complete admin nav (fully-configured paying districts).
- *
- * In all cases, thin/broken surfaces (Agencies, State Reports, Medicaid Billing,
- * Resource Management, Parent Comms, Data Import, Document Workflow, etc.) are
- * hidden from primary nav. Routes remain accessible via direct URL.
+ * - demo or pilot: focusedAdminNav — 4-section, hand-crafted wedge layout.
+ *   Sections and children are curated; thin/broken surfaces are not shown.
+ *   Routes remain accessible via direct URL — nothing is removed.
+ * - full (paid):   adminNav — complete layout for configured districts.
  */
 export function getAdminNavForMode(isDemo: boolean, isPilot?: boolean): NavSection[] {
-  if (isDemo) return demoFocusedAdminNav;
-  if (isPilot) return pilotFocusedAdminNav;
-  return adminNav;
+  return isDemo || isPilot ? focusedAdminNav : adminNav;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
