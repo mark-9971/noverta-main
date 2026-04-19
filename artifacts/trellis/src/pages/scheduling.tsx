@@ -10,7 +10,7 @@ const TABS = [
   { key: "schedule" as const, label: "Weekly Schedule" },
   { key: "coverage" as const, label: "Coverage & Substitutes" },
   { key: "minutes" as const, label: "Minutes at Risk" },
-  { key: "staff-calendar" as const, label: "Staff Calendar" },
+  { key: "calendar" as const, label: "Staff Calendar" },
 ];
 
 type Tab = typeof TABS[number]["key"];
@@ -64,7 +64,7 @@ export default function SchedulingHub() {
       {tab === "schedule" && <Schedule embedded />}
       {tab === "coverage" && <CoveragePage embedded />}
       {tab === "minutes" && <MinutesOversightTab />}
-      {tab === "staff-calendar" && <StaffCalendar embedded />}
+      {tab === "calendar" && <StaffCalendar embedded />}
     </div>
   );
 }

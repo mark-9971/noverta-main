@@ -37,7 +37,7 @@ const Schedule = lazy(() => import("@/pages/schedule"));
 function StaffCalendarRedirect() {
   const search = useSearch();
   const params = new URLSearchParams(search);
-  const parts: string[] = ["tab=staff-calendar"];
+  const parts: string[] = ["tab=calendar"];
   if (params.has("staffId")) parts.push(`staffId=${params.get("staffId")!}`);
   if (params.has("date")) parts.push(`date=${params.get("date")!}`);
   return <Redirect to={`/scheduling?${parts.join("&")}`} />;

@@ -140,7 +140,12 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true },
+      {
+        href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true,
+        children: [
+          { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
+        ],
+      },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
     ],
   },
@@ -218,7 +223,12 @@ export const focusedAdminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
-      { href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true },
+      {
+        href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true,
+        children: [
+          { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
+        ],
+      },
     ],
   },
   {
