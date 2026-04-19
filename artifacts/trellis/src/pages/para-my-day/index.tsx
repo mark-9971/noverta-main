@@ -35,6 +35,7 @@ export default function ParaMyDayPage() {
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [quickLogPrefill, setQuickLogPrefill] = useState<QuickLogPrefill>({});
   const [quickLogSkipToMissed, setQuickLogSkipToMissed] = useState(false);
+  const [quickLogPrefillOutcome, setQuickLogPrefillOutcome] = useState<"completed" | "missed" | undefined>(undefined);
 
   const [alerts, setAlerts] = useState<StaffAlert[]>([]);
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
@@ -253,6 +254,7 @@ export default function ParaMyDayPage() {
   const openQuickLog = (prefill: QuickLogPrefill = {}, skipToMissed = false) => {
     setQuickLogPrefill(prefill);
     setQuickLogSkipToMissed(skipToMissed);
+    setQuickLogPrefillOutcome(prefill.prefillOutcome);
     setQuickLogOpen(true);
   };
 
@@ -368,6 +370,8 @@ export default function ParaMyDayPage() {
         prefillStudentName={quickLogPrefill.studentName}
         prefillServiceTypeId={quickLogPrefill.serviceTypeId}
         prefillServiceTypeName={quickLogPrefill.serviceTypeName}
+        prefillDurationMinutes={quickLogPrefill.durationMinutes}
+        prefillOutcome={quickLogPrefillOutcome}
         sessionDate={date}
         skipToMissed={quickLogSkipToMissed}
       />

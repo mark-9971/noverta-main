@@ -7,10 +7,10 @@ export function QuickLogHeader({ stepIdx, stepTotal, onBack, onClose }: {
   onClose: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white flex-shrink-0">
+    <div className="flex items-center gap-3 px-3 py-2 border-b border-gray-100 bg-white flex-shrink-0">
       <button
         onClick={onBack}
-        className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 flex-shrink-0"
+        className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 flex-shrink-0"
         aria-label="Back"
       >
         <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -28,7 +28,7 @@ export function QuickLogHeader({ stepIdx, stepTotal, onBack, onClose }: {
       </div>
       <button
         onClick={onClose}
-        className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 flex-shrink-0"
+        className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 flex-shrink-0"
         aria-label="Close"
       >
         <X className="w-5 h-5 text-gray-500" />

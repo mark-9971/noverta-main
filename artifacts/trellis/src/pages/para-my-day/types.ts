@@ -171,4 +171,6 @@ export interface QuickLogPrefill {
   studentName?: string;
   serviceTypeId?: number;
   serviceTypeName?: string;
+  durationMinutes?: number;
+  prefillOutcome?: "completed" | "missed";
 }

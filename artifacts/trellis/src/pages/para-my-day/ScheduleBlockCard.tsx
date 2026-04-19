@@ -4,6 +4,14 @@ import { Clock, MapPin, Play, Pencil, XCircle } from "lucide-react";
 import type { ScheduleBlock, QuickLogPrefill } from "./types";
 import { formatTime, isCurrentBlock, isUpcoming } from "./constants";
 
+function blockDurationMinutes(block: ScheduleBlock): number | undefined {
+  if (!block.startTime || !block.endTime) return undefined;
+  const [sh, sm] = block.startTime.split(":").map(Number);
+  const [eh, em] = block.endTime.split(":").map(Number);
+  const diff = (eh * 60 + em) - (sh * 60 + sm);
+  return diff > 0 ? diff : undefined;
+}
+
 export function ScheduleBlockCard({
   block,
   onStart,
@@ -17,12 +25,18 @@ export function ScheduleBlockCard({
   const upcoming = isUpcoming(block);
   const isPast = !current && !upcoming;
 
-  const prefill: QuickLogPrefill = {
+  const computedDuration = blockDurationMinutes(block);
+
+  const basePrefill: QuickLogPrefill = {
     studentId: block.studentId ?? undefined,
     studentName: block.studentName ?? undefined,
     serviceTypeId: block.serviceTypeId ?? undefined,
     serviceTypeName: block.serviceTypeName ?? undefined,
+    durationMinutes: computedDuration,
   };
+
+  const completedPrefill: QuickLogPrefill = { ...basePrefill, prefillOutcome: "completed" };
+  const missedPrefill: QuickLogPrefill = { ...basePrefill, prefillOutcome: "missed" };
 
   return (
     <Card
@@ -65,6 +79,9 @@ export function ScheduleBlockCard({
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 {formatTime(block.startTime)} – {formatTime(block.endTime)}
+                {computedDuration && (
+                  <span className="text-gray-300 ml-1">· {computedDuration} min</span>
+                )}
               </span>
               {block.location && (
                 <span className="flex items-center gap-1">
@@ -78,7 +95,7 @@ export function ScheduleBlockCard({
           {block.studentId && (current || upcoming) && (
             <Button
               size="lg"
-              className="bg-emerald-600 hover:bg-emerald-600/90 text-white min-h-[48px] min-w-[48px] px-5 text-[14px] font-semibold rounded-xl shadow-sm flex-shrink-0"
+              className="bg-emerald-600 hover:bg-emerald-600/90 text-white min-h-[52px] min-w-[52px] px-5 text-[14px] font-semibold rounded-xl shadow-sm flex-shrink-0"
               onClick={() => onStart(block)}
             >
               <Play className="w-4 h-4 mr-1.5" />
@@ -90,15 +107,15 @@ export function ScheduleBlockCard({
         {block.studentId && isPast && !block.sessionLogged && (
           <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
             <button
-              onClick={() => onQuickLog(prefill)}
-              className="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 active:bg-emerald-700 transition-colors"
+              onClick={() => onQuickLog(completedPrefill)}
+              className="flex-1 h-14 rounded-xl bg-emerald-600 text-white text-[14px] font-semibold flex items-center justify-center gap-1.5 active:bg-emerald-700 transition-colors"
             >
               <Pencil className="w-4 h-4" />
-              Log Session
+              Completed
             </button>
             <button
-              onClick={() => onQuickLog(prefill, true)}
-              className="flex-1 h-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[13px] font-semibold flex items-center justify-center gap-1.5 active:bg-amber-100 transition-colors"
+              onClick={() => onQuickLog(missedPrefill, true)}
+              className="flex-1 h-14 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[14px] font-semibold flex items-center justify-center gap-1.5 active:bg-amber-100 transition-colors"
             >
               <XCircle className="w-4 h-4" />
               Missed
@@ -109,8 +126,8 @@ export function ScheduleBlockCard({
         {block.studentId && (current || upcoming) && (
           <div className="mt-3 pt-3 border-t border-gray-100">
             <button
-              onClick={() => onQuickLog(prefill)}
-              className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50 text-gray-600 text-[13px] font-medium flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors"
+              onClick={() => onQuickLog(completedPrefill)}
+              className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 text-gray-600 text-[13px] font-medium flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors"
             >
               <Pencil className="w-3.5 h-3.5" />
               Quick Log instead

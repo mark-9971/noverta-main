@@ -21,44 +21,49 @@ export function NoteStep({
   const dateLabel = new Date(sessionDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return (
-    <div className="px-4 pt-5 pb-6 flex flex-col min-h-[calc(100vh-80px)]">
-      <h2 className="text-xl font-bold text-gray-900">Confirm &amp; save</h2>
-      <p className="text-sm text-gray-500 mt-1">Add an optional note, then save</p>
+    <div className="flex flex-col h-full" style={{ minHeight: "calc(100dvh - 64px)" }}>
+      <div className="flex-1 overflow-y-auto px-4 pt-5 pb-4">
+        <h2 className="text-xl font-bold text-gray-900">Confirm &amp; save</h2>
+        <p className="text-sm text-gray-500 mt-1">Add an optional note, then save</p>
 
-      <div className={`mt-4 rounded-xl border-2 p-4 ${
-        outcome === "completed" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
-      }`}>
-        <div className="flex items-center gap-2">
-          {outcome === "completed"
-            ? <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            : <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />}
-          <p className={`text-[14px] font-semibold ${outcome === "completed" ? "text-emerald-800" : "text-amber-800"}`}>
-            {outcome === "completed" ? "Completed" : "Missed"} · {studentName} · {durationMinutes} min
-          </p>
+        <div className={`mt-4 rounded-xl border-2 p-4 ${
+          outcome === "completed" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
+        }`}>
+          <div className="flex items-center gap-2">
+            {outcome === "completed"
+              ? <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              : <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />}
+            <p className={`text-[14px] font-semibold ${outcome === "completed" ? "text-emerald-800" : "text-amber-800"}`}>
+              {outcome === "completed" ? "Completed" : "Missed"} · {studentName} · {durationMinutes} min
+            </p>
+          </div>
+          {serviceTypeName && <p className="text-[12px] text-gray-500 mt-1 ml-6">{serviceTypeName}</p>}
+          <p className="text-[12px] text-gray-400 mt-0.5 ml-6">{dateLabel}</p>
+          {outcome === "missed" && missedReasonLabel && (
+            <p className="text-[12px] text-amber-600 mt-0.5 ml-6 font-medium">Reason: {missedReasonLabel}</p>
+          )}
+          {makeupNeeded && (
+            <p className="text-[12px] text-blue-600 mt-0.5 ml-6 font-medium">Make-up needed</p>
+          )}
+          {(goalCount ?? 0) > 0 && (
+            <p className="text-[12px] text-emerald-600 mt-0.5 ml-6 font-medium">{goalCount} goal{goalCount !== 1 ? "s" : ""} linked</p>
+          )}
         </div>
-        {serviceTypeName && <p className="text-[12px] text-gray-500 mt-1 ml-6">{serviceTypeName}</p>}
-        <p className="text-[12px] text-gray-400 mt-0.5 ml-6">{dateLabel}</p>
-        {outcome === "missed" && missedReasonLabel && (
-          <p className="text-[12px] text-amber-600 mt-0.5 ml-6 font-medium">Reason: {missedReasonLabel}</p>
-        )}
-        {makeupNeeded && (
-          <p className="text-[12px] text-blue-600 mt-0.5 ml-6 font-medium">Make-up needed</p>
-        )}
-        {(goalCount ?? 0) > 0 && (
-          <p className="text-[12px] text-emerald-600 mt-0.5 ml-6 font-medium">{goalCount} goal{goalCount !== 1 ? "s" : ""} linked</p>
-        )}
+
+        <textarea
+          placeholder="Add a note… (optional)"
+          value={note}
+          onChange={(e) => onNoteChange(e.target.value)}
+          maxLength={500}
+          className="mt-4 w-full h-28 rounded-xl border border-gray-200 p-3 text-[15px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder:text-gray-300"
+        />
+        <p className="text-right text-[11px] text-gray-300 mt-1">{note.length}/500</p>
       </div>
 
-      <textarea
-        placeholder="Add a note… (optional)"
-        value={note}
-        onChange={(e) => onNoteChange(e.target.value)}
-        maxLength={500}
-        className="mt-4 w-full h-24 rounded-xl border border-gray-200 p-3 text-[15px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder:text-gray-300"
-      />
-      <p className="text-right text-[11px] text-gray-300 mt-1">{note.length}/500</p>
-
-      <div className="mt-auto pt-6">
+      {/* Sticky footer — always visible, never scrolled off-screen on small phones */}
+      <div className="flex-shrink-0 px-4 pb-6 pt-3 bg-white border-t border-gray-100"
+        style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom, 24px))" }}
+      >
         <button
           onClick={onSubmit}
           disabled={submitting}

@@ -20,6 +20,7 @@ interface QuickLogSheetProps {
   prefillServiceTypeId?: number;
   prefillServiceTypeName?: string;
   prefillDurationMinutes?: number;
+  prefillOutcome?: "completed" | "missed";
   prefillStartTime?: string;
   prefillEndTime?: string;
   sessionDate?: string;
@@ -27,11 +28,44 @@ interface QuickLogSheetProps {
   collectedGoalData?: CollectedGoalEntry[];
 }
 
+/**
+ * Compute the best landing step given what we know at open time.
+ *
+ * Priority: skip as many steps as possible when data is pre-filled.
+ *   - know student + service + duration + outcome → "note" (completed) or "reason" (missed)
+ *   - know student + service + duration, no outcome → "outcome"
+ *   - know student + service, no duration → "duration"
+ *   - know student only → "service"
+ *   - nothing → "student"
+ */
+function computeInitialStep(
+  prefillStudentId: number | undefined,
+  prefillServiceTypeId: number | undefined,
+  prefillServiceTypeName: string | undefined,
+  prefillDurationMinutes: number | undefined,
+  prefillOutcome: "completed" | "missed" | undefined,
+  skipToMissed: boolean | undefined,
+): Step {
+  if (!prefillStudentId) return "student";
+
+  const hasService = prefillServiceTypeId != null || !!prefillServiceTypeName;
+  const hasDuration = prefillDurationMinutes != null && prefillDurationMinutes > 0;
+  const resolvedOutcome = prefillOutcome ?? (skipToMissed ? "missed" : undefined);
+
+  if (hasService && hasDuration && resolvedOutcome) {
+    return resolvedOutcome === "missed" ? "reason" : "note";
+  }
+  if (hasService && hasDuration) return "outcome";
+  if (hasService) return "duration";
+  return "service";
+}
+
 export function QuickLogSheet({
   isOpen, onClose, onSuccess, staffId,
   prefillStudentId, prefillStudentName,
   prefillServiceTypeId, prefillServiceTypeName,
-  prefillDurationMinutes, prefillStartTime, prefillEndTime,
+  prefillDurationMinutes, prefillOutcome,
+  prefillStartTime, prefillEndTime,
   sessionDate, skipToMissed, collectedGoalData,
 }: QuickLogSheetProps) {
   const [step, setStep] = useState<Step>("student");
@@ -55,6 +89,7 @@ export function QuickLogSheet({
   const [defaults, setDefaults] = useState<QuickLogDefaults>(() => loadDefaults(staffId));
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const entryStepRef = useRef<Step>("student");
 
   const today = sessionDate ?? new Date().toISOString().split("T")[0];
 
@@ -85,6 +120,9 @@ export function QuickLogSheet({
     if (!isOpen) return;
     const d = loadDefaults(staffId);
     setDefaults(d);
+
+    const resolvedOutcome = prefillOutcome ?? (skipToMissed ? "missed" : null);
+    setOutcome(resolvedOutcome);
     setDurationMinutes(prefillDurationMinutes ?? (d.lastDurationMinutes || 30));
     setMissedReasonId(null);
     setMissedReasonLabel(null);
@@ -92,25 +130,28 @@ export function QuickLogSheet({
     setNote("");
     setSearch("");
 
-    if (skipToMissed) setOutcome("missed");
-    else setOutcome(null);
-
     if (prefillStudentId) {
       setStudentId(prefillStudentId);
       setStudentName(prefillStudentName ?? "");
-      const hasServicePrefill = prefillServiceTypeId != null || (prefillServiceTypeName && prefillDurationMinutes);
-      if (hasServicePrefill) {
-        setServiceTypeId(prefillServiceTypeId ?? null);
-        setServiceTypeName(prefillServiceTypeName ?? "");
-        setStep(prefillDurationMinutes ? "outcome" : "duration");
-      } else {
-        setStep("service");
-      }
+      setServiceTypeId(prefillServiceTypeId ?? null);
+      setServiceTypeName(prefillServiceTypeName ?? "");
+      const startStep = computeInitialStep(
+        prefillStudentId,
+        prefillServiceTypeId,
+        prefillServiceTypeName,
+        prefillDurationMinutes,
+        prefillOutcome,
+        skipToMissed,
+      );
+      entryStepRef.current = startStep;
+      setStep(startStep);
     } else {
+      entryStepRef.current = "student";
       setStep("student");
     }
-  }, [isOpen, prefillStudentId, skipToMissed, prefillDurationMinutes]);
+  }, [isOpen, prefillStudentId, prefillOutcome, skipToMissed, prefillDurationMinutes]);
 
+  // Auto-pre-select most recent student+service when opening fresh (no prefill)
   useEffect(() => {
     if (!isOpen || prefillStudentId) return;
     if (step !== "student" || students.length === 0) return;
@@ -180,8 +221,9 @@ export function QuickLogSheet({
     setServiceTypeName(combo.serviceTypeName);
     setDurationMinutes(combo.durationMinutes);
     setCustomDuration("");
-    setOutcome(null);
-    setStep("outcome");
+    // Repeating a recent combo implies it completed — skip outcome step
+    setOutcome("completed");
+    setStep("note");
   };
 
   const selectService = (id: number | null, name: string) => {
@@ -195,7 +237,13 @@ export function QuickLogSheet({
 
   const selectDuration = (min: number) => {
     setDurationMinutes(min);
-    setStep(outcome === "missed" ? "reason" : "outcome");
+    if (outcome === "missed") {
+      setStep("reason");
+    } else if (outcome === "completed") {
+      setStep("note");
+    } else {
+      setStep("outcome");
+    }
   };
 
   const selectOutcome = (o: "completed" | "missed") => {
@@ -263,17 +311,24 @@ export function QuickLogSheet({
     setStep("service");
   };
 
-  const handleLogAnother = () => {
-    reset();
-  };
+  const handleLogAnother = () => { reset(); };
 
   const back = () => {
-    const order: Step[] = ["student", "service", "duration", "outcome", "reason", "note", "review"];
+    // Full ordered step chain — same shape regardless of prefills
+    const resolvedOutcome = outcome;
+    const order: Step[] = [
+      "student",
+      "service",
+      "duration",
+      "outcome",
+      ...(resolvedOutcome === "missed" ? ["reason" as Step] : []),
+      "note",
+    ];
     const idx = order.indexOf(step);
-    if (idx <= 0) { handleClose(); return; }
-    let prev = order[idx - 1];
-    if (prev === "reason" && outcome !== "missed") prev = "outcome";
-    setStep(prev);
+    const entryIdx = order.indexOf(entryStepRef.current);
+    // Close when we're at or before the entry step (user can't go further back)
+    if (idx <= 0 || idx <= entryIdx) { handleClose(); return; }
+    setStep(order[idx - 1]);
   };
 
   if (!isOpen) return null;
@@ -294,10 +349,20 @@ export function QuickLogSheet({
     : undefined;
 
   const isSuccessStep = step === "success";
-  const STEP_TOTAL = outcome === "missed" ? 6 : 5;
-  const stepIdx = isSuccessStep
-    ? STEP_TOTAL
-    : (["student", "service", "duration", "outcome", outcome === "missed" ? "reason" : null, "note"].filter(Boolean) as Step[]).indexOf(step) + 1;
+
+  // Count only steps the user will actually see
+  const visibleSteps: Step[] = prefillStudentId
+    ? [
+        ...(prefillServiceTypeId == null && !prefillServiceTypeName ? ["service" as Step] : []),
+        ...(prefillDurationMinutes == null ? ["duration" as Step] : []),
+        ...(prefillOutcome == null && !skipToMissed ? ["outcome" as Step] : []),
+        ...(outcome === "missed" ? ["reason" as Step] : []),
+        "note",
+      ]
+    : ["student", "service", "duration", "outcome", ...(outcome === "missed" ? ["reason" as Step] : []), "note"];
+
+  const STEP_TOTAL = visibleSteps.length;
+  const stepIdx = isSuccessStep ? STEP_TOTAL : Math.max(1, visibleSteps.indexOf(step) + 1);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ touchAction: "manipulation" }}>
