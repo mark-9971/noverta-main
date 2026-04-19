@@ -1,0 +1,161 @@
+I want a thorough, end-to-end audit of the entire app navigation and workflow architecture.
+
+Your job is NOT just to describe pages. Your job is to critically evaluate whether the product is clean, simple, efficient, trustworthy, and easy to use in real life.
+
+Audit EVERY visible nav section and subpage, including:
+- Overview
+- Compliance and Risk
+- IEP and Services
+- ABA and Behavior
+- Scheduling
+- Financial and Executive
+- Admin and Tools
+
+Your goal:
+Make sure everything works, every workflow makes sense, and the platform feels clean, straightforward, efficient, and not messy. I want the experience to feel tight, logical, and easy to use repeatedly for real users.
+
+What I want you to do:
+
+1. FULL NAV INVENTORY
+- List every nav item and sub-item currently visible.
+- Group them by section.
+- Note duplicates, overlaps, confusing labels, dead-end pages, circular flows, or pages that feel out of place.
+
+2. PAGE-BY-PAGE AUDIT
+For every page:
+- What is this page supposed to do?
+- Is it functional right now?
+- Does it load cleanly?
+- Are there errors, broken states, empty junk states, fake/demo-only content, or misleading UI?
+- Does the page earn its existence, or should it be merged, simplified, hidden, or cut?
+- Is the name of the page clear and intuitive?
+- Is the information density too high, too low, or about right?
+- Does the page feel trustworthy enough for a real district / school / ABA workflow?
+
+3. WORKFLOW AUDIT
+Audit the major workflows across the product, not just individual pages.
+For each major workflow, identify:
+- Best entry point
+- Expected user path
+- Friction points
+- Unnecessary clicks
+- Duplicate actions
+- Confusing loops
+- Places where users have to jump between too many pages
+- Missing shortcuts, summaries, next actions, or cross-links
+
+Important workflows to audit:
+- Admin / coordinator daily workflow
+- Case manager workflow
+- BCBA workflow
+- Provider / therapist workflow
+- Compliance risk review workflow
+- IEP service minute tracking workflow
+- ABA behavior documentation workflow
+- Scheduling / make-up minutes / service planning workflow
+- Executive oversight workflow
+- Setup / onboarding / district administration workflow
+
+4. CLEANLINESS / SIMPLICITY REVIEW
+Judge the product against this standard:
+- clean
+- simple
+- straightforward
+- easy to learn
+- easy to repeat daily
+- low cognitive overload
+- minimal clutter
+- obvious next steps
+- no messy duplication
+
+For every section, tell me:
+- What feels clean
+- What feels cluttered
+- What feels redundant
+- What feels too complicated
+- What feels out of order
+- What feels bolted on
+- What should be hidden from pilot users
+- What should be combined or renamed
+
+5. SECTION-BY-SECTION VERDICT
+For each nav section:
+- Is the section well organized?
+- Are the pages in the right place?
+- Are there pages that should move elsewhere?
+- Are there pages that should be merged?
+- Are there pages that should be removed from nav and accessed contextually instead?
+- Does the section support a real user’s mental model?
+- Does the section feel too broad, too fragmented, or just right?
+
+6. FIND ALL MESS
+I specifically want you to hunt for:
+- circular navigation
+- duplicated concepts in multiple places
+- pages that say similar things with slightly different names
+- features that look important but are not actually wired up
+- links that lead to weak pages
+- “dashboard sprawl”
+- pages that should be panels inside another page instead of standalone destinations
+- admin-only tools exposed too prominently
+- pages that break trust because they feel unfinished
+- pages that exist only because they were built, not because users need them
+
+7. RECOMMENDED NAV REDESIGN
+After the audit, propose a better nav structure.
+Give me:
+- the ideal top-level nav
+- ideal sub-nav under each section
+- renamed pages where needed
+- pages to merge
+- pages to cut
+- pages to hide for pilot/demo
+- pages that should become tabs, drawers, modals, or embedded panels instead of full pages
+
+Design principle:
+Fewer, stronger destinations.
+Everything should feel obvious and intentional.
+
+8. PRIORITIZED FIXES
+Create a prioritized action list:
+- Critical issues to fix immediately
+- High-value workflow simplifications
+- Pages to merge/remove
+- Labeling / naming fixes
+- Navigation cleanup
+- Trust / polish fixes
+- Optional future improvements
+
+For each recommendation, include:
+- Why it matters
+- Who it affects
+- How hard it is to fix
+- Whether it is pilot-blocking, important, or nice-to-have
+
+9. OUTPUT FORMAT
+Use this exact structure:
+
+A. Executive verdict
+B. Current nav inventory
+C. Section-by-section audit
+D. Workflow audit
+E. Biggest problems / messiest areas
+F. Recommended nav redesign
+G. Pages to cut / merge / hide
+H. Top 20 highest-priority fixes
+I. Final product cleanliness verdict
+
+10. IMPORTANT RULES
+- Be brutally honest.
+- Do not just compliment the product.
+- Do not just summarize features.
+- Do not assume current structure is correct.
+- If something is messy, say it clearly.
+- If something should be cut, say cut it.
+- If something should be merged, say exactly with what.
+- If something is confusing for a BCBA, admin, or coordinator, explain why.
+- Focus on real usability, workflow logic, and product clarity.
+- Prefer simple, elegant, repeatable workflows over feature sprawl.
+
+Final standard:
+This should feel like a product design + UX + workflow + information architecture audit of the entire app, with the goal of making the whole nav cleaner, simpler, tighter, and more intuitive for daily use.
