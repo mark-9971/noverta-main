@@ -26,6 +26,13 @@ interface QuickLogSheetProps {
   sessionDate?: string;
   skipToMissed?: boolean;
   collectedGoalData?: CollectedGoalEntry[];
+  /**
+   * When a supervisor is logging a session on behalf of another provider, this
+   * note is prepended to the session notes so the audit trail captures who
+   * actually entered the data (the row's staffId is the provider being logged
+   * for, which would otherwise lose the supervisor's identity).
+   */
+  onBehalfOfNote?: string;
 }
 
 /**
@@ -67,6 +74,7 @@ export function QuickLogSheet({
   prefillDurationMinutes, prefillOutcome,
   prefillStartTime, prefillEndTime,
   sessionDate, skipToMissed, collectedGoalData,
+  onBehalfOfNote,
 }: QuickLogSheetProps) {
   const [step, setStep] = useState<Step>("student");
   const [studentId, setStudentId] = useState<number | null>(prefillStudentId ?? null);
@@ -267,9 +275,12 @@ export function QuickLogSheet({
     if (!studentId || !outcome) return;
     setSubmitting(true);
     try {
+      const finalNote = onBehalfOfNote
+        ? (note.trim() ? `${onBehalfOfNote} — ${note}` : onBehalfOfNote)
+        : note;
       await submitSession({
         studentId, staffId, outcome, serviceTypeId, durationMinutes,
-        missedReasonId, missedReasonLabel, makeupNeeded, note,
+        missedReasonId, missedReasonLabel, makeupNeeded, note: finalNote,
         sessionDate: today, prefillStartTime, prefillEndTime,
         collectedGoalData: collectedGoalData,
       });

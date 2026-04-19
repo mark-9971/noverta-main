@@ -653,6 +653,11 @@ export default function TodayPage() {
           setQuickLogOpen(false);
         }}
         staffId={viewedStaffId}
+        onBehalfOfNote={
+          isSupervisor && viewedStaffId !== teacherId && viewedStaff
+            ? `Logged by ${user?.name ?? "supervisor"} on behalf of ${viewedStaff.firstName} ${viewedStaff.lastName}`
+            : undefined
+        }
         prefillStudentId={quickLogPrefill.studentId}
         prefillStudentName={quickLogPrefill.studentName}
         prefillServiceTypeId={quickLogPrefill.serviceTypeId}
