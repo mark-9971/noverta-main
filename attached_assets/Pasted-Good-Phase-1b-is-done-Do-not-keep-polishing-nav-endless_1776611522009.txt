@@ -1,0 +1,79 @@
+Good. Phase 1b is done. Do not keep polishing nav endlessly.
+
+Now I want a Phase 2 planning pass focused on the two highest-value structural improvements:
+
+1. Admin wedge consolidation
+2. Role-aware student workspace
+
+Do not code yet.
+Plan only.
+
+## Priority 1: Admin wedge consolidation
+The admin differentiator is:
+- minute tracking
+- compliance
+- reports / exports
+- missed services
+- compensatory exposure
+- approvals / workflow
+
+I want a plan to consolidate the current admin-facing surfaces into a cleaner set of stronger workspaces.
+
+Audit and propose the cleanest target structure for:
+- Compliance
+- Reports
+- Weekly Summary
+- Compensatory
+- Financial Exposure
+- Document Workflow / Approvals
+- Sessions / service delivery visibility
+- Executive surfaces where relevant
+
+Tell me:
+- what should remain standalone
+- what should merge
+- what should become tabs inside stronger workspaces
+- what should be cross-linked instead of top-level
+- what should be deferred
+
+## Priority 2: Role-aware student workspace
+Plan a shared /students/:id workspace that behaves differently by role.
+
+For each role, specify:
+- default tab
+- visible tabs
+- hidden tabs
+- widgets shown
+- actions allowed
+- actions blocked
+
+Roles:
+- admin / coordinator / case manager
+- BCBA
+- SLP / OT / PT / provider
+- para / direct staff
+
+I want the student workspace to become:
+- compliance/services-first for admin
+- clinical/student-first for BCBA
+- service-delivery-first for provider
+- simplified task-first for para
+
+## Constraints
+- no route explosion
+- prefer one shared student route
+- prefer re-hosting existing components over rewriting business logic
+- do not overcomplicate
+- optimize for pilot/demo readiness first, durable architecture second
+
+## Output format
+A. Current admin wedge fragmentation audit
+B. Recommended admin target workspaces
+C. Merge / keep / tab / redirect matrix for admin surfaces
+D. Role-aware student workspace design by role
+E. Smallest viable Phase 2A (admin wedge)
+F. Smallest viable Phase 2B (student workspace)
+G. Risks / dependencies
+H. Recommended implementation order
+
+Be specific and implementation-oriented.
