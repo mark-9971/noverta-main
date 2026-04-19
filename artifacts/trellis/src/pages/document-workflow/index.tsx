@@ -41,6 +41,8 @@ export default function DocumentWorkflowPage() {
   const [createReviewers, setCreateReviewers] = useState<ReviewerAssignment[]>([]);
   const [replyTo, setReplyTo] = useState<{ id: number; workflowId: number; reviewerName: string } | null>(null);
   const [replyComment, setReplyComment] = useState("");
+  const [sectionTarget, setSectionTarget] = useState<string | null>(null);
+  const [sectionComment, setSectionComment] = useState("");
   const [pwnDialog, setPwnDialog] = useState(false);
   const [pwnForm, setPwnForm] = useState({ studentId: "", meetingId: "" });
   const [pwnLoading, setPwnLoading] = useState(false);
@@ -182,6 +184,28 @@ export default function DocumentWorkflowPage() {
     }
   }
 
+  async function handleSectionComment() {
+    if (!selectedWorkflow || !sectionTarget || !sectionComment.trim()) return;
+    try {
+      const res = await authFetch(`/api/document-workflow/workflows/${selectedWorkflow.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: sectionComment, sectionRef: sectionTarget }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to post comment");
+        return;
+      }
+      toast.success(`Comment posted on "${sectionTarget}"`);
+      setSectionTarget(null);
+      setSectionComment("");
+      if (selectedWorkflow) openDetail({ ...selectedWorkflow } as Workflow);
+    } catch {
+      toast.error("Failed to post comment");
+    }
+  }
+
   async function handleReply() {
     if (!replyTo || !replyComment.trim()) return;
     try {
@@ -277,13 +301,24 @@ export default function DocumentWorkflowPage() {
         versionHistory={versionHistory}
         versionExpanded={versionExpanded}
         onVersionToggle={() => setVersionExpanded(!versionExpanded)}
-        onClose={() => { setSelectedWorkflow(null); setVersionExpanded(false); setDocumentViewerState({}); }}
+        onClose={() => {
+          setSelectedWorkflow(null);
+          setVersionExpanded(false);
+          setSectionTarget(null);
+          setSectionComment("");
+          setDocumentViewerState({});
+        }}
         onAction={(type, workflowId) => setActionDialog({ type, workflowId })}
         replyTo={replyTo}
         replyComment={replyComment}
         onReplyToChange={setReplyTo}
         onReplyCommentChange={setReplyComment}
         onReplySubmit={handleReply}
+        sectionTarget={sectionTarget}
+        sectionComment={sectionComment}
+        onSectionTargetChange={setSectionTarget}
+        onSectionCommentChange={setSectionComment}
+        onSectionCommentSubmit={handleSectionComment}
         documentViewerOpen={selectedWorkflow ? documentViewerState[selectedWorkflow.id]?.open ?? false : false}
         documentViewerPreview={selectedWorkflow ? documentViewerState[selectedWorkflow.id]?.preview ?? null : null}
         onDocumentViewerOpenChange={(open) => {

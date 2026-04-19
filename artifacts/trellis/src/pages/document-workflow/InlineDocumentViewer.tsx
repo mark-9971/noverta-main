@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, FileText, Printer } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, MessageSquarePlus, Printer } from "lucide-react";
 import { openPrintWindow, buildDocumentHtml, buildIncidentReportHtml, fmtDate, fmtTime, esc } from "@/lib/print-document";
 
 interface GoalProgressEntry {
@@ -34,19 +34,48 @@ interface Props {
   workflowId: number;
   documentType: string;
   studentName: string;
+  onCommentSection?: (sectionRef: string) => void;
+  activeSectionRef?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preview: DocumentPreview | null;
   onPreviewLoaded: (preview: DocumentPreview) => void;
 }
 
-function PreviewField({ label, value }: { label: string; value: unknown }) {
+function CommentOnSectionButton({ sectionRef, onCommentSection, active }: { sectionRef: string; onCommentSection?: (ref: string) => void; active?: boolean }) {
+  if (!onCommentSection) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onCommentSection(sectionRef); }}
+      title={`Add a comment about "${sectionRef}"`}
+      className={`inline-flex items-center gap-0.5 text-[10px] rounded px-1 py-0.5 border transition-colors ${active ? "bg-blue-100 text-blue-700 border-blue-300" : "text-gray-400 border-transparent hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200"}`}
+    >
+      <MessageSquarePlus className="w-3 h-3" />
+      Comment
+    </button>
+  );
+}
+
+function PreviewField({ label, value, onCommentSection, activeSectionRef }: { label: string; value: unknown; onCommentSection?: (ref: string) => void; activeSectionRef?: string | null }) {
   if (!value && value !== false) return null;
   const text = typeof value === "boolean" ? (value ? "Yes" : "No") : String(value);
   return (
     <div className="space-y-0.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-xs text-gray-800 bg-white border border-gray-100 rounded p-2 leading-relaxed whitespace-pre-wrap">{text}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+        <CommentOnSectionButton sectionRef={label} onCommentSection={onCommentSection} active={activeSectionRef === label} />
+      </div>
+      <p className={`text-xs text-gray-800 bg-white border rounded p-2 leading-relaxed whitespace-pre-wrap ${activeSectionRef === label ? "border-blue-300 ring-1 ring-blue-200" : "border-gray-100"}`}>{text}</p>
+    </div>
+  );
+}
+
+function SectionHeading({ title, onCommentSection, activeSectionRef }: { title: string; onCommentSection?: (ref: string) => void; activeSectionRef?: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-2 mb-1">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{title}</p>
+      <CommentOnSectionButton sectionRef={title} onCommentSection={onCommentSection} active={activeSectionRef === title} />
     </div>
   );
 }
@@ -64,7 +93,12 @@ function MetaRow({ items }: { items: { label: string; value: unknown }[] }) {
   );
 }
 
-function IepPreview({ preview, studentName }: { preview: DocumentPreview; studentName: string }) {
+interface SectionCommentProps {
+  onCommentSection?: (ref: string) => void;
+  activeSectionRef?: string | null;
+}
+
+function IepPreview({ preview, studentName, onCommentSection, activeSectionRef }: { preview: DocumentPreview; studentName: string } & SectionCommentProps) {
   const iepTypeLabel = preview.iepType === "initial" ? "Initial IEP"
     : preview.iepType === "annual" ? "Annual IEP"
     : preview.iepType === "amendment" ? "Amendment"
@@ -115,25 +149,25 @@ function IepPreview({ preview, studentName }: { preview: DocumentPreview; studen
         { label: "Status", value: preview.status ? String(preview.status) : null },
       ]} />
       <div className="space-y-2">
-        <PreviewField label="Student Concerns" value={preview.studentConcerns} />
-        <PreviewField label="Parent/Guardian Concerns" value={preview.parentConcerns} />
-        <PreviewField label="Team Vision" value={preview.teamVision} />
-        <PreviewField label="PLAAFP — Academic" value={preview.plaafpAcademic} />
-        <PreviewField label="PLAAFP — Behavioral" value={preview.plaafpBehavioral} />
-        <PreviewField label="PLAAFP — Communication" value={preview.plaafpCommunication} />
-        <PreviewField label="PLAAFP — Additional" value={preview.plaafpAdditional} />
-        <PreviewField label="Schedule Modifications" value={preview.scheduleModifications} />
-        <PreviewField label="Transportation Services" value={preview.transportationServices} />
+        <PreviewField label="Student Concerns" value={preview.studentConcerns} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="Parent/Guardian Concerns" value={preview.parentConcerns} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="Team Vision" value={preview.teamVision} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="PLAAFP — Academic" value={preview.plaafpAcademic} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="PLAAFP — Behavioral" value={preview.plaafpBehavioral} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="PLAAFP — Communication" value={preview.plaafpCommunication} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="PLAAFP — Additional" value={preview.plaafpAdditional} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="Schedule Modifications" value={preview.scheduleModifications} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+        <PreviewField label="Transportation Services" value={preview.transportationServices} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
         {preview.esyEligible !== null && preview.esyEligible !== undefined && (
-          <PreviewField label="Extended School Year (ESY)" value={preview.esyEligible ? `Eligible${preview.esyServices ? ` — ${preview.esyServices}` : ""}` : "Not Eligible"} />
+          <PreviewField label="Extended School Year (ESY)" value={preview.esyEligible ? `Eligible${preview.esyServices ? ` — ${preview.esyServices}` : ""}` : "Not Eligible"} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
         )}
-        <PreviewField label="Assessment Participation" value={preview.assessmentParticipation} />
+        <PreviewField label="Assessment Participation" value={preview.assessmentParticipation} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
       </div>
     </div>
   );
 }
 
-function EvaluationPreview({ preview, studentName }: { preview: DocumentPreview; studentName: string }) {
+function EvaluationPreview({ preview, studentName, onCommentSection, activeSectionRef }: { preview: DocumentPreview; studentName: string } & SectionCommentProps) {
   const areas = Array.isArray(preview.evaluationAreas) ? preview.evaluationAreas as { area: string; status: string; summary?: string }[] : [];
   const members = Array.isArray(preview.teamMembers) ? preview.teamMembers as { name: string; role: string; evaluationArea?: string }[] : [];
 
@@ -175,11 +209,11 @@ function EvaluationPreview({ preview, studentName }: { preview: DocumentPreview;
         { label: "Completed", value: preview.completionDate ? fmtDate(String(preview.completionDate)) : null },
         { label: "Meeting", value: preview.meetingDate ? fmtDate(String(preview.meetingDate)) : null },
       ]} />
-      <PreviewField label="Report Summary" value={preview.reportSummary} />
-      <PreviewField label="Notes" value={preview.notes} />
+      <PreviewField label="Report Summary" value={preview.reportSummary} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Notes" value={preview.notes} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
       {areas.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Evaluation Areas</p>
+          <SectionHeading title="Evaluation Areas" onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
           <div className="space-y-1">
             {areas.map((a, i) => (
               <div key={i} className="flex items-start gap-2 p-1.5 bg-white border border-gray-100 rounded text-xs">
@@ -194,7 +228,7 @@ function EvaluationPreview({ preview, studentName }: { preview: DocumentPreview;
       )}
       {members.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Team Members</p>
+          <SectionHeading title="Team Members" onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
           <div className="flex flex-wrap gap-1">
             {members.map((m, i) => (
               <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
@@ -208,7 +242,7 @@ function EvaluationPreview({ preview, studentName }: { preview: DocumentPreview;
   );
 }
 
-function ProgressReportPreview({ preview, studentName }: { preview: DocumentPreview; studentName: string }) {
+function ProgressReportPreview({ preview, studentName, onCommentSection, activeSectionRef }: { preview: DocumentPreview; studentName: string } & SectionCommentProps) {
   const goals = Array.isArray(preview.goalProgress) ? preview.goalProgress as GoalProgressEntry[] : [];
   const services = Array.isArray(preview.serviceBreakdown) ? preview.serviceBreakdown as ServiceDeliveryBreakdown[] : [];
 
@@ -255,13 +289,13 @@ function ProgressReportPreview({ preview, studentName }: { preview: DocumentPrev
         { label: "Status", value: preview.status },
         { label: "Parent Notified", value: preview.parentNotificationDate ? fmtDate(String(preview.parentNotificationDate)) : null },
       ]} />
-      <PreviewField label="Overall Summary" value={preview.overallSummary} />
-      <PreviewField label="Service Delivery Summary" value={preview.serviceDeliverySummary} />
-      <PreviewField label="Recommendations" value={preview.recommendations} />
-      <PreviewField label="Parent Notes" value={preview.parentNotes} />
+      <PreviewField label="Overall Summary" value={preview.overallSummary} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Service Delivery Summary" value={preview.serviceDeliverySummary} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Recommendations" value={preview.recommendations} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Parent Notes" value={preview.parentNotes} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
       {goals.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Goal Progress ({goals.length} goals)</p>
+          <SectionHeading title={`Goal Progress (${goals.length} goals)`} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
           <div className="space-y-1.5">
             {goals.map((g, i) => {
               const colorKey = g.progressCode?.toLowerCase() ?? "not_started";
@@ -284,7 +318,7 @@ function ProgressReportPreview({ preview, studentName }: { preview: DocumentPrev
       )}
       {services.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Service Delivery</p>
+          <SectionHeading title="Service Delivery" onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
           <div className="space-y-1">
             {services.map((s, i) => (
               <div key={i} className="flex items-center gap-3 p-1.5 bg-white border border-gray-100 rounded text-xs">
@@ -302,7 +336,7 @@ function ProgressReportPreview({ preview, studentName }: { preview: DocumentPrev
   );
 }
 
-function PwnPreview({ preview, studentName }: { preview: DocumentPreview; studentName: string }) {
+function PwnPreview({ preview, studentName, onCommentSection, activeSectionRef }: { preview: DocumentPreview; studentName: string } & SectionCommentProps) {
   function handlePrint() {
     const s = (v: unknown) => esc(String(v ?? ""));
     const sections = [
@@ -338,19 +372,19 @@ function PwnPreview({ preview, studentName }: { preview: DocumentPreview; studen
         { label: "Issued", value: preview.issuedDate ? fmtDate(String(preview.issuedDate)) : null },
         { label: "Parent Response Due", value: preview.parentResponseDueDate ? fmtDate(String(preview.parentResponseDueDate)) : null },
       ]} />
-      <PreviewField label="Action Proposed" value={preview.actionProposed} />
-      <PreviewField label="Action Description" value={preview.actionDescription} />
-      <PreviewField label="Reason for Action" value={preview.reasonForAction} />
-      <PreviewField label="Options Considered" value={preview.optionsConsidered} />
-      <PreviewField label="Reason Options Rejected" value={preview.reasonOptionsRejected} />
-      <PreviewField label="Evaluation Information" value={preview.evaluationInfo} />
-      <PreviewField label="Other Factors" value={preview.otherFactors} />
-      <PreviewField label="Notes" value={preview.notes} />
+      <PreviewField label="Action Proposed" value={preview.actionProposed} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Action Description" value={preview.actionDescription} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Reason for Action" value={preview.reasonForAction} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Options Considered" value={preview.optionsConsidered} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Reason Options Rejected" value={preview.reasonOptionsRejected} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Evaluation Information" value={preview.evaluationInfo} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Other Factors" value={preview.otherFactors} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Notes" value={preview.notes} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
     </div>
   );
 }
 
-function IncidentReportPreview({ preview, studentName }: { preview: DocumentPreview; studentName: string }) {
+function IncidentReportPreview({ preview, studentName, onCommentSection, activeSectionRef }: { preview: DocumentPreview; studentName: string } & SectionCommentProps) {
   const incidentTypeLabel = String(preview.incidentType ?? "")
     .replace(/_/g, " ")
     .replace(/\b\w/g, c => c.toUpperCase());
@@ -378,22 +412,22 @@ function IncidentReportPreview({ preview, studentName }: { preview: DocumentPrev
         { label: "Over 20 Min", value: preview.continuedOver20Min ? "Yes" : "No" },
         { label: "DESE Required", value: preview.deseReportRequired ? "Yes" : "No" },
       ]} />
-      <PreviewField label="Preceding Activity" value={preview.precedingActivity} />
-      <PreviewField label="Trigger Description" value={preview.triggerDescription} />
-      <PreviewField label="Behavior Description" value={preview.behaviorDescription} />
-      <PreviewField label="De-escalation Attempts" value={preview.deescalationAttempts} />
-      <PreviewField label="Alternatives Attempted" value={preview.alternativesAttempted} />
-      <PreviewField label="Justification" value={preview.justification} />
-      <PreviewField label="Restraint Description" value={preview.restraintDescription} />
-      <PreviewField label="Calming Strategies Used" value={preview.calmingStrategiesUsed} />
-      <PreviewField label="Student State After" value={preview.studentStateAfter} />
-      <PreviewField label="Student Injury" value={preview.studentInjury ? (preview.studentInjuryDescription || "Yes") : "No"} />
-      <PreviewField label="Staff Injury" value={preview.staffInjury ? (preview.staffInjuryDescription || "Yes") : "No"} />
-      <PreviewField label="Medical Attention Required" value={preview.medicalAttentionRequired ? (preview.medicalDetails || "Yes") : "No"} />
-      <PreviewField label="Debrief Notes" value={preview.debriefNotes} />
-      <PreviewField label="Follow-Up Plan" value={preview.followUpPlan} />
-      <PreviewField label="Admin Review Notes" value={preview.adminReviewNotes} />
-      <PreviewField label="Notes" value={preview.notes} />
+      <PreviewField label="Preceding Activity" value={preview.precedingActivity} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Trigger Description" value={preview.triggerDescription} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Behavior Description" value={preview.behaviorDescription} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="De-escalation Attempts" value={preview.deescalationAttempts} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Alternatives Attempted" value={preview.alternativesAttempted} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Justification" value={preview.justification} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Restraint Description" value={preview.restraintDescription} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Calming Strategies Used" value={preview.calmingStrategiesUsed} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Student State After" value={preview.studentStateAfter} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Student Injury" value={preview.studentInjury ? (preview.studentInjuryDescription || "Yes") : "No"} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Staff Injury" value={preview.staffInjury ? (preview.staffInjuryDescription || "Yes") : "No"} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Medical Attention Required" value={preview.medicalAttentionRequired ? (preview.medicalDetails || "Yes") : "No"} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Debrief Notes" value={preview.debriefNotes} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Follow-Up Plan" value={preview.followUpPlan} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Admin Review Notes" value={preview.adminReviewNotes} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
+      <PreviewField label="Notes" value={preview.notes} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />
     </div>
   );
 }
@@ -407,7 +441,17 @@ function GenericPreview({ preview }: { preview: DocumentPreview }) {
   );
 }
 
-export function InlineDocumentViewer({ workflowId, documentType, studentName, open, onOpenChange, preview, onPreviewLoaded }: Props) {
+export function InlineDocumentViewer({
+  workflowId,
+  documentType,
+  studentName,
+  onCommentSection,
+  activeSectionRef,
+  open,
+  onOpenChange,
+  preview,
+  onPreviewLoaded
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -456,12 +500,12 @@ export function InlineDocumentViewer({ workflowId, documentType, studentName, op
           {error && <p className="text-xs text-red-500">{error}</p>}
           {preview && !loading && (
             <>
-              {preview.documentType === "iep" && <IepPreview preview={preview} studentName={studentName} />}
-              {preview.documentType === "evaluation" && <EvaluationPreview preview={preview} studentName={studentName} />}
-              {preview.documentType === "progress_report" && <ProgressReportPreview preview={preview} studentName={studentName} />}
-              {preview.documentType === "prior_written_notice" && <PwnPreview preview={preview} studentName={studentName} />}
-              {preview.documentType === "incident_report" && <IncidentReportPreview preview={preview} studentName={studentName} />}
-              {!["iep", "evaluation", "progress_report", "prior_written_notice", "incident_report"].includes(preview.documentType) && (
+              {preview.documentType === "iep" && <IepPreview preview={preview} studentName={studentName} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />}
+              {preview.documentType === "evaluation" && <EvaluationPreview preview={preview} studentName={studentName} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />}
+              {preview.documentType === "progress_report" && <ProgressReportPreview preview={preview} studentName={studentName} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />}
+              {preview.documentType === "prior_written_notice" && <PwnPreview preview={preview} studentName={studentName} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />}
+              {preview.documentType === "incident_report" && <IncidentReportPreview preview={preview} studentName={studentName} onCommentSection={onCommentSection} activeSectionRef={activeSectionRef} />}
+              {!["iep", "evaluation", "progress_report", "prior_written_notice", "incident_report"].includes(preview.documentType as string) && (
                 <GenericPreview preview={preview} />
               )}
             </>

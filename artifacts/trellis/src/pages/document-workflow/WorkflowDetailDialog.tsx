@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, RotateCcw, ArrowRight, UserPlus, History, ChevronDown, ChevronUp, Clock, Mail, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, RotateCcw, ArrowRight, UserPlus, History, ChevronDown, ChevronUp, Clock, Mail, AlertCircle, MessageSquarePlus, X } from "lucide-react";
 import { WorkflowDetail, DocumentVersion, ActionType, STAGE_LABELS, ACTION_CONFIG } from "./types";
 import { AgingBadge, StatusBadge, StageBadge, daysAgo, formatDateTime, groupApprovalsByStage, buildThreadTree } from "./shared";
 import { InlineDocumentViewer, DocumentPreview } from "./InlineDocumentViewer";
@@ -19,6 +19,11 @@ interface Props {
   onReplyToChange: (v: { id: number; workflowId: number; reviewerName: string } | null) => void;
   onReplyCommentChange: (v: string) => void;
   onReplySubmit: () => void;
+  sectionTarget: string | null;
+  sectionComment: string;
+  onSectionTargetChange: (v: string | null) => void;
+  onSectionCommentChange: (v: string) => void;
+  onSectionCommentSubmit: () => void;
   documentViewerOpen: boolean;
   documentViewerPreview: DocumentPreview | null;
   onDocumentViewerOpenChange: (open: boolean) => void;
@@ -38,6 +43,11 @@ export function WorkflowDetailDialog({
   onReplyToChange,
   onReplyCommentChange,
   onReplySubmit,
+  sectionTarget,
+  sectionComment,
+  onSectionTargetChange,
+  onSectionCommentChange,
+  onSectionCommentSubmit,
   documentViewerOpen,
   documentViewerPreview,
   onDocumentViewerOpenChange,
@@ -141,11 +151,47 @@ export function WorkflowDetailDialog({
                 workflowId={selectedWorkflow.id}
                 documentType={selectedWorkflow.documentType}
                 studentName={`${selectedWorkflow.studentFirstName ?? ""} ${selectedWorkflow.studentLastName ?? ""}`.trim()}
+                onCommentSection={(ref) => onSectionTargetChange(ref)}
+                activeSectionRef={sectionTarget}
                 open={documentViewerOpen}
                 onOpenChange={onDocumentViewerOpenChange}
                 preview={documentViewerPreview}
                 onPreviewLoaded={onDocumentViewerPreviewLoaded}
               />
+
+              {sectionTarget && (
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-blue-800">
+                      <MessageSquarePlus className="w-3.5 h-3.5" />
+                      <span>Commenting on</span>
+                      <span className="font-semibold bg-white px-1.5 py-0.5 rounded border border-blue-200">{sectionTarget}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { onSectionTargetChange(null); onSectionCommentChange(""); }}
+                      className="text-blue-500 hover:text-blue-700"
+                      aria-label="Cancel section comment"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <textarea
+                    className="w-full border rounded p-2 text-xs min-h-[60px] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    value={sectionComment}
+                    onChange={e => onSectionCommentChange(e.target.value)}
+                    placeholder={`Write a comment about "${sectionTarget}"...`}
+                  />
+                  <div className="flex gap-1.5">
+                    <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={onSectionCommentSubmit} disabled={!sectionComment.trim()}>
+                      Post Comment
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { onSectionTargetChange(null); onSectionCommentChange(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {selectedWorkflow.status === "in_progress" && (
                 <div className="flex gap-2 border-t pt-4">
@@ -206,6 +252,12 @@ export function WorkflowDetailDialog({
                                         <span className="font-medium text-gray-700">{a.reviewerName}</span>
                                       </div>
                                       <p className="text-gray-400">{formatDateTime(a.createdAt)}</p>
+                                      {a.sectionRef && (
+                                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                          <MessageSquarePlus className="w-2.5 h-2.5" />
+                                          on <span className="font-semibold">{a.sectionRef}</span>
+                                        </div>
+                                      )}
                                       {a.comment && <p className="text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">{a.comment}</p>}
                                       <button
                                         onClick={(e) => { e.stopPropagation(); onReplyToChange({ id: a.id, workflowId: selectedWorkflow.id, reviewerName: a.reviewerName }); }}
@@ -226,6 +278,12 @@ export function WorkflowDetailDialog({
                                             <div className="space-y-0.5">
                                               <span className="font-medium text-gray-700">{r.reviewerName}</span>
                                               <p className="text-gray-400 text-[10px]">{formatDateTime(r.createdAt)}</p>
+                                              {r.sectionRef && (
+                                                <div className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                                  <MessageSquarePlus className="w-2.5 h-2.5" />
+                                                  on <span className="font-semibold">{r.sectionRef}</span>
+                                                </div>
+                                              )}
                                               {r.comment && <p className="text-gray-600">{r.comment}</p>}
                                             </div>
                                           </div>

@@ -41,6 +41,7 @@ export interface WorkflowApproval {
   reviewerName: string;
   comment: string | null;
   parentCommentId: number | null;
+  sectionRef: string | null;
   createdAt: string;
 }
 

@@ -36,6 +36,7 @@ export const workflowApprovalsTable = pgTable("workflow_approvals", {
   reviewerName: text("reviewer_name").notNull(),
   comment: text("comment"),
   parentCommentId: integer("parent_comment_id"),
+  sectionRef: text("section_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("wf_appr_workflow_idx").on(table.workflowId),

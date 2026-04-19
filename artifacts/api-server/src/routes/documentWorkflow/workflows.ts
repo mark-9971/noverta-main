@@ -237,6 +237,7 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res): Promis
   const isLastStage = currentIdx >= stages.length - 1;
 
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+  const sectionRef = typeof req.body.sectionRef === "string" ? req.body.sectionRef.slice(0, 200) : null;
 
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
@@ -246,6 +247,7 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res): Promis
     reviewerName: user.name,
     comment,
     parentCommentId,
+    sectionRef,
   });
 
   const student = await assertStudentInDistrict(workflow.studentId, districtId);
@@ -293,6 +295,7 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res): Promise
   if (!authorized) return void res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
 
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+  const sectionRef = typeof req.body.sectionRef === "string" ? req.body.sectionRef.slice(0, 200) : null;
 
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
@@ -302,6 +305,7 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res): Promise
     reviewerName: user.name,
     comment,
     parentCommentId,
+    sectionRef,
   });
 
   await db.update(approvalWorkflowsTable)
@@ -344,6 +348,7 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
 
   const stages = workflow.stages as string[];
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+  const sectionRef = typeof req.body.sectionRef === "string" ? req.body.sectionRef.slice(0, 200) : null;
 
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
@@ -353,6 +358,7 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
     reviewerName: user.name,
     comment: comment.slice(0, 2000),
     parentCommentId,
+    sectionRef,
   });
 
   await db.update(approvalWorkflowsTable)
@@ -423,6 +429,7 @@ router.post("/document-workflow/workflows/:id/comments", async (req, res): Promi
   if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
 
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+  const sectionRef = typeof req.body.sectionRef === "string" ? req.body.sectionRef.slice(0, 200) : null;
 
   if (parentCommentId) {
     const [parent] = await db.select({ id: workflowApprovalsTable.id })
@@ -439,6 +446,7 @@ router.post("/document-workflow/workflows/:id/comments", async (req, res): Promi
     reviewerName: user.name,
     comment: comment.slice(0, 2000),
     parentCommentId,
+    sectionRef,
   }).returning();
 
   res.status(201).json(entry);
