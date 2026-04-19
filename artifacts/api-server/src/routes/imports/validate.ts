@@ -216,26 +216,38 @@ router.post("/imports/validate", requireAdmin, async (req, res): Promise<void> =
       }
 
       if (importType === "service-requirements") {
+        const studentLabel = row.student_external_id || row.student_name ||
+          `${row.student_first_name || ""} ${row.student_last_name || ""}`.trim() || "(no identifier)";
         const studentId = await findOrGuessStudentId(row);
-        if (!studentId) { messages.push("Student not found — check name or external_id"); status = "error"; }
+        if (!studentId) {
+          messages.push(`Student "${studentLabel}" not found — check spelling or run the Students import first`);
+          status = "error";
+        }
         const svc = row.service_type || row.service_area || row.service || "";
-        if (!svc) { messages.push("Missing service_type"); status = "error"; }
+        if (!svc) { messages.push("Missing service_type — e.g. 'Speech-Language Therapy', 'Occupational Therapy', 'ABA'"); status = "error"; }
         else {
           const sid = await findServiceTypeId(svc);
-          if (!sid) { messages.push(`Unknown service type "${svc}"`); status = "error"; }
+          if (!sid) { messages.push(`Unknown service type "${svc}" — valid values: Speech-Language Therapy, Occupational Therapy, Physical Therapy, Applied Behavior Analysis, Counseling, Para Support`); status = "error"; }
         }
         const mins = parseInt(row.required_minutes || row.duration_min || row.duration || "0");
-        if (!mins || mins <= 0) { messages.push("Invalid or missing required_minutes"); status = "error"; }
+        if (!mins || mins <= 0) { messages.push(`Invalid or missing required_minutes (got "${row.required_minutes || row.duration_min || row.duration || ""}")`); status = "error"; }
       }
 
       if (importType === "sessions") {
+        const studentLabel = row.student_external_id || row.student_name ||
+          `${row.student_first_name || ""} ${row.student_last_name || ""}`.trim() || "(no identifier)";
         const studentId = await findOrGuessStudentId(row);
-        if (!studentId) { messages.push("Student not found"); status = "error"; }
+        if (!studentId) {
+          messages.push(`Student "${studentLabel}" not found — check spelling or run the Students import first`);
+          status = "error";
+        }
         const date = row.session_date || row.date || "";
-        if (!date) { messages.push("Missing session_date"); status = "error"; }
-        else if (!normalizeDate(date)) { messages.push(`Invalid session_date: "${date}"`); status = status === "error" ? "error" : "warning"; }
+        if (!date) { messages.push("Missing session_date — use YYYY-MM-DD or MM/DD/YYYY format"); status = "error"; }
+        else if (!normalizeDate(date)) { messages.push(`Invalid session_date "${date}" — use YYYY-MM-DD or MM/DD/YYYY format`); status = status === "error" ? "error" : "warning"; }
         const dur = parseInt(row.duration_minutes || row.duration || row.minutes || "0");
-        if (!dur || dur <= 0) { messages.push("Invalid or missing duration_minutes"); status = "error"; }
+        if (!dur || dur <= 0) { messages.push(`Invalid or missing duration_minutes (got "${row.duration_minutes || row.duration || row.minutes || ""}")`); status = "error"; }
+        const svcName = row.service_type || row.service || "";
+        if (!svcName && status !== "error") { messages.push("No service_type — session will import but won't count toward any specific compliance requirement"); if (status === "valid") status = "warning"; }
       }
 
       if (messages.length === 0) messages.push("Ready to import");

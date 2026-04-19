@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, importsTable, sessionLogsTable } from "@workspace/db";
-import { findOrGuessStudentId, findServiceTypeId, parseCsvRows, requireAdmin } from "./shared";
+import { findOrGuessStudentId, findServiceTypeId, parseCsvRows, requireAdmin, normalizeDate } from "./shared";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
@@ -38,23 +38,27 @@ router.post("/imports/sessions", requireAdmin, async (req, res): Promise<void> =
 
         const sessionDate = row.session_date || row.date || "";
         if (!sessionDate) {
-          errors.push(`Row ${i + 2}: Missing session_date`);
+          errors.push(`Row ${i + 2}: Missing session_date — use YYYY-MM-DD or MM/DD/YYYY format`);
           errored++;
           continue;
         }
 
-        const dateNormalized = sessionDate.includes("/")
-          ? (() => {
-              const parts = sessionDate.split("/");
-              return parts.length === 3 ? `${parts[2].padStart(4, "20")}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}` : sessionDate;
-            })()
-          : sessionDate;
+        const dateNormalized = normalizeDate(sessionDate);
+        if (!dateNormalized) {
+          errors.push(`Row ${i + 2}: Invalid session_date "${sessionDate}" — use YYYY-MM-DD or MM/DD/YYYY format`);
+          errored++;
+          continue;
+        }
 
         const duration = parseInt(row.duration_minutes || row.duration || row.minutes || "0");
         if (!duration || duration <= 0) {
-          errors.push(`Row ${i + 2}: Invalid duration_minutes`);
+          errors.push(`Row ${i + 2}: Invalid or missing duration_minutes (got "${row.duration_minutes || row.duration || row.minutes || ""}")`);
           errored++;
           continue;
+        }
+
+        if (!serviceTypeName) {
+          errors.push(`Row ${i + 2}: No service_type — session imported but won't link to any compliance requirement`);
         }
 
         const statusRaw = (row.status || "completed").toLowerCase();

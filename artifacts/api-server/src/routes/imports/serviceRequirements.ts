@@ -86,6 +86,10 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
           ))
           .limit(1);
         if (dup) {
+          const studentLabel = row.student_external_id || row.student_name ||
+            `${row.student_first_name || ""} ${row.student_last_name || ""}`.trim() ||
+            `student id=${studentId}`;
+          errors.push(`Row ${i + 2}: ${studentLabel} already has an active "${serviceTypeName}" requirement — skipped (re-upload won't duplicate it)`);
           skipped++;
           continue;
         }

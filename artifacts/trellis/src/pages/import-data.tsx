@@ -43,36 +43,39 @@ const IMPORT_GUIDANCE: Record<string, { prereqs: string; requiredCols: string; t
     prereqs: "None — students are usually the first thing you import.",
     requiredCols: "first_name, last_name",
     tips: [
-      "Include external_id (your SIS student ID) — it makes future imports much easier",
-      "School and case_manager columns must match names already in Trellis",
-      "Duplicates are detected by first + last name match",
+      "Include external_id (your SIS student ID) — it makes future imports much easier and is used for deduplication",
+      "school and case_manager columns must exactly match names already in Trellis",
+      "Duplicates are detected by first + last name match (or external_id if provided)",
     ],
   },
   staff: {
     prereqs: "None — staff can be imported alongside or before students.",
     requiredCols: "first_name, last_name, role",
     tips: [
-      "Role must be one of: slp, ot, pt, bcba, para, counselor, case_manager, teacher, coordinator, admin",
-      "Common titles like 'Speech-Language Pathologist' are auto-recognized",
-      "Include email for login access and better duplicate detection",
+      "role must be one of: slp, ot, pt, bcba, para, counselor, case_manager, teacher, coordinator, admin",
+      "Common titles are auto-recognized: 'Speech-Language Pathologist' → slp, 'Occupational Therapist' → ot, 'Paraprofessional' → para",
+      "Include email — required for login access and more reliable duplicate detection",
     ],
   },
   "service-requirements": {
     prereqs: "Students must be imported first. Service types must exist in Trellis.",
-    requiredCols: "student identifier (name or ID), service_type, required_minutes",
+    requiredCols: "service_type, required_minutes  +  student_external_id OR (student_first_name + student_last_name)",
     tips: [
-      "Students are matched by external_id, or first_name + last_name",
-      "Service types: Speech-Language Therapy, Occupational Therapy, Physical Therapy, ABA, Counseling, Para Support",
-      "Interval defaults to 'monthly' — use weekly/daily/quarterly if needed",
+      "Students are matched by student_external_id first, then by student_first_name + student_last_name",
+      "service_type must be one of: Speech-Language Therapy, Occupational Therapy, Physical Therapy, Applied Behavior Analysis, Counseling, Para Support",
+      "required_minutes is the total per interval — e.g. 120 for 120 minutes per month",
+      "interval_type defaults to 'monthly' — use weekly, daily, or quarterly if needed",
+      "Run 'Validate First' before importing — student mismatches are common and caught early",
     ],
   },
   sessions: {
-    prereqs: "Students must be imported first.",
-    requiredCols: "student identifier, session_date, duration_minutes",
+    prereqs: "Students must be imported first. Service requirements are strongly recommended.",
+    requiredCols: "session_date, duration_minutes  +  student_external_id OR (student_first_name + student_last_name)",
     tips: [
-      "Dates can be YYYY-MM-DD or MM/DD/YYYY format",
-      "Status options: completed (default), missed, partial",
-      "Missed sessions count against compliance — use them to track delivery gaps",
+      "session_date: YYYY-MM-DD or MM/DD/YYYY — both accepted",
+      "status: completed (default), missed, partial — missed sessions count against compliance",
+      "Include service_type so sessions link to compliance requirements (without it, minutes won't count)",
+      "is_makeup: true/false — marks compensatory/makeup sessions",
     ],
   },
   "goals-data": {
@@ -462,6 +465,19 @@ export default function ImportData() {
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Import Data</h1>
         <p className="text-xs md:text-sm text-gray-400 mt-1">Bulk import students, staff, IEP requirements, sessions, and historical goal data</p>
+      </div>
+
+      <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800 flex gap-3 items-start">
+        <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+        <div className="space-y-0.5">
+          <p className="font-semibold text-blue-900">What the compliance dashboard needs to show real data</p>
+          <p>
+            <span className="font-medium">1 — Students</span> (who has an IEP) →{" "}
+            <span className="font-medium">2 — Service Requirements</span> (what the IEP mandates, in minutes) →{" "}
+            <span className="font-medium">3 — Sessions</span> (what was actually delivered).
+            Without service requirements, the compliance dashboard cannot calculate delivery rates.
+          </p>
+        </div>
       </div>
 
       {selectedType && step !== "upload" && (
@@ -1026,12 +1042,22 @@ export default function ImportData() {
               )}
               {result.errors && result.errors.length > 0 && (
                 <div className="mt-4 space-y-1">
-                  <p className="text-[11px] font-semibold text-gray-500">Error Details ({result.errors.length} of {result.rowsErrored + (result.rowsSkipped ?? 0)}):</p>
-                  <div className="max-h-48 overflow-y-auto space-y-1 mt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold text-gray-500">Row issues ({result.errors.length}{(result.rowsErrored + (result.rowsSkipped ?? 0)) > result.errors.length ? ` of ${result.rowsErrored + (result.rowsSkipped ?? 0)}` : ""}) — fix these in your CSV and re-import:</p>
+                    <button
+                      className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 border border-emerald-200 bg-emerald-50 rounded px-2 py-0.5"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(result.errors!.join("\n"));
+                      }}
+                    >
+                      <Copy className="w-3 h-3" /> Copy all
+                    </button>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1 mt-1 bg-white rounded border border-gray-100 p-2">
                     {result.errors.map((err, i) => (
                       <div key={i} className="flex items-start gap-2 text-[11px]">
                         <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 flex-shrink-0" />
-                        <span className="text-gray-600">{err}</span>
+                        <span className="text-gray-600 font-mono">{err}</span>
                       </div>
                     ))}
                   </div>
@@ -1060,35 +1086,49 @@ export default function ImportData() {
           ) : (
             <div className="space-y-2">
               {history.slice(0, 20).map((imp, idx) => (
-                <div key={imp.id || idx} className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 bg-white">
-                  {imp.status === "completed" ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                  ) : imp.status === "failed" ? (
-                    <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  ) : (
-                    <RefreshCw className="w-5 h-5 text-amber-500 flex-shrink-0 animate-spin" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-gray-700">
-                      {imp.importType?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
-                      {imp.fileName && <span className="text-gray-400 font-normal"> — {imp.fileName}</span>}
-                    </p>
-                    <p className="text-[11px] text-gray-400">
-                      {new Date(imp.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4 text-[12px] flex-shrink-0">
-                    <div className="text-center">
-                      <p className="font-bold text-emerald-600">{imp.rowsImported}</p>
-                      <p className="text-gray-400 text-[10px]">imported</p>
-                    </div>
-                    {(imp.rowsErrored ?? 0) > 0 && (
-                      <div className="text-center">
-                        <p className="font-bold text-red-500">{imp.rowsErrored}</p>
-                        <p className="text-gray-400 text-[10px]">errors</p>
-                      </div>
+                <div key={imp.id || idx} className="rounded-lg border border-gray-100 bg-white overflow-hidden">
+                  <div className="flex items-center gap-4 p-3">
+                    {imp.status === "completed" ? (
+                      <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                    ) : imp.status === "failed" ? (
+                      <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    ) : (
+                      <RefreshCw className="w-5 h-5 text-amber-500 flex-shrink-0 animate-spin" />
                     )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-gray-700">
+                        {imp.importType?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        {imp.fileName && <span className="text-gray-400 font-normal"> — {imp.fileName}</span>}
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        {new Date(imp.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4 text-[12px] flex-shrink-0">
+                      <div className="text-center">
+                        <p className="font-bold text-emerald-600">{imp.rowsImported}</p>
+                        <p className="text-gray-400 text-[10px]">imported</p>
+                      </div>
+                      {(imp.rowsErrored ?? 0) > 0 && (
+                        <div className="text-center">
+                          <p className="font-bold text-red-500">{imp.rowsErrored}</p>
+                          <p className="text-gray-400 text-[10px]">errors</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {imp.errorSummary && (
+                    <details className="border-t border-gray-100">
+                      <summary className="px-3 py-1.5 text-[11px] text-amber-700 cursor-pointer hover:bg-amber-50/50 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3 h-3" /> View {(imp.rowsErrored ?? 0)} row issues from this import
+                      </summary>
+                      <div className="px-3 pb-2 pt-1 space-y-0.5 max-h-32 overflow-auto">
+                        {imp.errorSummary.split("\n").map((line: string, li: number) => (
+                          <p key={li} className="text-[11px] text-gray-600 font-mono">{line}</p>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               ))}
             </div>

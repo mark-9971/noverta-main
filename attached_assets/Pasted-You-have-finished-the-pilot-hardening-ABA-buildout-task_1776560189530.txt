@@ -1,0 +1,169 @@
+You have finished the pilot-hardening / ABA buildout tasks.
+
+Now do a full completion audit and verification pass.
+
+I do not want a progress summary.
+I want you to prove whether the work was actually completed, implemented correctly, and is functioning as intended.
+
+## Your job
+For every task we assigned in this buildout, determine whether it is:
+
+- Completed and verified
+- Completed but not fully verified
+- Partially completed
+- Blocked / not completed
+- Implemented incorrectly / needs rework
+
+Be brutally honest.
+Do not mark something complete just because files were touched or UI exists.
+
+---
+
+# Required process
+
+For each task, do this:
+
+## 1. Restate the original task goal
+Briefly say what the task was supposed to accomplish.
+
+## 2. Audit what was actually built
+Show:
+- files changed
+- schema changes
+- routes/APIs changed
+- UI/components changed
+- logic changes
+
+## 3. Determine whether the implementation is correct
+Check:
+- is the correct data source being used?
+- is the workflow actually complete?
+- is the UI wired to real logic?
+- are there edge cases or false states?
+- is it clinically / operationally correct where relevant?
+
+## 4. Verify
+Run the most relevant verification available:
+- build
+- typecheck
+- tests
+- route checks
+- manual workflow checks
+- seeded/demo-data checks
+- role-based checks
+- mobile checks if relevant
+
+Do not skip verification unless truly impossible.
+If impossible, say exactly why.
+
+## 5. Final judgment for that task
+Mark one:
+- completed and verified
+- completed but weakly verified
+- partial
+- incorrect / needs rework
+- blocked
+
+Then explain why in 2–5 sentences.
+
+---
+
+# Additional mandatory sweeps
+
+## A. Cross-task regression sweep
+Check whether recent tasks broke anything in:
+- compliance dashboard
+- sessions / quick log
+- alerts
+- student detail
+- ABA navigation
+- behavior assessment
+- program data
+- reports
+- direct-staff / para flow
+- onboarding/import
+
+## B. Demo-data / seeded-data sweep
+Check whether the features we expect to demo actually render meaningfully with current demo/seeded data.
+Flag any features that are technically built but render empty or misleading in the demo.
+
+## C. Role and permission sweep
+Verify whether:
+- admin
+- BCBA
+- provider
+- para
+- guardian
+see the correct things and do not see what they should not.
+
+## D. Trust / honesty sweep
+Identify any places where the product still:
+- implies health when data is incomplete
+- shows empty charts without explanation
+- uses the wrong data source
+- overstates completion
+- looks real in UI but is not operationally ready
+
+---
+
+# Output format
+
+## 1. Executive verdict
+Answer these directly:
+- Are all assigned tasks actually complete?
+- Which tasks are truly done?
+- Which are partial?
+- Which are incorrectly implemented?
+- Which need rework before pilot?
+
+## 2. Task-by-task verification table
+For every assigned task, include:
+- task name
+- target goal
+- status
+- verification performed
+- result
+- confidence level: high / medium / low
+- needs rework? yes/no
+
+## 3. Incorrect or misleading implementations
+Call out anything that looks done but is not actually correct.
+Examples:
+- wrong data source
+- empty charts due to missing seed data
+- UI-only implementation without real workflow
+- broken route/role behavior
+- clinically weak behavior behind a polished screen
+
+## 4. Regression findings
+List anything broken or weakened by the recent changes.
+
+## 5. Demo readiness after this work
+Specifically say:
+- what is safe to demo
+- what should still be hidden
+- what would break trust if clicked
+
+## 6. Pilot readiness after this work
+Specifically say:
+- what is truly pilot-ready
+- what is close
+- what is not ready
+- what 5 items most still block a narrow pilot
+
+## 7. Final rework list
+Give me the exact tasks that must be redone or tightened next.
+
+---
+
+# Important rules
+- Be skeptical.
+- Verify instead of assuming.
+- “Touched code” does not equal complete.
+- “Visible UI” does not equal working workflow.
+- “No errors” does not equal clinically or operationally correct.
+- If a feature depends on seed/demo data to look good, say so.
+- If a feature works only partially, say so.
+
+This is a final truth pass.
+I want accuracy, not encouragement.

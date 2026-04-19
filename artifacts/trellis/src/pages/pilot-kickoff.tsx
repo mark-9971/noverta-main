@@ -19,7 +19,7 @@ import { Link, useLocation } from "wouter";
 import {
   Users, UserPlus, ClipboardList, CalendarClock, CheckCircle2, Circle,
   Download, Upload, ArrowRight, ArrowLeft, AlertTriangle, RefreshCw,
-  Rocket, FileSpreadsheet, XCircle,
+  Rocket, XCircle, ShieldCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ interface StepDef {
   blurb: string;
   prereq?: string;
   requiredCols: string;
+  validateFirst?: boolean;
+  validateType?: string;
 }
 
 const STEPS: StepDef[] = [
@@ -64,9 +66,11 @@ const STEPS: StepDef[] = [
     icon: ClipboardList,
     templateKey: "service_requirements",
     importPath: "/api/imports/service-requirements",
-    blurb: "Upload IEP-mandated service minutes per student.",
-    prereq: "Students must be imported first.",
-    requiredCols: "student identifier, service_type, required_minutes",
+    blurb: "Upload IEP-mandated service minutes per student. Each row is one student's mandate for one service type.",
+    prereq: "Students must be imported first — each student name or ID in this file must match your student roster.",
+    requiredCols: "service_type, required_minutes  +  student_external_id OR (student_first_name + student_last_name)",
+    validateFirst: true,
+    validateType: "service-requirements",
   },
   {
     key: "schedules",
@@ -299,6 +303,16 @@ function Stepper({ steps, activeIdx, stepDone, onJump }: {
   );
 }
 
+interface ValidationPreview {
+  fileName: string;
+  csvData: string;
+  valid: number;
+  warnings: number;
+  errors: number;
+  total: number;
+  errorMessages: string[];
+}
+
 function StepUploader({ step, state, onChange }: {
   step: StepDef;
   state: StepState;
@@ -306,14 +320,13 @@ function StepUploader({ step, state, onChange }: {
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [preview, setPreview] = useState<ValidationPreview | null>(null);
 
   async function downloadTemplate() {
     try {
       const r = await authFetch(`/api/imports/templates/${step.templateKey}`);
-      if (!r.ok) {
-        setError(`Failed to fetch template (${r.status})`);
-        return;
-      }
+      if (!r.ok) { setError(`Failed to fetch template (${r.status})`); return; }
       const csv = await r.text();
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -327,20 +340,14 @@ function StepUploader({ step, state, onChange }: {
     }
   }
 
-  async function handleFile(file: File) {
-    setError(null);
-    onChange({ status: "uploading", fileName: file.name });
+  async function doImport(csvData: string, fileName: string) {
+    setPreview(null);
+    onChange({ status: "uploading", fileName });
     try {
-      const text = await file.text();
       const r = await authFetch(step.importPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          csvData: text,
-          fileName: file.name,
-          source: "pilot_csv",
-          duplicateHandling: "skip",
-        }),
+        body: JSON.stringify({ csvData, fileName, source: "pilot_csv", duplicateHandling: "skip" }),
       });
       if (!r.ok) {
         let msg = `Upload failed (${r.status})`;
@@ -350,55 +357,93 @@ function StepUploader({ step, state, onChange }: {
         return;
       }
       const data = await r.json();
-      const result: StepResult = {
-        imported: data.rowsImported ?? 0,
-        updated: data.rowsUpdated ?? 0,
-        skipped: data.rowsSkipped ?? 0,
-        errored: data.rowsErrored ?? 0,
-        rowsProcessed: data.rowsProcessed ?? 0,
-        errors: data.errors ?? [],
-      };
-      onChange({ status: "result", fileName: file.name, result });
+      onChange({
+        status: "result", fileName, result: {
+          imported: data.rowsImported ?? 0,
+          updated: data.rowsUpdated ?? 0,
+          skipped: data.rowsSkipped ?? 0,
+          errored: data.rowsErrored ?? 0,
+          rowsProcessed: data.rowsProcessed ?? 0,
+          errors: data.errors ?? [],
+        },
+      });
     } catch (e: any) {
       setError(e?.message || "Upload failed");
       onChange({ status: "idle" });
     }
   }
 
+  async function handleFile(file: File) {
+    setError(null);
+    setPreview(null);
+    const text = await file.text();
+
+    if (step.validateFirst && step.validateType) {
+      setValidating(true);
+      try {
+        const r = await authFetch("/api/imports/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csvData: text, importType: step.validateType }),
+        });
+        if (!r.ok) {
+          let msg = `Validation failed (${r.status})`;
+          try { const j = await r.json(); if (j?.error) msg = j.error; } catch { /* ignore */ }
+          setError(msg);
+          setValidating(false);
+          return;
+        }
+        const vdata = await r.json();
+        const rows: Array<{ status: string; messages: string[] }> = vdata.validations ?? [];
+        const valid = rows.filter(r => r.status === "valid").length;
+        const warnings = rows.filter(r => r.status === "warning").length;
+        const errors = rows.filter(r => r.status === "error").length;
+        const errorMessages = rows
+          .flatMap((r, i) => r.status === "error" ? r.messages.map(m => `Row ${i + 2}: ${m}`) : [])
+          .slice(0, 20);
+        setPreview({ fileName: file.name, csvData: text, valid, warnings, errors, total: rows.length, errorMessages });
+      } catch (e: any) {
+        setError(e?.message || "Validation failed");
+      } finally {
+        setValidating(false);
+      }
+      return;
+    }
+
+    await doImport(text, file.name);
+  }
+
+  const busy = state.status === "uploading" || validating;
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={downloadTemplate}
-          data-testid={`button-download-template-${step.key}`}
-        >
+        <Button variant="outline" size="sm" onClick={downloadTemplate} data-testid={`button-download-template-${step.key}`}>
           <Download className="w-3.5 h-3.5 mr-1.5" /> Download CSV template
         </Button>
         <Button
           size="sm"
           className="bg-emerald-600 hover:bg-emerald-700"
-          onClick={() => fileRef.current?.click()}
-          disabled={state.status === "uploading"}
+          onClick={() => { setPreview(null); fileRef.current?.click(); }}
+          disabled={busy}
           data-testid={`button-upload-${step.key}`}
         >
-          {state.status === "uploading"
-            ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Uploading…</>
-            : state.status === "result"
-              ? <><Upload className="w-3.5 h-3.5 mr-1.5" /> Re-upload CSV</>
-              : <><Upload className="w-3.5 h-3.5 mr-1.5" /> Upload CSV</>}
+          {validating
+            ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Checking…</>
+            : state.status === "uploading"
+              ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Uploading…</>
+              : preview || state.status === "result"
+                ? <><Upload className="w-3.5 h-3.5 mr-1.5" /> Choose different CSV</>
+                : step.validateFirst
+                  ? <><ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Validate &amp; Import CSV</>
+                  : <><Upload className="w-3.5 h-3.5 mr-1.5" /> Upload CSV</>}
         </Button>
         <input
           ref={fileRef}
           type="file"
           accept=".csv,text/csv,text/plain"
           className="hidden"
-          onChange={e => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
-            e.target.value = "";
-          }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) void handleFile(f); e.target.value = ""; }}
           data-testid={`input-file-${step.key}`}
         />
       </div>
@@ -409,9 +454,85 @@ function StepUploader({ step, state, onChange }: {
         </div>
       )}
 
+      {preview && state.status !== "result" && (
+        <ValidationPreviewCard
+          preview={preview}
+          onConfirm={() => void doImport(preview.csvData, preview.fileName)}
+          onCancel={() => setPreview(null)}
+          stepKey={step.key}
+        />
+      )}
+
       {state.status === "result" && (
         <ResultPanel stepKey={step.key} fileName={state.fileName} result={state.result} />
       )}
+    </div>
+  );
+}
+
+function ValidationPreviewCard({ preview, onConfirm, onCancel, stepKey }: {
+  preview: ValidationPreview;
+  onConfirm: () => void;
+  onCancel: () => void;
+  stepKey: StepKey;
+}) {
+  const allGood = preview.errors === 0;
+  const tone = allGood ? "emerald" : preview.valid === 0 ? "red" : "amber";
+  const borderCls = tone === "emerald" ? "border-emerald-200 bg-emerald-50" : tone === "red" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50";
+  const headingCls = tone === "emerald" ? "text-emerald-800" : tone === "red" ? "text-red-800" : "text-amber-800";
+
+  return (
+    <div className={`rounded-md border px-3 py-3 text-xs space-y-3 ${borderCls}`} data-testid={`validation-preview-${stepKey}`}>
+      <div className={`font-semibold flex items-center gap-1.5 ${headingCls}`}>
+        {allGood
+          ? <><CheckCircle2 className="w-4 h-4 text-emerald-600" /> {preview.total} row{preview.total !== 1 ? "s" : ""} validated — ready to import</>
+          : preview.valid === 0
+            ? <><XCircle className="w-4 h-4 text-red-600" /> All {preview.total} rows have errors — fix your CSV before importing</>
+            : <><AlertTriangle className="w-4 h-4 text-amber-600" /> {preview.errors} of {preview.total} rows have errors</>}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white/70 border border-gray-100 rounded px-2 py-1.5 text-center">
+          <div className="text-[10px] uppercase tracking-wide text-emerald-600">Ready</div>
+          <div className="text-sm font-semibold text-gray-900">{preview.valid + preview.warnings}</div>
+        </div>
+        {preview.errors > 0 && (
+          <div className="bg-white/70 border border-gray-100 rounded px-2 py-1.5 text-center">
+            <div className="text-[10px] uppercase tracking-wide text-red-600">Errors</div>
+            <div className="text-sm font-semibold text-red-700">{preview.errors}</div>
+          </div>
+        )}
+        <div className="bg-white/70 border border-gray-100 rounded px-2 py-1.5 text-center">
+          <div className="text-[10px] uppercase tracking-wide text-gray-400">Total rows</div>
+          <div className="text-sm font-semibold text-gray-900">{preview.total}</div>
+        </div>
+      </div>
+      {preview.errorMessages.length > 0 && (
+        <details data-testid={`validation-errors-${stepKey}`}>
+          <summary className="cursor-pointer font-medium text-gray-700 hover:text-gray-900">
+            {preview.errors} issue{preview.errors !== 1 ? "s" : ""} to fix — expand to see details
+          </summary>
+          <ul className="mt-1.5 space-y-0.5 max-h-40 overflow-auto pl-3 list-disc text-gray-700">
+            {preview.errorMessages.map((msg, i) => <li key={i}>{msg}</li>)}
+          </ul>
+        </details>
+      )}
+      <div className="flex items-center gap-2 pt-1">
+        <Button variant="outline" size="sm" onClick={onCancel} data-testid={`button-validation-cancel-${stepKey}`}>
+          Fix CSV and re-upload
+        </Button>
+        {(preview.valid + preview.warnings) > 0 && (
+          <Button
+            size="sm"
+            className={allGood ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"}
+            onClick={onConfirm}
+            data-testid={`button-validation-confirm-${stepKey}`}
+          >
+            {allGood
+              ? <>Import all {preview.valid + preview.warnings} rows <ArrowRight className="w-3.5 h-3.5 ml-1" /></>
+              : <>Import {preview.valid + preview.warnings} valid rows, skip {preview.errors} <ArrowRight className="w-3.5 h-3.5 ml-1" /></>}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
