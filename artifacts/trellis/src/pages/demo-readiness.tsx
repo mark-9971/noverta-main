@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost } from "@/lib/api";
 import { useRole } from "@/lib/role-context";
 import {
   CheckCircle2,
@@ -8,6 +9,7 @@ import {
   RefreshCw,
   ArrowRight,
   History,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +42,22 @@ interface HistoryRun {
 
 interface HistoryResponse {
   runs: HistoryRun[];
+}
+
+interface ReseedJob {
+  id: string;
+  status: "running" | "done" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  result?: {
+    districtId: number;
+    alertsInserted: number;
+    alertsSkipped: number;
+    totalStudents: number;
+    nonCompliantStudents: number;
+    compliancePct: string;
+  };
+  error?: string;
 }
 
 function statusIcon(status: Status) {
@@ -191,6 +209,12 @@ function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
 
 export default function DemoReadinessPage() {
   const { isPlatformAdmin } = useRole();
+  const queryClient = useQueryClient();
+
+  const [reseedJobId, setReseedJobId] = useState<string | null>(null);
+  const [reseedJob, setReseedJob] = useState<ReseedJob | null>(null);
+  const [reseedError, setReseedError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<ReadinessReport>({
     queryKey: ["demo-readiness"],
@@ -205,6 +229,48 @@ export default function DemoReadinessPage() {
     enabled: isPlatformAdmin,
     refetchInterval: 60_000,
   });
+
+  useEffect(() => {
+    if (!reseedJobId) return;
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const job = await apiGet<ReseedJob>(`/api/support/demo-reseed/${reseedJobId}`);
+        setReseedJob(job);
+        if (job.status === "done" || job.status === "failed") {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          if (job.status === "done") {
+            queryClient.invalidateQueries({ queryKey: ["demo-readiness"] });
+            setTimeout(() => { void refetchHistory(); }, 1500);
+          }
+        }
+      } catch {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        setReseedError("Lost contact with the server while polling — check logs.");
+      }
+    }, 2500);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [reseedJobId, queryClient, refetchHistory]);
+
+  async function startReseed() {
+    setReseedError(null);
+    setReseedJob(null);
+    setReseedJobId(null);
+    try {
+      const { jobId } = await apiPost<{ jobId: string }>("/api/support/demo-reseed");
+      setReseedJobId(jobId);
+      setReseedJob({ id: jobId, status: "running", startedAt: new Date().toISOString() });
+    } catch (err: unknown) {
+      setReseedError(err instanceof Error ? err.message : "Failed to start reseed.");
+    }
+  }
+
+  const isReseeding = reseedJob?.status === "running";
 
   if (!isPlatformAdmin) {
     return (
@@ -229,21 +295,83 @@ export default function DemoReadinessPage() {
             )}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            refetch();
-            // Delay history refetch slightly so the new row has been written first.
-            setTimeout(() => { void refetchHistory(); }, 1500);
-          }}
-          disabled={isFetching}
-          className="gap-2 shrink-0"
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch();
+              setTimeout(() => { void refetchHistory(); }, 1500);
+            }}
+            disabled={isFetching || isReseeding}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={startReseed}
+            disabled={isReseeding}
+            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <RotateCcw className={`w-4 h-4 ${isReseeding ? "animate-spin" : ""}`} />
+            {isReseeding ? "Reseeding…" : "Reseed demo district"}
+          </Button>
+        </div>
       </div>
+
+      {reseedJob && (
+        <Card className={`border-2 ${
+          reseedJob.status === "running"
+            ? "border-indigo-200 bg-indigo-50/40"
+            : reseedJob.status === "done"
+              ? "border-emerald-200 bg-emerald-50/40"
+              : "border-red-200 bg-red-50/40"
+        }`}>
+          <CardContent className="py-4 flex items-start gap-3">
+            {reseedJob.status === "running" && (
+              <RefreshCw className="w-5 h-5 text-indigo-600 animate-spin mt-0.5 shrink-0" />
+            )}
+            {reseedJob.status === "done" && (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+            )}
+            {reseedJob.status === "failed" && (
+              <XCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            )}
+            <div className="min-w-0">
+              {reseedJob.status === "running" && (
+                <p className="text-sm font-medium text-indigo-800">
+                  Reseeding in progress — running seed scripts server-side…
+                </p>
+              )}
+              {reseedJob.status === "done" && reseedJob.result && (
+                <>
+                  <p className="text-sm font-medium text-emerald-800">Reseed complete</p>
+                  <p className="text-xs text-emerald-700 mt-1">
+                    {reseedJob.result.totalStudents} students · {reseedJob.result.alertsInserted} new variety alerts
+                    · compliance {reseedJob.result.compliancePct}% · checks refreshed automatically
+                  </p>
+                </>
+              )}
+              {reseedJob.status === "failed" && (
+                <>
+                  <p className="text-sm font-medium text-red-800">Reseed failed</p>
+                  {reseedJob.error && (
+                    <p className="text-xs text-red-700 mt-1 font-mono break-all">{reseedJob.error}</p>
+                  )}
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {reseedError && (
+        <Card className="border-red-200 bg-red-50/40">
+          <CardContent className="py-4 text-sm text-red-700">{reseedError}</CardContent>
+        </Card>
+      )}
 
       {data && (
         <Card className={`border-2 ${

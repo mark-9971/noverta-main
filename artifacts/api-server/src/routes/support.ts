@@ -25,6 +25,8 @@ import { deriveDistrictMode } from "../lib/districtMode";
 import { getRecentAccessDenials } from "../lib/accessDenials";
 import { isSisWorkerRunning } from "../lib/sis/worker";
 import { clerkClient } from "@clerk/express";
+import { seedDemoDistrict } from "../../../../lib/db/src/seed-demo-district";
+import { seedDemoComplianceVariety } from "../../../../lib/db/src/seed-demo-compliance-variety";
 
 const router: IRouter = Router();
 
@@ -1210,6 +1212,114 @@ router.get("/support/demo-readiness/history", async (req: Request, res: Response
     console.error("[Support] demo-readiness history error:", err);
     res.status(500).json({ error: "Failed to load demo readiness history" });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Demo reseed: one-click seed-demo-district + seed-demo-compliance-variety.
+//
+// Because the full reseed can take 30-90 seconds, the endpoint is fire-and-
+// forget: POST starts the job and returns a jobId, GET /:jobId polls status.
+// ---------------------------------------------------------------------------
+
+type ReseedJobStatus = "running" | "done" | "failed";
+interface ReseedJob {
+  id: string;
+  status: ReseedJobStatus;
+  startedAt: string;
+  finishedAt?: string;
+  result?: {
+    districtId: number;
+    alertsInserted: number;
+    alertsSkipped: number;
+    totalStudents: number;
+    nonCompliantStudents: number;
+    compliancePct: string;
+  };
+  error?: string;
+}
+
+// In-memory store (cleared on server restart, which is fine for a dev/demo tool).
+// Capped at 20 entries to avoid unbounded growth during a long session.
+const reseedJobs = new Map<string, ReseedJob>();
+function pruneReseedJobs() {
+  if (reseedJobs.size > 20) {
+    const oldest = Array.from(reseedJobs.keys())[0];
+    if (oldest) reseedJobs.delete(oldest);
+  }
+}
+
+/**
+ * POST /api/support/demo-reseed
+ * Kicks off seed-demo-district + seed-demo-compliance-variety in the background.
+ * Returns { jobId } immediately. Poll GET /api/support/demo-reseed/:jobId for status.
+ *
+ * Safety: rejects upfront if the database contains non-demo districts so this
+ * endpoint can never be used to accidentally wipe pilot or production data.
+ * The seeder itself enforces the same guard — this pre-check surfaces the
+ * error to the caller before any async work begins.
+ */
+router.post("/support/demo-reseed", async (_req: Request, res: Response) => {
+  // Pre-flight guard: refuse if any non-demo district exists. This mirrors
+  // the seeder's internal check but gives a clean HTTP 409 before any job
+  // is created, preventing data-loss in environments that have real data.
+  try {
+    const allDistricts = await db
+      .select({ id: districtsTable.id, name: districtsTable.name, isDemo: districtsTable.isDemo })
+      .from(districtsTable);
+    const realDistricts = allDistricts.filter(d => !d.isDemo);
+    if (realDistricts.length > 0) {
+      res.status(409).json({
+        error: `Cannot reseed: database contains ${realDistricts.length} non-demo district(s) ` +
+          `(${realDistricts.map(d => `"${d.name}"`).join(", ")}). ` +
+          `This operation is only permitted when all districts are demo districts.`,
+      });
+      return;
+    }
+  } catch (err) {
+    console.error("[demo-reseed] Pre-flight district check failed:", err);
+    res.status(500).json({ error: "Failed to verify district safety guard before reseeding" });
+    return;
+  }
+
+  const jobId = `reseed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const job: ReseedJob = { id: jobId, status: "running", startedAt: new Date().toISOString() };
+  reseedJobs.set(jobId, job);
+  pruneReseedJobs();
+
+  (async () => {
+    try {
+      console.log(`[demo-reseed] Job ${jobId}: starting seed-demo-district…`);
+      // Do NOT pass allowReset: true — let the seeder's own guard serve as a
+      // second line of defence against accidental data loss.
+      await seedDemoDistrict();
+      console.log(`[demo-reseed] Job ${jobId}: starting seed-demo-compliance-variety…`);
+      const result = await seedDemoComplianceVariety();
+      job.status = "done";
+      job.finishedAt = new Date().toISOString();
+      job.result = result;
+      console.log(`[demo-reseed] Job ${jobId}: done.`);
+    } catch (err: unknown) {
+      job.status = "failed";
+      job.finishedAt = new Date().toISOString();
+      job.error = err instanceof Error ? err.message : String(err);
+      console.error(`[demo-reseed] Job ${jobId} failed:`, err);
+    }
+  })();
+
+  res.status(202).json({ jobId });
+});
+
+/**
+ * GET /api/support/demo-reseed/:jobId
+ * Returns the current status of a reseed job.
+ */
+router.get("/support/demo-reseed/:jobId", (req: Request, res: Response) => {
+  const job = reseedJobs.get(req.params.jobId);
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  res.json(job);
 });
 
 // ---------------------------------------------------------------------------
