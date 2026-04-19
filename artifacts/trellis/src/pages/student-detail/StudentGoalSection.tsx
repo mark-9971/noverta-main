@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer, Trophy, X } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { AbaGraph } from "@/components/aba-graph";
 import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow } from "@/lib/print-document";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type GoalProgress = GoalPrintData & {
   linkedTarget?: { type: string; name: string; measurementType: string } | null;
@@ -68,6 +70,30 @@ export default function StudentGoalSection({
 }: StudentGoalSectionProps) {
   const [expandedCharts, setExpandedCharts] = useState<Record<string | number, boolean>>({});
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [printFilterOpen, setPrintFilterOpen] = useState(false);
+  const [excludedAreas, setExcludedAreas] = useState<Set<string>>(new Set());
+  const [needsAttentionOnly, setNeedsAttentionOnly] = useState(false);
+
+  const goalAreas = useMemo(() => {
+    const areas = new Set<string>();
+    goalProgress.forEach(g => { if (g.goalArea) areas.add(g.goalArea); });
+    return Array.from(areas).sort();
+  }, [goalProgress]);
+
+  function toggleArea(area: string) {
+    setExcludedAreas(prev => {
+      const next = new Set(prev);
+      if (next.has(area)) next.delete(area);
+      else next.add(area);
+      return next;
+    });
+  }
+
+  const filteredPrintGoals = goalProgress.filter(g => {
+    if (excludedAreas.has(g.goalArea)) return false;
+    if (needsAttentionOnly && g.progressRating !== "insufficient_progress") return false;
+    return true;
+  });
 
   function toggleChart(id: string | number) {
     setExpandedCharts(prev => ({ ...prev, [id]: !prev[id] }));
@@ -87,9 +113,10 @@ export default function StudentGoalSection({
       studentGrade: student?.grade ? String(student.grade) : null,
       school: student?.school ?? null,
       district: student?.district ?? null,
-      goals: goalProgress,
+      goals: filteredPrintGoals,
     });
     openPrintWindow(html);
+    setPrintFilterOpen(false);
   }
 
   const recentlyMasteredGoals = goalProgress.filter(g => isMasteredRecently(g.masteredAt));
@@ -105,14 +132,85 @@ export default function StudentGoalSection({
           </CardTitle>
           <div className="flex items-center gap-2">
             {goalProgress.length > 0 && !dataLoading && (
-              <button
-                onClick={handlePrintReport}
-                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200"
-                title="Print goal progress report for IEP meeting"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                Print Report
-              </button>
+              <Popover open={printFilterOpen} onOpenChange={setPrintFilterOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200"
+                    title="Print goal progress report for IEP meeting"
+                    data-testid="button-print-report"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Report
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-3">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700">Print which goals?</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Choose what to include in the IEP report.</p>
+                    </div>
+
+                    {goalAreas.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Goal areas</p>
+                          {excludedAreas.size > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setExcludedAreas(new Set())}
+                              className="text-[11px] text-emerald-700 hover:underline"
+                            >
+                              Select all
+                            </button>
+                          )}
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                          {goalAreas.map(area => {
+                            const checked = !excludedAreas.has(area);
+                            return (
+                              <label key={area} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleArea(area)}
+                                  data-testid={`checkbox-print-area-${area}`}
+                                />
+                                <span>{area}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-t pt-2">
+                      <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                        <Checkbox
+                          checked={needsAttentionOnly}
+                          onCheckedChange={(v) => setNeedsAttentionOnly(v === true)}
+                          data-testid="checkbox-print-needs-attention"
+                        />
+                        <span>Only goals flagged "Needs Attention"</span>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t">
+                      <span className="text-[11px] text-gray-500">
+                        {filteredPrintGoals.length} of {goalProgress.length} goal{goalProgress.length !== 1 ? "s" : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handlePrintReport}
+                        disabled={filteredPrintGoals.length === 0}
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-testid="button-print-report-confirm"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Print
+                      </button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
             <span className="text-xs text-gray-400">
               {goalProgress.length} active goal{goalProgress.length !== 1 ? "s" : ""}
