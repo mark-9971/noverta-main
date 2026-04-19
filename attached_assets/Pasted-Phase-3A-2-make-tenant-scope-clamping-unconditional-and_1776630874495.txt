@@ -1,0 +1,78 @@
+Phase 3A-2: make tenant-scope clamping unconditional and provable.
+
+Goal:
+Ensure server-side tenant scope clamping always runs, not only in production, so preview/dev/staging/pilot environments cannot accidentally honor client-supplied district scope. Then prove the behavior with a focused integration test.
+
+Why this matters:
+Today `enforceDistrictScope` in `artifacts/api-server/src/middlewares/auth.ts` early-returns when `NODE_ENV !== "production"`. That means a non-prod pilot environment may not get the global tenant-clamp defense. Even though many handlers already clamp correctly, this middleware should always protect the app from this class of mistake.
+
+Hard constraints:
+
+* Surgical change only
+* No schema changes
+* No new endpoints
+* No UI changes
+* Clerk stays on
+* Do not change the public contract of existing handlers
+* Keep platform-admin / no-district pass-through behavior intact
+
+What to change:
+
+1. In `artifacts/api-server/src/middlewares/auth.ts`
+
+   * remove the `NODE_ENV` guard in `enforceDistrictScope`
+   * always overwrite `req.query.districtId` from the token-derived tenant district
+   * always delete `req.query.schoolId`
+   * preserve the current pass-through behavior when the caller has no tenant district in token context (for example platform admin cases)
+
+2. In `artifacts/api-server/src/index.ts`
+
+   * add a small boot-time log line confirming tenant-scope clamping middleware is mounted globally on `/api`
+   * keep it minimal and non-noisy
+
+3. Add an integration/contract test in the existing API test area
+   The test should:
+
+   * authenticate as a district A admin using the existing test auth helper
+   * call a representative endpoint such as `GET /api/dashboard/summary?districtId=<districtB>`
+   * assert the response is for district A, not district B
+   * also verify that a tampered `schoolId` is ignored/stripped if the chosen endpoint path makes that observable
+   * include or preserve platform-admin/no-tenant pass-through behavior if the test harness supports it
+
+4. Update the closest existing trust/security doc or backend comment with one concise paragraph:
+
+   * tenant scope is clamped server-side regardless of environment
+   * client-supplied `districtId` is never trusted for tenant-scoped users
+   * `schoolId` is stripped at the middleware layer
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to edit
+2. exact current behavior
+3. exact behavior after change
+4. exact test strategy
+5. biggest regression risks
+6. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact middleware change made
+3. exact boot-log change made
+4. exact test added and what it proves
+5. whether platform-admin/no-tenant pass-through is preserved
+6. validation performed
+7. known issues still remaining
+8. blunt verdict
+9. copy-pasteable commit message
+
+Acceptance:
+
+* tenant-scope clamping runs regardless of `NODE_ENV`
+* tenant-scoped callers cannot override `districtId` via query string
+* `schoolId` is stripped at the middleware layer for tenant-scoped callers
+* platform-admin/no-tenant behavior is not broken
+* the new test proves the clamp
+* no unrelated API contract changes

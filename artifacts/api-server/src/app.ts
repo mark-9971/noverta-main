@@ -448,8 +448,14 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(healthRouter);
 app.use("/api", requireActiveSubscription);
-// Enforce tenant isolation: in production, overrides districtId query param from auth token
+// Enforce tenant isolation in EVERY environment: overrides any client-supplied
+// districtId query param with the token-derived value and strips schoolId so
+// crafted query strings cannot cross tenant boundaries. See enforceDistrictScope.
 app.use("/api", enforceDistrictScope);
+logger.info(
+  { env: process.env.NODE_ENV ?? "development" },
+  "tenant-scope clamping mounted globally on /api (enforceDistrictScope)",
+);
 
 // Enrich every request scope with Clerk user/district context so any event
 // captured downstream (manual captureException, expressIntegration, the

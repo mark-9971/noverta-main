@@ -293,22 +293,51 @@ export function getEnforcedDistrictId(req: AuthedRequest): number | null {
 }
 
 /**
- * Middleware: in production, overrides the `districtId` query param with the
- * value from the authenticated token so downstream route handlers cannot be
- * tricked into crossing tenant boundaries via crafted query strings.
+ * Middleware: overrides the `districtId` query param with the value from the
+ * authenticated token, and strips any client-supplied `schoolId`, so downstream
+ * route handlers cannot be tricked into crossing tenant boundaries via crafted
+ * query strings.
  *
- * Reads Clerk session claims directly so it can run before per-route requireAuth calls.
+ * Runs in EVERY environment (prod, staging, preview, dev, test) so the clamp
+ * is not silently disabled in non-prod pilot deployments. In production the
+ * tenant district is derived from Clerk session claims (publicMetadata.districtId).
+ * In `NODE_ENV=test` or `DEV_AUTH_BYPASS=1` (non-prod), the `x-test-district-id`
+ * header is also honored — same trust boundary `requireAuth` already uses for
+ * the test-bypass path; production still rejects those headers outright.
+ *
+ * When neither path resolves a tenant district (platform admin / unscoped),
+ * the middleware is pass-through: no mutation, request continues unchanged.
+ *
+ * Reads claims directly so it can run before per-route requireAuth.
  * Apply globally on /api routes (or per-route after requireAuth).
  */
 export function enforceDistrictScope(req: Request, res: Response, next: NextFunction): void {
-  if (process.env.NODE_ENV !== "production") { next(); return; }
-  const meta = getPublicMeta(req);
-  const tokenDistrictId = meta.districtId ?? null;
+  let tokenDistrictId: number | null = getPublicMeta(req).districtId ?? null;
+
+  if (tokenDistrictId == null) {
+    // Mirror requireAuth's test-bypass guard so the clamp is observable in
+    // the vitest suite (which seeds tenant context via x-test-* headers
+    // rather than Clerk session claims). Production explicitly rejects these
+    // headers in requireAuth, so honoring them here is safe.
+    const allowTestBypass =
+      process.env.NODE_ENV === "test" ||
+      (process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_BYPASS === "1");
+    if (allowTestBypass) {
+      const raw = req.headers["x-test-district-id"];
+      if (typeof raw === "string" && raw) {
+        const n = Number(raw);
+        if (Number.isFinite(n)) tokenDistrictId = n;
+      }
+    }
+  }
+
   if (tokenDistrictId != null) {
-    // Overwrite any client-supplied districtId with the token value
-    (req.query as Record<string, unknown>).districtId = String(tokenDistrictId);
-    // Remove standalone schoolId — district-scoping is authoritative; routes use district→school lookups
-    delete (req.query as Record<string, unknown>).schoolId;
+    const q = req.query as Record<string, unknown>;
+    q.districtId = String(tokenDistrictId);
+    // Express 5's req.query getter can re-materialize properties; setting to
+    // undefined alongside delete makes the strip stick for downstream readers.
+    delete q.schoolId;
+    q.schoolId = undefined;
   }
   next();
 }
