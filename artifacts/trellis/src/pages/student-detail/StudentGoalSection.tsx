@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer, Trophy, X } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { AbaGraph } from "@/components/aba-graph";
-import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow } from "@/lib/print-document";
+import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow, saveGeneratedDocument } from "@/lib/print-document";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -117,6 +117,16 @@ export default function StudentGoalSection({
     });
     openPrintWindow(html);
     setPrintFilterOpen(false);
+    if (student?.id) {
+      const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      saveGeneratedDocument({
+        studentId: student.id,
+        type: "progress_report",
+        title: `Goal Progress Report — ${today}`,
+        htmlSnapshot: html,
+        status: "finalized",
+      });
+    }
   }
 
   const recentlyMasteredGoals = goalProgress.filter(g => isMasteredRecently(g.masteredAt));
