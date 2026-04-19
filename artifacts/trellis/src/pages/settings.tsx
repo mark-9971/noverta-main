@@ -6,6 +6,7 @@ import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibili
 import TimerThresholdsCard from "@/components/settings/TimerThresholdsCard";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
+import { useRole } from "@/lib/role-context";
 
 const SetupPage = lazy(() => import("@/pages/setup"));
 const SchoolYearPage = lazy(() => import("@/pages/school-year"));
@@ -19,6 +20,7 @@ const DistrictDataPage = lazy(() => import("@/pages/district-data"));
 const NotificationPreferencesPage = lazy(() => import("@/pages/notification-preferences"));
 const SupportSessionsAdminPage = lazy(() => import("@/pages/support-sessions-admin"));
 const PilotConfigPage = lazy(() => import("@/pages/pilot-config"));
+const UploadQuotaPage = lazy(() => import("@/pages/upload-quota"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
@@ -30,6 +32,7 @@ const TABS = [
   { key: "audit-log", label: "Audit Log", icon: Shield },
   { key: "support-sessions", label: "Trellis Support Access", icon: LifeBuoy },
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
+  { key: "upload-quota", label: "Upload Quota", icon: HardDrive },
   { key: "system-status", label: "System Status", icon: Activity },
   { key: "legal", label: "Legal & Compliance", icon: Scale },
   { key: "data-privacy", label: "Data & Privacy", icon: HardDrive },
@@ -54,7 +57,13 @@ function resolveTab(search: string): TabKey {
 export default function SettingsHubPage() {
   const search = useSearch();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabKey>(() => resolveTab(search));
+  const { role } = useRole();
+  const isAdmin = role === "admin";
+  const visibleTabs = TABS.filter(t => t.key !== "upload-quota" || isAdmin);
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const t = resolveTab(search);
+    return t === "upload-quota" && !isAdmin ? "general" : t;
+  });
 
   const { data: healthData } = useQuery<{ email: "configured" | "not_configured" }>({
     queryKey: ["health"],
@@ -102,7 +111,7 @@ export default function SettingsHubPage() {
       </div>
 
       <div className="flex gap-1 overflow-x-auto pb-1 border-b border-gray-100 -mx-1 px-1">
-        {TABS.map(tab => {
+        {visibleTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
           return (
@@ -200,6 +209,7 @@ export default function SettingsHubPage() {
         {activeTab === "audit-log" && <AuditLogPage />}
         {activeTab === "support-sessions" && <SupportSessionsAdminPage />}
         {activeTab === "recently-deleted" && <RecentlyDeletedPage />}
+        {activeTab === "upload-quota" && <UploadQuotaPage />}
         {activeTab === "system-status" && <SystemStatusPage />}
         {activeTab === "legal" && <LegalCompliancePage />}
         {activeTab === "data-privacy" && <DistrictDataPage />}

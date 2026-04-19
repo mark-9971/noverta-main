@@ -182,6 +182,27 @@ router.post("/storage/uploads/request-url", requireRoles(...PRIVILEGED_ROLES), a
   }
 });
 
+/**
+ * Returns today's upload quota usage and the daily limit for the caller's district.
+ * Used by the district settings page to display a usage indicator. Admin-only —
+ * a district admin should be able to see how close their district is to the limit.
+ */
+router.get("/admin/upload-quota", requireRoles("admin"), async (req: Request, res: Response) => {
+  const districtId = await resolveDistrictIdForCaller(req);
+  if (districtId === null) {
+    res.status(400).json({ error: "Your account is not linked to a district." });
+    return;
+  }
+  const usedBytes = await getCurrentUploadQuota(districtId);
+  res.json({
+    districtId,
+    quotaDate: todayUtc(),
+    usedBytes,
+    limitBytes: DAILY_DISTRICT_QUOTA_BYTES,
+    remainingBytes: Math.max(0, DAILY_DISTRICT_QUOTA_BYTES - usedBytes),
+  });
+});
+
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
