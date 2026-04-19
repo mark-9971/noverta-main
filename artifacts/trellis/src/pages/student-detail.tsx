@@ -51,6 +51,7 @@ import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } fr
 import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
 import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
+import StudentHandoffCard from "./student-detail/StudentHandoffCard";
 
 const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
 
@@ -559,6 +560,7 @@ export default function StudentDetail() {
     { id: "behavior" as const, label: "Behavior & ABA" },
     { id: "contacts" as const, label: "Contacts & Documents" },
     { id: "journey" as const, label: "History" },
+    { id: "handoff" as const, label: "Staff Guide" },
   ] as const;
 
   type StudentTab = typeof STUDENT_TABS[number]["id"];
@@ -1371,6 +1373,13 @@ export default function StudentDetail() {
           <StudentJourneyTimeline studentId={studentId} />
         )}
       </div>{/* end Journey tab */}
+
+      {/* ── STAFF GUIDE (handoff) ─────────────────────────────────────── */}
+      <div className={activeTab === "handoff" ? "space-y-2" : "hidden"}>
+        {mountedTabs.has("handoff") && (
+          <StudentHandoffCard studentId={studentId} />
+        )}
+      </div>{/* end Staff Guide tab */}
 
       {/* Dialogs — always rendered so modals work from any tab */}
       <StudentDialogs

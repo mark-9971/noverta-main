@@ -75,6 +75,7 @@ import sampleDataRouter from "./sampleData";
 import districtDataRouter from "./districtData";
 import pilotBaselineRouter from "./pilotBaseline";
 import pilotFeedbackRouter from "./pilotFeedback";
+import studentHandoffRouter from "./studentHandoff";
 import { requireLegalAcceptance } from "../middlewares/requireLegalAcceptance";
 import { createDbRateLimitMiddleware } from "../lib/dbRateLimiter";
 
@@ -320,6 +321,7 @@ router.use(parentMessagesRouter);
 router.use(staffSchedulesRouter);
 router.use(documentWorkflowRouter);
 router.use(studentNotesRouter);
+router.use(studentHandoffRouter);
 router.use("/accommodations", requireDistrictScope);
 router.use("/accommodations", requireStaffOnly);
 router.use("/accommodation-compliance", requireDistrictScope);
