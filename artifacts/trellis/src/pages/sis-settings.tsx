@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Database, Plus, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Trash2, TestTube, Upload, Clock, Plug, Settings2, FileSpreadsheet,
-  ChevronDown, ChevronRight, Ban, RotateCcw, List,
+  ChevronDown, ChevronRight, Ban, RotateCcw, List, Info,
 } from "lucide-react";
 
 interface SisProvider {
@@ -1001,6 +1001,32 @@ export default function SisSettings() {
           <p className="text-[13px] text-gray-500 mt-1">
             CSV roster upload is fully supported today. Direct PowerSchool, Infinite Campus, Skyward, and SFTP connectors are in early pilot — the connector is built but Trellis engineering will validate the first sync with you. Aspen, Synergy, Aeries, Genesis, and other systems have no live connector — bring your roster as a CSV export.
           </p>
+        </div>
+      </div>
+
+      <div
+        className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4"
+        data-testid="sis-relationship-explainer"
+      >
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
+          <div className="space-y-2">
+            <p className="text-[13px] font-semibold text-emerald-900">
+              How Trellis works with your SIS
+            </p>
+            <p className="text-[12px] text-emerald-900/80 leading-relaxed">
+              Your SIS (PowerSchool, Infinite Campus, Skyward, etc.) stays the
+              system of record for student demographics, enrollment, and IEP
+              metadata. Trellis reads roster data from your SIS on a schedule,
+              then layers service-delivery tracking, minutes-at-risk
+              calculations, and compliance reporting on top of it.
+            </p>
+            <p className="text-[12px] text-emerald-900/80 leading-relaxed">
+              <span className="font-semibold">Trellis flags gaps; it does not
+              replace your SIS.</span> Edits to demographics or enrollment still
+              happen in your SIS and flow into Trellis on the next sync.
+            </p>
+          </div>
         </div>
       </div>
 

@@ -39,6 +39,26 @@ export function SisStep(p: SisStepProps) {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div
+          className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-start gap-2"
+          data-testid="sis-relationship-explainer"
+        >
+          <Info className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-emerald-900 leading-relaxed space-y-1.5">
+            <p>
+              <span className="font-semibold">How Trellis fits with your SIS.</span>{" "}
+              Your SIS stays the system of record for student demographics,
+              enrollment, and IEP metadata. Trellis reads roster data from
+              your SIS on a schedule and layers service-delivery tracking,
+              minutes-at-risk calculations, and compliance reporting on top.
+            </p>
+            <p>
+              <span className="font-semibold">Trellis flags gaps; it does not
+              replace your SIS.</span> Edits to demographics or enrollment still
+              happen in your SIS and flow into Trellis on the next sync.
+            </p>
+          </div>
+        </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
           <Info className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
           <div className="text-xs text-amber-900 leading-relaxed">
