@@ -125,6 +125,15 @@ router.get("/coverage/suggest-substitute", requireAdmin, async (req, res): Promi
               SELECT to_char(date_trunc('week', $${candidateParams.push(absenceDate)}::date + interval '1 day') - interval '1 day', 'YYYY-MM-DD')
             ))
           )
+          -- Biweekly parity: if a block recurs biweekly, only treat it as a
+          -- conflict when the absence date falls on an "on" week relative to
+          -- its effective_from anchor (matches the JS parity logic in
+          -- routes/staff.ts absence-block handler).
+          AND (
+            recurrence_type != 'biweekly'
+            OR effective_from IS NULL
+            OR (($${candidateParams.push(absenceDate)}::date - effective_from)::int % 14 = 0)
+          )
       )
   `, candidateParams);
 
