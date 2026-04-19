@@ -7,7 +7,8 @@ export type TrellisRole =
   | "provider"
   | "para"
   | "sped_student"
-  | "sped_parent";
+  | "sped_parent"
+  | "trellis_support";
 
 export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   admin: 100,
@@ -19,6 +20,12 @@ export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   para: 30,
   sped_student: 10,
   sped_parent: 5,
+  // Trellis-employee read-only support role. Outside the district staff
+  // hierarchy entirely; ranking is set low so it never satisfies a minRole
+  // check by accident. Read access is granted only when an active
+  // support_sessions row pins the request to a specific district (see
+  // requireAuth's support-session override in middlewares/auth.ts).
+  trellis_support: 1,
 };
 
 export const STAFF_ROLES: TrellisRole[] = [

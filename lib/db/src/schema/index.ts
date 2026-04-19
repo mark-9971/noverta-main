@@ -112,6 +112,7 @@ export * from "./rateLimitBuckets";
 export * from "./uploadQuotas";
 export * from "./emailDeliveries";
 export * from "./viewAsSessions";
+export * from "./supportSessions";
 export * from "./complianceSnapshots";
 export * from "./complianceTrendSnapshots";
 export * from "./preferenceAssessments";

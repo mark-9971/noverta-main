@@ -27,6 +27,7 @@ export type DenialKind =
   | "tier_upgrade_required"     // 403 — feature gated by district tier
   | "tier_check_failed"         // 503 — DB lookup failed during tier resolution
   | "guardian_scope_required"   // 403 — guardian portal route hit by non-guardian
+  | "support_session_readonly"  // 403 — trellis_support attempted a write during read-only session
   | "dev_headers_in_prod";      // 400 — x-test-* headers reached prod
 
 export interface AccessDenial {

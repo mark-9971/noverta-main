@@ -7,6 +7,7 @@ import { registerTokenProvider, setAuthFetchExtraHeaders, getDevAuthBypassHeader
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
 import { ViewAsProvider } from "@/lib/view-as-context";
+import { SupportSessionProvider } from "@/lib/support-session-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { SchoolProvider } from "@/lib/school-context";
 import { TierProvider } from "@/lib/tier-context";
@@ -109,6 +110,7 @@ const AdminDemoDistrictsPage = lazy(() => import("@/pages/admin-demo-districts")
 const SupportPage = lazy(() => import("@/pages/support"));
 const PilotFeedbackPage = lazy(() => import("@/pages/pilot-feedback"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
+const SupportSessionPage = lazy(() => import("@/pages/support-session"));
 const MySettingsPage = lazy(() => import("@/pages/my-settings"));
 const OnboardingPage = lazy(() => import("@/pages/onboarding"));
 const CoveragePage = lazy(() => import("@/pages/coverage"));
@@ -131,7 +133,11 @@ const queryClient = new QueryClient({
   },
 });
 
-const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para"];
+// Includes `trellis_support` so the support-session picker page is reachable.
+// trellis_support users are not actually staff; they hit the standard router
+// only so they can land on /support-session and (after opening a session)
+// browse the rest of the app under the read-only override.
+const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "trellis_support"];
 
 function SentryUserSync() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -276,6 +282,7 @@ function StaffRouter() {
       <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" featureKey="clinical.supervision" />
       <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
       <BoundedRoute path="/settings" component={SettingsHubPage} fallbackTitle="Settings error" />
+      <BoundedRoute path="/support-session" component={SupportSessionPage} fallbackTitle="Support session error" />
       <BoundedRoute path="/my-settings" component={MySettingsPage} fallbackTitle="My Settings error" />
       <BoundedRoute path="/onboarding" component={OnboardingPage} fallbackTitle="Onboarding error" />
       <Route path="/audit-log">{() => <HashRedirect to="/settings#audit-log" />}</Route>
@@ -397,11 +404,13 @@ function App() {
                 <ProtectedRoutes>
                   <RoleProvider>
                     <ViewAsProvider>
-                      <GatedContent>
-                        <Suspense fallback={<PageLoader />}>
-                          <DataPanelPage />
-                        </Suspense>
-                      </GatedContent>
+                      <SupportSessionProvider>
+                        <GatedContent>
+                          <Suspense fallback={<PageLoader />}>
+                            <DataPanelPage />
+                          </Suspense>
+                        </GatedContent>
+                      </SupportSessionProvider>
                     </ViewAsProvider>
                   </RoleProvider>
                 </ProtectedRoutes>
@@ -410,15 +419,17 @@ function App() {
                 <ProtectedRoutes>
                   <RoleProvider>
                     <ViewAsProvider>
-                      <ThemeProvider>
-                        <SchoolProvider>
-                          <TierProvider>
-                            <SessionTimerProvider>
-                              <GatedContent />
-                            </SessionTimerProvider>
-                          </TierProvider>
-                        </SchoolProvider>
-                      </ThemeProvider>
+                      <SupportSessionProvider>
+                        <ThemeProvider>
+                          <SchoolProvider>
+                            <TierProvider>
+                              <SessionTimerProvider>
+                                <GatedContent />
+                              </SessionTimerProvider>
+                            </TierProvider>
+                          </SchoolProvider>
+                        </ThemeProvider>
+                      </SupportSessionProvider>
                     </ViewAsProvider>
                   </RoleProvider>
                 </ProtectedRoutes>

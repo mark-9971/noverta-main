@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
@@ -16,6 +16,7 @@ const LegalCompliancePage = lazy(() => import("@/pages/legal-compliance"));
 const BillingRatesPage = lazy(() => import("@/pages/billing-rates"));
 const DistrictDataPage = lazy(() => import("@/pages/district-data"));
 const NotificationPreferencesPage = lazy(() => import("@/pages/notification-preferences"));
+const SupportSessionsAdminPage = lazy(() => import("@/pages/support-sessions-admin"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
@@ -24,6 +25,7 @@ const TABS = [
   { key: "sis", label: "SIS Integration", icon: Database },
   { key: "notifications", label: "Notifications", icon: Bell },
   { key: "audit-log", label: "Audit Log", icon: Shield },
+  { key: "support-sessions", label: "Trellis Support Access", icon: LifeBuoy },
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
   { key: "system-status", label: "System Status", icon: Activity },
   { key: "legal", label: "Legal & Compliance", icon: Scale },
@@ -155,6 +157,7 @@ export default function SettingsHubPage() {
         {activeTab === "sis" && <SisSettingsPage />}
         {activeTab === "notifications" && <NotificationPreferencesPage />}
         {activeTab === "audit-log" && <AuditLogPage />}
+        {activeTab === "support-sessions" && <SupportSessionsAdminPage />}
         {activeTab === "recently-deleted" && <RecentlyDeletedPage />}
         {activeTab === "system-status" && <SystemStatusPage />}
         {activeTab === "legal" && <LegalCompliancePage />}

@@ -6,6 +6,7 @@ import { recordAccessDenial } from "../lib/accessDenials";
 import { db, staffTable, schoolsTable } from "@workspace/db";
 import { sql, eq, isNull, and, inArray } from "drizzle-orm";
 import { loadActiveViewAsSession, VIEW_AS_HEADER, endSessionByToken } from "../lib/viewAsSession";
+import { loadActiveSupportSession } from "../lib/supportSession";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -29,6 +30,18 @@ export interface AuthedRequest extends Request {
   viewAsAdminUserId?: string;
   viewAsAdminRole?: TrellisRole;
   viewAsSessionId?: number;
+
+  /**
+   * Trellis-support session context. When the authenticated user has the
+   * `trellis_support` role AND has an active support_sessions row, the
+   * request is pinned to that district (tenantDistrictId) and tagged with
+   * supportSessionId so audit log rows can be filtered by session. The
+   * effective trellisRole is also rewritten to `case_manager` so route-level
+   * role guards admit reads — write attempts are blocked separately by
+   * enforceSupportReadOnly().
+   */
+  supportSessionId?: number;
+  supportUserId?: string;
 }
 
 function extractRole(req: Request): TrellisRole | null {
@@ -172,11 +185,101 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  * requireAuth calls within a single HTTP request because applyViewAsOverride
  * consults a per-token in-memory cache.
  */
+/**
+ * If the caller is a `trellis_support` user with an active support session,
+ * pin tenant scope to that district and rewrite the effective trellisRole to
+ * `case_manager` so downstream read guards admit them. Writes are blocked
+ * separately by enforceSupportReadOnly. No-op for any other role.
+ *
+ * Idempotent: loadActiveSupportSession is cached in-process for a few seconds.
+ */
+async function applySupportSessionOverride(req: Request): Promise<void> {
+  const authed = req as unknown as AuthedRequest;
+  if (authed.trellisRole !== "trellis_support") return;
+  const session = await loadActiveSupportSession(authed.userId);
+  if (!session) return;
+  authed.supportSessionId = session.id;
+  authed.supportUserId = authed.userId;
+  authed.tenantDistrictId = session.districtId;
+  // Effective read role. case_manager is the lowest-privilege staff role that
+  // still has read access to the bulk of student/clinical data a support
+  // engineer typically needs to inspect. All non-GET methods are blocked
+  // separately by enforceSupportReadOnly so this elevation never leaks writes.
+  authed.trellisRole = "case_manager";
+}
+
 function maybeApplyViewAsAndContinue(req: Request, next: NextFunction): void {
   const raw = req.headers[VIEW_AS_HEADER];
   const token = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof token !== "string" || !token) { next(); return; }
-  applyViewAsOverride(req, token).then(() => next()).catch(next);
+  // Always run the support-session override (cheap when role !== trellis_support).
+  // It rewrites tenantDistrictId / trellisRole BEFORE view-as has a chance to fire
+  // — but a single request will never carry both kinds of impersonation: a
+  // trellis_support user is not a platform admin and cannot mint view-as tokens.
+  const continueAfterViewAs = (): void => {
+    if (typeof token !== "string" || !token) { next(); return; }
+    applyViewAsOverride(req, token).then(() => next()).catch(next);
+  };
+  applySupportSessionOverride(req).then(continueAfterViewAs).catch(next);
+}
+
+/**
+ * Read-only enforcement for trellis_support sessions. Mounted globally on the
+ * authenticated /api router AFTER the support-session router (so /open and
+ * /end can still POST). Any non-GET/HEAD/OPTIONS hitting a route while the
+ * caller has supportSessionId set is rejected with 403, regardless of how the
+ * downstream router would otherwise have authorized the write.
+ */
+export function enforceSupportReadOnly(req: Request, res: Response, next: NextFunction): void {
+  const authed = req as unknown as AuthedRequest;
+  if (!authed.supportSessionId) { next(); return; }
+  const m = req.method.toUpperCase();
+  if (m === "GET" || m === "HEAD" || m === "OPTIONS") { next(); return; }
+  recordAccessDenial(req, "support_session_readonly", 403, `trellis_support attempted ${m} ${req.path} during read-only session ${authed.supportSessionId}`);
+  res.status(403).json({ error: "Trellis support sessions are read-only. Writes are not permitted while a support session is active." });
+}
+
+/**
+ * Audit-tag every successful API read performed under an active trellis_support
+ * session. Many GET endpoints don't call logAudit themselves (they're reads),
+ * so without this middleware the requirement "all API reads are tagged in the
+ * audit log with the session id" would only hold for endpoints that already
+ * audit themselves. This closes the gap by writing one synthetic audit row
+ * per request once the response has finished, scoped to GET requests only and
+ * skipping the support-session lifecycle endpoints (which audit themselves).
+ *
+ * Implementation note: we hook res.on("finish") so we capture the final
+ * status code and only log 2xx reads — error responses already surface in
+ * application logs and we don't want to spam audit_logs with 404s.
+ */
+export function logSupportSessionReads(req: Request, res: Response, next: NextFunction): void {
+  const authed = req as unknown as AuthedRequest;
+  if (!authed.supportSessionId) { next(); return; }
+  if (req.method.toUpperCase() !== "GET") { next(); return; }
+  // Skip the lifecycle endpoints — they already audit themselves and would
+  // otherwise generate duplicate rows.
+  if (req.path.startsWith("/support-session") || req.path.startsWith("/support-sessions")) {
+    next();
+    return;
+  }
+  res.on("finish", () => {
+    if (res.statusCode < 200 || res.statusCode >= 300) return;
+    // Use dynamic import via the lazy-loaded auditLog helper. Safe to call
+    // from `finish` because logAudit is fire-and-forget.
+    import("../lib/auditLog").then(({ logAudit }) => {
+      logAudit(req, {
+        action: "read",
+        targetTable: "support_session_view",
+        targetId: String(authed.supportSessionId),
+        summary: `Trellis support read ${req.method} ${req.originalUrl || req.url}`,
+        metadata: {
+          path: req.path,
+          query: req.query,
+          status: res.statusCode,
+        },
+      });
+    }).catch(() => { /* best-effort */ });
+  });
+  next();
 }
 
 /**

@@ -13,7 +13,8 @@ export type UserRole =
   | "provider"
   | "para"
   | "sped_student"
-  | "sped_parent";
+  | "sped_parent"
+  | "trellis_support";
 
 export const STAFF_ROLES: UserRole[] = [
   "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para",
@@ -29,6 +30,7 @@ export const ROLE_SUBTITLES: Record<UserRole, string> = {
   para: "Paraprofessional",
   sped_student: "Student",
   sped_parent: "Parent / Guardian",
+  trellis_support: "Trellis Support (read-only)",
 };
 
 const ROLE_HOME: Record<UserRole, string> = {
@@ -41,10 +43,12 @@ const ROLE_HOME: Record<UserRole, string> = {
   para: "/",
   sped_student: "/sped-portal",
   sped_parent: "/guardian-portal",
+  trellis_support: "/support-session",
 };
 
 const VALID_ROLES = new Set<string>([
-  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "sped_student", "sped_parent",
+  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para",
+  "sped_student", "sped_parent", "trellis_support",
 ]);
 
 function isValidRole(r: unknown): r is UserRole {

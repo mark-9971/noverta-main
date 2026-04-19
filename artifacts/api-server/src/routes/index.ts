@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { requireAuth, requireRoles, requireDistrictScope } from "../middlewares/auth";
+import { requireAuth, requireRoles, requireDistrictScope, enforceSupportReadOnly, logSupportSessionReads } from "../middlewares/auth";
 import healthRouter from "./health";
 import schoolsRouter from "./schools";
 import studentsRouter from "./students";
@@ -66,6 +66,7 @@ import studentNotesRouter from "./studentNotes";
 import accommodationVerificationsRouter from "./accommodationVerifications";
 import dataHealthRouter from "./dataHealth";
 import supportRouter from "./support";
+import supportSessionRouter, { supportSessionsDistrictAdminRouter } from "./supportSession";
 import medicaidBillingRouter from "./medicaidBilling";
 import costAvoidanceRouter from "./costAvoidance";
 import serviceForecastRouter from "./serviceForecast";
@@ -142,10 +143,31 @@ router.post("/imports/", csvUploadLimit);
 router.use("/guardian-portal", guardianPortalRouter);
 router.use("/guardian-portal", guardianMessagesRouter);
 
+// Trellis-support session lifecycle. Mounted BEFORE requireDistrictScope so a
+// support user with no active session — and therefore no tenantDistrictId yet
+// — can still call /open with their district picker. The router itself
+// guards on the trellis_support role.
+router.use(supportSessionRouter);
+
 // Global district scope enforcement: non-platform-admin users without a district claim
 // in their token are blocked from all authenticated data routes. Platform admins pass through.
 // Individual sub-routers may add supplementary district checks on top of this.
 router.use(requireDistrictScope);
+
+// Read-only enforcement for active trellis_support sessions. Mounted AFTER the
+// support-session router (so /open and /end can still POST) and AFTER
+// requireDistrictScope (so we know the request has been pinned to a district).
+// Any non-GET method while supportSessionId is set is rejected here.
+router.use(enforceSupportReadOnly);
+
+// Audit-tag every API read performed under an active support session so the
+// district admin sees every page-equivalent fetched, not just endpoints that
+// happen to call logAudit themselves.
+router.use(logSupportSessionReads);
+
+// District-admin "Recent support sessions" view. Reads tenantDistrictId set by
+// requireDistrictScope above and enforces admin/coordinator role internally.
+router.use(supportSessionsDistrictAdminRouter);
 
 // Path-scoped role guards — applied before their respective routers so they only
 // block sped_student (and where appropriate, lower-privilege roles) from staff-facing
