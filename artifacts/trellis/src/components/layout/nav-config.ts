@@ -47,6 +47,7 @@ export const platformAdminSection: NavSection = {
     { href: "/tenants", label: "Tenant Management", icon: Crown },
     { href: "/admin/demo-readiness", label: "Demo Pre-Flight", icon: Activity },
     { href: "/pilot-feedback", label: "Pilot Feedback", icon: MessageSquare },
+    { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
   ],
 };
 
@@ -329,6 +330,7 @@ export const adminNav: NavSection[] = [
         href: "/settings", label: "Settings", icon: Settings,
         children: [
           { href: "/settings?tab=general", label: "General", icon: Settings },
+          { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
           { href: "/settings?tab=school-year", label: "School Year", icon: CalendarDays },
           { href: "/settings?tab=billing-rates", label: "Billing Rates", icon: DollarSign },
           { href: "/settings?tab=sis", label: "SIS Integration", icon: Database },

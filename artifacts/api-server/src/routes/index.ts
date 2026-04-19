@@ -26,6 +26,7 @@ import assignmentsRouter from "./assignments";
 import iepSuggestionsRouter from "./iepSuggestions";
 import classroomRouter from "./classroom";
 import districtsRouter from "./districts";
+import pilotStatusRouter from "./pilotStatus";
 import fbaRouter from "./fba";
 import iepBuilderRouter from "./iepBuilder";
 import resourceManagementRouter from "./resourceManagement";
@@ -267,6 +268,7 @@ router.use(storageRouter);
 
 router.use(schoolsRouter);
 router.use(districtsRouter);
+router.use(pilotStatusRouter);
 router.use(studentsRouter);
 router.use(staffRouter);
 router.use(servicesRouter);

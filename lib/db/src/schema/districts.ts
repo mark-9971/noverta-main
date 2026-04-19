@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, pgEnum, boolean, integer, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, pgEnum, boolean, integer, numeric, jsonb, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -33,6 +33,15 @@ export const districtsTable = pgTable("districts", {
   // delivery window for provider activation nudges. Defaults to America/New_York.
   timeZone: text("time_zone").notNull().default("America/New_York"),
   demoExpiresAt: timestamp("demo_expires_at", { withTimezone: true }),
+  // Pilot configuration. These are nullable because most districts are not on
+  // a pilot; isPilot remains the gate for whether the Pilot Status page renders.
+  pilotStartDate: date("pilot_start_date"),
+  pilotEndDate: date("pilot_end_date"),
+  // kickoff | mid_pilot | readout — kept as text so future stages can be added
+  // without a migration. Validated by the API layer.
+  pilotStage: text("pilot_stage"),
+  pilotAccountManagerName: text("pilot_account_manager_name"),
+  pilotAccountManagerEmail: text("pilot_account_manager_email"),
   deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
   deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),
   deleteInitiatedBy: text("delete_initiated_by"),

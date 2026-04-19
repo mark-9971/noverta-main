@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX, Gauge } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
@@ -17,9 +17,11 @@ const BillingRatesPage = lazy(() => import("@/pages/billing-rates"));
 const DistrictDataPage = lazy(() => import("@/pages/district-data"));
 const NotificationPreferencesPage = lazy(() => import("@/pages/notification-preferences"));
 const SupportSessionsAdminPage = lazy(() => import("@/pages/support-sessions-admin"));
+const PilotConfigPage = lazy(() => import("@/pages/pilot-config"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
+  { key: "pilot", label: "Pilot Configuration", icon: Gauge },
   { key: "school-year", label: "School Year", icon: CalendarDays },
   { key: "billing-rates", label: "Billing Rates", icon: DollarSign },
   { key: "sis", label: "SIS Integration", icon: Database },
@@ -182,6 +184,7 @@ export default function SettingsHubPage() {
             </div>
           </div>
         )}
+        {activeTab === "pilot" && <PilotConfigPage />}
         {activeTab === "school-year" && <SchoolYearPage />}
         {activeTab === "billing-rates" && <BillingRatesPage />}
         {activeTab === "sis" && <SisSettingsPage />}

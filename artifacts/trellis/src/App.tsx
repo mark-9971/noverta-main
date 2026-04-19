@@ -109,6 +109,7 @@ const DemoRequestPage = lazy(() => import("@/pages/demo-request"));
 const AdminDemoDistrictsPage = lazy(() => import("@/pages/admin-demo-districts"));
 const SupportPage = lazy(() => import("@/pages/support"));
 const PilotFeedbackPage = lazy(() => import("@/pages/pilot-feedback"));
+const PilotStatusPage = lazy(() => import("@/pages/pilot-status"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
 const SupportSessionPage = lazy(() => import("@/pages/support-session"));
 const MySettingsPage = lazy(() => import("@/pages/my-settings"));
@@ -312,6 +313,7 @@ function StaffRouter() {
       <BoundedRoute path="/pilot-feedback" component={PilotFeedbackPage} fallbackTitle="Pilot feedback error" />
       <BoundedRoute path="/admin/demo-districts" component={AdminDemoDistrictsPage} fallbackTitle="Demo districts error" />
       <BoundedRoute path="/support" component={SupportPage} fallbackTitle="Support tools error" />
+      <BoundedRoute path="/pilot-status" component={PilotStatusPage} fallbackTitle="Pilot status error" />
       <Route component={NotFound} />
     </Switch>
   );
