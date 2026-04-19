@@ -32,6 +32,14 @@ import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAle
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
 
+interface HealthScoreTrend {
+  available: boolean;
+  current?: { numeric: number; grade: string; snapshotDate: string };
+  priorWeek?: { numeric: number; grade: string; snapshotDate: string };
+  deltaPts?: number | null;
+  sparkline?: { snapshotDate: string; numeric: number; grade: string }[];
+}
+
 interface ComplianceRiskReport {
   meta: { districtName: string; reportPeriod: string; generatedAt?: string };
   summary: {
@@ -177,6 +185,22 @@ export default function PilotAdminHome() {
       return r.json();
     },
     staleTime: 60_000,
+  });
+
+  // Health-score trend is intentionally district-wide: snapshots are captured
+  // once per day per district and have no school/year axis, so we deliberately
+  // do NOT pass `filterParams` here. Mixing a school-filtered "current" badge
+  // with a district-wide "vs. last week" delta would compare different
+  // populations. If a school-scoped trend is needed later, the snapshot table
+  // and capture functions will need a school dimension first.
+  const { data: healthTrend } = useQuery<HealthScoreTrend>({
+    queryKey: ["pilot-home/health-score-trend"],
+    queryFn: async () => {
+      const r = await authFetch(`/api/dashboard/health-score-trend`);
+      if (!r.ok) return { available: false };
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
   });
 
   const { data: weekTrend } = useQuery<WeekTrend>({
@@ -363,7 +387,7 @@ export default function PilotAdminHome() {
         </div>
         <div className="flex items-center gap-2">
           {healthScore && (
-            <HealthScoreBadge score={healthScore} />
+            <HealthScoreBadge score={healthScore} trend={healthTrend} />
           )}
           {/* Showcase tour entry — visible to admins on demo districts.
               The ShowcaseTour component itself is gated to admins where
@@ -766,20 +790,80 @@ const healthScoreColors: Record<"green" | "amber" | "red", { bg: string; text: s
   red:   { bg: "bg-red-50",     text: "text-red-700",     ring: "ring-red-200",     numText: "text-red-800" },
 };
 
-function HealthScoreBadge({ score }: { score: HealthScore }) {
+function HealthScoreSparkline({ points }: { points: { snapshotDate: string; numeric: number }[] }) {
+  if (points.length < 2) return null;
+  const W = 220;
+  const H = 36;
+  const PAD = 2;
+  const min = Math.min(...points.map(p => p.numeric));
+  const max = Math.max(...points.map(p => p.numeric));
+  const span = Math.max(1, max - min);
+  const xStep = (W - PAD * 2) / (points.length - 1);
+  const coords = points.map((p, i) => {
+    const x = PAD + i * xStep;
+    const y = PAD + (H - PAD * 2) * (1 - (p.numeric - min) / span);
+    return { x, y, ...p };
+  });
+  const path = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
+  const last = coords[coords.length - 1];
+  return (
+    <svg width={W} height={H} className="block" aria-hidden="true">
+      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last.x} cy={last.y} r={2.5} fill="currentColor" />
+    </svg>
+  );
+}
+
+function formatDelta(n: number): string {
+  if (n > 0) return `+${n}`;
+  return `${n}`;
+}
+
+function HealthScoreBadge({ score, trend }: { score: HealthScore; trend?: HealthScoreTrend }) {
   const cls = healthScoreColors[score.color];
+  const delta = trend?.available && typeof trend.deltaPts === "number" ? trend.deltaPts : null;
+  const sparkline = trend?.available ? trend.sparkline ?? [] : [];
+
+  const deltaTone =
+    delta == null ? "text-gray-500"
+    : delta > 0 ? "text-emerald-700"
+    : delta < 0 ? "text-red-700"
+    : "text-gray-500";
+  const DeltaIcon = delta == null || delta === 0 ? Minus : delta > 0 ? TrendingUp : TrendingDown;
+
   return (
     <div
       className={`relative group flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl ring-1 ${cls.ring} ${cls.bg} cursor-default select-none`}
       data-testid="health-score-badge"
-      aria-label={`District health score: ${score.grade} (${score.numeric}/100)`}
+      aria-label={
+        delta != null
+          ? `District health score: ${score.grade} (${score.numeric}/100), ${formatDelta(delta)} pts vs. last week`
+          : `District health score: ${score.grade} (${score.numeric}/100)`
+      }
     >
       <div className="text-center leading-none">
         <div className={`text-2xl font-black tabular-nums ${cls.numText}`}>{score.grade}</div>
         <div className={`text-[10px] font-semibold ${cls.text} mt-0.5 tabular-nums`}>{score.numeric}/100</div>
       </div>
-      <div className={`text-xs font-medium ${cls.text} hidden sm:block leading-tight max-w-[72px]`}>
-        District<br />Health
+      <div className="flex flex-col items-start gap-0.5">
+        <div className={`text-xs font-medium ${cls.text} hidden sm:block leading-tight`}>
+          District Health
+        </div>
+        {delta != null && (
+          <div
+            className={`inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums ${deltaTone}`}
+            data-testid="health-score-delta"
+            title={
+              trend?.priorWeek
+                ? `Last week: ${trend.priorWeek.numeric}/100 (${trend.priorWeek.grade}) on ${trend.priorWeek.snapshotDate}`
+                : undefined
+            }
+          >
+            <DeltaIcon className="w-3 h-3" />
+            <span>{formatDelta(delta)} pts</span>
+            <span className="text-gray-500 font-normal hidden sm:inline">vs. last wk</span>
+          </div>
+        )}
       </div>
 
       {/* Tooltip */}
@@ -793,6 +877,18 @@ function HealthScoreBadge({ score }: { score: HealthScore }) {
           <li>💰 Exposure risk: {score.breakdown.exposurePoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
           <li>📝 Provider logging: {score.breakdown.loggingPoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
         </ul>
+        {sparkline.length >= 2 && (
+          <div className="mt-2.5 pt-2 border-t border-gray-700">
+            <p className="text-[10px] text-gray-400 mb-1">Last {sparkline.length} weeks</p>
+            <div className="text-emerald-300" data-testid="health-score-sparkline">
+              <HealthScoreSparkline points={sparkline} />
+            </div>
+            <div className="flex justify-between text-[9px] text-gray-500 tabular-nums mt-0.5">
+              <span>{sparkline[0].numeric}</span>
+              <span>{sparkline[sparkline.length - 1].numeric}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

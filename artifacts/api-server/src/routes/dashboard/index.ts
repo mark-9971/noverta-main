@@ -11,6 +11,7 @@ import providerCompletionRatesRouter from "./providerCompletionRates";
 import parentEngagementRouter from "./parentEngagement";
 import credentialExpirationRouter from "./credentialExpiration";
 import districtBenchmarksRouter from "./districtBenchmarks";
+import healthScoreTrendRouter from "./healthScoreTrend";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(providerCompletionRatesRouter);
 router.use(parentEngagementRouter);
 router.use(credentialExpirationRouter);
 router.use(districtBenchmarksRouter);
+router.use(healthScoreTrendRouter);
 
 export default router;

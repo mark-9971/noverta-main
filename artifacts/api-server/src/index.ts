@@ -7,6 +7,7 @@ import { startReminderScheduler, ensureCaseloadSnapshotsTable, ensureScheduledRe
 import { startErrorLogCleanup } from "./lib/errorLogCleanup";
 import { startCostAvoidanceSnapshotScheduler } from "./lib/costAvoidanceSnapshots";
 import { startComplianceTrendSnapshotScheduler } from "./lib/complianceTrendSnapshots";
+import { startDistrictHealthSnapshotScheduler } from "./lib/districtHealthSnapshots";
 import {
   ensurePilotBaselineSnapshotsTable,
   backfillPilotBaselines,
@@ -153,6 +154,7 @@ app.listen(port, (err) => {
   startErrorLogCleanup();
   startCostAvoidanceSnapshotScheduler();
   startComplianceTrendSnapshotScheduler();
+  startDistrictHealthSnapshotScheduler();
   initStripe();
   backfillDistrictSubscriptions();
   ensureDbConstraints().catch((err: unknown) => logger.warn({ err }, "ensureDbConstraints failed (non-fatal)"));

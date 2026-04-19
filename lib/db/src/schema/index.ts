@@ -118,6 +118,7 @@ export * from "./viewAsSessions";
 export * from "./supportSessions";
 export * from "./complianceSnapshots";
 export * from "./complianceTrendSnapshots";
+export * from "./districtHealthSnapshots";
 export * from "./preferenceAssessments";
 export * from "./studentReinforcer";
 export * from "./districtArchiveJobs";
