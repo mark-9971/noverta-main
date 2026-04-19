@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  LineChart, Line, BarChart, Bar, ComposedChart, Area, XAxis, YAxis,
+  LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,18 +124,15 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           emptyMessage="No minutes logged in this window — providers need to log sessions before trend data appears"
         >
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={serviceChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <BarChart data={serviceChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} barCategoryGap="25%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
-              <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} tickFormatter={v => `${v}%`} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(val: number) => [val.toLocaleString()]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar yAxisId="left" dataKey="Required" fill="#e5e7eb" />
-              <Bar yAxisId="left" dataKey="Delivered" fill="#10b981" />
-              <Line yAxisId="right" type="monotone" dataKey="Compliance" stroke="#111827" strokeWidth={2} dot={{ r: 3 }} />
-              <ReferenceLine yAxisId="right" y={85} stroke="#9ca3af" strokeDasharray="4 4" label={{ value: "85% target", position: "right", fontSize: 10, fill: "#6b7280" }} />
-            </ComposedChart>
+              <Bar dataKey="Required" fill="#93c5fd" name="Required (min)" />
+              <Bar dataKey="Delivered" fill="#10b981" name="Delivered (min)" />
+            </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
@@ -166,16 +163,15 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           emptyMessage="No compensatory obligations recorded in this window"
         >
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={compChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <ComposedChart data={compChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} barCategoryGap="25%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar yAxisId="left" dataKey="Accrued" fill="#fca5a5" />
-              <Bar yAxisId="left" dataKey="Delivered" fill="#86efac" />
-              <Area yAxisId="right" type="monotone" dataKey="Owed" stroke="#b91c1c" fill="#fee2e2" fillOpacity={0.5} />
+              <Bar dataKey="Accrued" fill="#fca5a5" name="Accrued (min)" />
+              <Bar dataKey="Delivered" fill="#86efac" name="Delivered (min)" />
+              <Line type="monotone" dataKey="Owed" stroke="#b91c1c" strokeWidth={2} dot={{ r: 3 }} name="Cumulative Owed" />
             </ComposedChart>
           </ResponsiveContainer>
         </ChartCard>

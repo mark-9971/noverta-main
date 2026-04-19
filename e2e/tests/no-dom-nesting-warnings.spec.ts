@@ -131,12 +131,12 @@ test.describe("HTML nesting / hydration warnings", () => {
     });
 
     await page.goto("/");
+    // section-overall-compliance is always rendered in PilotAdminHome (unconditional).
+    // readiness-checklist can be an empty div when onboarding is complete + checklist
+    // is done (PilotOnboardingChecklist returns null in compact mode), which Playwright
+    // treats as hidden. Use the always-visible compliance section as the load sentinel.
     await expect(
-      page
-        .locator(
-          '[data-testid="section-overall-compliance"], [data-tour-id="readiness-checklist"]',
-        )
-        .first(),
+      page.locator('[data-testid="section-overall-compliance"]'),
     ).toBeVisible({ timeout: 60_000 });
 
     await tryEnsureSampleData(page);
