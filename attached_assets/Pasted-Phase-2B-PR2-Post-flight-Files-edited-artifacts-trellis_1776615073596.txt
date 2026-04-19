@@ -1,0 +1,46 @@
+Phase 2B PR2 — Post-flight
+
+Files edited
+artifacts/trellis/src/pages/student-detail.tsx — only file changed.
+Added QuickLogSheet import.
+Added teacherId to the useRole() destructure.
+Added quickLogOpen state.
+Inserted role-gated "Log Session" button in the header action row (before "IEP & Reports").
+Mounted <QuickLogSheet> at the page root with prefill props.
+CTA behavior after change
+Solid emerald "Log Session" pill (with + icon) appears in the always-visible page header for in-scope roles. Click → opens the existing QuickLogSheet sliding sheet, prefilled with the current student. On successful save: sheet closes, student + minute progress refetch so the in-page badges/progress update; sheet's existing toast/save flow is otherwise unchanged.
+Roles that now see it
+para, provider, direct_provider only. Admin, coordinator, sped_teacher, case_manager, bcba, school_admin, district_admin, dpa_admin: header byte-identical to before.
+Prefilling
+staffId={teacherId ?? null} from useRole() (matches today.tsx).
+prefillStudentId={studentId} from URL params (always defined when this page renders).
+prefillStudentName={studentName} from existing ${s.firstName} ${s.lastName} derivation.
+computeInitialStep in QuickLogSheet auto-skips the student picker and lands on the "service" step.
+Validation performed
+npx tsc --noEmit in artifacts/trellis: clean (only the pre-existing unrelated object-storage-web composite-flag error remains).
+Code review (architect): green — role gate correct, additive, prop usage matches today.tsx pattern, refetch handlers correct, null-staffId handled by sheet.
+Trellis dev workflow already running with HMR; no restart needed.
+No e2e run for this PR — interactive role-switched session-submit testing requires auth fixtures the project doesn't currently expose for student-detail role flows; the change is additive and the underlying QuickLogSheet flow is exercised on /today.
+Known issues still remaining
+Pre-existing duplicate label: StudentSnapshot (rendered inside the Summary tab) has its own "Log Session" button that navigates to /sessions?studentId=…. It pre-dates this PR and is shown to all roles, so two buttons share the label "Log Session" on the Summary tab for in-scope roles (one opens the quick sheet, the other navigates to the filtered Sessions list). Not addressed because: (a) it would touch a shared component used by out-of-scope admin/teacher, and (b) the spec explicitly forbids modifying out-of-scope role workflows unless required for shared-component safety, which this isn't. Worth a follow-up to either re-label the StudentSnapshot button ("Open Sessions") or wire it to the same quick-sheet handler.
+SessionView para-flavored surfaces still rendered for clinician roles when "Start Session" is clicked from /my-day (deferred from earlier scratchpad).
+Sessions tab list inside student-detail won't auto-refresh after a quick log (pre-existing — useGetStudentSessions doesn't expose its refetch through the existing patterns).
+Verdict
+Solid. Hands-on roles now have a one-click path from any student record to a prefilled quick log, available regardless of which tab they're on. Change is genuinely additive — no other roles' UX, no API, no schema, no new logging path. The pre-existing label collision in StudentSnapshot is the only smudge and it's cleanly a follow-up.
+Commit message
+Phase 2B PR2: Quick-log CTA on student detail for hands-on roles
+Add a "Log Session" button to the student-detail page header for
+para, provider, and direct_provider roles. Clicking it opens the
+existing QuickLogSheet prefilled with the current student so
+hands-on staff can log a session without backing out to /my-day
+or /sessions.
+- artifacts/trellis/src/pages/student-detail.tsx:
+  * Import QuickLogSheet; pull teacherId from useRole().
+  * New role-gated button in the always-visible header action row
+    (matches existing button styling; uses Plus icon).
+  * Mount QuickLogSheet at page root; onSuccess refetches student
+    + minute progress so header badges update immediately.
+Additive only. No API, schema, or shared-component changes; no
+impact on admin/coordinator/teacher/bcba/case_manager workflows.
+The pre-existing "Log Session" link inside StudentSnapshot
+(navigates to /sessions filter view) is intentionally untouched.
