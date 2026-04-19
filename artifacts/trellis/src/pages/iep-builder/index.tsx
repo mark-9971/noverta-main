@@ -45,6 +45,8 @@ export default function IepBuilderPage() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
 
+  const [presenceEditors, setPresenceEditors] = useState<{ staffId: number; name: string }[]>([]);
+
   const [isDirty, setIsDirty] = useState(false);
   const isDirtyRef = useRef(false);
   // Incremented on every user edit; captured before each save to detect
@@ -249,6 +251,51 @@ export default function IepBuilderPage() {
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [parent, teacher, transition, draftResolved, scheduleAutoSave]);
 
+  useEffect(() => {
+    if (isNaN(studentId)) return;
+    let cancelled = false;
+    const presenceUrl = `${API_BASE}/students/${studentId}/iep-builder/presence`;
+
+    async function tick() {
+      try {
+        await authFetch(presenceUrl, { method: "POST" });
+      } catch {}
+      try {
+        const res = await authFetch(presenceUrl);
+        if (!res.ok) return;
+        const data: unknown = await res.json();
+        const rawEditors =
+          data && typeof data === "object" && "editors" in data
+            ? (data as { editors: unknown }).editors
+            : null;
+        if (!cancelled && Array.isArray(rawEditors)) {
+          const next: { staffId: number; name: string }[] = [];
+          for (const e of rawEditors) {
+            if (
+              e && typeof e === "object" &&
+              typeof (e as { staffId?: unknown }).staffId === "number" &&
+              typeof (e as { name?: unknown }).name === "string"
+            ) {
+              const ed = e as { staffId: number; name: string };
+              next.push({ staffId: ed.staffId, name: ed.name });
+            }
+          }
+          setPresenceEditors(next);
+        }
+      } catch {}
+    }
+
+    tick();
+    const interval = setInterval(tick, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      try {
+        authFetch(presenceUrl, { method: "DELETE", keepalive: true }).catch(() => {});
+      } catch {}
+    };
+  }, [studentId]);
+
   const changeStep = useCallback((newStep: Step) => {
     setStep(newStep);
     if (draftResolvedRef.current) {
@@ -398,6 +445,32 @@ export default function IepBuilderPage() {
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">IEP Annual Review Draft Builder</h1>
           <p className="text-[12px] sm:text-[13px] text-gray-500 truncate">{context.student.name} · {context.nextSchoolYear.label} School Year</p>
         </div>
+        {presenceEditors.length > 0 && (
+          <div
+            className="flex items-center gap-2 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex-shrink-0"
+            title={`${presenceEditors.map(e => e.name).join(", ")} ${presenceEditors.length === 1 ? "is" : "are"} also editing this draft`}
+            data-testid="presence-indicator"
+          >
+            <div className="flex -space-x-1.5">
+              {presenceEditors.slice(0, 3).map(e => (
+                <div
+                  key={e.staffId}
+                  className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-semibold flex items-center justify-center ring-2 ring-white"
+                  title={e.name}
+                >
+                  {e.name.split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
+                </div>
+              ))}
+            </div>
+            <span className="truncate max-w-[180px]">
+              {presenceEditors.length === 1
+                ? `${presenceEditors[0].name} is also editing`
+                : presenceEditors.length === 2
+                  ? `${presenceEditors[0].name} and ${presenceEditors[1].name} are also editing`
+                  : `${presenceEditors[0].name} and ${presenceEditors.length - 1} others are also editing`}
+            </span>
+          </div>
+        )}
         {isDirty ? (
           <div className="flex items-center gap-1.5 text-[11px] text-amber-500 bg-amber-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">
             <Save className="w-3 h-3" />
