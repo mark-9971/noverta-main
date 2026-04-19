@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, Dot,
@@ -110,6 +110,22 @@ export function InteractiveChart({
   const [annotationSaving, setAnnotationSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartAreaRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(0);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const el = chartAreaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setChartWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(el);
+    setChartWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [expanded]);
 
   const phaseLines = externalPhaseLines ?? [];
 
@@ -260,6 +276,23 @@ export function InteractiveChart({
     },
     [color, yLabel, valueFormatter]
   );
+
+  const xAxisConfig = useMemo(() => {
+    const n = filteredData.length;
+    if (n === 0) return { interval: 0 as number | "preserveStartEnd", angle: 0, height: 20, dy: 0 };
+    const w = chartWidth || 600;
+    const isMobile = w < 480;
+    const pxPerLabel = isMobile ? 56 : 70;
+    const maxTicks = Math.max(2, Math.min(isMobile ? 5 : 8, Math.floor(w / pxPerLabel)));
+    if (n <= maxTicks) {
+      return { interval: 0 as number | "preserveStartEnd", angle: 0, height: 20, dy: 0 };
+    }
+    const interval = Math.max(0, Math.ceil(n / maxTicks) - 1);
+    const angle = isMobile ? -35 : 0;
+    const height = isMobile ? 36 : 20;
+    const dy = isMobile ? 6 : 0;
+    return { interval, angle, height, dy };
+  }, [filteredData.length, chartWidth]);
 
   const yDomain = useMemo(() => {
     const values = filteredData.map((d) => d.value);
@@ -521,8 +554,9 @@ export function InteractiveChart({
       {/* Chart area — full width, touch-friendly */}
       <div ref={chartContainerRef} className="px-3 pb-3 pt-1 w-full">
         {filteredData.length > 0 ? (
+          <div ref={chartAreaRef} className="w-full">
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={filteredData} margin={{ top: 10, right: 12, left: 0, bottom: 4 }}>
+            <AreaChart data={filteredData} margin={{ top: 10, right: 12, left: 0, bottom: xAxisConfig.angle !== 0 ? 16 : 4 }}>
               <defs>
                 <linearGradient id={`${gradientId}-exp`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={color} stopOpacity={0.15} />
@@ -533,10 +567,14 @@ export function InteractiveChart({
               <XAxis
                 dataKey="date"
                 tickFormatter={formatShortDate}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "#94a3b8", dy: xAxisConfig.dy }}
                 axisLine={false}
                 tickLine={false}
-                interval="preserveStartEnd"
+                interval={xAxisConfig.interval}
+                angle={xAxisConfig.angle}
+                textAnchor={xAxisConfig.angle !== 0 ? "end" : "middle"}
+                height={xAxisConfig.height}
+                minTickGap={4}
               />
               <YAxis
                 domain={yDomain}
@@ -609,6 +647,7 @@ export function InteractiveChart({
               />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div className="h-[220px] flex items-center justify-center text-xs text-gray-400">
             No data points match the current filters.
