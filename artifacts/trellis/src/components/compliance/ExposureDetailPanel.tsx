@@ -66,7 +66,26 @@ function statusBadge(status: string) {
   );
 }
 
-function downloadCSV(data: ExposureDetail, itemsExposureTotal: number) {
+function downloadCSV(
+  data: ExposureDetail,
+  itemsExposureTotal: number,
+  scope: Scope,
+  schoolYearLabel: string | null,
+) {
+  const isYear = scope === "schoolYear";
+  const scopeLabel = isYear
+    ? `Full School Year${schoolYearLabel ? ` (${schoolYearLabel})` : ""}`
+    : "Current Service Interval";
+
+  const metaRows: string[][] = [
+    ["Student", data.studentName],
+    ["Scope", scopeLabel],
+  ];
+  if (data.window) {
+    metaRows.push(["Window", `${data.window.startDate} to ${data.window.endDate}`]);
+  }
+  metaRows.push([]);
+
   const headers = ["Date", "Service Type", "Provider", "Scheduled Duration (min)", "Status", "CPT Rate", "Exposure Amount"];
   const rows = data.items.map(item => [
     item.date,
@@ -78,17 +97,23 @@ function downloadCSV(data: ExposureDetail, itemsExposureTotal: number) {
     item.exposureAmount != null ? `$${item.exposureAmount.toFixed(2)}` : "N/A",
   ]);
 
-  const remainingExposure = Math.round((data.aggregateExposure - itemsExposureTotal) * 100) / 100;
-  if (remainingExposure > 0.005) {
-    rows.push([
-      "",
-      "Remaining shortfall (minutes without logged sessions)",
-      "",
-      "",
-      "",
-      "",
-      `$${remainingExposure.toFixed(2)}`,
-    ]);
+  // The reconciliation row only makes sense for the current interval, where
+  // the aggregate shortfall comes from required-vs-delivered minutes that may
+  // not be backed by explicit session logs. In school-year mode the aggregate
+  // is the sum of logged sessions, so there is no remainder to surface.
+  if (!isYear) {
+    const remainingExposure = Math.round((data.aggregateExposure - itemsExposureTotal) * 100) / 100;
+    if (remainingExposure > 0.005) {
+      rows.push([
+        "",
+        "Remaining shortfall (minutes without logged sessions)",
+        "",
+        "",
+        "",
+        "",
+        `$${remainingExposure.toFixed(2)}`,
+      ]);
+    }
   }
 
   rows.push([
@@ -108,12 +133,16 @@ function downloadCSV(data: ExposureDetail, itemsExposureTotal: number) {
     return v;
   };
 
-  const csv = [headers, ...rows].map(row => row.map(escape).join(",")).join("\n");
+  const csv = [...metaRows, headers, ...rows].map(row => row.map(escape).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
+  const safeName = data.studentName.replace(/\s+/g, "_");
+  const suffix = isYear && schoolYearLabel
+    ? `SY${schoolYearLabel.replace(/\s+/g, "")}`
+    : new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `Exposure_Detail_${data.studentName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `Exposure_Detail_${safeName}_${suffix}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -353,7 +382,12 @@ export default function ExposureDetailPanel({ studentId, studentName, serviceReq
                 className="gap-1.5 text-xs"
                 onClick={() => {
                   try {
-                    downloadCSV(data, itemsExposureTotal);
+                    downloadCSV(
+                      data,
+                      itemsExposureTotal,
+                      scope,
+                      scope === "schoolYear" ? activeYear?.label ?? null : null,
+                    );
                   } catch {
                     toast.error("Failed to export CSV");
                   }
