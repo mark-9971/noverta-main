@@ -589,8 +589,10 @@ async function collectServiceShortfallRisks(
 
   if (requirements.length === 0) return;
 
-  // Load global service type catalog, district-specific rate overrides, and district default rate.
-  const [serviceTypes, districtRateRows, districtRow] = await Promise.all([
+  // Load global service type catalog, district-specific rate overrides (with
+  // optional per-school/per-program scope), district default rate, and the
+  // school/program assignment for each student in scope.
+  const [serviceTypes, rateRows, districtRow, studentScopes] = await Promise.all([
     db.select({
       id: serviceTypesTable.id,
       name: serviceTypesTable.name,
@@ -599,6 +601,8 @@ async function collectServiceShortfallRisks(
 
     db.select({
       serviceTypeId: serviceRateConfigsTable.serviceTypeId,
+      schoolId: serviceRateConfigsTable.schoolId,
+      programId: serviceRateConfigsTable.programId,
       inHouseRate: serviceRateConfigsTable.inHouseRate,
       contractedRate: serviceRateConfigsTable.contractedRate,
     }).from(serviceRateConfigsTable)
@@ -609,44 +613,100 @@ async function collectServiceShortfallRisks(
       .from(districtsTable)
       .where(eq(districtsTable.id, districtId))
       .limit(1),
+
+    db.select({
+      id: studentsTable.id,
+      schoolId: studentsTable.schoolId,
+      programId: studentsTable.programId,
+    }).from(studentsTable).where(inArray(studentsTable.id, studentIds)),
   ]);
 
   const districtDefaultRate = districtRow[0]?.defaultHourlyRate
     ? parseFloat(districtRow[0].defaultHourlyRate)
     : NaN;
 
-  // Most-recent district rate per service type.
-  const districtRateMap = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>();
-  for (const r of districtRateRows) {
-    if (!districtRateMap.has(r.serviceTypeId)) {
-      districtRateMap.set(r.serviceTypeId, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
+  const studentScopeMap = new Map<number, { schoolId: number | null; programId: number | null }>();
+  for (const s of studentScopes) {
+    studentScopeMap.set(s.id, { schoolId: s.schoolId, programId: s.programId });
+  }
+
+  // Index rate configs by scope. Most recent effective date wins per scope.
+  const schoolScoped = new Map<string, { inHouseRate: string | null; contractedRate: string | null }>();
+  const programScoped = new Map<string, { inHouseRate: string | null; contractedRate: string | null }>();
+  const districtScoped = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>();
+  for (const r of rateRows) {
+    if (r.schoolId != null) {
+      const k = `${r.schoolId}:${r.serviceTypeId}`;
+      if (!schoolScoped.has(k)) schoolScoped.set(k, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
+    } else if (r.programId != null) {
+      const k = `${r.programId}:${r.serviceTypeId}`;
+      if (!programScoped.has(k)) programScoped.set(k, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
+    } else {
+      if (!districtScoped.has(r.serviceTypeId)) districtScoped.set(r.serviceTypeId, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
     }
   }
 
-  const svcMap = new Map(serviceTypes.map(t => {
-    const dr = districtRateMap.get(t.id);
-    const inHouse = dr?.inHouseRate ? parseFloat(dr.inHouseRate) : NaN;
-    const contracted = dr?.contractedRate ? parseFloat(dr.contractedRate) : NaN;
-    const global = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
+  const typeMeta = new Map<number, { name: string; defaultBillingRate: string | null }>();
+  for (const t of serviceTypes) typeMeta.set(t.id, { name: t.name, defaultBillingRate: t.defaultBillingRate });
 
-    let hourlyRate: number;
-    let isDefaultRate: boolean;
+  function pickRate(row: { inHouseRate: string | null; contractedRate: string | null } | undefined): number | null {
+    if (!row) return null;
+    const inHouse = row.inHouseRate ? parseFloat(row.inHouseRate) : NaN;
+    if (Number.isFinite(inHouse) && inHouse > 0) return inHouse;
+    const contracted = row.contractedRate ? parseFloat(row.contractedRate) : NaN;
+    if (Number.isFinite(contracted) && contracted > 0) return contracted;
+    return null;
+  }
 
-    let rateSource: 'district' | 'catalog' | 'district_default' | 'system';
-    if (Number.isFinite(inHouse) && inHouse > 0) {
-      hourlyRate = inHouse; rateSource = 'district';
-    } else if (Number.isFinite(contracted) && contracted > 0) {
-      hourlyRate = contracted; rateSource = 'district';
-    } else if (Number.isFinite(global) && global > 0) {
-      hourlyRate = global; rateSource = 'catalog';
-    } else if (Number.isFinite(districtDefaultRate) && districtDefaultRate > 0) {
-      hourlyRate = districtDefaultRate; rateSource = 'district_default';
-    } else {
-      hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE; rateSource = 'system';
+  type RateSource = 'school' | 'program' | 'district' | 'catalog' | 'district_default' | 'system';
+  function rateSourceLabel(src: RateSource): string {
+    switch (src) {
+      case 'school': return 'school-specific rate';
+      case 'program': return 'program-specific rate';
+      case 'district': return 'district-configured rate';
+      case 'catalog': return 'catalog default rate';
+      case 'district_default': return 'district default rate';
+      case 'system': return 'system default rate';
     }
-    isDefaultRate = rateSource === 'system';
-    return [t.id, { name: t.name, hourlyRate, isDefaultRate, rateSource }] as const;
-  }));
+  }
+  function resolveRate(serviceTypeId: number, studentId: number): { name: string; hourlyRate: number; rateSource: RateSource } {
+    const t = typeMeta.get(serviceTypeId);
+    const name = t?.name || "Unknown Service";
+    const scope = studentScopeMap.get(studentId);
+
+    let hourlyRate: number | null = null;
+    let rateSource: RateSource = 'system';
+
+    if (scope?.schoolId != null) {
+      hourlyRate = pickRate(schoolScoped.get(`${scope.schoolId}:${serviceTypeId}`));
+      if (hourlyRate != null) rateSource = 'school';
+    }
+    if (hourlyRate == null && scope?.programId != null) {
+      hourlyRate = pickRate(programScoped.get(`${scope.programId}:${serviceTypeId}`));
+      if (hourlyRate != null) rateSource = 'program';
+    }
+    if (hourlyRate == null) {
+      hourlyRate = pickRate(districtScoped.get(serviceTypeId));
+      if (hourlyRate != null) rateSource = 'district';
+    }
+    if (hourlyRate == null && Number.isFinite(districtDefaultRate) && districtDefaultRate > 0) {
+      hourlyRate = districtDefaultRate;
+      rateSource = 'district_default';
+    }
+    if (hourlyRate == null) {
+      const catalog = t?.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
+      if (Number.isFinite(catalog) && catalog > 0) {
+        hourlyRate = catalog;
+        rateSource = 'catalog';
+      }
+    }
+    if (hourlyRate == null) {
+      hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE;
+      rateSource = 'system';
+    }
+
+    return { name, hourlyRate, rateSource };
+  }
 
   const now = new Date();
   const currentMonth = now.toISOString().slice(0, 7);
@@ -677,10 +737,10 @@ async function collectServiceShortfallRisks(
   const currentWeekStart = getWeekStart(now);
 
   for (const req of requirements) {
-    const svcType = svcMap.get(req.serviceTypeId);
-    const svcName = svcType?.name || "Unknown Service";
-    const hourlyRate: number = svcType?.hourlyRate ?? SYSTEM_DEFAULT_HOURLY_RATE;
-    const rateSource = svcType?.rateSource ?? 'system';
+    const resolved = resolveRate(req.serviceTypeId, req.studentId);
+    const svcName = resolved.name;
+    const hourlyRate: number = resolved.hourlyRate;
+    const rateSource = resolved.rateSource;
 
     if (req.intervalType === "weekly") {
       const weekSessionTotals = await db.select({
@@ -714,13 +774,7 @@ async function collectServiceShortfallRisks(
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           daysRemaining: daysLeftInWeek,
           estimatedExposure,
-          exposureBasis: rateSource === 'system'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (system default rate)`
-            : rateSource === 'catalog'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (catalog default rate)`
-            : rateSource === 'district_default'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (district default rate)`
-            : `${shortfall} min shortfall × $${hourlyRate}/hr (district-configured rate)`,
+          exposureBasis: `${shortfall} min shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})`,
         });
       }
     } else {
@@ -750,13 +804,7 @@ async function collectServiceShortfallRisks(
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           daysRemaining: daysLeft,
           estimatedExposure,
-          exposureBasis: rateSource === 'system'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (system default rate)`
-            : rateSource === 'catalog'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (catalog default rate)`
-            : rateSource === 'district_default'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district default rate)`
-            : `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district-configured rate)`,
+          exposureBasis: `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})`,
         });
       }
     }

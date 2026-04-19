@@ -29,6 +29,15 @@ function getDistrictId(req: AuthedRequest): number | null {
 
 type UrgencyLevel = "critical" | "high" | "medium" | "watch";
 
+// Rate sources, ordered from most to least specific.
+//   'school'           = district-specific rate scoped to the student's school
+//   'program'          = district-specific rate scoped to the student's program
+//   'district'         = district-wide rate config for this service type
+//   'catalog'          = global defaultBillingRate on service_types
+//   'district_default' = district-wide default hourly rate set by admin
+//   'system'           = hardcoded $75/hr fallback
+type RateSource = 'school' | 'program' | 'district' | 'catalog' | 'district_default' | 'system';
+
 interface RiskItem {
   id: string;
   category: "evaluation_deadline" | "service_shortfall" | "iep_annual_review";
@@ -44,12 +53,7 @@ interface RiskItem {
   // For evaluation deadline and IEP annual review risks we do NOT assign
   // a dollar number — exposureBasis carries the non-dollar signal instead.
   estimatedExposure: number | null;
-  // Source of the hourly rate used in the exposure estimate:
-  //   'district'         = district-specific config in service_rate_configs
-  //   'catalog'          = global defaultBillingRate on service_types
-  //   'district_default' = district-wide default rate set by admin
-  //   'system'           = hardcoded $75/hr fallback
-  rateSource?: 'district' | 'catalog' | 'district_default' | 'system';
+  rateSource?: RateSource;
   exposureBasis: string;
   actionNeeded: string;
   serviceTypeName?: string;
@@ -94,14 +98,14 @@ router.get("/cost-avoidance/risks", async (req, res): Promise<void> => {
 
   const studentIdArray = [...studentIdSet];
 
-  const [studentMap, serviceTypeMap] = await Promise.all([
+  const [studentMap, rateLookup] = await Promise.all([
     buildStudentMap(studentIdArray),
-    buildServiceTypeMap(districtId),
+    buildRateLookup(districtId),
   ]);
 
   const [evalRisks, serviceRisks, iepRisks] = await Promise.all([
     getEvaluationDeadlineRisks(studentIdArray, studentMap, today, horizon90),
-    getServiceShortfallRisks(studentIdArray, studentMap, serviceTypeMap, today),
+    getServiceShortfallRisks(studentIdArray, studentMap, rateLookup, today),
     getIepAnnualReviewRisks(studentIdArray, studentMap, today, horizon90),
   ]);
 
@@ -141,14 +145,14 @@ router.get("/cost-avoidance/summary", async (req, res): Promise<void> => {
   }
 
   const studentIdArray = [...studentIdSet];
-  const [studentMap, serviceTypeMap] = await Promise.all([
+  const [studentMap, rateLookup] = await Promise.all([
     buildStudentMap(studentIdArray),
-    buildServiceTypeMap(districtId),
+    buildRateLookup(districtId),
   ]);
 
   const [evalRisks, serviceRisks, iepRisks] = await Promise.all([
     getEvaluationDeadlineRisks(studentIdArray, studentMap, today, horizon90),
-    getServiceShortfallRisks(studentIdArray, studentMap, serviceTypeMap, today),
+    getServiceShortfallRisks(studentIdArray, studentMap, rateLookup, today),
     getIepAnnualReviewRisks(studentIdArray, studentMap, today, horizon90),
   ]);
 
@@ -286,18 +290,32 @@ function buildSummary(risks: RiskItem[]) {
   };
 }
 
-async function buildStudentMap(ids: number[]): Promise<Map<number, { name: string; caseManagerId: number | null }>> {
+interface StudentInfo {
+  name: string;
+  caseManagerId: number | null;
+  schoolId: number | null;
+  programId: number | null;
+}
+
+async function buildStudentMap(ids: number[]): Promise<Map<number, StudentInfo>> {
   if (ids.length === 0) return new Map();
   const students = await db.select({
     id: studentsTable.id,
     firstName: studentsTable.firstName,
     lastName: studentsTable.lastName,
     caseManagerId: studentsTable.caseManagerId,
+    schoolId: studentsTable.schoolId,
+    programId: studentsTable.programId,
   }).from(studentsTable).where(inArray(studentsTable.id, ids));
 
-  const map = new Map<number, { name: string; caseManagerId: number | null }>();
+  const map = new Map<number, StudentInfo>();
   for (const s of students) {
-    map.set(s.id, { name: `${s.firstName} ${s.lastName}`, caseManagerId: s.caseManagerId });
+    map.set(s.id, {
+      name: `${s.firstName} ${s.lastName}`,
+      caseManagerId: s.caseManagerId,
+      schoolId: s.schoolId,
+      programId: s.programId,
+    });
   }
   return map;
 }
@@ -307,28 +325,56 @@ async function buildStudentMap(ids: number[]): Promise<Map<number, { name: strin
 // estimates from those backed by their own configured rate.
 const SYSTEM_DEFAULT_HOURLY_RATE = 75;
 
+interface ResolvedRate {
+  name: string;
+  hourlyRate: number;
+  isDefaultRate: boolean;
+  rateSource: RateSource;
+}
+
+interface RateLookup {
+  resolve(serviceTypeId: number, schoolId: number | null, programId: number | null): ResolvedRate;
+}
+
+function rateSourceLabel(src: RateSource): string {
+  switch (src) {
+    case 'school': return 'school-specific rate';
+    case 'program': return 'program-specific rate';
+    case 'district': return 'district-configured rate';
+    case 'catalog': return 'catalog default rate';
+    case 'district_default': return 'district default rate';
+    case 'system': return 'system default — set a district default or per-service rate in Settings → Billing Rates';
+  }
+}
+
 /**
- * Build a per-service-type rate map for cost avoidance.
+ * Build a per-service-type rate lookup for cost avoidance. Returns a function
+ * that resolves the most-specific rate for a (serviceType, school, program) tuple.
+ *
  * Rate priority (highest wins):
- *   1. District-specific in_house_rate from service_rate_configs (most recent effective date)
- *   2. District-specific contracted_rate from service_rate_configs
- *   3. Global defaultBillingRate on service_types (shared catalog baseline)
- *   4. District-wide default hourly rate (set by district admin in Settings → Billing Rates)
- *   5. System default $75/hr
+ *   1. School-scoped district rate config (school_id matches student's school)
+ *   2. Program-scoped district rate config (program_id matches student's program)
+ *   3. District-wide rate config for the service type (no school/program scope)
+ *   4. District-wide default hourly rate (Settings → Billing Rates)
+ *   5. Global defaultBillingRate on service_types (shared catalog baseline)
+ *   6. System default $75/hr
+ *
+ * Within a rate config row, in_house_rate is preferred over contracted_rate.
+ * When multiple rows match the same scope, the row with the most recent
+ * effective_date wins.
  */
-async function buildServiceTypeMap(
-  districtId: number,
-): Promise<Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'district_default' | 'system' }>> {
-  const [types, districtRateRows, districtRow] = await Promise.all([
+async function buildRateLookup(districtId: number): Promise<RateLookup> {
+  const [types, rateRows, districtRow] = await Promise.all([
     db.select({
       id: serviceTypesTable.id,
       name: serviceTypesTable.name,
       defaultBillingRate: serviceTypesTable.defaultBillingRate,
     }).from(serviceTypesTable),
 
-    // Fetch the most recent rate config row per service type for this district.
     db.select({
       serviceTypeId: serviceRateConfigsTable.serviceTypeId,
+      schoolId: serviceRateConfigsTable.schoolId,
+      programId: serviceRateConfigsTable.programId,
       inHouseRate: serviceRateConfigsTable.inHouseRate,
       contractedRate: serviceRateConfigsTable.contractedRate,
       effectiveDate: serviceRateConfigsTable.effectiveDate,
@@ -346,46 +392,74 @@ async function buildServiceTypeMap(
     ? parseFloat(districtRow[0].defaultHourlyRate)
     : NaN;
 
-  // Build a map of district rates keyed by serviceTypeId (most recent row wins due to ORDER BY).
-  const districtRateMap = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>();
-  for (const r of districtRateRows) {
-    if (!districtRateMap.has(r.serviceTypeId)) {
-      districtRateMap.set(r.serviceTypeId, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
-    }
-  }
+  // Index rate configs by scope. Most recent effective date wins per scope.
+  const schoolScoped = new Map<string, { inHouseRate: string | null; contractedRate: string | null }>();   // key: `${schoolId}:${serviceTypeId}`
+  const programScoped = new Map<string, { inHouseRate: string | null; contractedRate: string | null }>(); // key: `${programId}:${serviceTypeId}`
+  const districtScoped = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>(); // key: serviceTypeId
 
-  const map = new Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'district_default' | 'system' }>();
-  for (const t of types) {
-    const districtRate = districtRateMap.get(t.id);
-
-    // Try district-specific rates first.
-    const inHouse = districtRate?.inHouseRate ? parseFloat(districtRate.inHouseRate) : NaN;
-    const contracted = districtRate?.contractedRate ? parseFloat(districtRate.contractedRate) : NaN;
-    const global = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
-
-    let hourlyRate: number;
-    let rateSource: 'district' | 'catalog' | 'district_default' | 'system';
-
-    if (Number.isFinite(inHouse) && inHouse > 0) {
-      hourlyRate = inHouse;
-      rateSource = 'district';
-    } else if (Number.isFinite(contracted) && contracted > 0) {
-      hourlyRate = contracted;
-      rateSource = 'district';
-    } else if (Number.isFinite(global) && global > 0) {
-      hourlyRate = global;
-      rateSource = 'catalog';
-    } else if (Number.isFinite(districtDefaultRate) && districtDefaultRate > 0) {
-      hourlyRate = districtDefaultRate;
-      rateSource = 'district_default';
+  for (const r of rateRows) {
+    if (r.schoolId != null) {
+      const key = `${r.schoolId}:${r.serviceTypeId}`;
+      if (!schoolScoped.has(key)) schoolScoped.set(key, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
+    } else if (r.programId != null) {
+      const key = `${r.programId}:${r.serviceTypeId}`;
+      if (!programScoped.has(key)) programScoped.set(key, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
     } else {
-      hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE;
-      rateSource = 'system';
+      if (!districtScoped.has(r.serviceTypeId)) districtScoped.set(r.serviceTypeId, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
     }
-
-    map.set(t.id, { name: t.name, hourlyRate, isDefaultRate: rateSource === 'system', rateSource });
   }
-  return map;
+
+  const typeNameMap = new Map<number, { name: string; defaultBillingRate: string | null }>();
+  for (const t of types) typeNameMap.set(t.id, { name: t.name, defaultBillingRate: t.defaultBillingRate });
+
+  function pickRate(row: { inHouseRate: string | null; contractedRate: string | null } | undefined): number | null {
+    if (!row) return null;
+    const inHouse = row.inHouseRate ? parseFloat(row.inHouseRate) : NaN;
+    if (Number.isFinite(inHouse) && inHouse > 0) return inHouse;
+    const contracted = row.contractedRate ? parseFloat(row.contractedRate) : NaN;
+    if (Number.isFinite(contracted) && contracted > 0) return contracted;
+    return null;
+  }
+
+  return {
+    resolve(serviceTypeId, schoolId, programId) {
+      const t = typeNameMap.get(serviceTypeId);
+      const name = t?.name || "Unknown Service";
+
+      let hourlyRate: number | null = null;
+      let rateSource: RateSource = 'system';
+
+      if (schoolId != null) {
+        hourlyRate = pickRate(schoolScoped.get(`${schoolId}:${serviceTypeId}`));
+        if (hourlyRate != null) rateSource = 'school';
+      }
+      if (hourlyRate == null && programId != null) {
+        hourlyRate = pickRate(programScoped.get(`${programId}:${serviceTypeId}`));
+        if (hourlyRate != null) rateSource = 'program';
+      }
+      if (hourlyRate == null) {
+        hourlyRate = pickRate(districtScoped.get(serviceTypeId));
+        if (hourlyRate != null) rateSource = 'district';
+      }
+      if (hourlyRate == null && Number.isFinite(districtDefaultRate) && districtDefaultRate > 0) {
+        hourlyRate = districtDefaultRate;
+        rateSource = 'district_default';
+      }
+      if (hourlyRate == null) {
+        const catalog = t?.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
+        if (Number.isFinite(catalog) && catalog > 0) {
+          hourlyRate = catalog;
+          rateSource = 'catalog';
+        }
+      }
+      if (hourlyRate == null) {
+        hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE;
+        rateSource = 'system';
+      }
+
+      return { name, hourlyRate, isDefaultRate: rateSource === 'system', rateSource };
+    },
+  };
 }
 
 async function getEvaluationDeadlineRisks(
@@ -500,8 +574,8 @@ async function getEvaluationDeadlineRisks(
 
 async function getServiceShortfallRisks(
   studentIds: number[],
-  studentMap: Map<number, { name: string; caseManagerId: number | null }>,
-  serviceTypeMap: Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'district_default' | 'system' }>,
+  studentMap: Map<number, StudentInfo>,
+  rateLookup: RateLookup,
   today: string,
 ): Promise<RiskItem[]> {
   const risks: RiskItem[] = [];
@@ -557,10 +631,10 @@ async function getServiceShortfallRisks(
     const student = studentMap.get(req.studentId);
     if (!student) continue;
 
-    const svcType = serviceTypeMap.get(req.serviceTypeId);
-    const svcName = svcType?.name || "Unknown Service";
-    const hourlyRate: number = svcType?.hourlyRate ?? SYSTEM_DEFAULT_HOURLY_RATE;
-    const rateSource = svcType?.rateSource ?? 'system';
+    const resolved = rateLookup.resolve(req.serviceTypeId, student.schoolId, student.programId);
+    const svcName = resolved.name;
+    const hourlyRate: number = resolved.hourlyRate;
+    const rateSource = resolved.rateSource;
 
     let requiredForPeriod = req.requiredMinutes;
     let deliveredMinutes = sessionMap.get(`${req.studentId}-${req.serviceTypeId}`) || 0;
@@ -601,13 +675,7 @@ async function getServiceShortfallRisks(
           daysRemaining: daysLeftInWeek,
           estimatedExposure,
           rateSource,
-          exposureBasis: rateSource === 'system'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (system default — set a district default or per-service rate in Settings → Billing Rates)`
-            : rateSource === 'catalog'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (catalog default rate)`
-            : rateSource === 'district_default'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (district default rate)`
-            : `${shortfall} min shortfall × $${hourlyRate}/hr (district-configured rate)`,
+          exposureBasis: `${shortfall} min shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})`,
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           serviceTypeName: svcName,
         });
@@ -639,13 +707,7 @@ async function getServiceShortfallRisks(
           daysRemaining: daysLeft,
           estimatedExposure,
           rateSource,
-          exposureBasis: rateSource === 'system'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (system default — set a district default or per-service rate in Settings → Billing Rates)`
-            : rateSource === 'catalog'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (catalog default rate)`
-            : rateSource === 'district_default'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district default rate)`
-            : `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district-configured rate)`,
+          exposureBasis: `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})`,
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           serviceTypeName: svcName,
         });
@@ -658,7 +720,7 @@ async function getServiceShortfallRisks(
 
 async function getIepAnnualReviewRisks(
   studentIds: number[],
-  studentMap: Map<number, { name: string; caseManagerId: number | null }>,
+  studentMap: Map<number, StudentInfo>,
   today: string,
   horizon: string,
 ): Promise<RiskItem[]> {

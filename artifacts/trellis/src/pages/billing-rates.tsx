@@ -18,6 +18,10 @@ interface ServiceType {
 interface RateConfig {
   id: number;
   serviceTypeId: number;
+  schoolId: number | null;
+  programId: number | null;
+  schoolName: string | null;
+  programName: string | null;
   inHouseRate: string | null;
   contractedRate: string | null;
   effectiveDate: string;
@@ -25,9 +29,14 @@ interface RateConfig {
   serviceTypeName: string;
 }
 
+interface SchoolOption { id: number; name: string }
+interface ProgramOption { id: number; name: string; schoolId: number | null }
+
 interface RatesResponse {
   configs: RateConfig[];
   serviceTypes: Pick<ServiceType, "id" | "name" | "defaultBillingRate">[];
+  schools: SchoolOption[];
+  programs: ProgramOption[];
 }
 
 interface DistrictDefaultRateResponse {
@@ -728,6 +737,138 @@ function DistrictDefaultRateCard() {
 }
 
 // ---------------------------------------------------------------------------
+// AddScopedRateCard — lets districts add a school- or program-specific override
+// ---------------------------------------------------------------------------
+
+function AddScopedRateCard({
+  serviceTypes,
+  schools,
+  programs,
+  onSaved,
+}: {
+  serviceTypes: ServiceType[];
+  schools: SchoolOption[];
+  programs: ProgramOption[];
+  onSaved: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [scopeKind, setScopeKind] = useState<"school" | "program">("school");
+  const [scopeId, setScopeId] = useState<number | "">("");
+  const [serviceTypeId, setServiceTypeId] = useState<number | "">("");
+  const [rate, setRate] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const parsed = parseFloat(rate);
+      if (!isFinite(parsed) || parsed <= 0) throw new Error("Rate must be a positive number");
+      if (!serviceTypeId) throw new Error("Pick a service type");
+      if (!scopeId) throw new Error(`Pick a ${scopeKind}`);
+      const res = await authFetch("/api/compensatory-finance/rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceTypeId: Number(serviceTypeId),
+          schoolId: scopeKind === "school" ? Number(scopeId) : null,
+          programId: scopeKind === "program" ? Number(scopeId) : null,
+          inHouseRate: parsed,
+          effectiveDate: today(),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to save scoped rate");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["district-rates"] });
+      queryClient.invalidateQueries({ queryKey: ["cost-avoidance-risks"] });
+      setRate("");
+      setScopeId("");
+      setServiceTypeId("");
+      onSaved();
+      toast.success("Scoped rate saved");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const scopeOptions = scopeKind === "school" ? schools : programs;
+
+  return (
+    <Card className="border-gray-200">
+      <CardHeader className="pb-2 pt-4 px-4">
+        <CardTitle className="text-sm font-semibold text-gray-800">
+          Add a school- or program-specific rate
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 pt-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col">
+            <label className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Scope</label>
+            <select
+              value={scopeKind}
+              onChange={e => { setScopeKind(e.target.value as "school" | "program"); setScopeId(""); }}
+              className="h-8 px-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              <option value="school">School</option>
+              <option value="program" disabled={programs.length === 0}>Program</option>
+            </select>
+          </div>
+          <div className="flex flex-col flex-1 min-w-[180px]">
+            <label className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+              {scopeKind === "school" ? "School" : "Program"}
+            </label>
+            <select
+              value={scopeId}
+              onChange={e => setScopeId(e.target.value === "" ? "" : Number(e.target.value))}
+              className="h-8 px-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              <option value="">Select…</option>
+              {scopeOptions.map(o => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col flex-1 min-w-[180px]">
+            <label className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Service type</label>
+            <select
+              value={serviceTypeId}
+              onChange={e => setServiceTypeId(e.target.value === "" ? "" : Number(e.target.value))}
+              className="h-8 px-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              <option value="">Select…</option>
+              {serviceTypes.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Rate ($/hr)</label>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={rate}
+              onChange={e => setRate(e.target.value)}
+              placeholder="85.00"
+              className="h-8 w-24 px-2 border border-gray-300 rounded-md text-sm"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+          >
+            <Save className="w-3 h-3 mr-1" /> Save
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // RateRow component
 // ---------------------------------------------------------------------------
 
@@ -735,11 +876,13 @@ function RateRow({
   serviceType,
   config,
   districtDefaultRate,
+  scope,
   onSaved,
 }: {
   serviceType: ServiceType;
   config: RateConfig | undefined;
   districtDefaultRate?: string | null;
+  scope?: { schoolId?: number | null; programId?: number | null };
   onSaved: () => void;
 }) {
   const activeRate = config?.inHouseRate ?? config?.contractedRate ?? null;
@@ -754,6 +897,8 @@ function RateRow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           serviceTypeId: serviceType.id,
+          schoolId: scope?.schoolId ?? null,
+          programId: scope?.programId ?? null,
           inHouseRate: rate,
           effectiveDate: today(),
         }),
@@ -801,10 +946,10 @@ function RateRow({
     ? `$${parseFloat(activeRate!).toFixed(2)}/hr`
     : null;
 
-  const fallbackSource: "catalog" | "district_default" | "system" = serviceType.defaultBillingRate
-    ? "catalog"
-    : districtDefaultRate
-      ? "district_default"
+  const fallbackSource: "catalog" | "district_default" | "system" = districtDefaultRate
+    ? "district_default"
+    : serviceType.defaultBillingRate
+      ? "catalog"
       : "system";
   const fallbackSourceLabel =
     fallbackSource === "catalog"
@@ -960,16 +1105,6 @@ export default function BillingRatesPage() {
     staleTime: 30_000,
   });
 
-  const { data: districtDefaultRateData } = useQuery<{ defaultHourlyRate: string | null }>({
-    queryKey: ["district-default-rate"],
-    queryFn: () => authFetch("/api/district-default-rate").then(r => {
-      if (!r.ok) throw new Error("Failed to load district default rate");
-      return r.json();
-    }),
-    staleTime: 30_000,
-  });
-  const districtDefaultRate = districtDefaultRateData?.defaultHourlyRate ?? null;
-
   const isLoading = stLoading || ratesLoading;
   const isError = stError || ratesError;
 
@@ -982,15 +1117,43 @@ export default function BillingRatesPage() {
     queryClient.invalidateQueries({ queryKey: ["cost-avoidance-risks"] });
   };
 
-  const configsByServiceType = new Map<number, RateConfig>();
+  const { data: districtDefaultData } = useQuery<DistrictDefaultRateResponse>({
+    queryKey: ["district-default-rate"],
+    queryFn: () => authFetch("/api/district-default-rate").then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  const districtDefaultRate = districtDefaultData?.defaultHourlyRate ?? null;
+
+  // Bucket configs by scope. The most recent (already ORDER BY desc effective_date)
+  // is kept per (scope, serviceType) tuple.
+  const districtConfigByService = new Map<number, RateConfig>();
+  const schoolConfigsByService = new Map<number, RateConfig[]>(); // schoolId -> rate rows
+  const programConfigsByService = new Map<number, RateConfig[]>(); // programId -> rate rows
+
+
   for (const c of (ratesData?.configs ?? [])) {
-    if (!configsByServiceType.has(c.serviceTypeId)) {
-      configsByServiceType.set(c.serviceTypeId, c);
+    if (c.schoolId != null) {
+      const list = schoolConfigsByService.get(c.schoolId) ?? [];
+      // dedupe by serviceTypeId, keep most recent (first in desc-sorted list)
+      if (!list.some(x => x.serviceTypeId === c.serviceTypeId)) list.push(c);
+      schoolConfigsByService.set(c.schoolId, list);
+    } else if (c.programId != null) {
+      const list = programConfigsByService.get(c.programId) ?? [];
+      if (!list.some(x => x.serviceTypeId === c.serviceTypeId)) list.push(c);
+      programConfigsByService.set(c.programId, list);
+    } else {
+      if (!districtConfigByService.has(c.serviceTypeId)) {
+        districtConfigByService.set(c.serviceTypeId, c);
+      }
     }
   }
 
-  const withRate = serviceTypes?.filter(s => configsByServiceType.has(s.id)) ?? [];
-  const withoutRate = serviceTypes?.filter(s => !configsByServiceType.has(s.id)) ?? [];
+  const schools = ratesData?.schools ?? [];
+  const programs = ratesData?.programs ?? [];
+
+  const withRate = serviceTypes?.filter(s => districtConfigByService.has(s.id)) ?? [];
+  const withoutRate = serviceTypes?.filter(s => !districtConfigByService.has(s.id)) ?? [];
 
   return (
     <div className="space-y-5">
@@ -1025,11 +1188,11 @@ export default function BillingRatesPage() {
       <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 flex items-start gap-2.5">
         <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
         <div className="text-xs text-blue-800">
-          <p className="font-medium mb-0.5">Rate priority: per-service rate → catalog rate → district default → ${SYSTEM_DEFAULT_RATE}/hr system default</p>
+          <p className="font-medium mb-0.5">Rate priority: school/program rate → per-service rate → district default → catalog rate → ${SYSTEM_DEFAULT_RATE}/hr system default</p>
           <p>
-            Per-service rates take precedence over catalog rates. The district default rate below
-            applies to any service type without a specific rate configured, overriding the ${SYSTEM_DEFAULT_RATE}/hr
-            system default. Rates marked "system default" on the Cost Avoidance dashboard indicate
+            School- and program-specific overrides win over per-service district rates. If no
+            scoped rate is set, the district default below applies, then the catalog rate, then
+            the ${SYSTEM_DEFAULT_RATE}/hr system default. Rates marked "system default" on the Cost Avoidance dashboard indicate
             an estimate — set a district default or per-service rate to improve accuracy.
           </p>
         </div>
@@ -1084,7 +1247,7 @@ export default function BillingRatesPage() {
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
-                  District-configured rates ({withRate.length} service type{withRate.length !== 1 ? "s" : ""})
+                  District-wide rates ({withRate.length} service type{withRate.length !== 1 ? "s" : ""})
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -1093,7 +1256,7 @@ export default function BillingRatesPage() {
                     <RateRow
                       key={st.id}
                       serviceType={st}
-                      config={configsByServiceType.get(st.id)}
+                      config={districtConfigByService.get(st.id)}
                       districtDefaultRate={districtDefaultRate}
                       onSaved={handleSaved}
                     />
@@ -1101,6 +1264,79 @@ export default function BillingRatesPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {schools.filter(s => (schoolConfigsByService.get(s.id)?.length ?? 0) > 0).map(school => {
+            const rows = schoolConfigsByService.get(school.id) ?? [];
+            return (
+              <Card key={`school-${school.id}`} className="border-violet-200/60">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-semibold text-violet-800 flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    {school.name} — school-specific rates ({rows.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-gray-100">
+                    {rows.map(c => {
+                      const st = serviceTypes.find(t => t.id === c.serviceTypeId);
+                      if (!st) return null;
+                      return (
+                        <RateRow
+                          key={c.id}
+                          serviceType={st}
+                          config={c}
+                          districtDefaultRate={districtDefaultRate}
+                          scope={{ schoolId: school.id }}
+                          onSaved={handleSaved}
+                        />
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {programs.filter(p => (programConfigsByService.get(p.id)?.length ?? 0) > 0).map(program => {
+            const rows = programConfigsByService.get(program.id) ?? [];
+            return (
+              <Card key={`program-${program.id}`} className="border-sky-200/60">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-semibold text-sky-800 flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    {program.name} — program-specific rates ({rows.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-gray-100">
+                    {rows.map(c => {
+                      const st = serviceTypes.find(t => t.id === c.serviceTypeId);
+                      if (!st) return null;
+                      return (
+                        <RateRow
+                          key={c.id}
+                          serviceType={st}
+                          config={c}
+                          districtDefaultRate={districtDefaultRate}
+                          scope={{ programId: program.id }}
+                          onSaved={handleSaved}
+                        />
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {(schools.length > 0 || programs.length > 0) && serviceTypes.length > 0 && (
+            <AddScopedRateCard
+              serviceTypes={serviceTypes}
+              schools={schools}
+              programs={programs}
+              onSaved={handleSaved}
+            />
           )}
 
           {serviceTypes.length === 0 && (
