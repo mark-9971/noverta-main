@@ -40,6 +40,27 @@ export type NavSection = {
   defaultOpen?: boolean;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2C-4 nav-exposure rule (read this before adding nav items):
+//
+// Customer-facing role navs (admin, coordinator, case_manager, sped_teacher,
+// bcba, provider, direct_provider, para, sped_parent, sped_student) MUST NOT
+// link to internal / Trellis-ops / pilot-ops / support / debug / billing
+// surfaces. Specifically, do not put any of these routes into a customer nav:
+//
+//   /tenants                 /support                 /admin/demo-readiness
+//   /pilot-feedback          /pilot-status            /pilot-decision
+//   /pilot-kickoff           /audit-log               /email-delivery-report
+//   /recently-deleted        /data-health             /data-panel
+//   /data-visualized         /district-overview       /district-data
+//   /leadership-packet       /billing                 /upgrade
+//   /billing-rates           /pricing                 /demo-readiness
+//
+// `platformAdminSection` below is the SINGLE owner of platform-admin entries
+// and is appended to a user's nav only when `isPlatformAdmin === true`
+// (see AppLayout.tsx — `clerkUser.publicMetadata.platformAdmin`). Routes
+// stay reachable by direct URL; this is nav/IA exposure only.
+// ─────────────────────────────────────────────────────────────────────────────
 export const platformAdminSection: NavSection = {
   label: "Platform",
   icon: Crown,
@@ -53,136 +74,18 @@ export const platformAdminSection: NavSection = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 2C-1: collapse admin/coordinator IA into a tight demo-ready sidebar.
-//   • 3 visible sections (Overview, Compliance & Risk, More).
-//   • "More" is collapsed by default and groups secondary items as
-//     parent-with-children rows so the sidebar surface stays small.
-//   • The legacy /_action-center-legacy?tab=alerts pill is replaced with
-//     a single canonical Action Center entry pointing at /action-center.
-//   • Pages still routable (per App.tsx) but removed from primary nav:
-//     /pilot-*, /admin/demo-*, /tenants, /support, /audit-log,
-//     /email-delivery-report, /recently-deleted, /data-health,
-//     /data-visualized, /data-panel, /billing, /upgrade, /billing-rates,
-//     /pricing, /district-overview, /district-data, /legal-compliance,
-//     /protective-measures, /weekly-compliance-summary,
-//     /compliance-{checklist,trends,timeline,risk-report},
-//     /ComplianceSnapshotPage, /state-reporting, /iep-search,
-//     /my-settings, /onboarding, /leadership-packet, /_*-legacy.
+// Phase 2C-1: collapsed admin/coordinator IA into a tight 3-section sidebar
+// (Overview / Compliance & Risk / More). Phase 2C-2 then carved standalone
+// caseManagerNav and spedTeacherNav from scratch instead of deriving them
+// from the old 7-section structure. As of Phase 2C-4 the legacy 7-section
+// `adminNavLegacy` placeholder has been removed — it was unexported, unused,
+// and was the only place inside this file that linked customer roles to
+// /upgrade /billing /pilot-status /data-health /protective-measures, so
+// removing it eliminates the "future re-export accident" risk.
 //
-// The previous 7-section adminNav is preserved as `adminNavLegacy` (private
-// to this module) so caseManagerNav and spedTeacherNav — which derive from
-// it — continue to render exactly as before. This keeps Phase 2C-1 scoped
-// to admin and coordinator only.
+// Routes referenced by the old structure remain reachable by direct URL
+// (per App.tsx). This is nav/IA exposure only; no routes were removed.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const adminNavLegacy: NavSection[] = [
-  // ── 1. Overview ──────────────────────────────────────────────────────────
-  {
-    label: "Overview",
-    icon: LayoutDashboard,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
-      {
-        href: "/students", label: "Directory", icon: Users, primary: true,
-        children: [
-          { href: "/students", label: "Students", icon: Users },
-          { href: "/staff", label: "Staff", icon: UserCheck },
-        ],
-      },
-      { href: "/action-center?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
-      { href: "/sessions", label: "Session Log", icon: Clipboard, primary: true },
-    ],
-  },
-  {
-    label: "Compliance & Risk",
-    icon: ListChecks,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
-      { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
-      { href: "/compensatory", label: "Compensatory", icon: Scale, featureKey: "compliance.compensatory" as FeatureKey },
-      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
-    ],
-  },
-  {
-    label: "IEP & Services",
-    icon: GraduationCap,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/iep-builder", label: "IEP Builder", icon: Sparkles, primary: true },
-      { href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays },
-      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-      { href: "/transitions", label: "Transition Planning", icon: Sprout },
-      { href: "/accommodation-lookup", label: "Accommodation Verification", icon: FileText },
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
-    ],
-  },
-  {
-    label: "ABA & Behavior",
-    icon: Activity,
-    collapsible: true,
-    defaultOpen: false,
-    items: [
-      { href: "/aba", label: "Learners", icon: Users, featureKey: "clinical.program_data" as FeatureKey },
-      { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
-      { href: "/iep-suggestions", label: "Programs", icon: Library, featureKey: "clinical.program_data" as FeatureKey },
-      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
-    ],
-  },
-  {
-    label: "Scheduling",
-    icon: Users,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      {
-        href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true,
-        children: [
-          { href: "/scheduling", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
-          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
-          { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
-        ],
-      },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
-    ],
-  },
-  {
-    label: "Financial / Executive",
-    icon: Gauge,
-    collapsible: true,
-    defaultOpen: false,
-    items: [
-      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
-      { href: "/agencies", label: "Agencies", icon: Truck },
-      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
-      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
-      { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
-    ],
-  },
-  {
-    label: "Admin / Tools",
-    icon: Settings,
-    collapsible: true,
-    defaultOpen: false,
-    items: [
-      { href: "/state-reporting", label: "State Reports", icon: Building2 },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
-      { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
-      { href: "/import", label: "Data Import", icon: Upload },
-      { href: "/settings", label: "Settings", icon: Settings },
-      { href: "/upgrade", label: "Plans & Features", icon: Sparkles },
-      { href: "/billing", label: "Subscription & Billing", icon: CreditCard },
-      { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
-    ],
-  },
-];
 
 export const adminNav: NavSection[] = [
   // ── 1. Overview ──────────────────────────────────────────────────────────
