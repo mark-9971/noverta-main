@@ -2,8 +2,28 @@ import { Router, type IRouter } from "express";
 import { db, cptCodeMappingsTable, serviceTypesTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
-import type { AuthedRequest } from "../../middlewares/auth";
+import { requireRoles, type AuthedRequest } from "../../middlewares/auth";
+import { getPublicMeta } from "../../lib/clerkClaims";
 import { getDistrictId } from "./shared";
+
+// Default CPT mapping rates by service-type name. Mirrors the seed module so
+// new districts get sensible starting numbers when an admin clicks "Seed
+// defaults" on the CPT Mappings tab.
+const DEFAULT_RATES_BY_NAME: Record<string, { unit: number; rate: string; mod?: string }> = {
+  "ABA Therapy":              { unit: 15, rate: "18.00" },
+  "BCBA Consultation":        { unit: 15, rate: "21.25" },
+  "Speech-Language Therapy":  { unit: 30, rate: "34.00" },
+  "Occupational Therapy":     { unit: 15, rate: "16.25" },
+  "Physical Therapy":         { unit: 15, rate: "17.50" },
+  "Counseling":               { unit: 60, rate: "55.00" },
+};
+const DEFAULT_RATES_BY_CATEGORY: Record<string, { unit: number; rate: string }> = {
+  aba:        { unit: 15, rate: "18.00" },
+  speech:     { unit: 30, rate: "34.00" },
+  ot:         { unit: 15, rate: "16.25" },
+  pt:         { unit: 15, rate: "17.50" },
+  counseling: { unit: 60, rate: "55.00" },
+};
 
 // tenant-scope: district-join
 const router: IRouter = Router();
@@ -36,6 +56,125 @@ router.get("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
     .where(eq(cptCodeMappingsTable.districtId, districtId))
     .orderBy(asc(serviceTypesTable.name), asc(cptCodeMappingsTable.cptCode));
   res.json(mappings);
+});
+
+// Seed common Medicaid CPT mappings for the caller's district. Idempotent:
+// service types already mapped in this district are skipped, so the action is
+// safe to re-run after partial setup. Only district-/platform-admins can
+// trigger it.
+router.post("/medicaid/cpt-mappings/seed-defaults", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+  const allServiceTypes = await db.select().from(serviceTypesTable);
+  const existing = await db
+    .select({ stId: cptCodeMappingsTable.serviceTypeId })
+    .from(cptCodeMappingsTable)
+    .where(eq(cptCodeMappingsTable.districtId, districtId));
+  const existingIds = new Set(existing.map(e => e.stId));
+
+  const toInsert = [];
+  for (const st of allServiceTypes) {
+    if (!st.cptCode) continue;
+    if (existingIds.has(st.id)) continue;
+    const cfg = DEFAULT_RATES_BY_NAME[st.name] ?? DEFAULT_RATES_BY_CATEGORY[st.category] ?? { unit: 15, rate: "20.00" };
+    toInsert.push({
+      districtId,
+      serviceTypeId: st.id,
+      cptCode: st.cptCode,
+      modifier: null,
+      description: `${st.name} — ${st.cptCode}`,
+      unitDurationMinutes: cfg.unit,
+      ratePerUnit: cfg.rate,
+      placeOfService: "03",
+    });
+  }
+
+  let insertedCount = 0;
+  if (toInsert.length > 0) {
+    const inserted = await db.insert(cptCodeMappingsTable).values(toInsert).returning();
+    insertedCount = inserted.length;
+  }
+  const skippedExisting = existingIds.size;
+  logAudit(req, {
+    action: "create",
+    targetTable: "cpt_code_mappings",
+    summary: `Seeded ${insertedCount} default CPT mapping(s) for district #${districtId}`,
+    newValues: { source: "defaults", inserted: insertedCount, skippedExisting } as Record<string, unknown>,
+  });
+  res.status(201).json({ inserted: insertedCount, skippedExisting });
+});
+
+// Copy CPT mappings from another district that the caller can access.
+// Platform admins may copy from any district; non-platform admins are limited
+// to their own district context (so in practice this is mainly used by
+// platform admins onboarding a fresh district from a known-good template).
+router.post("/medicaid/cpt-mappings/copy-from/:sourceDistrictId", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+  const destDistrictId = getDistrictId(req as unknown as AuthedRequest);
+  if (!destDistrictId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+  const sourceDistrictId = Number(req.params.sourceDistrictId);
+  if (!sourceDistrictId || Number.isNaN(sourceDistrictId)) {
+    res.status(400).json({ error: "Invalid source district id" });
+    return;
+  }
+  if (sourceDistrictId === destDistrictId) {
+    res.status(400).json({ error: "Source and destination districts must differ" });
+    return;
+  }
+  const meta = getPublicMeta(req);
+  const canAccessSource = meta.platformAdmin === true || meta.districtId === sourceDistrictId;
+  if (!canAccessSource) {
+    res.status(403).json({ error: "No access to source district" });
+    return;
+  }
+
+  const source = await db
+    .select()
+    .from(cptCodeMappingsTable)
+    .where(eq(cptCodeMappingsTable.districtId, sourceDistrictId));
+  if (source.length === 0) {
+    res.status(400).json({ error: "Source district has no CPT mappings to copy" });
+    return;
+  }
+  const existing = await db
+    .select({ stId: cptCodeMappingsTable.serviceTypeId, code: cptCodeMappingsTable.cptCode })
+    .from(cptCodeMappingsTable)
+    .where(eq(cptCodeMappingsTable.districtId, destDistrictId));
+  const existingKeys = new Set(existing.map(e => `${e.stId}:${e.code}`));
+
+  const toInsert = source
+    .filter(s => !existingKeys.has(`${s.serviceTypeId}:${s.cptCode}`))
+    .map(s => ({
+      districtId: destDistrictId,
+      serviceTypeId: s.serviceTypeId,
+      cptCode: s.cptCode,
+      modifier: s.modifier,
+      description: s.description,
+      minDurationMinutes: s.minDurationMinutes,
+      maxDurationMinutes: s.maxDurationMinutes,
+      unitDurationMinutes: s.unitDurationMinutes,
+      ratePerUnit: s.ratePerUnit,
+      placeOfService: s.placeOfService,
+    }));
+
+  let copiedCount = 0;
+  if (toInsert.length > 0) {
+    const inserted = await db.insert(cptCodeMappingsTable).values(toInsert).returning();
+    copiedCount = inserted.length;
+  }
+  const skippedDuplicates = source.length - copiedCount;
+  logAudit(req, {
+    action: "create",
+    targetTable: "cpt_code_mappings",
+    summary: `Copied ${copiedCount} CPT mapping(s) from district #${sourceDistrictId} to district #${destDistrictId}`,
+    newValues: { source: "district", sourceDistrictId, copied: copiedCount, skippedDuplicates } as Record<string, unknown>,
+  });
+  res.status(201).json({ copied: copiedCount, skippedDuplicates });
 });
 
 router.post("/medicaid/cpt-mappings", async (req, res): Promise<void> => {

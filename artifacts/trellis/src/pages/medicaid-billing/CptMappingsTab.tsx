@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Trash2, Edit } from "lucide-react";
+import { Plus, Trash2, Edit, Sparkles, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 const COMMON_CODES = [
@@ -25,6 +26,8 @@ const EMPTY_FORM = { serviceTypeId: "", cptCode: "", modifier: "", description: 
 
 export function CptMappingsTab() {
   const queryClient = useQueryClient();
+  const { user } = useUser();
+  const callerDistrictId = Number(user?.publicMetadata?.districtId) || null;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -39,6 +42,51 @@ export function CptMappingsTab() {
     queryKey: ["service-types-list"],
     queryFn: () => authFetch("/api/service-types").then(r => r.ok ? r.json() : []),
     staleTime: 120_000,
+  });
+
+  const { data: districts } = useQuery<Array<{ id: number; name: string }>>({
+    queryKey: ["districts-list-for-cpt-copy"],
+    queryFn: () => authFetch("/api/districts").then(r => r.ok ? r.json() : []),
+    staleTime: 120_000,
+  });
+  const [copySourceId, setCopySourceId] = useState("");
+
+  const seedDefaultsMutation = useMutation({
+    mutationFn: () => authFetch("/api/medicaid/cpt-mappings/seed-defaults", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).then(async r => {
+      if (!r.ok) throw new Error("Seed failed");
+      return r.json() as Promise<{ inserted: number; skippedExisting: number }>;
+    }),
+    onSuccess: (data) => {
+      if (data.inserted > 0) {
+        toast.success(`Added ${data.inserted} default CPT mapping${data.inserted === 1 ? "" : "s"}`);
+      } else {
+        toast.info("No new defaults to add — all matching service types are already mapped");
+      }
+      queryClient.invalidateQueries({ queryKey: ["cpt-mappings"] });
+    },
+    onError: () => toast.error("Failed to seed defaults"),
+  });
+
+  const copyFromDistrictMutation = useMutation({
+    mutationFn: (sourceId: number) => authFetch(`/api/medicaid/cpt-mappings/copy-from/${sourceId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).then(async r => {
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || "Copy failed");
+      }
+      return r.json() as Promise<{ copied: number; skippedDuplicates: number }>;
+    }),
+    onSuccess: (data) => {
+      toast.success(`Copied ${data.copied} mapping${data.copied === 1 ? "" : "s"}${data.skippedDuplicates ? ` (${data.skippedDuplicates} duplicates skipped)` : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["cpt-mappings"] });
+      setCopySourceId("");
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to copy mappings"),
   });
 
   const saveMutation = useMutation({
@@ -98,14 +146,70 @@ export function CptMappingsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-gray-700">CPT Code Mappings</h3>
           <p className="text-xs text-gray-400 mt-0.5">Map service types to CPT/HCPCS codes for Medicaid billing</p>
         </div>
-        <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(!showForm); }} className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs">
-          <Plus className="w-3 h-3 mr-1" /> Add Mapping
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (confirm("Seed common Medicaid CPT mappings for this district? Existing mappings will be left untouched.")) {
+                seedDefaultsMutation.mutate();
+              }
+            }}
+            disabled={seedDefaultsMutation.isPending}
+            className="h-8 text-xs"
+            title="Add a starter set of CPT mappings for this district"
+          >
+            <Sparkles className="w-3 h-3 mr-1" />
+            {seedDefaultsMutation.isPending ? "Seeding..." : "Seed defaults"}
+          </Button>
+          {(() => {
+            // Prefer the authenticated user's own district id; fall back to
+            // the district id on existing mappings (covers platform admins
+            // viewing a specific district whose Clerk metadata may differ).
+            const currentDistrictId = callerDistrictId ?? (mappings ?? [])[0]?.districtId;
+            const otherDistricts = (districts ?? []).filter(d => d.id !== currentDistrictId);
+            if (otherDistricts.length === 0) return null;
+            return (
+            <div className="flex items-center gap-1">
+              <select
+                value={copySourceId}
+                onChange={e => setCopySourceId(e.target.value)}
+                className="h-8 text-xs border rounded-md px-2 bg-white max-w-[180px]"
+                aria-label="Copy CPT mappings from district"
+              >
+                <option value="">Copy from district…</option>
+                {otherDistricts.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (!copySourceId) return;
+                  const name = (districts ?? []).find(d => String(d.id) === copySourceId)?.name ?? "selected district";
+                  if (confirm(`Copy CPT mappings from ${name}? Duplicates (same service type + CPT code) will be skipped.`)) {
+                    copyFromDistrictMutation.mutate(Number(copySourceId));
+                  }
+                }}
+                disabled={!copySourceId || copyFromDistrictMutation.isPending}
+                className="h-8 text-xs"
+              >
+                <Copy className="w-3 h-3 mr-1" />
+                {copyFromDistrictMutation.isPending ? "Copying..." : "Copy"}
+              </Button>
+            </div>
+            );
+          })()}
+          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(!showForm); }} className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs">
+            <Plus className="w-3 h-3 mr-1" /> Add Mapping
+          </Button>
+        </div>
       </div>
 
       {showForm && (
