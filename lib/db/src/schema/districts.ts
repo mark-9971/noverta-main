@@ -62,6 +62,10 @@ export const districtsTable = pgTable("districts", {
   // summary PDF header so the document feels district-branded for school board
   // presentations. Falls back to text-only header when null/blank.
   logoUrl: text("logo_url"),
+  // Per-district kill switch for automated IEP renewal reminder emails sent to
+  // case managers at 60, 30, and 14 days before a student's IEP expires.
+  // Default true — set to false to suppress all IEP renewal reminders for the district.
+  iepRenewalEmailEnabled: boolean("iep_renewal_email_enabled").notNull().default(true),
   // Roles in this list cannot be impersonated via view-as for this district.
   // Stored as a JSON array of role strings (e.g. ["clinical_psychologist"]).
   // Null/empty array = no district-level exclusions (global defaults still apply).

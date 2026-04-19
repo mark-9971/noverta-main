@@ -449,18 +449,20 @@ router.get("/districts/:id/notification-preferences", requireRoles("admin"), asy
 
   try {
     const result = await db.execute(
-      sql`SELECT weekly_risk_email_enabled, pilot_scorecard_email_enabled, is_pilot
+      sql`SELECT weekly_risk_email_enabled, pilot_scorecard_email_enabled, iep_renewal_email_enabled, is_pilot
             FROM districts WHERE id = ${districtId} LIMIT 1`,
     );
     const row = result.rows[0] as {
       weekly_risk_email_enabled: boolean;
       pilot_scorecard_email_enabled: boolean | null;
+      iep_renewal_email_enabled: boolean | null;
       is_pilot: boolean | null;
     } | undefined;
     if (!row) { res.status(404).json({ error: "District not found" }); return; }
     res.json({
       weeklyRiskEmailEnabled: row.weekly_risk_email_enabled ?? true,
       pilotScorecardEmailEnabled: row.pilot_scorecard_email_enabled ?? true,
+      iepRenewalEmailEnabled: row.iep_renewal_email_enabled ?? true,
       isPilot: row.is_pilot ?? false,
     });
   } catch (err) {
@@ -486,6 +488,7 @@ router.patch("/districts/:id/notification-preferences", requireRoles("admin"), a
   const body = (req.body ?? {}) as {
     weeklyRiskEmailEnabled?: unknown;
     pilotScorecardEmailEnabled?: unknown;
+    iepRenewalEmailEnabled?: unknown;
   };
 
   const sets: string[] = [];
@@ -505,6 +508,13 @@ router.patch("/districts/:id/notification-preferences", requireRoles("admin"), a
     }
     sets.push(`pilot_scorecard_email_enabled = $${i++}`);
     values.push(body.pilotScorecardEmailEnabled);
+  }
+  if (body.iepRenewalEmailEnabled !== undefined) {
+    if (typeof body.iepRenewalEmailEnabled !== "boolean") {
+      res.status(400).json({ error: "iepRenewalEmailEnabled must be a boolean" }); return;
+    }
+    sets.push(`iep_renewal_email_enabled = $${i++}`);
+    values.push(body.iepRenewalEmailEnabled);
   }
 
   if (sets.length === 0) {

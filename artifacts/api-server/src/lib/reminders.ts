@@ -19,6 +19,7 @@ import {
   staffAssignmentsTable,
   rateLimitBucketsTable,
   uploadQuotasTable,
+  iepDocumentsTable,
   type InsertAlert,
 } from "@workspace/db";
 import { eq, and, lt, ne, sql, isNull, or, lte, gt, inArray } from "drizzle-orm";
@@ -31,6 +32,7 @@ import {
   buildOverdueEvaluationEmail,
   buildIncompleteTransitionEmail,
   buildOverdueSessionLogEmail,
+  buildIepRenewalReminderEmail,
   getAppBaseUrl,
 } from "./email";
 
@@ -1262,6 +1264,142 @@ async function runStaleBucketCleanup(): Promise<void> {
   }
 }
 
+/**
+ * IEP_RENEWAL_MILESTONES defines the days-remaining thresholds at which case
+ * managers receive an email reminder. For each milestone, the query window is
+ * ±IEP_RENEWAL_WINDOW days so the check fires reliably even if the server was
+ * restarted, and the deduplication window is IEP_RENEWAL_DEDUPE_HOURS so the
+ * same milestone cannot be re-sent within ~20 days.
+ */
+const IEP_RENEWAL_MILESTONES = [60, 30, 14];
+const IEP_RENEWAL_WINDOW = 3; // days on either side of the milestone
+const IEP_RENEWAL_DEDUPE_HOURS = 20 * 24; // 20 days
+
+export async function runIepRenewalReminders(): Promise<void> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().substring(0, 10);
+
+  let emailsSent = 0;
+  let skipped = 0;
+
+  for (const milestone of IEP_RENEWAL_MILESTONES) {
+    // Window spans [milestone - IEP_RENEWAL_WINDOW, milestone] days from today.
+    // The upper bound is exactly the milestone day so reminders are never sent
+    // early. The lower bound provides a catch-up window in case the scheduler
+    // was offline on the exact milestone day.
+    const windowStart = new Date(today);
+    windowStart.setDate(today.getDate() + milestone - IEP_RENEWAL_WINDOW);
+    const windowEnd = new Date(today);
+    windowEnd.setDate(today.getDate() + milestone);
+    const windowStartStr = windowStart.toISOString().substring(0, 10);
+    const windowEndStr = windowEnd.toISOString().substring(0, 10);
+
+    const rows = await db
+      .select({
+        studentId: studentsTable.id,
+        firstName: studentsTable.firstName,
+        lastName: studentsTable.lastName,
+        caseManagerId: studentsTable.caseManagerId,
+        schoolId: studentsTable.schoolId,
+        iepEndDate: iepDocumentsTable.iepEndDate,
+      })
+      .from(iepDocumentsTable)
+      .innerJoin(studentsTable, eq(studentsTable.id, iepDocumentsTable.studentId))
+      .where(
+        and(
+          eq(iepDocumentsTable.active, true),
+          sql`${iepDocumentsTable.iepEndDate} >= ${windowStartStr}`,
+          sql`${iepDocumentsTable.iepEndDate} <= ${windowEndStr}`,
+          isNull(studentsTable.deletedAt),
+          sql`${studentsTable.status} = 'active'`,
+        )
+      );
+
+    for (const row of rows) {
+      try {
+        if (!row.caseManagerId) continue;
+
+        const todayMs = new Date(todayStr).getTime();
+        const endMs = new Date(row.iepEndDate).getTime();
+        const daysRemaining = Math.ceil((endMs - todayMs) / (1000 * 60 * 60 * 24));
+        if (daysRemaining < 0) continue;
+
+        const alreadyReminded = await wasRecentlyReminded({
+          type: "iep_renewal_reminder",
+          studentId: row.studentId,
+          dedupeKey: "milestone",
+          dedupeValue: String(milestone),
+          withinHours: IEP_RENEWAL_DEDUPE_HOURS,
+        });
+        if (alreadyReminded) {
+          skipped++;
+          continue;
+        }
+
+        const [caseManager] = await db
+          .select()
+          .from(staffTable)
+          .where(eq(staffTable.id, row.caseManagerId));
+        if (!caseManager?.email) continue;
+
+        const [school] = row.schoolId
+          ? await db.select().from(schoolsTable).where(eq(schoolsTable.id, row.schoolId))
+          : [null as null];
+
+        const districtId = (school as { districtId?: number | null } | null)?.districtId ?? null;
+
+        if (districtId != null) {
+          const [district] = await db
+            .select({ iepRenewalEmailEnabled: districtsTable.iepRenewalEmailEnabled })
+            .from(districtsTable)
+            .where(eq(districtsTable.id, districtId));
+          if (district && district.iepRenewalEmailEnabled === false) {
+            skipped++;
+            continue;
+          }
+        }
+
+        const isDemo = districtId != null ? await isDistrictDemo(districtId) : false;
+        const studentName = `${row.firstName} ${row.lastName}`;
+        const caseManagerName = `${caseManager.firstName} ${caseManager.lastName}`;
+
+        let emailContent = buildIepRenewalReminderEmail({
+          caseManagerName,
+          studentName,
+          iepEndDate: row.iepEndDate,
+          daysRemaining,
+          studentId: row.studentId,
+          appBaseUrl: getAppBaseUrl() ?? undefined,
+        });
+        if (isDemo) emailContent = applyDemoDisclaimer(emailContent);
+
+        await sendEmail({
+          studentId: row.studentId,
+          type: "iep_renewal_reminder",
+          subject: emailContent.subject,
+          bodyHtml: emailContent.html,
+          bodyText: emailContent.text,
+          toEmail: caseManager.email,
+          toName: caseManagerName,
+          staffId: row.caseManagerId,
+          metadata: {
+            milestone,
+            daysRemaining,
+            iepEndDate: row.iepEndDate,
+            triggeredBy: "iep_renewal_scheduler",
+          },
+        });
+        emailsSent++;
+      } catch (err) {
+        console.error(`[Reminders] IEP renewal reminder error for student ${row.studentId} (${milestone}d):`, err);
+      }
+    }
+  }
+
+  console.log(`[Reminders] IEP renewal reminders: ${emailsSent} sent, ${skipped} skipped`);
+}
+
 async function runAllReminders(): Promise<void> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
   try {
@@ -1281,6 +1419,7 @@ async function runAllReminders(): Promise<void> {
       runProviderActivationNudges().then(() => undefined),
       runApprovalReminders(),
       runCoverageReminders().then(() => undefined),
+      runIepRenewalReminders(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {

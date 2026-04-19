@@ -130,6 +130,7 @@ export type EmailType =
   | "provider_activation_escalation"
   | "pwn_read_receipt"
   | "approval_pending_reminder"
+  | "iep_renewal_reminder"
   | "general";
 
 export interface SendEmailParams {
@@ -1237,6 +1238,80 @@ This is the kind of stall that quietly tanks a pilot — please reach out today.
 
 View Today's Schedule: ${todaysScheduleUrl}
 ${districtName ? `\n— ${districtName}` : ""}`;
+
+  return { subject, html, text };
+}
+
+export function buildIepRenewalReminderEmail(opts: {
+  caseManagerName: string;
+  studentName: string;
+  iepEndDate: string;
+  daysRemaining: number;
+  studentId: number;
+  appBaseUrl?: string;
+}): { subject: string; html: string; text: string } {
+  const { caseManagerName, studentName, iepEndDate, daysRemaining, studentId, appBaseUrl } = opts;
+  const esc = (s: string): string =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+  const urgencyColor = daysRemaining <= 14 ? "#dc2626" : daysRemaining <= 30 ? "#d97706" : "#2563eb";
+  const urgencyLabel = daysRemaining <= 14 ? "Urgent" : daysRemaining <= 30 ? "Action Required" : "Upcoming";
+
+  const formattedDate = new Date(iepEndDate + "T00:00:00").toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const iepLink = appBaseUrl && studentId != null
+    ? `${appBaseUrl}/students/${studentId}?tab=iep`
+    : null;
+
+  const subject = `IEP Renewal Reminder — ${studentName} expires in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
+
+  const ctaHtml = iepLink
+    ? `<p style="margin-top:20px"><a href="${esc(iepLink)}" style="background:#065f46;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View Student IEP →</a></p>`
+    : "";
+  const ctaText = iepLink ? `\n\nView the student's IEP: ${iepLink}` : "";
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${esc(subject)}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#065f46;color:#fff;padding:20px 24px}.body{padding:24px}.badge{display:inline-block;background:${urgencyColor};color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;margin-bottom:12px}.info-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;margin:16px 0}.info-box ul{margin:6px 0 0;padding-left:20px;color:#374151}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">IEP Renewal Reminder</h1></div>
+<div class="body">
+<p>Hi ${esc(caseManagerName)},</p>
+<span class="badge">${urgencyLabel}</span>
+<p>The IEP for <strong>${esc(studentName)}</strong> is expiring in <strong>${daysRemaining} day${daysRemaining === 1 ? "" : "s"}</strong> and needs to be renewed.</p>
+<div class="info-box">
+  <strong>Renewal details</strong>
+  <ul>
+    <li><strong>Student:</strong> ${esc(studentName)}</li>
+    <li><strong>IEP expiration date:</strong> ${esc(formattedDate)}</li>
+    <li><strong>Days remaining:</strong> ${daysRemaining}</li>
+  </ul>
+</div>
+<p style="color:#374151">Please review the student's IEP and begin the renewal process to ensure continuity of services and maintain compliance.</p>
+${ctaHtml}
+</div>
+<div class="footer"><p>Sent by Trellis SPED Compliance Platform. You are receiving this because you are listed as the case manager for this student.</p></div>
+</div></body></html>`;
+
+  const text = `IEP Renewal Reminder — ${urgencyLabel}
+
+Hi ${caseManagerName},
+
+The IEP for ${studentName} is expiring in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} and needs to be renewed.
+
+Student: ${studentName}
+IEP expiration date: ${formattedDate}
+Days remaining: ${daysRemaining}
+
+Please review the student's IEP and begin the renewal process to ensure continuity of services and maintain compliance.${ctaText}
+
+—
+Sent by Trellis SPED Compliance Platform. You are receiving this because you are listed as the case manager for this student.`;
 
   return { subject, html, text };
 }
