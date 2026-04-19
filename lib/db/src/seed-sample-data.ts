@@ -12,7 +12,7 @@
  *   - 50 students with realistic IEPs, goals, guardians, accommodations
  *   - 5 schools across K–12
  *   - 2+ service requirements per student, 3–5 measurable goals each
- *   - 90 days of session history driving 8 distinct compliance/clinical storylines
+ *   - 180 days of session history driving 8 distinct compliance/clinical storylines
  *   - 2 resolved restraint incidents (DESE-reported) for incident-history student
  *   - 2 students with ESY determinations
  *   - 1 student with an active transition plan (post-secondary goals)
@@ -65,9 +65,10 @@ const SAMPLE_BOUNDS = {
   startMinuteOfDay: [8 * 60, 14 * 60 + 30] as const,
   // Short-window scenarios (14-day): 2–5 sessions per requirement
   sessionsPerRequirement: [2, 5] as const,
-  // Long-window narrative scenarios (90-day): 12–20 sessions per requirement
-  // so trend graphs render clearly and "full session history" is realistic.
-  sessionsPerRequirementNarrative: [12, 20] as const,
+  // Long-window narrative scenarios (180-day): 24–40 sessions per requirement
+  // so trend graphs render clearly and "full session history" is realistic
+  // across the extended ~6-month pilot demo window.
+  sessionsPerRequirementNarrative: [24, 40] as const,
   compensatoryOwedFraction: {
     urgent: [0.30, 0.60] as const,
     compensatory_risk: [0.15, 0.45] as const,
@@ -323,7 +324,7 @@ function buildSessionRows(
   completionRate: number,
   schoolYearId: number,
   /** Override the number of sessions sampled from `dates`. Defaults to the
-   *  short-window range (2–5). Pass the narrative range for 90-day windows. */
+   *  short-window range (2–5). Pass the narrative range for 180-day windows. */
   sessionsRange: readonly [number, number] = SAMPLE_BOUNDS.sessionsPerRequirement,
 ): (typeof sessionLogsTable.$inferInsert)[] {
   const rows: (typeof sessionLogsTable.$inferInsert)[] = [];
@@ -769,13 +770,13 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     srByStudent.set(sr.studentId, list);
   }
 
-  // ── 7. Session history (90 weekdays for narrative students, 14 for others) ──
+  // ── 7. Session history (180 weekdays for narrative students, 14 for others) ──
 
-  const dates90  = collectWeekdays(today, 90);
+  const dates180 = collectWeekdays(today, 180);
   const dates14  = collectWeekdays(today, 14);
-  // Split for recovered / sliding scenarios
-  const datesEarly = dates90.slice(0, Math.floor(dates90.length * 0.66));  // first ~60 days
-  const datesRecent = dates90.slice(Math.floor(dates90.length * 0.66));    // last ~30 days
+  // Split for recovered / sliding scenarios — first ~120 days early, last ~60 days recent
+  const datesEarly = dates180.slice(0, Math.floor(dates180.length * 0.66));
+  const datesRecent = dates180.slice(Math.floor(dates180.length * 0.66));
 
   const sessionRows: (typeof sessionLogsTable.$inferInsert)[] = [];
 
@@ -798,8 +799,8 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
           break;
         }
         case "crisis": {
-          // Low across full 90-day window (~28%), dense history for realism
-          sessionRows.push(...buildSessionRows(spec, sr, dates90, randf(0.22, 0.32), schoolYear.id, NR));
+          // Low across full 180-day window (~28%), dense history for realism
+          sessionRows.push(...buildSessionRows(spec, sr, dates180, randf(0.22, 0.32), schoolYear.id, NR));
           break;
         }
         case "behavior_plan":
@@ -807,9 +808,9 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
         case "transition":
         case "annual_review_due":
         case "esy_eligible": {
-          // Full 90-day history with scenario rate, dense session log
+          // Full 180-day history with scenario rate, dense session log
           const [lo, hi] = COMPLETION_RATE_RANGES[spec.scenario];
-          sessionRows.push(...buildSessionRows(spec, sr, dates90, randf(lo, hi), schoolYear.id, NR));
+          sessionRows.push(...buildSessionRows(spec, sr, dates180, randf(lo, hi), schoolYear.id, NR));
           break;
         }
         default: {
