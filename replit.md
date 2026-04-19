@@ -92,7 +92,11 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Generated Document Pipeline:** Stores rendered HTML snapshots of documents for re-printing and sharing.
 -   **Security Hardening:** Implements tenant isolation, path-scoped role guards, and a permission matrix test suite.
 -   **Compliance Trends Page:** Provides a unified time-series view of four key compliance metrics (service minutes, at-risk students, compensatory exposure, logging completion).
--   **Per-tenant sample data:** Admins/coordinators can one-click seed a small realistic district inside their own tenant for quick setup.
+-   **Per-tenant sample data:** Admins/coordinators can one-click seed a small realistic district inside their own tenant for quick setup. Sample data spans a realistic 6–8 month service-delivery window with historical sessions, IEP-year-relative mastery, and multi-period progress reports for pilot demos.
+-   **Role-Based IA & Navigation:** Top-level navigation is carved per role (admin, case manager, related-service provider, paraprofessional, guardian, etc.) with an "Ink & Air" two-rail layout. Internal/diagnostic surfaces are gated behind support roles only.
+-   **Trellis Support View-As (Impersonation):** Platform-admin support agents can impersonate any user with full audit-log coverage. Sessions are token-based with TTL expiry, single-active-session-per-admin (auto-supersede), and customer-visible audit_logs rows for every transition (start, end, supersede, expiry self-heal). `/api/audit-logs` surfaces these to district admins via `targetTable=view_as_sessions`.
+-   **Trust & Security Readiness:** Unconditional district scope enforcement on all data routes (`enforceDistrictScope`), per-tenant audit isolation, and a permission-matrix regression suite for impersonation, view-as token reuse, and stale-token attribution edge cases.
+-   **Multi-Artifact Workspace:** The monorepo also hosts pitch/demo decks (`trellis-pitch`, `trellis-demo`, `trellis-deck`), a dashboard concepts deck, an API server, and a mockup sandbox for component variant exploration on the canvas.
 
 ## External Dependencies
 
