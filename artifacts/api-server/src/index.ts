@@ -18,6 +18,7 @@ import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { ensureDbConstraints } from "./lib/activeSchoolYear";
 import { initDevDistrictFallback } from "./middlewares/auth";
+import { reloadSchedule } from "./lib/demoResetScheduler";
 
 initSentry();
 
@@ -172,4 +173,7 @@ app.listen(port, (err) => {
     });
   ensureDemoReadinessRunsTable()
     .catch((err: unknown) => logger.warn({ err }, "ensureDemoReadinessRunsTable failed (non-fatal)"));
+  reloadSchedule().catch((err: unknown) =>
+    logger.warn({ err }, "demoResetScheduler: initial reloadSchedule failed (non-fatal)"),
+  );
 });

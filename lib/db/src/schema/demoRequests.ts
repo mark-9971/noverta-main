@@ -15,6 +15,7 @@ export const demoRequestsTable = pgTable("demo_requests", {
   districtId: integer("district_id"),
   clerkUserId: text("clerk_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
 });
 
 export const insertDemoRequestSchema = createInsertSchema(demoRequestsTable).omit({

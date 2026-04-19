@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { useRole } from "@/lib/role-context";
 import {
   CheckCircle2,
@@ -8,8 +8,12 @@ import {
   XCircle,
   RefreshCw,
   ArrowRight,
+  Clock,
+  CalendarClock,
+  BanIcon,
   History,
   RotateCcw,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +64,28 @@ interface ReseedJob {
   error?: string;
 }
 
+type Cadence = "off" | "hourly" | "before-demo";
+
+interface DemoResetSchedule {
+  id: number;
+  cadence: Cadence;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+interface DemoResetAuditRow {
+  id: number;
+  triggeredBy: "scheduler" | "manual";
+  cadenceSnapshot: string;
+  startedAt: string;
+  finishedAt: string | null;
+  success: boolean | null;
+  errorMessage: string | null;
+  elapsedMs: number | null;
+  districtId: number | null;
+  compliancePct: number | null;
+}
+
 function statusIcon(status: Status) {
   if (status === "pass") return <CheckCircle2 className="w-6 h-6 text-emerald-600" />;
   if (status === "warn") return <AlertTriangle className="w-6 h-6 text-amber-500" />;
@@ -89,6 +115,8 @@ function summaryBadge(s: ReadinessReport["summary"]) {
     <Badge className="bg-emerald-600 hover:bg-emerald-600/90">All clear</Badge>
   );
 }
+
+// ── History sparkline (readiness check run history) ────────────────────────
 
 function runOverallStatus(run: HistoryRun): Status {
   if (run.summary.fail > 0) return "fail";
@@ -207,6 +235,79 @@ function HistorySparkline({ runs }: { runs: HistoryRun[] }) {
   );
 }
 
+// ── Auto-reset schedule helpers ─────────────────────────────────────────────
+
+const CADENCE_OPTIONS: { value: Cadence; label: string; description: string; icon: React.ReactNode }[] = [
+  {
+    value: "off",
+    label: "Off",
+    description: "No automatic resets. Use the manual Reset Demo button before each call.",
+    icon: <BanIcon className="w-4 h-4 text-gray-400" />,
+  },
+  {
+    value: "hourly",
+    label: "Hourly",
+    description: "Reset at the top of every hour, Monday–Friday 8 AM–6 PM ET.",
+    icon: <Clock className="w-4 h-4 text-blue-500" />,
+  },
+  {
+    value: "before-demo",
+    label: "Before each demo",
+    description: "Auto-reset 5 minutes before any booked demo on the demo-requests calendar.",
+    icon: <CalendarClock className="w-4 h-4 text-emerald-600" />,
+  },
+];
+
+function CadenceOption({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: (typeof CADENCE_OPTIONS)[number];
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex items-start gap-3 w-full text-left rounded-lg border p-3 transition-colors ${
+        selected
+          ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400"
+          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      <span className="pt-0.5">{option.icon}</span>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-900">{option.label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{option.description}</p>
+      </div>
+      {selected && (
+        <CheckCircle2 className="w-4 h-4 text-emerald-600 ml-auto mt-0.5 shrink-0" />
+      )}
+    </button>
+  );
+}
+
+function formatElapsed(ms: number | null): string {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// ── Page component ──────────────────────────────────────────────────────────
+
 export default function DemoReadinessPage() {
   const { isPlatformAdmin } = useRole();
   const queryClient = useQueryClient();
@@ -229,6 +330,33 @@ export default function DemoReadinessPage() {
     enabled: isPlatformAdmin,
     refetchInterval: 60_000,
   });
+
+  const { data: scheduleData, isLoading: scheduleLoading } = useQuery<DemoResetSchedule>({
+    queryKey: ["demo-reset-schedule"],
+    queryFn: () => apiGet<DemoResetSchedule>("/api/admin/demo-reset-schedule"),
+    enabled: isPlatformAdmin,
+  });
+
+  const { data: auditData, isLoading: auditLoading } = useQuery<DemoResetAuditRow[]>({
+    queryKey: ["demo-reset-audit"],
+    queryFn: () => apiGet<DemoResetAuditRow[]>("/api/admin/demo-reset-audit?limit=10"),
+    enabled: isPlatformAdmin,
+    refetchInterval: 30_000,
+  });
+
+  const [selectedCadence, setSelectedCadence] = useState<Cadence | null>(null);
+  const effectiveCadence: Cadence = selectedCadence ?? scheduleData?.cadence ?? "off";
+
+  const saveMutation = useMutation({
+    mutationFn: (cadence: Cadence) =>
+      apiPut("/api/admin/demo-reset-schedule", { cadence }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["demo-reset-schedule"] });
+      setSelectedCadence(null);
+    },
+  });
+
+  const isDirty = selectedCadence !== null && selectedCadence !== scheduleData?.cadence;
 
   useEffect(() => {
     if (!reseedJobId) return;
@@ -463,6 +591,149 @@ export default function DemoReadinessPage() {
           ))}
         </ul>
       )}
+
+      {/* ── Auto-Reset Schedule ─────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <CalendarClock className="w-4 h-4 text-gray-500" />
+            Auto-Reset Schedule
+          </CardTitle>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Automatically restore the demo district to its canonical baseline so
+            it's always fresh before a call. Uses the same full reseed as the
+            manual Reset Demo button.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {scheduleLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="h-14 rounded-lg bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {CADENCE_OPTIONS.map(opt => (
+                  <CadenceOption
+                    key={opt.value}
+                    option={opt}
+                    selected={effectiveCadence === opt.value}
+                    onSelect={() => setSelectedCadence(opt.value)}
+                  />
+                ))}
+              </div>
+
+              {scheduleData?.updatedAt && !isDirty && (
+                <p className="text-xs text-gray-400">
+                  Last updated {new Date(scheduleData.updatedAt).toLocaleString()}
+                  {scheduleData.updatedBy ? ` by ${scheduleData.updatedBy}` : ""}
+                </p>
+              )}
+
+              {isDirty && (
+                <div className="flex items-center gap-3 pt-1">
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => saveMutation.mutate(effectiveCadence)}
+                    disabled={saveMutation.isPending}
+                  >
+                    {saveMutation.isPending ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    Save schedule
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedCadence(null)}
+                    disabled={saveMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  {saveMutation.isError && (
+                    <p className="text-xs text-red-600">Failed to save — please try again.</p>
+                  )}
+                </div>
+              )}
+
+              {saveMutation.isSuccess && !isDirty && (
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Schedule saved.
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Reset History ───────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <History className="w-4 h-4 text-gray-500" />
+            Reset History
+          </CardTitle>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Audit trail of automatic and manual demo resets. Refreshes every 30 seconds.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {auditLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="h-10 rounded bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : !auditData || auditData.length === 0 ? (
+            <p className="text-sm text-gray-400 py-2">
+              No resets recorded yet. Automatic resets will appear here once the scheduler runs.
+            </p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {auditData.map(row => (
+                <div key={row.id} className="py-2.5 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    {row.success === true ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    ) : row.success === false ? (
+                      <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 text-blue-400 mt-0.5 shrink-0 animate-spin" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-800 font-medium">
+                        {row.triggeredBy === "scheduler" ? "Scheduled reset" : "Manual reset"}
+                        <span className="ml-1.5 text-xs font-normal text-gray-400">
+                          ({row.cadenceSnapshot})
+                        </span>
+                      </p>
+                      {row.success === false && row.errorMessage && (
+                        <p className="text-xs text-red-600 mt-0.5 truncate">{row.errorMessage}</p>
+                      )}
+                      {row.success === true && row.compliancePct != null && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {row.compliancePct}% compliance · {formatElapsed(row.elapsedMs)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-gray-500">{formatRelative(row.startedAt)}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(row.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
