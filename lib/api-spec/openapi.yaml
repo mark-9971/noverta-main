@@ -6203,6 +6203,17 @@ paths:
           application/json:
             schema:
               type: object
+              properties:
+                scheduleType:
+                  type: ["string", "null"]
+                  description: One of standard, ab_day, rotating_4, rotating_6
+                rotationDays:
+                  type: ["integer", "null"]
+                  description: Number of rotation days (2-6); null for non-rotating
+                rotationStartDate:
+                  type: ["string", "null"]
+                scheduleNotes:
+                  type: ["string", "null"]
       responses:
         "200":
           description: Updated
@@ -7871,6 +7882,12 @@ components:
           type: ["string", "null"]
         isRecurring:
           type: boolean
+        recurrenceType:
+          type: ["string", "null"]
+        effectiveFrom:
+          type: ["string", "null"]
+        effectiveTo:
+          type: ["string", "null"]
         weekOf:
           type: ["string", "null"]
         rotationDay:

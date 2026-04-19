@@ -1752,6 +1752,9 @@ export const CreateScheduleBlockBody = zod.object({
   blockType: zod.string(),
   notes: zod.string().nullish(),
   isRecurring: zod.boolean(),
+  recurrenceType: zod.string().nullish(),
+  effectiveFrom: zod.string().nullish(),
+  effectiveTo: zod.string().nullish(),
   weekOf: zod.string().nullish(),
   rotationDay: zod.string().nullish(),
 });
@@ -5445,7 +5448,18 @@ export const UpdateSchoolScheduleSettingsParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const UpdateSchoolScheduleSettingsBody = zod.object({}).passthrough();
+export const UpdateSchoolScheduleSettingsBody = zod.object({
+  scheduleType: zod
+    .string()
+    .nullish()
+    .describe("One of standard, ab_day, rotating_4, rotating_6"),
+  rotationDays: zod
+    .number()
+    .nullish()
+    .describe("Number of rotation days (2-6); null for non-rotating"),
+  rotationStartDate: zod.string().nullish(),
+  scheduleNotes: zod.string().nullish(),
+});
 
 export const UpdateSchoolScheduleSettingsResponse = zod
   .object({})

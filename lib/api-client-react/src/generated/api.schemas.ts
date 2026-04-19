@@ -948,6 +948,12 @@ export interface CreateScheduleBlockBody {
   notes?: string | null;
   isRecurring: boolean;
   /** @nullable */
+  recurrenceType?: string | null;
+  /** @nullable */
+  effectiveFrom?: string | null;
+  /** @nullable */
+  effectiveTo?: string | null;
+  /** @nullable */
   weekOf?: string | null;
   /** @nullable */
   rotationDay?: string | null;
@@ -3789,7 +3795,22 @@ export type GetComplianceDeadlines200 = { [key: string]: unknown };
 
 export type GetSchool200 = { [key: string]: unknown };
 
-export type UpdateSchoolScheduleSettingsBody = { [key: string]: unknown };
+export type UpdateSchoolScheduleSettingsBody = {
+  /**
+   * One of standard, ab_day, rotating_4, rotating_6
+   * @nullable
+   */
+  scheduleType?: string | null;
+  /**
+   * Number of rotation days (2-6); null for non-rotating
+   * @nullable
+   */
+  rotationDays?: number | null;
+  /** @nullable */
+  rotationStartDate?: string | null;
+  /** @nullable */
+  scheduleNotes?: string | null;
+};
 
 export type UpdateSchoolScheduleSettings200 = { [key: string]: unknown };
 
