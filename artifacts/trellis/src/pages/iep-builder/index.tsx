@@ -84,6 +84,9 @@ export default function IepBuilderPage() {
   const handleAddComment = useCallback((c: DraftComment) => {
     setComments(prev => [...prev, c]);
   }, []);
+  const handleUpdateComment = useCallback((c: DraftComment) => {
+    setComments(prev => prev.map(p => p.id === c.id ? c : p));
+  }, []);
   const handleDeleteComment = useCallback((id: number) => {
     setComments(prev => prev.filter(c => c.id !== id));
   }, []);
@@ -790,6 +793,7 @@ export default function IepBuilderPage() {
           comments={comments}
           currentStaffId={currentStaffId}
           onAdd={handleAddComment}
+          onUpdate={handleUpdateComment}
           onDelete={handleDeleteComment}
         />
       )}

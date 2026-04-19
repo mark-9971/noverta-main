@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, MessageCircle, Send, Trash2, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageCircle, Send, Trash2, Loader2, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
@@ -12,6 +12,9 @@ export interface DraftComment {
   body: string;
   createdAt: string;
   authorName: string | null;
+  resolvedAt: string | null;
+  resolvedByStaffId: number | null;
+  resolvedByName: string | null;
 }
 
 export function TeamNotes({
@@ -20,6 +23,7 @@ export function TeamNotes({
   comments,
   currentStaffId,
   onAdd,
+  onUpdate,
   onDelete,
 }: {
   studentId: number;
@@ -27,13 +31,17 @@ export function TeamNotes({
   comments: DraftComment[];
   currentStaffId: number | null;
   onAdd: (c: DraftComment) => void;
+  onUpdate: (c: DraftComment) => void;
   onDelete: (id: number) => void;
 }) {
   const stepComments = comments.filter(c => c.wizardStep === wizardStep);
+  const openCount = stepComments.filter(c => !c.resolvedAt).length;
   const [open, setOpen] = useState(stepComments.length > 0);
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
+  const [showResolved, setShowResolved] = useState(false);
 
   async function submit() {
     const text = body.trim();
@@ -56,6 +64,26 @@ export function TeamNotes({
       toast.error("Could not add note");
     }
     setPosting(false);
+  }
+
+  async function toggleResolved(c: DraftComment) {
+    setResolvingId(c.id);
+    try {
+      const res = await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft/comments/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolved: !c.resolvedAt }),
+      });
+      if (!res.ok) {
+        toast.error("Could not update note");
+      } else {
+        const data = await res.json() as { resolvedAt: string | null; resolvedByStaffId: number | null; resolvedByName: string | null };
+        onUpdate({ ...c, ...data });
+      }
+    } catch {
+      toast.error("Could not update note");
+    }
+    setResolvingId(null);
   }
 
   async function remove(id: number) {
@@ -89,9 +117,14 @@ export function TeamNotes({
           {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
           <MessageCircle className="w-4 h-4 text-emerald-700" />
           <span className="text-[13px] font-semibold text-gray-700">Team notes</span>
-          {stepComments.length > 0 && (
+          {openCount > 0 && (
             <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5">
-              {stepComments.length}
+              {openCount}
+            </span>
+          )}
+          {stepComments.length > openCount && (
+            <span className="text-[11px] text-gray-400">
+              · {stepComments.length - openCount} resolved
             </span>
           )}
         </div>
@@ -103,31 +136,71 @@ export function TeamNotes({
           {stepComments.length === 0 && (
             <p className="text-[12px] text-gray-400 italic">No notes for this section yet.</p>
           )}
-          {stepComments.map(c => {
+          {stepComments.length > openCount && (
+            <button
+              type="button"
+              onClick={() => setShowResolved(s => !s)}
+              className="text-[11px] text-gray-500 hover:text-gray-700 underline"
+              data-testid={`team-notes-toggle-resolved-step-${wizardStep}`}
+            >
+              {showResolved ? "Hide" : "Show"} {stepComments.length - openCount} resolved
+            </button>
+          )}
+          {stepComments
+            .filter(c => showResolved || !c.resolvedAt)
+            .map(c => {
             const ts = new Date(c.createdAt);
             const canDelete = currentStaffId != null && c.staffId === currentStaffId;
+            const isResolved = !!c.resolvedAt;
             return (
-              <div key={c.id} className="bg-white border border-gray-200 rounded-lg p-3" data-testid={`team-note-${c.id}`}>
+              <div
+                key={c.id}
+                className={`border rounded-lg p-3 ${isResolved ? "bg-gray-50 border-gray-100 opacity-70" : "bg-white border-gray-200"}`}
+                data-testid={`team-note-${c.id}`}
+                data-resolved={isResolved ? "true" : "false"}
+              >
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <div className="text-[12px] font-semibold text-gray-800">
                     {c.authorName ?? "Unknown"}
                     <span className="text-[11px] font-normal text-gray-400 ml-2">
                       {ts.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </span>
+                    {isResolved && (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-1.5 py-0.5 ml-2 align-middle">
+                        Resolved{c.resolvedByName ? ` by ${c.resolvedByName}` : ""}
+                      </span>
+                    )}
                   </div>
-                  {canDelete && (
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
-                      onClick={() => remove(c.id)}
-                      disabled={deletingId === c.id}
-                      className="text-gray-300 hover:text-red-600 disabled:opacity-50"
-                      aria-label="Delete note"
+                      onClick={() => toggleResolved(c)}
+                      disabled={resolvingId === c.id}
+                      className={`disabled:opacity-50 ${isResolved ? "text-gray-400 hover:text-gray-700" : "text-gray-300 hover:text-emerald-700"}`}
+                      aria-label={isResolved ? "Reopen note" : "Resolve note"}
+                      title={isResolved ? "Reopen" : "Resolve"}
+                      data-testid={`team-note-resolve-${c.id}`}
                     >
-                      {deletingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      {resolvingId === c.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : isResolved
+                          ? <RotateCcw className="w-3.5 h-3.5" />
+                          : <Check className="w-3.5 h-3.5" />}
                     </button>
-                  )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => remove(c.id)}
+                        disabled={deletingId === c.id}
+                        className="text-gray-300 hover:text-red-600 disabled:opacity-50"
+                        aria-label="Delete note"
+                      >
+                        {deletingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[13px] text-gray-700 whitespace-pre-wrap">{c.body}</p>
+                <p className={`text-[13px] whitespace-pre-wrap ${isResolved ? "text-gray-500 line-through decoration-gray-300" : "text-gray-700"}`}>{c.body}</p>
               </div>
             );
           })}

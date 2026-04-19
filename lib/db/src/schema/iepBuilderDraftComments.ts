@@ -11,6 +11,8 @@ export const iepBuilderDraftCommentsTable = pgTable("iep_builder_draft_comments"
   staffId: integer("staff_id").references(() => staffTable.id),
   body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  resolvedByStaffId: integer("resolved_by_staff_id").references(() => staffTable.id),
 }, (table) => [
   index("iep_draft_comment_student_idx").on(table.studentId),
   index("iep_draft_comment_student_step_idx").on(table.studentId, table.wizardStep),
