@@ -79,9 +79,14 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+      // Phase 1b: promote Session Log into Overview so minute-tracking is
+      // above the fold for admins. Removed from the Scheduling section to
+      // avoid duplication.
+      { href: "/sessions", label: "Session Log", icon: Clipboard, primary: true },
     ],
   },
   // ── 2. Compliance & Risk ────────────────────────────────────────────────
+  // Phase 1b: flattened "Reports" and "Compensatory" one-child submenus.
   {
     label: "Compliance & Risk",
     icon: ListChecks,
@@ -89,71 +94,52 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
-      {
-        href: "/reports", label: "Reports", icon: BarChart3,
-        children: [
-          { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
-        ],
-      },
-      {
-        href: "/compensatory-services", label: "Compensatory", icon: Scale,
-        children: [
-          { href: "/compensatory-finance", label: "Financial Exposure", icon: DollarSign },
-        ],
-      },
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
+      { href: "/compensatory-services", label: "Compensatory", icon: Scale },
+      { href: "/compensatory-finance", label: "Financial Exposure", icon: DollarSign },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
     ],
   },
   // ── 3. IEP & Services ────────────────────────────────────────────────────
+  // Phase 1b: flattened "IEP Builder" and "Evaluations & Progress" one-child submenus.
   {
     label: "IEP & Services",
     icon: GraduationCap,
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/iep-builder", label: "IEP Builder", icon: Sparkles, primary: true,
-        children: [
-          { href: "/iep-search", label: "Search", icon: FileSearch },
-        ],
-      },
+      { href: "/iep-builder", label: "IEP Builder", icon: Sparkles, primary: true },
+      { href: "/iep-search", label: "IEP Search", icon: FileSearch },
       { href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays },
-      {
-        href: "/evaluations", label: "Evaluations & Progress", icon: FileSearch,
-        children: [
-          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-        ],
-      },
+      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/accommodation-lookup", label: "Accommodation Verification", icon: FileText },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
     ],
   },
-  // ── 4. ABA & Behavior — flattened from 6 groups to 3 destinations ───────
+  // ── 4. ABA & Behavior — Phase 1b: flattened "Learners" submenu ──────────
   {
     label: "ABA & Behavior",
     icon: Activity,
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/aba", label: "Learners", icon: Users, featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
-        ],
-      },
+      { href: "/aba", label: "Learners", icon: Users, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
       { href: "/iep-suggestions", label: "Programs", icon: Library, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
   // ── 5. Scheduling ────────────────────────────────────────────────────────
+  // Phase 1b: /sessions promoted to Overview; this section is now scheduling-only.
   {
     label: "Scheduling",
     icon: Users,
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/sessions", label: "Session Log", icon: Clipboard },
       { href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
     ],
@@ -220,12 +206,9 @@ export const focusedAdminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
-      {
-        href: "/reports", label: "Reports", icon: BarChart3,
-        children: [
-          { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
-        ],
-      },
+      // Phase 1b: flattened "Reports" one-child submenu.
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
     ],
   },
   {
@@ -295,6 +278,10 @@ export const caseManagerNav: NavSection[] = adminNav
 
 const COORDINATOR_EXCLUDED_SECTIONS = new Set(["IEP & Services", "ABA & Behavior", "Financial / Executive", "Admin / Tools"]);
 const COORDINATOR_COMPLIANCE_ALLOWED = new Set(["/compliance", "/compensatory-services"]);
+// Phase 1b: mirror case-manager's scheduling exclusions. Coordinator now keeps
+// only Sessions (which lives in Overview after the 1b move). The Scheduling
+// section ends up empty and gets filtered out below.
+const COORDINATOR_EXCLUDED_HREFS = new Set(["/scheduling", "/caseload-balancing"]);
 
 export const coordinatorNav: NavSection[] = adminNav
   .filter(s => !s.label || !COORDINATOR_EXCLUDED_SECTIONS.has(s.label))
@@ -302,12 +289,13 @@ export const coordinatorNav: NavSection[] = adminNav
     if (s.label === "Compliance & Risk") {
       return { ...s, items: s.items.filter(i => COORDINATOR_COMPLIANCE_ALLOWED.has(i.href)) };
     }
-    return s;
+    return { ...s, items: s.items.filter(i => !COORDINATOR_EXCLUDED_HREFS.has(i.href)) };
   })
   .filter(s => s.items.length > 0);
 
-// SPED teachers do not see Financial/Executive or Admin/Tools.
-const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
+// SPED teachers do not see Financial/Executive, Admin/Tools, or ABA & Behavior
+// (Phase 1b: ABA was leaking into the teacher shell).
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools", "ABA & Behavior"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Scheduling": "My Caseload",
 };
@@ -361,16 +349,10 @@ export const bcbaNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/aba",
-        label: "Learners",
-        icon: Users,
-        featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/students", label: "Student Directory", icon: Search },
-          { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
-        ],
-      },
+      // Phase 1b: removed "Learners" submenu. BIP promoted to a sibling.
+      // Student Directory was removed from sidebar; still reachable via /aba.
+      { href: "/aba", label: "Learners", icon: Users, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
       { href: "/sessions", label: "Sessions", icon: CalendarDays },
       { href: "/iep-suggestions", label: "Programs", icon: Library, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/progress-reports", label: "Reporting", icon: FileText },
@@ -378,7 +360,7 @@ export const bcbaNav: NavSection[] = [
     ],
   },
   {
-    label: "Other",
+    label: "Compliance & Comms",
     icon: ListChecks,
     collapsible: true,
     defaultOpen: false,
