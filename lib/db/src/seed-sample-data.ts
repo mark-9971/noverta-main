@@ -277,14 +277,21 @@ export interface SampleDataStatus {
 }
 
 export async function getSampleDataStatus(districtId: number): Promise<SampleDataStatus> {
+  // Resilient to a missing district row: the signed-in user may be scoped to
+  // a district id (e.g. from auth metadata) that has not yet been provisioned.
+  // In that case there are obviously no sample rows, so we report a clean
+  // empty status rather than throwing or relying on the district row existing.
   const [district] = await db.select({ has: districtsTable.hasSampleData })
     .from(districtsTable).where(eq(districtsTable.id, districtId));
+  if (!district) {
+    return { hasSampleData: false, sampleStudents: 0, sampleStaff: 0 };
+  }
   const schools = await db.select({ id: schoolsTable.id })
     .from(schoolsTable).where(eq(schoolsTable.districtId, districtId));
   const schoolIds = schools.map(s => s.id);
 
   if (schoolIds.length === 0) {
-    return { hasSampleData: !!district?.has, sampleStudents: 0, sampleStaff: 0 };
+    return { hasSampleData: !!district.has, sampleStudents: 0, sampleStaff: 0 };
   }
   const [students] = await db.select({ c: sql<number>`count(*)::int` })
     .from(studentsTable)
@@ -349,8 +356,36 @@ function buildSessionRows(
 export async function seedSampleDataForDistrict(districtId: number): Promise<SeedSampleResult> {
   // ── 1. Prerequisites: district, schools, school year, service types ──
 
-  const [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, districtId));
-  if (!district) throw new Error(`District ${districtId} not found`);
+  // Auto-provision a minimal district stub if the caller's enforced district
+  // id has no row yet (e.g. the signed-in admin's auth metadata references a
+  // district that was never persisted). The seeder is the natural place to
+  // bootstrap this — without it the entire "Add sample data" flow would fail
+  // with a raw "District N not found" before any rows could be created.
+  // Idempotent via ON CONFLICT, and we bump the serial sequence so that a
+  // future plain INSERT into districts (which relies on the default nextval)
+  // doesn't collide on this id.
+  let [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, districtId));
+  if (!district) {
+    await db.insert(districtsTable)
+      .values({
+        id: districtId,
+        name: `District ${districtId}`,
+        tier: "essentials",
+        isDemo: false,
+        isPilot: false,
+        isSandbox: false,
+        hasSampleData: false,
+      })
+      .onConflictDoNothing();
+    await db.execute(sql`
+      SELECT setval(
+        pg_get_serial_sequence('districts', 'id'),
+        GREATEST((SELECT COALESCE(MAX(id), 1) FROM districts), ${districtId})
+      )
+    `);
+    [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, districtId));
+    if (!district) throw new Error(`District ${districtId} could not be auto-provisioned`);
+  }
 
   // Ensure 5 schools exist
   let existingSchools = await db.select().from(schoolsTable).where(eq(schoolsTable.districtId, districtId));

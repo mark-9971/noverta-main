@@ -37,8 +37,8 @@ router.get("/sample-data", requireDistrictScope, requireRoles("admin", "coordina
     const status = await getSampleDataStatus(districtId);
     res.json({ ...status, districtId });
   } catch (err) {
-    logger.error({ err }, "sample-data status failed");
-    res.status(500).json({ error: "Failed to load sample data status" });
+    logger.error({ err, districtId }, "sample-data status failed");
+    res.status(500).json({ error: "Couldn't load sample data — please try again" });
   }
 });
 
@@ -63,8 +63,10 @@ router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordin
     logger.info({ districtId, ...result }, "sample data seeded");
     res.status(201).json({ ok: true, ...result });
   } catch (err) {
+    // Log the original error (including any raw SQL) server-side, but never
+    // surface it to the user — toasts/banners must stay friendly.
     logger.error({ err, districtId }, "sample-data seed failed");
-    res.status(500).json({ error: err instanceof Error ? err.message : "Seed failed" });
+    res.status(500).json({ error: "Couldn't load sample data — please try again" });
   }
 });
 
@@ -80,7 +82,7 @@ router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coord
     res.json({ ok: true, ...result });
   } catch (err) {
     logger.error({ err, districtId }, "sample-data teardown failed");
-    res.status(500).json({ error: err instanceof Error ? err.message : "Teardown failed" });
+    res.status(500).json({ error: "Couldn't remove sample data — please try again" });
   }
 });
 
