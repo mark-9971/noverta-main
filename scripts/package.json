@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "pilot-audit": "tsx ./src/pilot-readiness.ts",
     "load-test": "tsx ./src/load-test-5k.ts",
+    "sentry-provision": "tsx ./src/sentry-provision.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

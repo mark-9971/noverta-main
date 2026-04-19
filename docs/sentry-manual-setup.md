@@ -2,9 +2,45 @@
 
 The code-side hardening (source-map upload, releases, replay, Express
 context, cron monitors, noise filters, smoke-test endpoint) lives in the
-repo and runs automatically on each build/deploy. The items below cannot
-be configured from code and must be done once in the Sentry web UI by an
-account owner.
+repo and runs automatically on each build/deploy. Most of the
+dashboard-side configuration is now also automated via the
+`scripts/src/sentry-provision.ts` provisioner — see
+[Automated provisioner](#0-automated-provisioner) below. The items
+flagged "manual only" further down are the ones that genuinely cannot
+be done from outside the Sentry web UI.
+
+## 0. Automated provisioner
+
+Run once per environment after installing the Slack integration in the
+Sentry UI:
+
+```bash
+SENTRY_AUTH_TOKEN=<token with project:write + alerts:write + org:read> \
+SENTRY_ORG=trellis \
+SENTRY_PROJECTS=trellis-frontend,trellis-api \
+SLACK_CHANNEL=#trellis-alerts \
+ONCALL_EMAIL=oncall@trellis.example \
+pnpm --filter @workspace/scripts run sentry-provision
+```
+
+The script is idempotent — re-running it will skip rules that already
+exist and only fill in what is missing. It provisions:
+
+- The three production alert rules in section 2 below.
+- The three inbound filters in section 4 below.
+- The ownership rules in section 5 below (with placeholder team handles
+  — edit the `OWNERSHIP_TEMPLATE` constant in the script when real teams
+  are created).
+- Slack + email routing on the `reminder-scheduler` and `sis-scheduler`
+  cron monitors (only after they have first checked in, which auto-
+  registers them).
+
+**What still must be done manually in the UI** (no API for them):
+
+- Install the Slack integration (Settings → Integrations → Slack).
+- Set the monthly spend cap (Settings → Subscription).
+- Subscribe the on-call distribution list to "Issue Alerts" for the
+  production project (Settings → Notifications).
 
 ## 1. Project secrets (one-time)
 
