@@ -3,6 +3,7 @@ import { db, importsTable, studentsTable, staffTable, schoolsTable } from "@work
 import { and, ilike, eq, isNull } from "drizzle-orm";
 import { parseCsvRows, requireAdmin, normalizeDate } from "./shared";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
+import { ensureStaffAssignment } from "../../lib/ensureStaffAssignment";
 
 const router: IRouter = Router();
 
@@ -93,6 +94,15 @@ router.post("/imports/students", requireAdmin, async (req, res): Promise<void> =
               ...(caseManagerId ? { caseManagerId } : {}),
               updatedAt: new Date(),
             }).where(eq(studentsTable.id, existing[0].id));
+            // Mirror any case-manager change into staff_assignments so the
+            // student isn't shown as unassigned on the Care Team panel.
+            if (caseManagerId) {
+              await ensureStaffAssignment({
+                staffId: caseManagerId,
+                studentId: existing[0].id,
+                assignmentType: "case_manager",
+              });
+            }
             updated++;
           } else {
             errors.push(`Row ${i + 2}: Student "${firstName} ${lastName}" already exists (id=${existing[0].id}), skipped`);
@@ -101,7 +111,7 @@ router.post("/imports/students", requireAdmin, async (req, res): Promise<void> =
           continue;
         }
 
-        await db.insert(studentsTable).values({
+        const [inserted] = await db.insert(studentsTable).values({
           firstName,
           lastName,
           externalId: row.external_id || row.student_id || null,
@@ -118,7 +128,16 @@ router.post("/imports/students", requireAdmin, async (req, res): Promise<void> =
           source: importSource,
           ...(schoolId ? { schoolId } : {}),
           ...(caseManagerId ? { caseManagerId } : {}),
-        });
+        }).returning({ id: studentsTable.id });
+        // Same care-team mirror as the update path: if a case manager was
+        // resolved from the CSV, make sure the student appears on their roster.
+        if (inserted && caseManagerId) {
+          await ensureStaffAssignment({
+            staffId: caseManagerId,
+            studentId: inserted.id,
+            assignmentType: "case_manager",
+          });
+        }
         imported++;
       } catch (e: any) {
         console.error(`Student import row ${i + 2} error:`, e);
