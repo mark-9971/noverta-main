@@ -1,5 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useListStudents, useListMinuteProgress, useListSpedStudents, useListSchools, useListStaff, createStudent } from "@workspace/api-client-react";
+import type { ListStudents200 } from "@workspace/api-client-react";
+
+type StudentRow = ListStudents200["data"][number] & {
+  schoolName?: string | null;
+  programName?: string | null;
+  caseManagerFirst?: string | null;
+  caseManagerLast?: string | null;
+};
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,9 +119,9 @@ export default function Students() {
 
   const spedIds = new Set<number>((Array.isArray(spedStudentsRaw) ? spedStudentsRaw : []).map((s: any) => s.id));
 
-  const studentList = ((students as any)?.data ?? []) as any[];
-  const totalStudents: number = (students as any)?.total ?? 0;
-  const studentHasMore: boolean = (students as any)?.hasMore ?? false;
+  const studentList: StudentRow[] = (students?.data ?? []) as StudentRow[];
+  const totalStudents: number = students?.total ?? 0;
+  const studentHasMore: boolean = students?.hasMore ?? false;
   const totalPages = totalStudents > 0 ? Math.ceil(totalStudents / PAGE_SIZE) : 1;
   const progressList = (progress as any[]) ?? [];
   const loading = isLoading;

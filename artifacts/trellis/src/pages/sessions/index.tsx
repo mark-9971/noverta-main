@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
 import { useListSessions, useListStudents, useListStaff, useListMissedReasons, useCreateSession, useListServiceRequirements, useUpdateSession, useDeleteSession, listIepGoals, getSession } from "@workspace/api-client-react";
+import type { ListSessions200, ListStudents200 } from "@workspace/api-client-react";
+
+type SessionRow = ListSessions200["data"][number] & {
+  studentName?: string | null;
+  serviceTypeName?: string | null;
+  staffName?: string | null;
+  missedReasonLabel?: string | null;
+  goalCount?: number;
+};
+type StudentRow = ListStudents200["data"][number];
 import { Button } from "@/components/ui/button";
 import { Plus, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -97,8 +107,8 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const updateSessionMutation = useUpdateSession();
   const deleteSessionMutation = useDeleteSession();
 
-  const sessionList = ((sessions as any)?.data ?? []) as any[];
-  const studentList = ((students as any)?.data ?? []) as any[];
+  const sessionList: SessionRow[] = (sessions?.data ?? []) as SessionRow[];
+  const studentList: StudentRow[] = (students?.data ?? []) as StudentRow[];
   const staffAllList = (staffData as any[]) ?? [];
   const missedReasonsList = (missedReasonsData as any[]) ?? [];
   const reqList = (serviceReqs as any[]) ?? [];

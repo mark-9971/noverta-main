@@ -561,13 +561,19 @@ paths:
             type: ["integer", "null"]
       responses:
         "200":
-          description: List of students
+          description: Paginated list of students
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/StudentSummary"
+                allOf:
+                  - $ref: "#/components/schemas/PaginationMeta"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/StudentSummary"
     post:
       operationId: createStudent
       tags: [students]
@@ -1164,13 +1170,19 @@ paths:
             type: ["integer", "null"]
       responses:
         "200":
-          description: Sessions
+          description: Paginated list of session logs
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SessionLog"
+                allOf:
+                  - $ref: "#/components/schemas/PaginationMeta"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SessionLog"
     post:
       operationId: createSession
       tags: [sessions]
@@ -1609,13 +1621,19 @@ paths:
             type: ["integer", "null"]
       responses:
         "200":
-          description: Alerts
+          description: Paginated list of alerts
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Alert"
+                allOf:
+                  - $ref: "#/components/schemas/PaginationMeta"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Alert"
 
   /alerts/{id}/resolve:
     patch:
@@ -6552,11 +6570,19 @@ paths:
             type: ["string", "null"]
       responses:
         "200":
-          description: Audit logs
+          description: Paginated list of audit logs
           content:
             application/json:
               schema:
-                type: object
+                allOf:
+                  - $ref: "#/components/schemas/PaginationMeta"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/AuditLogEntry"
 
   /audit-logs/export:
     get:
@@ -6603,6 +6629,46 @@ paths:
 
 components:
   schemas:
+    PaginationMeta:
+      type: object
+      required: [total, page, pageSize, hasMore]
+      properties:
+        total:
+          type: integer
+          description: Total number of records matching the query
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        pageSize:
+          type: integer
+          description: Number of records per page
+        hasMore:
+          type: boolean
+          description: Whether more records are available beyond this page
+    AuditLogEntry:
+      type: object
+      required: [id, action, createdAt]
+      properties:
+        id:
+          type: integer
+        actorUserId:
+          type: ["string", "null"]
+        action:
+          type: string
+        targetTable:
+          type: ["string", "null"]
+        targetId:
+          type: ["string", "null"]
+        studentId:
+          type: ["integer", "null"]
+        summary:
+          type: ["string", "null"]
+        metadata:
+          type: ["object", "null"]
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
     HealthStatus:
       type: object
       properties:

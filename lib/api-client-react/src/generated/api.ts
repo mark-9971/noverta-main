@@ -249,6 +249,7 @@ import type {
   ListAbsences200Item,
   ListAbsencesParams,
   ListAccommodations200Item,
+  ListAlerts200,
   ListAlertsParams,
   ListAnnouncements200Item,
   ListAuditLogs200,
@@ -287,6 +288,7 @@ import type {
   ListProtectiveIncidentsParams,
   ListScheduleBlocksParams,
   ListServiceRequirementsParams,
+  ListSessions200,
   ListSessionsParams,
   ListSpedStudents200Item,
   ListSpedStudentsParams,
@@ -295,6 +297,7 @@ import type {
   ListStudentAssignments200Item,
   ListStudentAssignmentsParams,
   ListStudentClasses200Item,
+  ListStudents200,
   ListStudentsParams,
   ListStudentsWithEnrollments200Item,
   ListSubmissions200Item,
@@ -362,7 +365,6 @@ import type {
   Student,
   StudentDetail,
   StudentMinuteSummaryRow,
-  StudentSummary,
   SupervisionComplianceSummary,
   SupervisionSession,
   SupervisionSessionWithNames,
@@ -2388,8 +2390,8 @@ export const getListStudentsUrl = (params?: ListStudentsParams) => {
 export const listStudents = async (
   params?: ListStudentsParams,
   options?: RequestInit,
-): Promise<StudentSummary[]> => {
-  return customFetch<StudentSummary[]>(getListStudentsUrl(params), {
+): Promise<ListStudents200> => {
+  return customFetch<ListStudents200>(getListStudentsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4542,8 +4544,8 @@ export const getListSessionsUrl = (params?: ListSessionsParams) => {
 export const listSessions = async (
   params?: ListSessionsParams,
   options?: RequestInit,
-): Promise<SessionLog[]> => {
-  return customFetch<SessionLog[]>(getListSessionsUrl(params), {
+): Promise<ListSessions200> => {
+  return customFetch<ListSessions200>(getListSessionsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -6060,8 +6062,8 @@ export const getListAlertsUrl = (params?: ListAlertsParams) => {
 export const listAlerts = async (
   params?: ListAlertsParams,
   options?: RequestInit,
-): Promise<Alert[]> => {
-  return customFetch<Alert[]>(getListAlertsUrl(params), {
+): Promise<ListAlerts200> => {
+  return customFetch<ListAlerts200>(getListAlertsUrl(params), {
     ...options,
     method: "GET",
   });

@@ -1,5 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { useListAlerts, useResolveAlert, useBulkResolveAlerts, useSnoozeAlert } from "@workspace/api-client-react";
+import type { ListAlerts200 } from "@workspace/api-client-react";
+
+type AlertRow = ListAlerts200["data"][number] & {
+  studentName?: string | null;
+  staffName?: string | null;
+};
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,10 +115,10 @@ export default function Alerts() {
   const { mutateAsync: bulkResolve } = useBulkResolveAlerts();
   const { mutateAsync: snoozeAlert } = useSnoozeAlert();
 
-  const alertTotal: number = (alerts as any)?.total ?? 0;
-  const alertHasMore: boolean = (alerts as any)?.hasMore ?? false;
+  const alertTotal: number = alerts?.total ?? 0;
+  const alertHasMore: boolean = alerts?.hasMore ?? false;
   const alertTotalPages = alertTotal > 0 ? Math.ceil(alertTotal / ALERT_PAGE_SIZE) : 1;
-  const alertList = ((alerts as any)?.data ?? []) as any[];
+  const alertList: AlertRow[] = (alerts?.data ?? []) as AlertRow[];
   const filtered = alertList.filter(a => {
     const matchSeverity = severityFilter === "all" || a.severity === severityFilter;
     const matchStudent = !studentSearch ||

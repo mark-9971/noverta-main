@@ -438,29 +438,43 @@ export const ListStudentsQueryParams = zod.object({
   offset: zod.coerce.number().nullish(),
 });
 
-export const ListStudentsResponseItem = zod.object({
-  id: zod.number(),
-  firstName: zod.string(),
-  lastName: zod.string(),
-  externalId: zod.string().nullish(),
-  grade: zod.string().nullish(),
-  placementType: zod.string().nullish(),
-  status: zod.string(),
-  schoolId: zod.number().nullish(),
-  programId: zod.number().nullish(),
-  schoolName: zod.string().nullish(),
-  programName: zod.string().nullish(),
-  caseManagerId: zod.number().nullish(),
-  caseManagerName: zod.string().nullish(),
-  enrolledAt: zod.string().nullish(),
-  withdrawnAt: zod.string().nullish(),
-  riskStatus: zod.string().nullish(),
-  activeRequirementsCount: zod.number(),
-  onTrackCount: zod.number(),
-  atRiskCount: zod.number(),
-  behindCount: zod.number(),
-});
-export const ListStudentsResponse = zod.array(ListStudentsResponseItem);
+export const ListStudentsResponse = zod
+  .object({
+    total: zod.number().describe("Total number of records matching the query"),
+    page: zod.number().describe("Current page number (1-indexed)"),
+    pageSize: zod.number().describe("Number of records per page"),
+    hasMore: zod
+      .boolean()
+      .describe("Whether more records are available beyond this page"),
+  })
+  .and(
+    zod.object({
+      data: zod.array(
+        zod.object({
+          id: zod.number(),
+          firstName: zod.string(),
+          lastName: zod.string(),
+          externalId: zod.string().nullish(),
+          grade: zod.string().nullish(),
+          placementType: zod.string().nullish(),
+          status: zod.string(),
+          schoolId: zod.number().nullish(),
+          programId: zod.number().nullish(),
+          schoolName: zod.string().nullish(),
+          programName: zod.string().nullish(),
+          caseManagerId: zod.number().nullish(),
+          caseManagerName: zod.string().nullish(),
+          enrolledAt: zod.string().nullish(),
+          withdrawnAt: zod.string().nullish(),
+          riskStatus: zod.string().nullish(),
+          activeRequirementsCount: zod.number(),
+          onTrackCount: zod.number(),
+          atRiskCount: zod.number(),
+          behindCount: zod.number(),
+        }),
+      ),
+    }),
+  );
 
 /**
  * @summary Create student
@@ -1247,75 +1261,89 @@ export const ListSessionsQueryParams = zod.object({
   offset: zod.coerce.number().nullish(),
 });
 
-export const ListSessionsResponseItem = zod.object({
-  id: zod.number(),
-  studentId: zod.number(),
-  studentName: zod.string().nullish(),
-  serviceRequirementId: zod.number().nullish(),
-  serviceTypeId: zod.number().nullish(),
-  serviceTypeName: zod.string().nullish(),
-  staffId: zod.number().nullish(),
-  staffName: zod.string().nullish(),
-  sessionDate: zod.string(),
-  startTime: zod.string().nullish(),
-  endTime: zod.string().nullish(),
-  durationMinutes: zod.number(),
-  location: zod.string().nullish(),
-  deliveryMode: zod.string().nullish(),
-  status: zod.string(),
-  missedReasonId: zod.number().nullish(),
-  missedReasonLabel: zod.string().nullish(),
-  isMakeup: zod.boolean(),
-  isCompensatory: zod.boolean().optional(),
-  compensatoryObligationId: zod.number().nullish(),
-  notes: zod.string().nullish(),
-  createdAt: zod.string(),
-  goalCount: zod.number().optional(),
-  linkedGoals: zod
-    .array(
-      zod.object({
-        id: zod.number(),
-        goalArea: zod.string(),
-        goalNumber: zod.number().nullish(),
-        annualGoal: zod.string(),
-        targetCriterion: zod.string().nullish(),
-        measurementMethod: zod.string().nullish(),
-        serviceArea: zod.string().nullish(),
-        status: zod.string().nullish(),
-        notes: zod.string().nullish(),
-        behaviorData: zod
-          .object({
-            value: zod.string().optional(),
-            intervalCount: zod.number().nullish(),
-            intervalsWith: zod.number().nullish(),
-            hourBlock: zod.string().nullish(),
-            notes: zod.string().nullish(),
-            targetName: zod.string().nullish(),
-            measurementType: zod.string().nullish(),
-            targetDirection: zod.string().nullish(),
-            goalValue: zod.string().nullish(),
-          })
-          .nullish(),
-        programData: zod
-          .object({
-            trialsCorrect: zod.number().optional(),
-            trialsTotal: zod.number().optional(),
-            prompted: zod.number().nullish(),
-            stepNumber: zod.number().nullish(),
-            independenceLevel: zod.string().nullish(),
-            percentCorrect: zod.string().nullish(),
-            promptLevelUsed: zod.string().nullish(),
-            notes: zod.string().nullish(),
-            targetName: zod.string().nullish(),
-            programType: zod.string().nullish(),
-            masteryCriterionPercent: zod.number().nullish(),
-          })
-          .nullish(),
-      }),
-    )
-    .optional(),
-});
-export const ListSessionsResponse = zod.array(ListSessionsResponseItem);
+export const ListSessionsResponse = zod
+  .object({
+    total: zod.number().describe("Total number of records matching the query"),
+    page: zod.number().describe("Current page number (1-indexed)"),
+    pageSize: zod.number().describe("Number of records per page"),
+    hasMore: zod
+      .boolean()
+      .describe("Whether more records are available beyond this page"),
+  })
+  .and(
+    zod.object({
+      data: zod.array(
+        zod.object({
+          id: zod.number(),
+          studentId: zod.number(),
+          studentName: zod.string().nullish(),
+          serviceRequirementId: zod.number().nullish(),
+          serviceTypeId: zod.number().nullish(),
+          serviceTypeName: zod.string().nullish(),
+          staffId: zod.number().nullish(),
+          staffName: zod.string().nullish(),
+          sessionDate: zod.string(),
+          startTime: zod.string().nullish(),
+          endTime: zod.string().nullish(),
+          durationMinutes: zod.number(),
+          location: zod.string().nullish(),
+          deliveryMode: zod.string().nullish(),
+          status: zod.string(),
+          missedReasonId: zod.number().nullish(),
+          missedReasonLabel: zod.string().nullish(),
+          isMakeup: zod.boolean(),
+          isCompensatory: zod.boolean().optional(),
+          compensatoryObligationId: zod.number().nullish(),
+          notes: zod.string().nullish(),
+          createdAt: zod.string(),
+          goalCount: zod.number().optional(),
+          linkedGoals: zod
+            .array(
+              zod.object({
+                id: zod.number(),
+                goalArea: zod.string(),
+                goalNumber: zod.number().nullish(),
+                annualGoal: zod.string(),
+                targetCriterion: zod.string().nullish(),
+                measurementMethod: zod.string().nullish(),
+                serviceArea: zod.string().nullish(),
+                status: zod.string().nullish(),
+                notes: zod.string().nullish(),
+                behaviorData: zod
+                  .object({
+                    value: zod.string().optional(),
+                    intervalCount: zod.number().nullish(),
+                    intervalsWith: zod.number().nullish(),
+                    hourBlock: zod.string().nullish(),
+                    notes: zod.string().nullish(),
+                    targetName: zod.string().nullish(),
+                    measurementType: zod.string().nullish(),
+                    targetDirection: zod.string().nullish(),
+                    goalValue: zod.string().nullish(),
+                  })
+                  .nullish(),
+                programData: zod
+                  .object({
+                    trialsCorrect: zod.number().optional(),
+                    trialsTotal: zod.number().optional(),
+                    prompted: zod.number().nullish(),
+                    stepNumber: zod.number().nullish(),
+                    independenceLevel: zod.string().nullish(),
+                    percentCorrect: zod.string().nullish(),
+                    promptLevelUsed: zod.string().nullish(),
+                    notes: zod.string().nullish(),
+                    targetName: zod.string().nullish(),
+                    programType: zod.string().nullish(),
+                    masteryCriterionPercent: zod.number().nullish(),
+                  })
+                  .nullish(),
+              }),
+            )
+            .optional(),
+        }),
+      ),
+    }),
+  );
 
 /**
  * @summary Log a session
@@ -1956,24 +1984,38 @@ export const ListAlertsQueryParams = zod.object({
   districtId: zod.coerce.number().nullish(),
 });
 
-export const ListAlertsResponseItem = zod.object({
-  id: zod.number(),
-  type: zod.string(),
-  severity: zod.string(),
-  studentId: zod.number().nullish(),
-  studentName: zod.string().nullish(),
-  staffId: zod.number().nullish(),
-  staffName: zod.string().nullish(),
-  serviceRequirementId: zod.number().nullish(),
-  message: zod.string(),
-  suggestedAction: zod.string().nullish(),
-  resolved: zod.boolean(),
-  resolvedAt: zod.string().nullish(),
-  resolvedNote: zod.string().nullish(),
-  snoozedUntil: zod.string().nullish(),
-  createdAt: zod.string(),
-});
-export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
+export const ListAlertsResponse = zod
+  .object({
+    total: zod.number().describe("Total number of records matching the query"),
+    page: zod.number().describe("Current page number (1-indexed)"),
+    pageSize: zod.number().describe("Number of records per page"),
+    hasMore: zod
+      .boolean()
+      .describe("Whether more records are available beyond this page"),
+  })
+  .and(
+    zod.object({
+      data: zod.array(
+        zod.object({
+          id: zod.number(),
+          type: zod.string(),
+          severity: zod.string(),
+          studentId: zod.number().nullish(),
+          studentName: zod.string().nullish(),
+          staffId: zod.number().nullish(),
+          staffName: zod.string().nullish(),
+          serviceRequirementId: zod.number().nullish(),
+          message: zod.string(),
+          suggestedAction: zod.string().nullish(),
+          resolved: zod.boolean(),
+          resolvedAt: zod.string().nullish(),
+          resolvedNote: zod.string().nullish(),
+          snoozedUntil: zod.string().nullish(),
+          createdAt: zod.string(),
+        }),
+      ),
+    }),
+  );
 
 /**
  * @summary Resolve an alert
@@ -5520,7 +5562,32 @@ export const ListAuditLogsQueryParams = zod.object({
   search: zod.coerce.string().nullish(),
 });
 
-export const ListAuditLogsResponse = zod.object({}).passthrough();
+export const ListAuditLogsResponse = zod
+  .object({
+    total: zod.number().describe("Total number of records matching the query"),
+    page: zod.number().describe("Current page number (1-indexed)"),
+    pageSize: zod.number().describe("Number of records per page"),
+    hasMore: zod
+      .boolean()
+      .describe("Whether more records are available beyond this page"),
+  })
+  .and(
+    zod.object({
+      data: zod.array(
+        zod.object({
+          id: zod.number(),
+          actorUserId: zod.string().nullish(),
+          action: zod.string(),
+          targetTable: zod.string().nullish(),
+          targetId: zod.string().nullish(),
+          studentId: zod.number().nullish(),
+          summary: zod.string().nullish(),
+          metadata: zod.record(zod.string(), zod.unknown()).nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
 
 /**
  * @summary Export audit logs CSV

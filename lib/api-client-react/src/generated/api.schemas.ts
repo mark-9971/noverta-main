@@ -5,6 +5,40 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PaginationMeta {
+  /** Total number of records matching the query */
+  total: number;
+  /** Current page number (1-indexed) */
+  page: number;
+  /** Number of records per page */
+  pageSize: number;
+  /** Whether more records are available beyond this page */
+  hasMore: boolean;
+}
+
+/**
+ * @nullable
+ */
+export type AuditLogEntryMetadata = { [key: string]: unknown } | null;
+
+export interface AuditLogEntry {
+  id: number;
+  /** @nullable */
+  actorUserId?: string | null;
+  action: string;
+  /** @nullable */
+  targetTable?: string | null;
+  /** @nullable */
+  targetId?: string | null;
+  /** @nullable */
+  studentId?: number | null;
+  /** @nullable */
+  summary?: string | null;
+  /** @nullable */
+  metadata?: AuditLogEntryMetadata;
+  createdAt: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -2324,6 +2358,10 @@ export type ListStudentsParams = {
   offset?: number | null;
 };
 
+export type ListStudents200 = PaginationMeta & {
+  data: StudentSummary[];
+};
+
 export type GetStudentSessionsParams = {
   /**
    * @nullable
@@ -2486,6 +2524,10 @@ export type ListSessionsParams = {
   offset?: number | null;
 };
 
+export type ListSessions200 = PaginationMeta & {
+  data: SessionLog[];
+};
+
 export type ListMinuteProgressParams = {
   /**
    * @nullable
@@ -2642,6 +2684,10 @@ export type ListAlertsParams = {
    * @nullable
    */
   districtId?: number | null;
+};
+
+export type ListAlerts200 = PaginationMeta & {
+  data: Alert[];
 };
 
 export type BulkResolveAlerts200 = {
@@ -3810,7 +3856,9 @@ export type ListAuditLogsParams = {
   search?: string | null;
 };
 
-export type ListAuditLogs200 = { [key: string]: unknown };
+export type ListAuditLogs200 = PaginationMeta & {
+  data: AuditLogEntry[];
+};
 
 export type ExportAuditLogsParams = {
   /**
