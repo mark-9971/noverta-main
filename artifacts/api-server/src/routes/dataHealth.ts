@@ -11,7 +11,8 @@ router.get("/data-health", requireAdmin, async (req, res): Promise<void> => {
   try {
     const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (!districtId) {
-      return void res.status(403).json({ error: "District scope required" });
+      res.status(403).json({ error: "District scope required" });
+      return;
     }
     const report = await runDataHealthChecks(districtId);
     res.json(report);

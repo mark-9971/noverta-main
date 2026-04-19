@@ -10,10 +10,10 @@ const router = Router();
 
 router.get("/document-workflow/versions/:documentType/:documentId", async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
-  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  if (!districtId) { res.status(403).json({ error: "No district scope" }); return; }
   const { documentType } = req.params;
   const docId = parsePositiveInt(req.params.documentId);
-  if (!docId) return void res.status(400).json({ error: "Invalid document ID" });
+  if (!docId) { res.status(400).json({ error: "Invalid document ID" }); return; }
 
   const versions = await db.select().from(documentVersionsTable)
     .where(and(
@@ -28,24 +28,27 @@ router.get("/document-workflow/versions/:documentType/:documentId", async (req, 
 
 router.post("/document-workflow/versions", async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
-  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  if (!districtId) { res.status(403).json({ error: "No district scope" }); return; }
   const user = getUserInfo(req as unknown as AuthedRequest);
   const { documentType, title, changeDescription, snapshotData } = req.body;
   const documentId = parsePositiveInt(req.body.documentId);
   const studentId = parsePositiveInt(req.body.studentId);
 
   if (!documentType || !documentId || !studentId || !title) {
-    return void res.status(400).json({ error: "Missing required fields: documentType, documentId, studentId, title" });
+    res.status(400).json({ error: "Missing required fields: documentType, documentId, studentId, title" });
+    return;
   }
   if (!VALID_DOC_TYPES.includes(documentType)) {
-    return void res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
+    res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
+    return;
   }
   if (typeof title !== "string" || title.length > 500) {
-    return void res.status(400).json({ error: "Title must be a string under 500 characters" });
+    res.status(400).json({ error: "Title must be a string under 500 characters" });
+    return;
   }
 
   const student = await assertStudentInDistrict(studentId, districtId);
-  if (!student) return void res.status(404).json({ error: "Student not found in your district" });
+  if (!student) { res.status(404).json({ error: "Student not found in your district" }); return; }
 
   const version = await db.transaction(async (tx) => {
     const lockKey = buildVersionLockKey(documentType, documentId, districtId);
@@ -77,7 +80,8 @@ router.post("/document-workflow/versions", async (req, res): Promise<void> => {
   });
 
   if (!version) {
-    return void res.status(500).json({ error: "Failed to create document version" });
+    res.status(500).json({ error: "Failed to create document version" });
+    return;
   }
 
   logAudit(req, {

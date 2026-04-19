@@ -7,7 +7,7 @@ const router = Router();
 
 router.get("/document-workflow/dashboard/summary", async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
-  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  if (!districtId) { res.status(403).json({ error: "No district scope" }); return; }
 
   const rows = await db.select({
     currentStage: approvalWorkflowsTable.currentStage,

@@ -9,16 +9,16 @@ const router = Router();
 
 router.post("/document-workflow/generate-pwn", async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
-  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  if (!districtId) { res.status(403).json({ error: "No district scope" }); return; }
   const user = getUserInfo(req as unknown as AuthedRequest);
   void user;
   const studentId = parsePositiveInt(req.body.studentId);
   const meetingId = req.body.meetingId ? parsePositiveInt(req.body.meetingId) : null;
 
-  if (!studentId) return void res.status(400).json({ error: "Valid studentId is required" });
+  if (!studentId) { res.status(400).json({ error: "Valid studentId is required" }); return; }
 
   const student = await assertStudentInDistrict(studentId, districtId);
-  if (!student) return void res.status(404).json({ error: "Student not found in your district" });
+  if (!student) { res.status(404).json({ error: "Student not found in your district" }); return; }
 
   let meetingData: { id: number; meetingDate: string | null; meetingType: string | null; notes: string | null; actionItems: { id: string; description: string; assignee: string; dueDate: string | null; status: string }[] | null } | null = null;
   let attendees: { name: string; role: string; attended: boolean | null }[] = [];
@@ -34,7 +34,7 @@ router.post("/document-workflow/generate-pwn", async (req, res): Promise<void> =
       .innerJoin(studentsTable, eq(teamMeetingsTable.studentId, studentsTable.id))
       .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
       .where(and(eq(teamMeetingsTable.id, meetingId), eq(teamMeetingsTable.studentId, studentId), eq(schoolsTable.districtId, districtId)));
-    if (!m) return void res.status(404).json({ error: "Meeting not found for this student in your district" });
+    if (!m) { res.status(404).json({ error: "Meeting not found for this student in your district" }); return; }
     meetingData = m;
 
     attendees = await db.select({
