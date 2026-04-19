@@ -35,6 +35,7 @@ import { generateReportCSVDirect, buildScheduledReportPdf } from "../routes/repo
 import { runCostAvoidanceAlertGeneration } from "./costAvoidanceAlerts";
 import { runProviderActivationNudges } from "./providerActivationNudges";
 import { runApprovalReminders } from "./approvalReminders";
+import { runCoverageReminders } from "./coverageReminders";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
@@ -1052,6 +1053,7 @@ async function runAllReminders(): Promise<void> {
       runDemoDistrictExpiry(),
       runProviderActivationNudges().then(() => undefined),
       runApprovalReminders(),
+      runCoverageReminders().then(() => undefined),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {

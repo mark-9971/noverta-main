@@ -18,11 +18,13 @@ export const coverageInstancesTable = pgTable("coverage_instances", {
   isCovered: boolean("is_covered").notNull().default(false),
   absenceId: integer("absence_id").references(() => staffAbsencesTable.id),
   notes: text("notes"),
+  reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("ci_block_date_idx").on(table.scheduleBlockId, table.absenceDate),
   index("ci_absence_idx").on(table.absenceId),
   index("ci_covered_idx").on(table.isCovered, table.absenceDate),
+  index("ci_reminder_idx").on(table.absenceDate, table.reminderSentAt),
 ]);
 
 export const insertCoverageInstanceSchema = createInsertSchema(coverageInstancesTable).omit({ id: true, createdAt: true });

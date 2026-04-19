@@ -343,7 +343,7 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
 
   const [instance] = await db
     .update(coverageInstancesTable)
-    .set({ substituteStaffId: parsed.data.substituteStaffId, isCovered: true })
+    .set({ substituteStaffId: parsed.data.substituteStaffId, isCovered: true, reminderSentAt: null })
     .where(and(...conditions))
     .returning();
 
@@ -370,6 +370,7 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
     severity: "info",
     staffId: parsed.data.substituteStaffId,
     studentId: block?.studentId ?? null,
+    coverageInstanceId: instance.id,
     message: `You have been assigned to cover a session${studentName ? ` for ${studentName}` : ""} on ${instance.absenceDate}${block ? ` (${block.startTime}–${block.endTime})` : ""}${block?.location ? ` at ${block.location}` : ""}.`,
     suggestedAction: "Review session details and prepare for coverage",
   }).onConflictDoNothing();
