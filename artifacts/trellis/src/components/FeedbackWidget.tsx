@@ -23,7 +23,9 @@ const TYPES: Array<{ value: FeedbackType; label: string; description: string; ic
 // re-compress aggressively to stay well under the API's 2 MB hard cap.
 const SCREENSHOT_MAX_BYTES = 1_500_000;
 
+import { isScreenshotMode as __isScreenshotMode } from "@/lib/screenshot-mode";
 export function FeedbackWidget() {
+  if (__isScreenshotMode()) return null;
   const [eligible, setEligible] = useState<boolean | null>(null);
   const [open, setOpen] = useState(false);
 

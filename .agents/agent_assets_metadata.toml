@@ -161,3 +161,57 @@ id = "LLCYeP1LhCbXg5aI3GeBB"
 uri = "file://exports/batch6-other-artifacts.tar.gz"
 type = "unspecified"
 title = "Batch 6 — Other artifacts (decks, dashboard concepts, mockup-sandbox, .github)"
+
+[[outputs]]
+id = "FMBQFvcLrfzA3l2sOV7XX"
+uri = "file://artifacts/trellis/screenshots/final/01-dashboard.jpg"
+type = "image"
+title = "01 — Action Center (admin dashboard)"
+
+[[outputs]]
+id = "4nTHkhkKdTFTQNqxt_iPH"
+uri = "file://artifacts/trellis/screenshots/final/02-alerts.jpg"
+type = "image"
+title = "02 — Alerts (5,445 open)"
+
+[[outputs]]
+id = "WfbDG1yPK79qi-jxkZI8c"
+uri = "file://artifacts/trellis/screenshots/final/03-compliance-roster.jpg"
+type = "image"
+title = "03 — Compliance roster (100 SPED students)"
+
+[[outputs]]
+id = "l09eH0cGwTqbfvmUgFWtU"
+uri = "file://artifacts/trellis/screenshots/final/04-student-detail.jpg"
+type = "image"
+title = "04 — Student detail (Aaliyah Okonkwo)"
+
+[[outputs]]
+id = "ZJWFqT4eAar5if4Rxzq5L"
+uri = "file://artifacts/trellis/screenshots/final/05-sessions.jpg"
+type = "image"
+title = "05 — Session log"
+
+[[outputs]]
+id = "p0NUKfIOwpzEnWUz1t-2l"
+uri = "file://artifacts/trellis/screenshots/final/06-schedule.jpg"
+type = "image"
+title = "06 — Weekly schedule (6,537 blocks)"
+
+[[outputs]]
+id = "9DO0FAfIxWX_dIqIlh9ht"
+uri = "file://artifacts/trellis/screenshots/final/07-compensatory.jpg"
+type = "image"
+title = "07 — Compensatory exposure (239,599 min)"
+
+[[outputs]]
+id = "Vcv1LhWQFpD31OOUmeKD5"
+uri = "file://artifacts/trellis/screenshots/final/08-state-reporting.jpg"
+type = "image"
+title = "08 — MA state reporting"
+
+[[outputs]]
+id = "pi5m68sZNyCPYNWKo0Y2L"
+uri = "file://artifacts/trellis/screenshots/final/README.md"
+type = "text"
+title = "Captions + route URLs"

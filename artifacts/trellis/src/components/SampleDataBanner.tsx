@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { CheckCircle2, FlaskConical, Loader2, PlayCircle, Sparkles, X } from "lucide-react";
+import { isScreenshotMode } from "@/lib/screenshot-mode";
 
 const TOUR_STORAGE_PREFIX = "trellis.sampleTour.v1";
 const TOUR_START_FLAG = "trellis.sampleTour.start";
@@ -112,6 +113,7 @@ export function SampleDataBanner() {
   }, [alreadySeededNotice]);
 
   if (!isAdmin) return null;
+  if (isScreenshotMode()) return null;
 
   if (alreadySeededNotice) {
     return (
