@@ -3,11 +3,14 @@
  * demos.
  *
  * Panels currently filled in:
- *   - Slot 3:  Hero student / problem case generator (HeroCastPanel)
- *   - Slot 12: Environment reset / refresh district (ResetDistrictPanel)
+ *   - Slot  2: Demo flow launcher (persona walkthroughs).
+ *   - Slot  3: Hero student / problem case generator (HeroCastPanel).
+ *   - Slot  9: Role-based walkthrough toggle.
+ *   - Slot 12: Environment reset / refresh district (ResetDistrictPanel).
+ *   - Slot 13: Feature highlight mode toggle.
  * Other slots remain numbered placeholders awaiting their cluster tasks.
  *
- * Strict route guards:
+ * Strict route guards (unchanged from the shell):
  *   - Non-platform-admins see a 404-style stub. The route is also hidden
  *     from their nav (only platformAdminSection in nav-config.ts links it).
  *   - When the user's active scope is NOT a demo district, the page renders
@@ -21,14 +24,17 @@
  * is_demo=true district — and on the backend every endpoint re-verifies
  * is_demo before doing any work.
  */
+import * as React from "react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import { apiGet, apiPost } from "@/lib/api";
-import { useRole } from "@/lib/role-context";
+import { useRole, type UserRole } from "@/lib/role-context";
 import { useActiveDemoDistrict } from "@/components/DemoBanner";
 import { useSchoolContext } from "@/lib/school-context";
+import { useDemoMode } from "@/lib/demo-mode";
+import { PERSONA_WALKTHROUGHS } from "@/components/demo-control/walkthroughs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -42,8 +48,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Activity, FlaskConical, Users, RefreshCw, Sparkles, Loader2,
-  AlertTriangle, ExternalLink, RotateCcw,
+  Activity, FlaskConical, Compass, Users, Lightbulb, RefreshCw, Sparkles,
+  Loader2, AlertTriangle, ExternalLink, RotateCcw,
 } from "lucide-react";
 import BeforeAfterPanel from "@/components/demo-control/BeforeAfterPanel";
 import CompExposurePanel from "@/components/demo-control/CompExposurePanel";
@@ -90,11 +96,17 @@ interface ResetResponse {
 
 const TOTAL_PANEL_SLOTS = 13;
 
-/**
- * 404-style stub used both for non-admin callers and for admins whose
- * active scope isn't a demo district. Intentionally generic — we don't
- * tell strangers that this admin page exists.
- */
+// Roles available in the role-walkthrough toggle (Panel 9). The "Executive"
+// view shares the admin role but lands on a different home surface, mirroring
+// the persona walkthroughs in walkthroughs.ts.
+const PERSONA_TOGGLE: Array<{ id: string; label: string; role: UserRole; homeHref: string }> = [
+  { id: "admin",        label: "Admin",        role: "admin",        homeHref: "/" },
+  { id: "case_manager", label: "Case manager", role: "case_manager", homeHref: "/" },
+  { id: "bcba",         label: "BCBA",         role: "bcba",         homeHref: "/today" },
+  { id: "para",         label: "Para",         role: "para",         homeHref: "/my-day" },
+  { id: "executive",    label: "Executive",    role: "admin",        homeHref: "/executive" },
+];
+
 function NotFoundStub() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center" data-testid="demo-control-center-not-found">
@@ -405,31 +417,160 @@ function ResetDistrictPanel({ districtId, districtName }: {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Panels 2 / 9 / 13 — narrative cluster (in-meeting controls)
+// ---------------------------------------------------------------------------
+
+function DemoFlowLauncherPanel() {
+  const { flow, startFlow, exitFlow } = useDemoMode();
+  return (
+    <Card data-testid="demo-control-slot-2">
+      <PanelHeader num={2} title="Demo flow launcher" icon={Compass} />
+      <CardContent className="p-4">
+        <p className="text-xs text-gray-500 mb-3">
+          Start a persona walkthrough. The runner pins a "next step" widget to the screen so you don't have to fumble between routes mid-meeting.
+        </p>
+        <div className="space-y-2">
+          {PERSONA_WALKTHROUGHS.map((wt) => {
+            const active = flow?.flowId === wt.id;
+            return (
+              <button
+                key={wt.id}
+                type="button"
+                onClick={() => startFlow(wt.id)}
+                data-testid={`button-launch-flow-${wt.id}`}
+                className={`w-full text-left rounded-md border px-3 py-2 transition ${
+                  active
+                    ? "border-amber-400 bg-amber-50"
+                    : "border-gray-200 hover:border-amber-300 hover:bg-amber-50/40"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-gray-900">{wt.label} walkthrough</span>
+                  <span className="text-[11px] text-gray-500">{wt.steps.length} steps</span>
+                </div>
+                <div className="text-[12px] text-gray-500 mt-0.5">{wt.blurb}</div>
+              </button>
+            );
+          })}
+        </div>
+        {flow && (
+          <button
+            type="button"
+            onClick={exitFlow}
+            data-testid="button-stop-flow"
+            className="mt-3 w-full text-xs text-gray-600 hover:text-gray-900 underline"
+          >
+            Stop the active walkthrough
+          </button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoleWalkthroughTogglePanel() {
+  const { role, setRole, isPlatformAdmin } = useRole();
+  const [, navigate] = useLocation();
+  return (
+    <Card data-testid="demo-control-slot-9">
+      <PanelHeader num={9} title="Role-based walkthrough" icon={Users} />
+      <CardContent className="p-4">
+        <p className="text-xs text-gray-500 mb-3">
+          Switch the visible district story by persona. Filters dashboards and nav to that role's surfaces. Override is scoped to your session and only available to platform admins on demo districts.
+        </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {PERSONA_TOGGLE.map((p) => {
+            const active = role === p.role;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                disabled={!isPlatformAdmin}
+                onClick={() => {
+                  setRole(p.role);
+                  // setRole navigates to ROLE_HOME; for personas whose
+                  // landing surface differs (e.g. Executive → /executive)
+                  // override on the next tick so the persona-specific
+                  // surface is what the audience sees.
+                  setTimeout(() => navigate(p.homeHref), 0);
+                }}
+                data-testid={`button-toggle-role-${p.id}`}
+                className={`text-left rounded-md border px-2.5 py-2 text-xs font-medium transition ${
+                  active
+                    ? "border-amber-400 bg-amber-50 text-amber-900"
+                    : "border-gray-200 hover:border-amber-300 hover:bg-amber-50/40 text-gray-800"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {p.label}
+                <div className="text-[10.5px] font-normal text-gray-500">{p.homeHref}</div>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setRole("admin");
+            setTimeout(() => navigate("/demo-control-center"), 0);
+          }}
+          data-testid="button-revert-role"
+          className="mt-3 inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900"
+        >
+          <RotateCcw className="w-3 h-3" /> Revert to Admin
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FeatureHighlightModePanel() {
+  const { highlightMode, setHighlightMode } = useDemoMode();
+  return (
+    <Card data-testid="demo-control-slot-13">
+      <PanelHeader num={13} title="Feature highlight mode" icon={Lightbulb} />
+      <CardContent className="p-4">
+        <p className="text-xs text-gray-500 mb-3">
+          Optional in-app overlay. Highlights why a given alert exists, how a student got at risk, and how the most recent logged session updated compliance.
+        </p>
+        <div className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
+          <div>
+            <div className="text-sm font-medium text-gray-900">Highlight mode</div>
+            <div className="text-[11px] text-gray-500">
+              {highlightMode ? "On — overlays visible across the app" : "Off"}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHighlightMode(!highlightMode)}
+            data-testid="button-toggle-highlight-mode"
+            aria-pressed={highlightMode}
+            className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              highlightMode
+                ? "bg-amber-600 text-white hover:bg-amber-700"
+                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+            }`}
+          >
+            {highlightMode ? "Turn off" : "Turn on"}
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DemoControlCenterPage() {
   const { isPlatformAdmin } = useRole();
   const demoDistrict = useActiveDemoDistrict();
   const { setSelectedDistrictId } = useSchoolContext();
 
-  // Overview is informational — it populates the in-page selector with
-  // demo districts the admin can switch BETWEEN once at least one is
-  // already in scope. NEVER auto-applied: switching scope must be an
-  // explicit user action so we don't silently drag a non-demo admin
-  // into demo-district scope.
   const { data: overview } = useQuery<OverviewResponse>({
     queryKey: ["demo-control", "overview"],
     queryFn: () => apiGet<OverviewResponse>("/api/demo-control/overview"),
     enabled: isPlatformAdmin && !!demoDistrict,
   });
 
-  // Guard 1: non-admins see a 404 stub. Nav also hides the entry, but
-  // anyone hitting the URL directly still gets a stub, not the shell.
   if (!isPlatformAdmin) return <NotFoundStub />;
-
-  // Guard 2: admins whose active scope is non-demo (or unset) see the
-  // same 404 stub. They must select a demo district from the global
-  // district picker first; this page intentionally does not surface
-  // any UI that could nudge them into picking one without an explicit
-  // action elsewhere.
   if (!demoDistrict) return <NotFoundStub />;
 
   const demoOptions = overview?.demoDistricts ?? [];
@@ -441,10 +582,12 @@ export default function DemoControlCenterPage() {
     // active demo district unmounts/remounts them — that drops any local
     // cast / reset-result state from the previous district instead of
     // leaving stale rows visible.
+    if (n === 2) return <DemoFlowLauncherPanel key={n} />;
     if (n === 3) return <HeroCastPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 4) return <BeforeAfterPanel key={`${n}-${demoDistrict.id}`} districtName={demoDistrict.name} />;
     if (n === 5) return <CompExposurePanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 6) return <CaseloadSimulatorPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
+    if (n === 9) return <RoleWalkthroughTogglePanel key={n} />;
     if (n === 12) return (
       <ResetDistrictPanel
         key={`${n}-${demoDistrict.id}`}
@@ -452,6 +595,7 @@ export default function DemoControlCenterPage() {
         districtName={demoDistrict.name}
       />
     );
+    if (n === 13) return <FeatureHighlightModePanel key={n} />;
     return <PlaceholderSlot key={n} num={n} />;
   };
 
@@ -494,9 +638,6 @@ export default function DemoControlCenterPage() {
                   {d.name}
                 </SelectItem>
               ))}
-              {/* Fall back to the currently-active demo district if the
-                  overview hasn't loaded yet, so the trigger always has
-                  a matching option to render. */}
               {demoOptions.length === 0 && (
                 <SelectItem value={String(demoDistrict.id)} data-testid={`option-demo-district-${demoDistrict.id}`}>
                   {demoDistrict.name}

@@ -20,6 +20,8 @@ import { SampleDataBanner } from "@/components/SampleDataBanner";
 import { TrainingModeBanner, TrainingModeToggleButton } from "@/components/TrainingModeBanner";
 import { SampleDataTour } from "@/components/SampleDataTour";
 import { ShowcaseTour } from "@/components/ShowcaseTour";
+import { DemoFlowRunner } from "@/components/demo-control/DemoFlowRunner";
+import { HighlightOverlay } from "@/components/demo-control/HighlightOverlay";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { FloatingTimer } from "@/components/floating-timer";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
@@ -530,6 +532,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <SampleDataBanner />
         <SampleDataTour />
         <ShowcaseTour />
+        <DemoFlowRunner />
+        <HighlightOverlay />
         <SubscriptionBanner />
         <PilotDecisionBanner />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">

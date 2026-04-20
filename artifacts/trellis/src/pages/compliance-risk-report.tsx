@@ -533,7 +533,7 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                         <tr
                           key={`${r.studentId}-${r.service}-${i}`}
                           className="border-t hover:bg-gray-50/50"
-                          {...(i === 0 ? { "data-tour-id": "shortfall-student" } : {})}
+                          {...(i === 0 ? { "data-tour-id": "shortfall-student", "data-demo-highlight": "risk" } : {})}
                         >
                           <td className="px-3 py-2 font-medium">
                             <Link href={`/students/${r.studentId}`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors">

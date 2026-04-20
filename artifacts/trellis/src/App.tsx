@@ -14,6 +14,7 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { SchoolProvider } from "@/lib/school-context";
 import { TierProvider } from "@/lib/tier-context";
 import { SessionTimerProvider } from "@/lib/session-timer-context";
+import { DemoModeProvider } from "@/lib/demo-mode";
 import { FeatureGate } from "@/components/FeatureGate";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -516,7 +517,9 @@ function App() {
                           <SchoolProvider>
                             <TierProvider>
                               <SessionTimerProvider>
-                                <GatedContent />
+                                <DemoModeProvider>
+                                  <GatedContent />
+                                </DemoModeProvider>
                               </SessionTimerProvider>
                             </TierProvider>
                           </SchoolProvider>

@@ -50,8 +50,12 @@ export function SessionList(props: Props) {
           <ErrorBanner message="Failed to load sessions." onRetry={onRetry} />
         ) : isLoading ? (
           [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
-        ) : filtered.map(session => (
-          <Card key={session.id} className="overflow-hidden">
+        ) : filtered.map((session, sIdx) => (
+          <Card
+            key={session.id}
+            className="overflow-hidden"
+            {...(sIdx === 0 ? { "data-demo-highlight": "session" } : {})}
+          >
             <button className="w-full p-3.5 text-left" onClick={() => onToggleExpand(session)}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">

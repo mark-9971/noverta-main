@@ -355,12 +355,16 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
             }
             compact
           />
-        ) : filtered.map((a: any) => {
+        ) : filtered.map((a: any, alertIdx: number) => {
           const cfg = SEVERITY_CONFIG[a.severity] ?? SEVERITY_CONFIG.low;
           const sourceUrl = computeSourceUrl(a);
           const isSelected = selected.has(a.id);
           return (
-            <Card key={a.id} className={`border ${cfg.bg} transition-all ${isSelected ? "ring-2 ring-emerald-400" : ""}`}>
+            <Card
+              key={a.id}
+              className={`border ${cfg.bg} transition-all ${isSelected ? "ring-2 ring-emerald-400" : ""}`}
+              {...(alertIdx === 0 ? { "data-demo-highlight": "alert" } : {})}
+            >
               <div className="flex items-start gap-3 p-4">
                 {tab === "open" && (
                   <button onClick={() => toggleSelect(a.id)} className="mt-1 flex-shrink-0">
