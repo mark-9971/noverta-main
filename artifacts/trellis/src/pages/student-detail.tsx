@@ -32,7 +32,6 @@ import {
   supersedeServiceRequirement,
   deleteServiceRequirement,
   type UpdateServiceRequirementBody,
-  type SupersedeServiceRequirementBody,
   listServiceTypes,
   listStaff,
   createStaffAssignment,
@@ -59,6 +58,7 @@ import {
   SupersedeServiceRequirementDialog,
   detectRequiresSupersedeError,
 } from "@/components/supersede-service-requirement-dialog";
+import { performSupersede } from "./student-detail/supersede-flow";
 import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
 import StudentHandoffCard from "./student-detail/StudentHandoffCard";
 
@@ -166,11 +166,10 @@ export default function StudentDetail() {
   const [staffList, setStaffList] = useState<any[]>([]);
   const [svcForm, setSvcForm] = useState({ serviceTypeId: "", providerId: "", deliveryType: "direct", requiredMinutes: "", intervalType: "weekly", startDate: "", endDate: "", priority: "medium", notes: "" });
 
-  const [supersedeOpen, setSupersedeOpen] = useState(false);
-  const [supersedeSaving, setSupersedeSaving] = useState(false);
-  const [supersedeCreditedCount, setSupersedeCreditedCount] = useState(0);
-  const [supersedeDate, setSupersedeDate] = useState<string>("");
-  const [supersedePendingEdits, setSupersedePendingEdits] = useState<UpdateServiceRequirementBody | null>(null);
+  const supersedeFlow = useSupersedeFlow(supersedeServiceRequirement, () => {
+    refetchStudent();
+    refetchProgress();
+  });
 
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
@@ -537,40 +536,15 @@ export default function StudentDetail() {
   }
 
   async function handleConfirmSupersede() {
-    if (!editingSvc || !supersedePendingEdits) return;
-    if (!supersedeDate) { toast.error("Effective date is required"); return; }
-    setSupersedeSaving(true);
-    try {
-      const {
-        providerId,
-        deliveryType,
-        requiredMinutes,
-        intervalType,
-        endDate,
-        priority,
-        notes,
-      } = supersedePendingEdits;
-      const body: SupersedeServiceRequirementBody = {
-        supersedeDate,
-        providerId,
-        deliveryType,
-        requiredMinutes,
-        intervalType,
-        endDate,
-        priority,
-        notes,
-      };
-      await supersedeServiceRequirement(editingSvc.id, body);
+    if (!editingSvc) return;
+    if (!supersedeFlow.effectiveDate) { toast.error("Effective date is required"); return; }
+    const result = await supersedeFlow.confirm(editingSvc.id);
+    if (result.ok) {
       toast.success("New service requirement started");
-      setSupersedeOpen(false);
-      setSupersedePendingEdits(null);
       setEditingSvc(null);
-      refetchStudent();
-      refetchProgress();
-    } catch {
+    } else {
       toast.error("Failed to supersede service requirement");
     }
-    setSupersedeSaving(false);
   }
 
   async function handleDeleteSvc() {
