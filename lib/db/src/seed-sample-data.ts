@@ -348,16 +348,77 @@ const STAFF_BY_PROFILE: Record<Exclude<SizeProfile, "random">, Array<{ role: str
   ],
 };
 
-function buildStaffSeeds(profile: Exclude<SizeProfile, "random">): SampleStaffSeed[] {
+/**
+ * MA-SPED student-to-staff ratios used to scale staff counts when the roster
+ * exceeds the per-profile baseline (e.g. the 2,000-student stress seed).
+ * Keys match `STAFF_BY_PROFILE` slots: either the role alone, or
+ * `${role}:${titleIncludes}` for provider sub-specialties.
+ */
+const STAFF_RATIOS: Record<string, number> = {
+  "case_manager":              22,   // MA SPED guideline: 15–22 students per CM
+  "bcba":                      80,
+  "provider:Speech":           75,
+  "provider:Occupational":     80,
+  "provider:Physical":        250,
+  "provider:Counselor":       150,
+  "provider:Paraprofessional": 60,
+  "admin":                    250,
+};
+
+function buildStaffSeeds(
+  profile: Exclude<SizeProfile, "random">,
+  targetStudents?: number,
+): SampleStaffSeed[] {
   const out: SampleStaffSeed[] = [];
   for (const slot of STAFF_BY_PROFILE[profile]) {
+    const ratioKey = slot.titleIncludes ? `${slot.role}:${slot.titleIncludes}` : slot.role;
+    const ratio = STAFF_RATIOS[ratioKey];
+    const scaledCount = (targetStudents && ratio)
+      ? Math.max(slot.count, Math.ceil(targetStudents / ratio))
+      : slot.count;
+
     const candidates = SAMPLE_STAFF_POOL.filter(p =>
       p.role === slot.role
       && (slot.titleIncludes ? p.title.includes(slot.titleIncludes) : true)
       && !out.includes(p)
     );
-    for (let i = 0; i < slot.count && i < candidates.length; i++) {
-      out.push(candidates[i]);
+
+    // Take the named candidates first so the canonical roster (small/medium
+    // profiles) keeps the same primary names; synthesize the remainder when
+    // the scaled-up count exceeds the static pool.
+    let added = 0;
+    for (const c of candidates) {
+      if (added >= scaledCount) break;
+      out.push(c);
+      added++;
+    }
+    if (added < scaledCount) {
+      const templateTitle = candidates[0]?.title ?? slot.titleIncludes ?? slot.role;
+      const templateQuals = candidates[0]?.qualifications ?? "";
+      // Per-slot tag guarantees emails are globally unique across slots even
+      // when two slots happen to scale to the same count (e.g. case_manager
+      // and bcba both hit ceil(N/22) for some N). `staff.email` has no DB
+      // unique constraint today, so collisions silently break ambiguity in
+      // downstream lookups.
+      const slotTag = (slot.titleIncludes ?? slot.role)
+        .replace(/[^A-Za-z]/g, "")
+        .slice(0, 4)
+        .toLowerCase();
+      let synthIdx = 0;
+      while (added < scaledCount) {
+        const fn = FIRST_NAMES[(synthIdx * 17 + scaledCount * 7) % FIRST_NAMES.length];
+        const ln = LAST_NAMES[(synthIdx * 11 + scaledCount * 13) % LAST_NAMES.length];
+        out.push({
+          firstName: fn,
+          // `${ln}-${slotTag}${n}` is unique per (slot, ordinal) → unique email.
+          lastName: `${ln}-${slotTag}${synthIdx + 1}`,
+          role: slot.role,
+          title: templateTitle,
+          qualifications: templateQuals,
+        });
+        added++;
+        synthIdx++;
+      }
     }
   }
   return out;
@@ -881,7 +942,7 @@ export async function seedSampleDataForDistrict(
 
   // ── 2. Sample staff (8 members covering all roles) ──
 
-  const staffSeeds = buildStaffSeeds(sizeProfile);
+  const staffSeeds = buildStaffSeeds(sizeProfile, rosterOverride);
   const insertedStaff = await db.insert(staffTable).values(
     staffSeeds.map(s => ({
       firstName: s.firstName,
