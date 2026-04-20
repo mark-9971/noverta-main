@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { Loader2, X, FlaskConical, Sparkles, LogIn, Save, ShieldCheck } from "lucide-react";
+import { Loader2, X, FlaskConical, Sparkles, LogIn, Save, ShieldCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
@@ -392,10 +392,51 @@ interface SampleStatus {
  * realistic sample data in one click. Hides itself once sample data already
  * exists (the global SampleDataBanner takes over from there).
  */
+type Intensity = "low" | "medium" | "high";
+type DemoEmphasis = "compliance" | "comp_ed" | "caseload" | "behavior" | "executive";
+interface CustomSeedForm {
+  districtName: string;
+  schoolCount: number;
+  targetStudents: number;
+  caseManagerCount: number;
+  providerCount: number;
+  paraCount: number;
+  bcbaCount: number;
+  avgGoalsPerStudent: number;
+  avgRequiredMinutesPerWeek: number;
+  backfillMonths: number;
+  complianceHealth: Intensity;
+  staffingStrain: Intensity;
+  documentationQuality: Intensity;
+  compensatoryExposure: Intensity;
+  behaviorIntensity: Intensity;
+  demoEmphasis: DemoEmphasis;
+}
+const DEFAULT_CUSTOM_FORM: CustomSeedForm = {
+  districtName: "",
+  schoolCount: 5,
+  targetStudents: 60,
+  caseManagerCount: 4,
+  providerCount: 8,
+  paraCount: 6,
+  bcbaCount: 2,
+  avgGoalsPerStudent: 4,
+  avgRequiredMinutesPerWeek: 90,
+  backfillMonths: 8,
+  complianceHealth: "medium",
+  staffingStrain: "medium",
+  documentationQuality: "medium",
+  compensatoryExposure: "medium",
+  behaviorIntensity: "medium",
+  demoEmphasis: "compliance",
+};
+
 function SampleDataCta() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [form, setForm] = useState<CustomSeedForm>(DEFAULT_CUSTOM_FORM);
 
   const { data, isLoading } = useQuery<SampleStatus>({
     queryKey: ["sample-data/status"],
@@ -408,8 +449,17 @@ function SampleDataCta() {
   });
 
   const seed = useMutation({
-    mutationFn: async () => {
-      const r = await authFetch("/api/sample-data", { method: "POST" });
+    mutationFn: async (custom?: CustomSeedForm) => {
+      const init: RequestInit = { method: "POST" };
+      if (custom) {
+        init.headers = { "Content-Type": "application/json" };
+        // Only send a districtName when the user actually filled one in —
+        // otherwise let the seeder keep the existing district label.
+        const body: Partial<CustomSeedForm> = { ...custom };
+        if (!body.districtName?.trim()) delete body.districtName;
+        init.body = JSON.stringify(body);
+      }
+      const r = await authFetch("/api/sample-data", init);
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body?.error || "Failed to load sample data");
       return body;
@@ -449,14 +499,15 @@ function SampleDataCta() {
             See Trellis with realistic data — in 10 seconds
           </h2>
           <p className="text-xs text-gray-600 mt-0.5">
-            We'll seed 10 sample students, 5 providers, and 2 weeks of sessions
-            (with a few realistic shortfalls) so your dashboards aren't empty
-            while you set up your real district. Remove anytime.
+            We'll seed a realistic SPED roster (~50–100 students, full staff
+            mix, several months of session history with deliberate compliance
+            gaps) so your dashboards aren't empty while you set up your real
+            district. Use Advanced below to tailor the demo. Remove anytime.
           </p>
           {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
         </div>
         <button
-          onClick={() => { setError(null); seed.mutate(); }}
+          onClick={() => { setError(null); seed.mutate(undefined); }}
           disabled={seed.isPending}
           className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2 whitespace-nowrap"
           data-testid="button-seed-sample-data"
@@ -465,6 +516,166 @@ function SampleDataCta() {
           Try with sample data
         </button>
       </div>
+      <div className="mt-3 pt-3 border-t border-emerald-100">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen(o => !o)}
+          className="text-xs font-medium text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1"
+          data-testid="button-toggle-advanced-seed"
+        >
+          {advancedOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          Advanced — tailor this demo for a specific district
+        </button>
+        {advancedOpen && (
+          <CustomSeedForm
+            form={form}
+            onChange={setForm}
+            onSubmit={() => { setError(null); seed.mutate(form); }}
+            submitting={seed.isPending}
+          />
+        )}
+      </div>
     </div>
+  );
+}
+
+const INTENSITY_OPTIONS: { value: Intensity; label: string }[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
+const EMPHASIS_OPTIONS: { value: DemoEmphasis; label: string }[] = [
+  { value: "compliance", label: "Compliance crisis" },
+  { value: "comp_ed", label: "Comp-ed exposure ($$$)" },
+  { value: "caseload", label: "Caseload / staffing strain" },
+  { value: "behavior", label: "Behavior-heavy district" },
+  { value: "executive", label: "Executive overview (balanced)" },
+];
+
+interface CustomSeedFormProps {
+  form: CustomSeedForm;
+  onChange: (next: CustomSeedForm) => void;
+  onSubmit: () => void;
+  submitting: boolean;
+}
+
+function CustomSeedForm({ form, onChange, onSubmit, submitting }: CustomSeedFormProps) {
+  const set = <K extends keyof CustomSeedForm>(k: K, v: CustomSeedForm[K]) =>
+    onChange({ ...form, [k]: v });
+  const num = (k: keyof CustomSeedForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const n = Number(e.target.value);
+    if (Number.isFinite(n)) set(k, n as CustomSeedForm[typeof k]);
+  };
+
+  const NumField = ({
+    label, k, min, max, step = 1, hint,
+  }: { label: string; k: keyof CustomSeedForm; min: number; max: number; step?: number; hint?: string }) => (
+    <label className="block">
+      <span className="text-[11px] font-medium text-gray-700">{label}</span>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={form[k] as number}
+        onChange={num(k)}
+        className="mt-0.5 block w-full rounded border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+        data-testid={`input-seed-${k}`}
+      />
+      {hint && <span className="text-[10px] text-gray-500">{hint}</span>}
+    </label>
+  );
+
+  const IntensitySelect = ({ label, k }: { label: string; k: keyof CustomSeedForm }) => (
+    <label className="block">
+      <span className="text-[11px] font-medium text-gray-700">{label}</span>
+      <select
+        value={form[k] as string}
+        onChange={(e) => set(k, e.target.value as CustomSeedForm[typeof k])}
+        className="mt-0.5 block w-full rounded border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+        data-testid={`select-seed-${k}`}
+      >
+        {INTENSITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </label>
+  );
+
+  return (
+    <form
+      className="mt-3 space-y-4"
+      onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
+      data-testid="form-custom-seed"
+    >
+      <Section title="District basics">
+        <label className="block sm:col-span-2">
+          <span className="text-[11px] font-medium text-gray-700">District display name (optional)</span>
+          <input
+            type="text"
+            value={form.districtName}
+            onChange={(e) => set("districtName", e.target.value)}
+            placeholder="e.g. MetroWest Collaborative"
+            className="mt-0.5 block w-full rounded border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+            data-testid="input-seed-districtName"
+          />
+        </label>
+        <NumField label="Schools" k="schoolCount" min={1} max={12} />
+        <NumField label="SPED students" k="targetStudents" min={5} max={2000} />
+        <NumField label="Avg goals / student" k="avgGoalsPerStudent" min={1} max={8} />
+        <NumField label="Avg required min / week" k="avgRequiredMinutesPerWeek" min={30} max={300} />
+        <NumField label="Backfill (months)" k="backfillMonths" min={1} max={12} />
+      </Section>
+
+      <Section title="Staffing">
+        <NumField label="Case managers" k="caseManagerCount" min={0} max={200} />
+        <NumField label="Related-service providers" k="providerCount" min={0} max={200} hint="Speech / OT / PT / Counselor — split evenly" />
+        <NumField label="Paraprofessionals" k="paraCount" min={0} max={200} />
+        <NumField label="BCBAs" k="bcbaCount" min={0} max={50} />
+      </Section>
+
+      <Section title="District health (drives compliance %, on-time logging, exposure)">
+        <IntensitySelect label="Compliance health" k="complianceHealth" />
+        <IntensitySelect label="Staffing strain" k="staffingStrain" />
+        <IntensitySelect label="Documentation quality" k="documentationQuality" />
+        <IntensitySelect label="Compensatory-ed exposure" k="compensatoryExposure" />
+        <IntensitySelect label="Behavior intensity" k="behaviorIntensity" />
+      </Section>
+
+      <Section title="Demo story" cols={1}>
+        <label className="block">
+          <span className="text-[11px] font-medium text-gray-700">What story should this demo tell?</span>
+          <select
+            value={form.demoEmphasis}
+            onChange={(e) => set("demoEmphasis", e.target.value as DemoEmphasis)}
+            className="mt-0.5 block w-full rounded border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+            data-testid="select-seed-demoEmphasis"
+          >
+            {EMPHASIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <span className="text-[10px] text-gray-500">Boosts the headline scenarios for the chosen narrative.</span>
+        </label>
+      </Section>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
+          data-testid="button-seed-custom"
+        >
+          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          Seed this district
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Section({ title, children, cols = 3 }: { title: string; children: React.ReactNode; cols?: 1 | 2 | 3 }) {
+  const grid = cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3";
+  return (
+    <fieldset className="rounded-lg border border-gray-200 bg-white/60 p-3">
+      <legend className="px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600">{title}</legend>
+      <div className={`grid ${grid} gap-3`}>{children}</div>
+    </fieldset>
   );
 }

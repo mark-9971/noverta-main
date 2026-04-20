@@ -368,14 +368,48 @@ const STAFF_RATIOS: Record<string, number> = {
 function buildStaffSeeds(
   profile: Exclude<SizeProfile, "random">,
   targetStudents?: number,
+  shape?: SeedShape,
 ): SampleStaffSeed[] {
   const out: SampleStaffSeed[] = [];
+  // Distribute the user-supplied "providerCount" across the four specialty
+  // slots (Speech / Occupational / Physical / Counselor) when present.
+  // Splits as evenly as possible: extras land in the earlier slots.
+  const providerSlotKeys = ["provider:Speech", "provider:Occupational", "provider:Physical", "provider:Counselor"];
+  let providerSplit: Map<string, number> | null = null;
+  if (shape?.staffOverrides.provider != null) {
+    providerSplit = new Map();
+    const total = Math.max(0, Math.floor(shape.staffOverrides.provider));
+    const base = Math.floor(total / providerSlotKeys.length);
+    let rem = total - base * providerSlotKeys.length;
+    for (const k of providerSlotKeys) {
+      providerSplit.set(k, base + (rem > 0 ? 1 : 0));
+      if (rem > 0) rem--;
+    }
+  }
   for (const slot of STAFF_BY_PROFILE[profile]) {
     const ratioKey = slot.titleIncludes ? `${slot.role}:${slot.titleIncludes}` : slot.role;
     const ratio = STAFF_RATIOS[ratioKey];
-    const scaledCount = (targetStudents && ratio)
-      ? Math.max(slot.count, Math.ceil(targetStudents / ratio))
-      : slot.count;
+    // Per-knob overrides take precedence over the auto-scaled ratio.
+    let scaledCount: number;
+    const ovr = shape?.staffOverrides;
+    if (ovr?.caseManager != null && slot.role === "case_manager") {
+      scaledCount = Math.max(0, Math.floor(ovr.caseManager));
+    } else if (ovr?.bcba != null && slot.role === "bcba") {
+      scaledCount = Math.max(0, Math.floor(ovr.bcba));
+    } else if (ovr?.paraprofessional != null && ratioKey === "provider:Paraprofessional") {
+      scaledCount = Math.max(0, Math.floor(ovr.paraprofessional));
+    } else if (providerSplit && providerSplit.has(ratioKey)) {
+      scaledCount = providerSplit.get(ratioKey)!;
+    } else if (targetStudents && ratio) {
+      // staffingStrain skews the ratio: high strain → more students per
+      // staff (ceil(students / (ratio × multiplier))), low strain →
+      // fewer students per staff. Defaults to 1× when shape absent.
+      const mult = shape?.staffRatioMultiplier ?? 1;
+      const effRatio = Math.max(1, ratio * mult);
+      scaledCount = Math.max(slot.count, Math.ceil(targetStudents / effRatio));
+    } else {
+      scaledCount = slot.count;
+    }
 
     const candidates = SAMPLE_STAFF_POOL.filter(p =>
       p.role === slot.role
@@ -504,6 +538,17 @@ export interface SeedSampleResult {
   sizeProfile: Exclude<SizeProfile, "random">;
 }
 
+/** Three-level slider used by the v1 custom-seed inputs. */
+export type Intensity = "low" | "medium" | "high";
+
+/** Demo narrative the seeded data should emphasize. */
+export type DemoEmphasis =
+  | "compliance"
+  | "comp_ed"
+  | "caseload"
+  | "behavior"
+  | "executive";
+
 export interface SeedSampleOptions {
   /** District size profile. Defaults to "medium". See `SizeProfile` for details. */
   sizeProfile?: SizeProfile;
@@ -519,6 +564,154 @@ export interface SeedSampleOptions {
    * SAMPLE_STAFF_POOL allows).
    */
   targetStudents?: number;
+
+  // ── v1 custom-seed inputs (admin "Custom sample data" form) ──
+  // All fields are optional; omitting one keeps the existing default. Each
+  // knob has a measurable effect on the seeded roster so the form can be
+  // used to tailor a demo to a specific story (compliance crisis, comp-ed
+  // exposure, behavior-heavy district, etc.).
+
+  /** Display name when the seeder has to auto-provision the district stub. */
+  districtName?: string;
+  /** Number of schools to use (1–12). Defaults to 5. */
+  schoolCount?: number;
+  /** Override case-manager count. Without this, count auto-scales from roster size. */
+  caseManagerCount?: number;
+  /** Override total non-para provider count (split across SLP/OT/PT/Counselor). */
+  providerCount?: number;
+  /** Override paraprofessional count. */
+  paraCount?: number;
+  /** Override BCBA count. */
+  bcbaCount?: number;
+  /** Average IEP goals per student (1–8). Defaults to 3–5 random. */
+  avgGoalsPerStudent?: number;
+  /** Average required service minutes per week (30–300). Defaults to ~15–90/wk. */
+  avgRequiredMinutesPerWeek?: number;
+  /** How many months of session history to backfill (1–12). Defaults to ~8. */
+  backfillMonths?: number;
+  /** Compliance health: low → more shortfalls; high → mostly on-track. */
+  complianceHealth?: Intensity;
+  /** Staffing strain: low → light caseloads; high → over-stretched providers. */
+  staffingStrain?: Intensity;
+  /** Documentation quality: low → high logging lag; high → mostly on-time. */
+  documentationQuality?: Intensity;
+  /** Compensatory exposure: scales crisis + compensatory_risk scenarios. */
+  compensatoryExposure?: Intensity;
+  /** Behavior intensity: scales behavior_plan + incident_history scenarios. */
+  behaviorIntensity?: Intensity;
+  /** Demo story focus — boosts the headline scenarios for that narrative. */
+  demoEmphasis?: DemoEmphasis;
+}
+
+/**
+ * Resolved knob bundle that the seeder body actually reads. Built once at the
+ * top of `seedSampleDataForDistrict()` so every downstream insertion can
+ * branch on the *same* config without re-deriving it.
+ */
+interface SeedShape {
+  schoolCount: number;
+  goalsRange: readonly [number, number];
+  reqMinutesMonthlyRange: readonly [number, number];
+  backfillDays: number;
+  completionMultiplier: number;
+  onTimeLogProb: number;
+  staffRatioMultiplier: number;
+  scenarioWeights: Partial<Record<Exclude<Scenario, "healthy">, number>>;
+  staffOverrides: { caseManager?: number; bcba?: number; provider?: number; paraprofessional?: number };
+}
+
+const INTENSITY_TO_COMPLETION: Record<Intensity, number> = { low: 0.65, medium: 1.0, high: 1.20 };
+const INTENSITY_TO_ONTIME:    Record<Intensity, number> = { low: 0.45, medium: 0.75, high: 0.92 };
+const INTENSITY_TO_STAFFRATIO: Record<Intensity, number> = { low: 0.7, medium: 1.0, high: 1.5 };
+const INTENSITY_TO_SCALE:     Record<Intensity, number> = { low: 0.4, medium: 1.0, high: 1.8 };
+
+function resolveSeedShape(opts: SeedSampleOptions): SeedShape {
+  const schoolCount = Math.max(1, Math.min(12, opts.schoolCount ?? 5));
+
+  // Goals/student: center on the requested mean, +/- 1.
+  const g = opts.avgGoalsPerStudent != null
+    ? Math.max(1, Math.min(8, Math.round(opts.avgGoalsPerStudent)))
+    : null;
+  const goalsRange: readonly [number, number] = g != null
+    ? [Math.max(1, g - 1), Math.min(8, g + 1)]
+    : [3, 5];
+
+  // Weekly minutes → monthly minutes (×4.345). Range = ±40% around the mean.
+  let reqMinutesMonthlyRange: readonly [number, number] = SAMPLE_BOUNDS.requiredMinutes;
+  if (opts.avgRequiredMinutesPerWeek != null) {
+    const w = Math.max(30, Math.min(300, opts.avgRequiredMinutesPerWeek));
+    const monthly = Math.round(w * 4.345);
+    reqMinutesMonthlyRange = [
+      Math.max(30, Math.round(monthly * 0.6)),
+      Math.min(600, Math.round(monthly * 1.4)),
+    ];
+  }
+
+  const backfillDays = Math.max(20, Math.min(365, Math.round((opts.backfillMonths ?? 8) * 30)));
+
+  const completionMultiplier = INTENSITY_TO_COMPLETION[opts.complianceHealth ?? "medium"];
+  const onTimeLogProb        = INTENSITY_TO_ONTIME[opts.documentationQuality ?? "medium"];
+  const staffRatioMultiplier = INTENSITY_TO_STAFFRATIO[opts.staffingStrain ?? "medium"];
+
+  const compMul = INTENSITY_TO_SCALE[opts.compensatoryExposure ?? "medium"];
+  const behMul  = INTENSITY_TO_SCALE[opts.behaviorIntensity ?? "medium"];
+  const scenarioWeights: Partial<Record<Exclude<Scenario, "healthy">, number>> = {
+    crisis: compMul,
+    compensatory_risk: compMul,
+    urgent: 1.0,
+    shortfall: 1.0,
+    behavior_plan: behMul,
+    incident_history: behMul,
+  };
+  const emphasisBoost = 1.4;
+  switch (opts.demoEmphasis) {
+    case "compliance":
+      scenarioWeights.shortfall = (scenarioWeights.shortfall ?? 1) * emphasisBoost;
+      scenarioWeights.urgent    = (scenarioWeights.urgent ?? 1) * emphasisBoost;
+      scenarioWeights.annual_review_due = (scenarioWeights.annual_review_due ?? 1) * emphasisBoost;
+      break;
+    case "comp_ed":
+      scenarioWeights.crisis            = (scenarioWeights.crisis ?? 1) * emphasisBoost;
+      scenarioWeights.compensatory_risk = (scenarioWeights.compensatory_risk ?? 1) * emphasisBoost;
+      break;
+    case "behavior":
+      scenarioWeights.behavior_plan    = (scenarioWeights.behavior_plan ?? 1) * emphasisBoost;
+      scenarioWeights.incident_history = (scenarioWeights.incident_history ?? 1) * emphasisBoost;
+      break;
+    case "caseload":
+      // Caseload story = "we're drowning in students under-served." Push
+      // shortfall + urgent so dashboards light up red, and add a behavior_plan
+      // bump so case managers visibly carry complex kids on top of the volume.
+      scenarioWeights.shortfall     = (scenarioWeights.shortfall ?? 1) * emphasisBoost;
+      scenarioWeights.urgent        = (scenarioWeights.urgent ?? 1) * emphasisBoost;
+      scenarioWeights.behavior_plan = (scenarioWeights.behavior_plan ?? 1) * emphasisBoost;
+      break;
+    case "executive":
+      // Executive overview = balanced "win + risk + maintenance" snapshot.
+      // Lift recovered (the green-checkmark story) and annual_review_due
+      // (the calendar-driven workload metric) so leadership reports show
+      // both progress and upcoming load instead of pure crisis.
+      scenarioWeights.recovered          = (scenarioWeights.recovered ?? 1) * emphasisBoost;
+      scenarioWeights.annual_review_due  = (scenarioWeights.annual_review_due ?? 1) * emphasisBoost;
+      break;
+  }
+
+  return {
+    schoolCount,
+    goalsRange,
+    reqMinutesMonthlyRange,
+    backfillDays,
+    completionMultiplier,
+    onTimeLogProb,
+    staffRatioMultiplier,
+    scenarioWeights,
+    staffOverrides: {
+      caseManager: opts.caseManagerCount,
+      bcba: opts.bcbaCount,
+      provider: opts.providerCount,
+      paraprofessional: opts.paraCount,
+    },
+  };
 }
 
 /**
@@ -601,7 +794,12 @@ type StudentDef = { scenario: Scenario; schoolIdx: number; grades: string[]; dis
  * Schools and grade bands cycle so students are spread across all 5
  * sample schools (or as many as exist) and across K–12.
  */
-function buildStudentDefs(profile: Exclude<SizeProfile, "random">, schoolCount: number, overrideTarget?: number): StudentDef[] {
+function buildStudentDefs(
+  profile: Exclude<SizeProfile, "random">,
+  schoolCount: number,
+  overrideTarget?: number,
+  scenarioWeights?: Partial<Record<Exclude<Scenario, "healthy">, number>>,
+): StudentDef[] {
   const target = overrideTarget ?? SIZE_PROFILES[profile].students;
   const defs: StudentDef[] = [];
   const counts = SCENARIO_COUNTS_BY_PROFILE[profile];
@@ -639,7 +837,13 @@ function buildStudentDefs(profile: Exclude<SizeProfile, "random">, schoolCount: 
     "annual_review_due", "esy_eligible",
   ];
   for (const scenario of SCENARIO_ORDER) {
-    const n = counts[scenario] ?? 0;
+    const baseN = counts[scenario] ?? 0;
+    const weight = scenarioWeights?.[scenario] ?? 1;
+    // Always emit at least 1 of each scenario when the base profile included
+    // it (so dashboards keep coverage even at low intensity); cap to keep
+    // healthy fill from going negative for tiny rosters.
+    const scaledN = baseN === 0 ? 0 : Math.max(1, Math.round(baseN * weight));
+    const n = Math.min(scaledN, Math.max(0, target - defs.length));
     const preset = SPECIAL_PRESETS[scenario];
     for (let i = 0; i < n; i++) {
       defs.push({
@@ -726,7 +930,10 @@ function buildCadenceSessionRows(
   endDate: string,
   schoolYearId: number,
   rateAt: (weekIdx: number, totalWeeks: number) => number,
+  opts: { completionMultiplier?: number; onTimeLogProb?: number } = {},
 ): (typeof sessionLogsTable.$inferInsert)[] {
+  const completionMultiplier = opts.completionMultiplier ?? 1;
+  const onTimeLogProb = opts.onTimeLogProb ?? 0.75;
   const rows: (typeof sessionLogsTable.$inferInsert)[] = [];
   const sessionMin = 30;
   // Monthly minutes ÷ 4.345 weeks ÷ 30-min sessions, clamped 1..5/week.
@@ -760,7 +967,8 @@ function buildCadenceSessionRows(
     }
     if (weekDays.length > 0) {
       const picks = sshuffle(weekDays).slice(0, Math.min(sessionsPerWeek, weekDays.length));
-      const rate = Math.max(0, Math.min(1, rateAt(weekIdx, totalWeeks)));
+      const baseRate = rateAt(weekIdx, totalWeeks);
+      const rate = Math.max(0, Math.min(1, baseRate * completionMultiplier));
       for (const date of picks) {
         const completed = srand() < rate;
         // ~6% of completed sessions are makeup sessions covering an
@@ -774,7 +982,7 @@ function buildCadenceSessionRows(
         // (~75%), but a realistic minority lag 1–10 days. Setting
         // created_at explicitly lets the "late documentation" dashboards
         // show a real distribution. Future "scheduled" rows skip this.
-        const lagDays = srand() < 0.75 ? 0 : Math.floor(srand() * 10) + 1;
+        const lagDays = srand() < onTimeLogProb ? 0 : Math.floor(srand() * 10) + 1;
         const createdAt = new Date(`${date}T${minToTime(startMin + sessionMin)}:00Z`);
         createdAt.setUTCDate(createdAt.getUTCDate() + lagDays);
         rows.push({
@@ -818,6 +1026,7 @@ export async function seedSampleDataForDistrict(
   // different rosters (names, scenario assignments, completion patterns).
   setSeed(districtId);
 
+  const shape = resolveSeedShape(options);
   const sizeProfile = resolveSizeProfile(options.sizeProfile);
   // When the caller does not specify a profile, randomize the roster size
   // in the 50–100 range so each of the ~30 pilot districts looks unique
@@ -839,10 +1048,14 @@ export async function seedSampleDataForDistrict(
   // doesn't collide on this id.
   let [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, districtId));
   if (!district) {
+    // Honor caller-supplied districtName when auto-provisioning so demo
+    // setups can label the district up front (e.g. "MetroWest Collaborative")
+    // instead of the generic "District 17".
+    const provisionedName = (options.districtName?.trim()) || `District ${districtId}`;
     await db.insert(districtsTable)
       .values({
         id: districtId,
-        name: `District ${districtId}`,
+        name: provisionedName,
         tier: "essentials",
         isDemo: false,
         isPilot: false,
@@ -858,21 +1071,32 @@ export async function seedSampleDataForDistrict(
     `);
     [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, districtId));
     if (!district) throw new Error(`District ${districtId} could not be auto-provisioned`);
+  } else if (options.districtName?.trim() && district.name?.startsWith("District ")) {
+    // Existing auto-provisioned stub ("District 17"): allow rename when the
+    // caller supplied a real label. We deliberately do NOT overwrite a
+    // human-set district name to avoid clobbering production data.
+    const newName = options.districtName.trim();
+    await db.update(districtsTable).set({ name: newName }).where(eq(districtsTable.id, districtId));
+    district = { ...district, name: newName };
   }
 
-  // Ensure 5 schools exist
+  // Ensure enough schools exist to satisfy shape.schoolCount. SCHOOL_NAMES
+  // covers the first 5; beyond that we generate "School 6", "School 7", …
+  // so requesting schoolCount=12 produces 12 *distinct* schools rather than
+  // silently reusing the first one.
   let existingSchools = await db.select().from(schoolsTable).where(eq(schoolsTable.districtId, districtId));
-  const schoolsToCreate = SCHOOL_NAMES.slice(existingSchools.length);
-  if (schoolsToCreate.length > 0) {
+  const desiredSchoolCount = Math.max(shape.schoolCount, existingSchools.length);
+  if (existingSchools.length < desiredSchoolCount) {
+    const namesNeeded: string[] = [];
+    for (let i = existingSchools.length; i < desiredSchoolCount; i++) {
+      namesNeeded.push(SCHOOL_NAMES[i] ?? `School ${i + 1}`);
+    }
     const newSchools = await db.insert(schoolsTable).values(
-      schoolsToCreate.map(name => ({ districtId, name })),
+      namesNeeded.map(name => ({ districtId, name })),
     ).returning();
     existingSchools = [...existingSchools, ...newSchools];
   }
-  // Use up to 5 schools
-  const schools = existingSchools.slice(0, 5);
-  // Fallback: if district had fewer than 5, fill remaining with the first school
-  while (schools.length < 5) schools.push(schools[0]);
+  const schools = existingSchools.slice(0, shape.schoolCount);
 
   let [schoolYear] = await db.select().from(schoolYearsTable)
     .where(and(eq(schoolYearsTable.districtId, districtId), eq(schoolYearsTable.isActive, true)));
@@ -903,7 +1127,7 @@ export async function seedSampleDataForDistrict(
 
   // ── 2. Sample staff (8 members covering all roles) ──
 
-  const staffSeeds = buildStaffSeeds(sizeProfile, rosterOverride);
+  const staffSeeds = buildStaffSeeds(sizeProfile, rosterOverride, shape);
   const insertedStaff = await db.insert(staffTable).values(
     staffSeeds.map(s => ({
       firstName: s.firstName,
@@ -975,7 +1199,7 @@ export async function seedSampleDataForDistrict(
   // Roster size and scenario mix come from the chosen size profile so a
   // small district doesn't look identical to a large one. See
   // `SCENARIO_COUNTS_BY_PROFILE` for the per-profile scenario distribution.
-  const STUDENT_DEFS = buildStudentDefs(sizeProfile, schools.length, rosterOverride);
+  const STUDENT_DEFS = buildStudentDefs(sizeProfile, schools.length, rosterOverride, shape.scenarioWeights);
 
   const today = new Date().toISOString().split("T")[0];
   const usedNames = new Set<string>();
@@ -1112,7 +1336,7 @@ export async function seedSampleDataForDistrict(
   for (const s of insertedStudents) {
     const idx = insertedStudents.indexOf(s);
     const def = STUDENT_DEFS[idx];
-    const numGoals = rand(3, 5);
+    const numGoals = rand(shape.goalsRange[0], shape.goalsRange[1]);
 
     // Transition student gets transition-specific goals
     const priorityAreas: string[] = def.scenario === "transition"
@@ -1179,12 +1403,12 @@ export async function seedSampleDataForDistrict(
       // Crisis students need high required minutes to generate >$3K exposure
       const reqMin = spec.scenario === "crisis"
         ? rand(240, 360)
-        : rand(SAMPLE_BOUNDS.requiredMinutes[0], SAMPLE_BOUNDS.requiredMinutes[1]);
+        : rand(shape.reqMinutesMonthlyRange[0], shape.reqMinutesMonthlyRange[1]);
 
       // Backdate startDate to span the full session history window so historical
       // compliance reports can render (sessions go back ~180 weekdays).
       // Use earlier of: 240 days ago or the student's enrollment date.
-      const sessionWindowStart = addDays(today, -240);
+      const sessionWindowStart = addDays(today, -shape.backfillDays);
       const enrolledAt = (spec as { enrolledAt?: string }).enrolledAt;
       const startDate = enrolledAt && enrolledAt < sessionWindowStart
         ? sessionWindowStart
@@ -1222,6 +1446,10 @@ export async function seedSampleDataForDistrict(
 
   const sessionRows: (typeof sessionLogsTable.$inferInsert)[] = [];
 
+  const cadenceOpts = {
+    completionMultiplier: shape.completionMultiplier,
+    onTimeLogProb: shape.onTimeLogProb,
+  };
   for (const spec of studentSpecs) {
     const srs = srByStudent.get(spec.id) ?? [];
     for (const sr of srs) {
@@ -1232,7 +1460,7 @@ export async function seedSampleDataForDistrict(
           const lo = 0.30;
           const hi = randf(0.92, 0.98);
           sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id,
-            (w, tw) => lo + ((hi - lo) * (w / Math.max(1, tw - 1)))));
+            (w, tw) => lo + ((hi - lo) * (w / Math.max(1, tw - 1))), cadenceOpts));
           break;
         }
         case "sliding": {
@@ -1240,12 +1468,12 @@ export async function seedSampleDataForDistrict(
           const hi = randf(0.88, 0.96);
           const lo = randf(0.35, 0.48);
           sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id,
-            (w, tw) => hi - ((hi - lo) * (w / Math.max(1, tw - 1)))));
+            (w, tw) => hi - ((hi - lo) * (w / Math.max(1, tw - 1))), cadenceOpts));
           break;
         }
         case "crisis": {
           const r = randf(0.22, 0.32);
-          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r));
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r, cadenceOpts));
           break;
         }
         case "behavior_plan":
@@ -1255,14 +1483,14 @@ export async function seedSampleDataForDistrict(
         case "esy_eligible": {
           const [lo, hi] = COMPLETION_RATE_RANGES[spec.scenario];
           const r = randf(lo, hi);
-          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r));
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r, cadenceOpts));
           break;
         }
         default: {
           // Cadence-based fallback for any unhandled scenario
           const [lo, hi] = COMPLETION_RATE_RANGES[spec.scenario];
           const r = randf(lo, hi);
-          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r));
+          sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r, cadenceOpts));
           break;
         }
       }

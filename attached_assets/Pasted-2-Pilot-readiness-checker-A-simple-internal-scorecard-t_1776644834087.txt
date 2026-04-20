@@ -1,0 +1,188 @@
+2. Pilot readiness checker
+
+A simple internal scorecard that says:
+
+are all key pages populated?
+are there enough alerts?
+are there enough overdue items?
+are there hero students?
+are My Day, Sessions, Compensatory, Executive all non-empty?
+are the seeded metrics coherent?
+
+Why it helps:
+
+avoids embarrassing empty states mid-demo
+tells you if the demo district is actually usable
+3. Demo flow launcher
+
+A lightweight panel that says:
+
+Start admin story
+Start coordinator story
+Start para story
+Start BCBA story
+Start executive story
+
+And it opens the right route in order.
+
+Why it helps:
+
+removes demo fumbling
+makes live presentation smoother
+especially useful if multiple people demo the product
+4. Hero student / problem case generator
+
+Instead of only random data, generate:
+
+1 overloaded case manager
+1 student with missed minutes
+1 student with comp-ed owed
+1 student with overdue IEP/progress issue
+1 behavior-heavy student
+1 “everything is healthy” student
+
+Why it helps:
+
+gives you concrete stories to click into
+makes student detail pages feel purposeful
+5. District comparison / before-vs-after estimator
+
+A simple calculator that estimates:
+
+hours spent reconciling service minutes today
+hours spent on makeup tracking
+hours spent building leadership reports
+number of spreadsheets currently maintained
+number of unresolved missing logs / missed services
+
+Then shows:
+
+what Trellis centralizes
+what gets automated
+what becomes visible sooner
+
+Why it helps:
+
+sells value, not just features
+6. Compensatory exposure simulator
+
+Let a demo runner adjust:
+
+missed-session rate
+recovery speed
+staffing strain
+contractor cost assumptions
+
+Then instantly show:
+
+exposure rising or falling
+who is driving it
+what recovery would look like
+
+Why it helps:
+
+very compelling for admin/executive buyers
+7. Caseload balancing simulator
+
+Tool where you can:
+
+move students/providers around
+simulate vacancy or leave
+see overload and uncovered minutes change
+
+Why it helps:
+
+districts understand staffing pain immediately
+turns Trellis into planning software, not just tracking
+8. Import / spreadsheet conversion preview
+
+Upload or mock:
+
+district’s current minute tracker
+provider spreadsheet
+caseload sheet
+
+Then show how it becomes:
+
+students
+services
+session logs
+alerts
+compliance view
+
+Why it helps:
+
+bridges from “what they have now” to “what this becomes”
+
+Even if it is partly fake/manual for now, the demo value is high.
+
+9. Executive packet generator
+
+Generate a one-page district summary with:
+
+compliance %
+students at risk
+comp-ed exposure
+overdue IEPs / progress reports
+staffing strain indicators
+trend vs prior month
+
+Why it helps:
+
+superintendents and directors love forwardable summaries
+reinforces the “leadership-ready” story
+10. Role-based walkthrough toggle
+
+A button to instantly switch the visible district story by role:
+
+Admin view
+Case manager view
+BCBA view
+Para view
+Executive summary
+
+Why it helps:
+
+especially useful in multi-stakeholder meetings
+keeps each persona clean and relevant
+Nice second-tier tools
+11. Data realism / sanity checker
+
+Checks for demo weirdness like:
+
+empty pages
+impossible caseloads
+too many identical students
+missing related records
+no overdue work
+no alerts
+no recent sessions
+12. Alert density tuner
+
+Quickly set:
+
+low / medium / high alert volume
+compliance risk severity
+documentation backlog
+
+Useful if the seeded district is too clean or too messy.
+
+13. Environment reset / refresh district
+
+One click:
+
+wipe demo district
+reseed
+restore default story
+
+Very useful if multiple demos happen.
+
+14. Feature highlight mode
+
+A temporary overlay or guide that highlights:
+
+why this alert exists
+how this student got at risk
+how the logged session updated compliance
+
+Useful for internal demos and training.

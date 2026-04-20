@@ -23,7 +23,55 @@ import {
   seedDemoComplianceVariety,
   seedDemoModules,
   seedDemoDistrict,
+  type SeedSampleOptions,
+  type Intensity,
+  type DemoEmphasis,
 } from "@workspace/db";
+
+const INTENSITIES: ReadonlySet<Intensity> = new Set(["low", "medium", "high"]);
+const EMPHASES: ReadonlySet<DemoEmphasis> = new Set([
+  "compliance", "comp_ed", "caseload", "behavior", "executive",
+]);
+
+/**
+ * Coerce a raw request body into the strongly-typed `SeedSampleOptions`.
+ * Unknown fields are dropped, out-of-range numbers are clamped, invalid
+ * enums are ignored — the seeder applies sensible defaults for anything
+ * left undefined, so a partially-valid body still produces a working seed.
+ */
+function parseSeedOptions(body: unknown): SeedSampleOptions {
+  if (!body || typeof body !== "object") return {};
+  const b = body as Record<string, unknown>;
+  const out: SeedSampleOptions = {};
+
+  const intInRange = (v: unknown, lo: number, hi: number): number | undefined => {
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    if (!Number.isFinite(n)) return undefined;
+    return Math.max(lo, Math.min(hi, Math.round(n)));
+  };
+  const intensity = (v: unknown): Intensity | undefined =>
+    typeof v === "string" && INTENSITIES.has(v as Intensity) ? (v as Intensity) : undefined;
+
+  if (typeof b.districtName === "string" && b.districtName.trim()) out.districtName = b.districtName.trim().slice(0, 120);
+  const sc = intInRange(b.schoolCount, 1, 12);              if (sc !== undefined) out.schoolCount = sc;
+  const ts = intInRange(b.targetStudents, 1, 5000);         if (ts !== undefined) out.targetStudents = ts;
+  const cm = intInRange(b.caseManagerCount, 0, 200);        if (cm !== undefined) out.caseManagerCount = cm;
+  const pv = intInRange(b.providerCount, 0, 200);           if (pv !== undefined) out.providerCount = pv;
+  const pa = intInRange(b.paraCount, 0, 200);               if (pa !== undefined) out.paraCount = pa;
+  const bc = intInRange(b.bcbaCount, 0, 50);                if (bc !== undefined) out.bcbaCount = bc;
+  const ag = intInRange(b.avgGoalsPerStudent, 1, 8);        if (ag !== undefined) out.avgGoalsPerStudent = ag;
+  const am = intInRange(b.avgRequiredMinutesPerWeek, 30, 300); if (am !== undefined) out.avgRequiredMinutesPerWeek = am;
+  const bm = intInRange(b.backfillMonths, 1, 12);           if (bm !== undefined) out.backfillMonths = bm;
+  const ch = intensity(b.complianceHealth);                 if (ch) out.complianceHealth = ch;
+  const ss = intensity(b.staffingStrain);                   if (ss) out.staffingStrain = ss;
+  const dq = intensity(b.documentationQuality);             if (dq) out.documentationQuality = dq;
+  const ce = intensity(b.compensatoryExposure);             if (ce) out.compensatoryExposure = ce;
+  const bi = intensity(b.behaviorIntensity);                if (bi) out.behaviorIntensity = bi;
+  if (typeof b.demoEmphasis === "string" && EMPHASES.has(b.demoEmphasis as DemoEmphasis)) {
+    out.demoEmphasis = b.demoEmphasis as DemoEmphasis;
+  }
+  return out;
+}
 
 const router: IRouter = Router();
 
@@ -49,6 +97,7 @@ router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordin
     return;
   }
   try {
+    const opts = parseSeedOptions(req.body);
     const existing = await getSampleDataStatus(districtId);
     if (existing.hasSampleData || existing.sampleStudents > 0) {
       // Idempotent: a second click on "Load sample data" returns the existing
@@ -59,8 +108,8 @@ router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordin
       res.status(200).json({ ok: true, alreadySeeded: true, ...existing });
       return;
     }
-    const result = await seedSampleDataForDistrict(districtId);
-    logger.info({ districtId, ...result }, "sample data seeded");
+    const result = await seedSampleDataForDistrict(districtId, opts);
+    logger.info({ districtId, opts, ...result }, "sample data seeded");
     res.status(201).json({ ok: true, ...result });
   } catch (err) {
     // Log the original error (including any raw SQL) server-side, but never
