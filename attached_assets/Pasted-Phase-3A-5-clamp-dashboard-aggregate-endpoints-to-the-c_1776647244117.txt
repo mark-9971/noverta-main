@@ -1,0 +1,68 @@
+Phase 3A-5: clamp dashboard aggregate endpoints to the caller’s caseload for caseload-scoped roles.
+
+Goal:
+Ensure caseload-scoped roles do not see district-wide aggregate dashboard numbers when they should only see their own slice. The audit identified that some dashboard endpoints already apply CASELOAD_ROLES_SERVER and enforcedStaffId logic, but others still return district-wide rollups to provider/bcba/sped_teacher-style users.
+
+Why this matters:
+This is a least-privilege trust/readiness issue. It may not leak student names, but it exposes organization-wide operational counts and utilization that caseload-scoped users should not see.
+
+Hard constraints:
+
+* Surgical backend fix only
+* No schema changes
+* No route changes
+* No UI changes
+* Keep the existing API contract as stable as possible
+* Preserve district-wide visibility for roles that are intended to have it
+* Restrict only the roles that should be caseload-scoped on these endpoints
+
+What to inspect:
+
+* dashboard summary endpoints (for example overviewStats.ts and related handlers)
+* CASELOAD_ROLES_SERVER
+* enforcedStaffId
+* tenantStaffId
+* any existing helpers already used to clamp other dashboard endpoints correctly
+* which roles are currently intended to be caseload-scoped vs district-wide
+
+What to do:
+
+1. Confirm exactly which dashboard endpoints still leak district-wide aggregates to caseload roles
+2. Apply the existing least-privilege pattern consistently to those endpoints
+3. Preserve current behavior for admin/coordinator/case_manager and any other intended district-wide roles
+4. Add tests proving:
+    * a caseload-scoped role only sees its own slice on the affected endpoints
+    * district-wide roles still see district-wide results
+    * no contract-breaking shape changes occur
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. exact endpoints currently affected
+3. exact roles that will be clamped
+4. exact scoping strategy planned
+5. test strategy
+6. biggest regression risks
+7. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact endpoints now clamped
+3. exact roles now seeing caseload-only aggregates
+4. exact roles still seeing district-wide aggregates
+5. exact tests added and what they prove
+6. validation performed
+7. known issues still remaining
+8. blunt verdict
+9. copy-pasteable commit message
+
+Acceptance:
+
+* affected dashboard aggregate endpoints no longer leak district-wide counts to caseload-scoped roles
+* intended district-wide roles remain unchanged
+* API contract remains stable
+* tests prove both the restriction and the preserved broader visibility
+    :::

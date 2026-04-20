@@ -7,7 +7,7 @@ import {
   agencyContractsTable, agenciesTable,
   coverageInstancesTable, errorLogsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, count, sql, asc, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, count, sql, asc, isNull, inArray } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import {
   resolveCallerDistrictId,
@@ -15,10 +15,11 @@ import {
   buildStudentSubquery,
   buildSessionStudentFilter,
   buildAlertStudentFilter,
+  CASELOAD_ROLES_SERVER,
+  getEnforcedCaseloadStaffId,
+  resolveCaseloadStudentIds,
 } from "./shared";
 import type { AuthedRequest } from "../../middlewares/auth";
-
-const CASELOAD_ROLES_SERVER = new Set(["case_manager", "provider", "bcba", "sped_teacher"]);
 
 const router: IRouter = Router();
 
@@ -31,21 +32,54 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const weekStartStr = weekStart.toISOString().substring(0, 10);
   const todayStr = today.toISOString().substring(0, 10);
 
+  // Caseload clamp: providers/case_managers/bcbas/sped_teachers see only their
+  // own caseload's slice of every aggregate. District-wide roles
+  // (admin/coordinator/etc.) get null and behave exactly as before.
+  const caseloadStudentIds = await resolveCaseloadStudentIds(req);
+  const isCaseloadScoped = caseloadStudentIds !== null;
+  // Empty caseload (unlinked staff or no assignments) → fail-closed: every
+  // aggregate must be zero. Short-circuit before touching any other query.
+  if (isCaseloadScoped && caseloadStudentIds.length === 0) {
+    res.json({
+      totalActiveStudents: 0,
+      trackedStudents: 0,
+      onTrackStudents: 0,
+      slightlyBehindStudents: 0,
+      atRiskStudents: 0,
+      outOfComplianceStudents: 0,
+      noDataStudents: 0,
+      studentsNeedingSetup: 0,
+      missedSessionsThisWeek: 0,
+      openMakeupObligations: 0,
+      uncoveredBlocksToday: 0,
+      scheduleConflictsToday: 0,
+      openAlerts: 0,
+      criticalAlerts: 0,
+      contractRenewals: [],
+      errorsLast24h: 0,
+    });
+    return;
+  }
+
   const studentFilter = buildStudentSubquery(sdFilters);
   const sessionFilter = buildSessionStudentFilter(sdFilters);
   const alertFilter = buildAlertStudentFilter(sdFilters);
 
   const studentConditions = [eq(studentsTable.status, "active")];
   if (studentFilter) studentConditions.push(studentFilter as any);
+  if (isCaseloadScoped) studentConditions.push(inArray(studentsTable.id, caseloadStudentIds) as any);
 
   const missedConditions: any[] = [eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, weekStartStr), lte(sessionLogsTable.sessionDate, todayStr), isNull(sessionLogsTable.deletedAt)];
   if (sessionFilter) missedConditions.push(sessionFilter);
+  if (isCaseloadScoped) missedConditions.push(inArray(sessionLogsTable.studentId, caseloadStudentIds));
 
   const makeupConditions: any[] = [eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt)];
   if (sessionFilter) makeupConditions.push(sessionFilter);
+  if (isCaseloadScoped) makeupConditions.push(inArray(sessionLogsTable.studentId, caseloadStudentIds));
 
   const alertConditions: any[] = [eq(alertsTable.resolved, false)];
   if (alertFilter) alertConditions.push(alertFilter);
+  if (isCaseloadScoped) alertConditions.push(inArray(alertsTable.studentId, caseloadStudentIds));
 
   const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -59,7 +93,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     [errorCount24h],
   ] = await Promise.all([
     db.select({ count: count() }).from(studentsTable).where(and(...studentConditions)),
-    computeAllActiveMinuteProgress(sdFilters),
+    computeAllActiveMinuteProgress({
+      ...sdFilters,
+      ...(isCaseloadScoped ? { studentIds: caseloadStudentIds } : {}),
+    }),
     db.select({ count: count() }).from(sessionLogsTable).where(and(...missedConditions)),
     db.select({ count: count() }).from(sessionLogsTable).where(and(...makeupConditions)),
     db.select({
@@ -70,6 +107,11 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
       const blockConditions: any[] = [eq(scheduleBlocksTable.isRecurring, true)];
       if (sdFilters.schoolId) blockConditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${sdFilters.schoolId})`);
       if (sdFilters.districtId) blockConditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+      // Caseload roles only see their own schedule conflicts (their own staff row).
+      if (isCaseloadScoped) {
+        const enforcedStaffId = getEnforcedCaseloadStaffId(req);
+        blockConditions.push(eq(scheduleBlocksTable.staffId, enforcedStaffId ?? -1));
+      }
       return db.select({
         staffId: scheduleBlocksTable.staffId,
         dayOfWeek: scheduleBlocksTable.dayOfWeek,
@@ -77,7 +119,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
         endTime: scheduleBlocksTable.endTime,
       }).from(scheduleBlocksTable).where(and(...blockConditions));
     })(),
-    db.select({ count: count() }).from(errorLogsTable).where(gte(errorLogsTable.occurredAt, cutoff24h)),
+    // errorsLast24h is a tenant-wide operational metric; caseload roles see 0.
+    isCaseloadScoped
+      ? Promise.resolve([{ count: 0 }])
+      : db.select({ count: count() }).from(errorLogsTable).where(gte(errorLogsTable.occurredAt, cutoff24h)),
   ]);
 
   const studentRisk = new Map<number, string>();
@@ -125,43 +170,50 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   // Active students with no active service requirements at all (setup gap).
   const studentsNeedingSetup = Math.max(0, (activeStudentsResult?.count ?? 0) - studentRisk.size);
 
-  const callerDistrictId = await resolveCallerDistrictId(req);
-  const renewalConditions = [
-    eq(agencyContractsTable.status, "active"),
-    isNull(agencyContractsTable.deletedAt),
-    isNull(agenciesTable.deletedAt),
-    sql`${agencyContractsTable.endDate}::date <= CURRENT_DATE + INTERVAL '30 days'`,
-    sql`${agencyContractsTable.endDate}::date >= CURRENT_DATE`,
-  ];
-  if (callerDistrictId) {
-    renewalConditions.push(eq(agenciesTable.districtId, callerDistrictId));
-  } else {
-    renewalConditions.push(sql`false`);
-  }
+  // Contract renewals + uncovered-block counts are tenant-wide operational
+  // signals; caseload roles see [] / 0 rather than the district aggregate.
+  let renewingContracts: { id: number; agencyName: string; endDate: string | null }[] = [];
+  let uncoveredCount = 0;
+  if (!isCaseloadScoped) {
+    const callerDistrictId = await resolveCallerDistrictId(req);
+    const renewalConditions = [
+      eq(agencyContractsTable.status, "active"),
+      isNull(agencyContractsTable.deletedAt),
+      isNull(agenciesTable.deletedAt),
+      sql`${agencyContractsTable.endDate}::date <= CURRENT_DATE + INTERVAL '30 days'`,
+      sql`${agencyContractsTable.endDate}::date >= CURRENT_DATE`,
+    ];
+    if (callerDistrictId) {
+      renewalConditions.push(eq(agenciesTable.districtId, callerDistrictId));
+    } else {
+      renewalConditions.push(sql`false`);
+    }
 
-  const renewingContracts = await db.select({
-    id: agencyContractsTable.id,
-    agencyName: agenciesTable.name,
-    endDate: agencyContractsTable.endDate,
-  })
-    .from(agencyContractsTable)
-    .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
-    .where(and(...renewalConditions))
-    .orderBy(asc(agencyContractsTable.endDate));
+    renewingContracts = await db.select({
+      id: agencyContractsTable.id,
+      agencyName: agenciesTable.name,
+      endDate: agencyContractsTable.endDate,
+    })
+      .from(agencyContractsTable)
+      .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
+      .where(and(...renewalConditions))
+      .orderBy(asc(agencyContractsTable.endDate));
 
-  const uncoveredConditions: any[] = [
-    eq(coverageInstancesTable.absenceDate, todayStr),
-    eq(coverageInstancesTable.isCovered, false),
-  ];
-  if (sdFilters.schoolId) {
-    uncoveredConditions.push(sql`${coverageInstancesTable.originalStaffId} IN (SELECT id FROM staff WHERE school_id = ${sdFilters.schoolId})`);
-  } else if (sdFilters.districtId) {
-    uncoveredConditions.push(sql`${coverageInstancesTable.originalStaffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+    const uncoveredConditions: any[] = [
+      eq(coverageInstancesTable.absenceDate, todayStr),
+      eq(coverageInstancesTable.isCovered, false),
+    ];
+    if (sdFilters.schoolId) {
+      uncoveredConditions.push(sql`${coverageInstancesTable.originalStaffId} IN (SELECT id FROM staff WHERE school_id = ${sdFilters.schoolId})`);
+    } else if (sdFilters.districtId) {
+      uncoveredConditions.push(sql`${coverageInstancesTable.originalStaffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+    }
+    const [uncoveredResult] = await db
+      .select({ count: count() })
+      .from(coverageInstancesTable)
+      .where(and(...uncoveredConditions));
+    uncoveredCount = uncoveredResult?.count ?? 0;
   }
-  const [uncoveredResult] = await db
-    .select({ count: count() })
-    .from(coverageInstancesTable)
-    .where(and(...uncoveredConditions));
 
   res.json({
     totalActiveStudents: activeStudentsResult?.count ?? 0,
@@ -174,7 +226,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     studentsNeedingSetup,
     missedSessionsThisWeek: missedThisWeek?.count ?? 0,
     openMakeupObligations: openMakeups?.count ?? 0,
-    uncoveredBlocksToday: uncoveredResult?.count ?? 0,
+    uncoveredBlocksToday: uncoveredCount,
     scheduleConflictsToday: conflictsCount,
     openAlerts: alertCounts[0]?.total ?? 0,
     criticalAlerts: alertCounts[0]?.critical ?? 0,
@@ -185,7 +237,16 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
 
 router.get("/dashboard/risk-overview", async (req, res): Promise<void> => {
   const sdFilters = parseSchoolDistrictFilters(req, req.query);
-  const allProgress = await computeAllActiveMinuteProgress(sdFilters);
+  // Caseload clamp: providers/case_managers/etc. only see their own caseload.
+  const caseloadStudentIds = await resolveCaseloadStudentIds(req);
+  if (caseloadStudentIds !== null && caseloadStudentIds.length === 0) {
+    res.json({ onTrack: 0, slightlyBehind: 0, atRisk: 0, outOfCompliance: 0, completed: 0, total: 0 });
+    return;
+  }
+  const allProgress = await computeAllActiveMinuteProgress({
+    ...sdFilters,
+    ...(caseloadStudentIds !== null ? { studentIds: caseloadStudentIds } : {}),
+  });
   const counts = { on_track: 0, slightly_behind: 0, at_risk: 0, out_of_compliance: 0, completed: 0, total: 0 };
   for (const p of allProgress) {
     counts.total++;
@@ -207,16 +268,23 @@ router.get("/dashboard/risk-overview", async (req, res): Promise<void> => {
 
 router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
   const sdFilters = parseSchoolDistrictFilters(req, req.query);
+  // Caseload clamp: caseload roles see only their own row.
+  const enforcedStaffId = getEnforcedCaseloadStaffId(req);
   const staffConditions: any[] = [eq(staffTable.status, "active")];
   if (sdFilters.schoolId) staffConditions.push(eq(staffTable.schoolId, sdFilters.schoolId));
   if (sdFilters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+  if (enforcedStaffId !== null) staffConditions.push(eq(staffTable.id, enforcedStaffId));
   const alertFilter = buildAlertStudentFilter(sdFilters);
   const alertConditions: any[] = [eq(alertsTable.resolved, false)];
   if (alertFilter) alertConditions.push(alertFilter);
+  if (enforcedStaffId !== null) alertConditions.push(eq(alertsTable.staffId, enforcedStaffId));
 
   const [providers, allProgress, alertsByStaff] = await Promise.all([
     db.select().from(staffTable).where(and(...staffConditions)),
-    computeAllActiveMinuteProgress(sdFilters),
+    computeAllActiveMinuteProgress({
+      ...sdFilters,
+      ...(enforcedStaffId !== null ? { staffId: enforcedStaffId } : {}),
+    }),
     db.select({
       staffId: alertsTable.staffId,
       count: count(),
@@ -261,12 +329,23 @@ router.get("/dashboard/program-trends", async (req, res): Promise<void> => {
   const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const districtId = sdFilters.districtId ?? await resolveCallerDistrictId(req);
 
+  // Caseload clamp: providers/case_managers/etc. only see trends for their
+  // own caseload; empty caseload → empty arrays (fail-closed).
+  const caseloadStudentIds = await resolveCaseloadStudentIds(req);
+  if (caseloadStudentIds !== null && caseloadStudentIds.length === 0) {
+    res.json({ skillAcquisition: [], behaviorReduction: [] });
+    return;
+  }
+
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
   const startDate = twelveMonthsAgo.toISOString().slice(0, 10);
 
   const schoolFilter = districtId
     ? sql`AND s.school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})`
+    : sql``;
+  const caseloadFilter = caseloadStudentIds !== null
+    ? sql`AND s.id IN (${sql.join(caseloadStudentIds.map(id => sql`${id}`), sql`, `)})`
     : sql``;
 
   const [skillRows, behaviorRows] = await Promise.all([
@@ -284,6 +363,7 @@ router.get("/dashboard/program-trends", async (req, res): Promise<void> => {
         AND ds.session_date >= ${startDate}
         AND pt.program_type = 'discrete_trial'
         ${schoolFilter}
+        ${caseloadFilter}
       GROUP BY month
       ORDER BY month
     `),
@@ -298,6 +378,7 @@ router.get("/dashboard/program-trends", async (req, res): Promise<void> => {
       JOIN students s ON s.id = ds.student_id
       WHERE ds.session_date >= ${startDate}
         ${schoolFilter}
+        ${caseloadFilter}
       GROUP BY month
       ORDER BY month
     `),
@@ -496,9 +577,13 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
 
 router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
   const sdFilters = parseSchoolDistrictFilters(req, req.query);
+  // Caseload clamp: caseload roles see only their own row (which yields []
+  // for non-paras like providers/case_managers — the typical case).
+  const enforcedStaffId = getEnforcedCaseloadStaffId(req);
   const paraConditions: any[] = [eq(staffTable.status, "active"), eq(staffTable.role, "para")];
   if (sdFilters.schoolId) paraConditions.push(eq(staffTable.schoolId, sdFilters.schoolId));
   if (sdFilters.districtId) paraConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+  if (enforcedStaffId !== null) paraConditions.push(eq(staffTable.id, enforcedStaffId));
 
   const [paras, blockCounts, assignmentCounts] = await Promise.all([
     db.select().from(staffTable).where(and(...paraConditions)),

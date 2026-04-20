@@ -1,5 +1,6 @@
 import {
   studentsTable, alertsTable, sessionLogsTable, schoolYearsTable,
+  staffAssignmentsTable,
 } from "@workspace/db";
 import { db } from "@workspace/db";
 import { eq, sql, and, desc } from "drizzle-orm";
@@ -8,6 +9,51 @@ import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import type { Request } from "express";
 import { getActiveSchoolYearId } from "../../lib/activeSchoolYear";
+
+/**
+ * Roles whose dashboard view must be clamped to their own caseload (the
+ * students they are personally assigned to via staff_assignments) rather
+ * than the whole district. Mirrors the set already used by
+ * /dashboard/goal-mastery-rate.
+ *
+ * Roles intentionally NOT in this set (admin, coordinator, trellis_support,
+ * platform_admin, etc.) continue to receive district-wide aggregates.
+ */
+export const CASELOAD_ROLES_SERVER: ReadonlySet<string> = new Set([
+  "case_manager", "provider", "bcba", "sped_teacher",
+]);
+
+/**
+ * Returns the staffId the caller's dashboard aggregates must be clamped to,
+ * or null when the caller is district-wide (admin/coordinator/etc.).
+ *
+ * For caseload roles whose Clerk account is not yet linked to a staff row
+ * (tenantStaffId == null) this returns -1 — a sentinel that yields an empty
+ * caseload at the SQL level (no staff_assignments row will match), which is
+ * the desired fail-closed behavior: an unlinked provider sees zero rather
+ * than the whole district.
+ */
+export function getEnforcedCaseloadStaffId(req: Request): number | null {
+  const authed = req as unknown as AuthedRequest;
+  if (!CASELOAD_ROLES_SERVER.has(authed.trellisRole)) return null;
+  return authed.tenantStaffId ?? -1;
+}
+
+/**
+ * Resolves the set of student ids in the caller's caseload. Returns null
+ * when the caller is district-wide (no clamp needed). Returns [] when the
+ * caller is a caseload role with no assignments (fail-closed).
+ */
+export async function resolveCaseloadStudentIds(req: Request): Promise<number[] | null> {
+  const enforcedStaffId = getEnforcedCaseloadStaffId(req);
+  if (enforcedStaffId === null) return null;
+  if (enforcedStaffId === -1) return [];
+  const rows = await db
+    .select({ studentId: staffAssignmentsTable.studentId })
+    .from(staffAssignmentsTable)
+    .where(eq(staffAssignmentsTable.staffId, enforcedStaffId));
+  return rows.map(r => r.studentId);
+}
 
 // Dashboard scope helper. The previous implementation used "if there is only
 // one district in the table, treat it as the caller's." Removed: a brand-new

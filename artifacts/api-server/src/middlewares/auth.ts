@@ -139,7 +139,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       authed.displayName = `Test ${testRole}`;
       authed.tenantDistrictId = req.headers["x-test-district-id"]
         ? Number(req.headers["x-test-district-id"]) : null;
-      authed.tenantStaffId = null;
+      authed.tenantStaffId = req.headers["x-test-staff-id"]
+        ? Number(req.headers["x-test-staff-id"]) : null;
       authed.tenantStudentId = null;
       authed.tenantGuardianId = null;
       maybeApplyViewAsAndContinue(req, next);
