@@ -208,12 +208,18 @@ function DeseComplianceBanner() {
                   ? <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                   : <ShieldCheck className="w-4 h-4 flex-shrink-0" />}
               <div className="flex-1 min-w-0">
-                <div className="text-[12px] font-semibold leading-tight">IEP Timeline</div>
+                {/* Label clarifies scope: this pill tracks the MA DESE
+                    45-school-day evaluation + 30-day IEP-development clock
+                    for students currently moving through the initial referral
+                    workflow. It is NOT a count of all active IEPs in the
+                    district — admins were misreading "IEP Timeline: No active
+                    timelines" as "no active IEPs." */}
+                <div className="text-[12px] font-semibold leading-tight">Initial Eval Timeline (45+30)</div>
                 <div className="text-[11px] opacity-80 leading-tight mt-0.5">
                   {iepBreached === 0 && iepAtRisk === 0
                     ? iepTotal > 0
-                      ? `All ${iepTotal} timeline${iepTotal !== 1 ? "s" : ""} on track`
-                      : "No active timelines"
+                      ? `All ${iepTotal} eval${iepTotal !== 1 ? "s" : ""} on track`
+                      : "No evaluations in progress"
                     : (
                       <>
                         {iepBreached > 0 && (
@@ -731,16 +737,26 @@ function ServiceMinutesContent() {
             </Card>
           );
         })()}
+        {/* Distinct from the Checklist tab's "Critical / Warning / Compliant"
+            student counts: that tab counts students with overdue paperwork
+            (annual review, progress reports, parent meetings, accommodations,
+            goals). This tile counts students whose service-MINUTE delivery is
+            projected to fall below the district pace threshold. The two
+            numbers are not interchangeable — both are correct, they describe
+            different compliance dimensions. The denominator is "students with
+            an active service requirement during this report period," not the
+            full active roster, which is why it's smaller than the roster
+            count shown on other tabs. */}
         <Card className={`border-l-4 ${(s?.studentsAtRisk ?? 0) + (s?.studentsOutOfCompliance ?? 0) > 0 ? "border-l-amber-500" : "border-l-emerald-500"}`}>
           <CardContent className="p-3.5">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-              <AlertTriangle className="h-3 w-3" /> At Risk
+              <AlertTriangle className="h-3 w-3" /> Service Minutes At Risk
             </div>
             <div className={`text-2xl font-bold mt-1 ${(s?.studentsAtRisk ?? 0) + (s?.studentsOutOfCompliance ?? 0) > 0 ? "text-amber-700" : "text-emerald-700"}`}>
               {(s?.studentsOutOfCompliance ?? 0) + (s?.studentsAtRisk ?? 0)}
             </div>
             <div className="text-[11px] text-gray-400 mt-0.5">
-              of {s?.totalStudents ?? totalStudents} students
+              of {s?.totalStudents ?? totalStudents} students with active services
             </div>
           </CardContent>
         </Card>
