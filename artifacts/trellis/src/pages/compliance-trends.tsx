@@ -2,19 +2,23 @@ import { useEffect, useState, useMemo } from "react";
 import {
   LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
+  Area, AreaChart,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
 
-type ServicePoint   = { month: string; requiredMinutes: number; deliveredMinutes: number; compliancePercent: number | null };
-type RiskPoint      = { month: string; atRiskCount: number | null; totalTracked: number };
-type CompPoint      = { month: string; accruedMinutes: number; deliveredMinutes: number; cumulativeOwedMinutes: number };
-type LoggingPoint   = { month: string; totalSessions: number; timelySessions: number; timelinessPercent: number | null };
+type Granularity = "month" | "week";
+
+type ServicePoint = { period: string; requiredMinutes: number; deliveredMinutes: number; compliancePercent: number | null };
+type RiskPoint    = { period: string; atRiskCount: number | null; totalTracked: number };
+type CompPoint    = { period: string; accruedMinutes: number; deliveredMinutes: number; cumulativeOwedMinutes: number };
+type LoggingPoint = { period: string; totalSessions: number; timelySessions: number; timelinessPercent: number | null };
 
 type TrendsResponse = {
-  months: string[];
+  granularity: Granularity;
+  periods: string[];
   studentsTracked: number;
   activeStudents: number;
   serviceMinutes: ServicePoint[];
@@ -26,26 +30,46 @@ type TrendsResponse = {
   generatedAt: string;
 };
 
-function fmtMonth(ym: string): string {
-  // "2026-01" → "Jan '26"
-  const [y, m] = ym.split("-").map(Number);
-  const d = new Date(y, m - 1, 1);
-  return d.toLocaleString("en-US", { month: "short", year: "2-digit" }).replace(" ", " '");
+// Window options: how many periods to fetch. Capped server-side too.
+const MONTH_OPTIONS = [3, 6, 12, 18, 24, 36, 48, 60];
+const WEEK_OPTIONS  = [4, 8, 13, 26, 52, 78, 104, 156];
+
+function fmtPeriod(period: string, granularity: Granularity): string {
+  if (granularity === "month") {
+    // "2026-01" → "Jan '26"
+    const [y, m] = period.split("-").map(Number);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleString("en-US", { month: "short", year: "2-digit" }).replace(" ", " '");
+  }
+  // "2026-04-13" → "Apr 13" (week starting Mon)
+  const [y, m, d] = period.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean } = {}) {
   const { filterParams } = useSchoolContext();
-  const [months, setMonths] = useState(12);
+  const [granularity, setGranularity] = useState<Granularity>("month");
+  const [windowSize, setWindowSize] = useState<number>(12);
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-fetch when months or district scope changes.
+  // When the user flips Week/Month, snap window to a sensible default for the
+  // new granularity (12 months ↔ 26 weeks) so they don't accidentally ask for
+  // 60 weeks of data when they meant 60 months.
+  useEffect(() => {
+    setWindowSize(granularity === "week" ? 26 : 12);
+  }, [granularity]);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const qs = new URLSearchParams({ months: String(months), ...filterParams }).toString();
+    const params: Record<string, string> = { granularity, ...filterParams };
+    if (granularity === "week") params.weeks = String(windowSize);
+    else params.months = String(windowSize);
+    const qs = new URLSearchParams(params).toString();
     authFetch(`/api/dashboard/compliance-trends?${qs}`)
       .then(async r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -55,23 +79,47 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
       .catch(e => { if (!cancelled) setError(String(e?.message ?? e)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [months, JSON.stringify(filterParams)]);
+  }, [granularity, windowSize, JSON.stringify(filterParams)]);
 
   const serviceChart = useMemo(() => data?.serviceMinutes.map(p => ({
-    label: fmtMonth(p.month), Required: p.requiredMinutes, Delivered: p.deliveredMinutes, Compliance: p.compliancePercent,
+    label: fmtPeriod(p.period, data.granularity),
+    Required: p.requiredMinutes,
+    Delivered: p.deliveredMinutes,
+    Compliance: p.compliancePercent,
   })) ?? [], [data]);
 
   const riskChart = useMemo(() => data?.atRiskStudents.map(p => ({
-    label: fmtMonth(p.month), AtRisk: p.atRiskCount, Tracked: p.totalTracked,
+    label: fmtPeriod(p.period, data.granularity),
+    AtRisk: p.atRiskCount,
+    Tracked: p.totalTracked,
   })) ?? [], [data]);
 
   const compChart = useMemo(() => data?.compensatoryExposure.map(p => ({
-    label: fmtMonth(p.month), Accrued: p.accruedMinutes, Delivered: p.deliveredMinutes, Owed: p.cumulativeOwedMinutes,
+    label: fmtPeriod(p.period, data.granularity),
+    Accrued: p.accruedMinutes,
+    Delivered: p.deliveredMinutes,
+    Owed: p.cumulativeOwedMinutes,
   })) ?? [], [data]);
 
   const loggingChart = useMemo(() => data?.loggingCompletion.map(p => ({
-    label: fmtMonth(p.month), Timeliness: p.timelinessPercent, Total: p.totalSessions,
+    label: fmtPeriod(p.period, data.granularity),
+    Timeliness: p.timelinessPercent,
+    Total: p.totalSessions,
   })) ?? [], [data]);
+
+  // Average compliance % across non-null periods (the headline reading on the
+  // big % chart). Excludes periods where required=0 so a brand-new district
+  // doesn't anchor at 0 or 100 from no-signal months.
+  const avgCompliance = useMemo(() => {
+    const vals = (data?.serviceMinutes ?? [])
+      .map(p => p.compliancePercent)
+      .filter((v): v is number => v != null);
+    if (vals.length === 0) return null;
+    return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+  }, [data]);
+
+  const windowOptions = granularity === "week" ? WEEK_OPTIONS : MONTH_OPTIONS;
+  const granularityLabel = granularity === "week" ? "weeks" : "months";
 
   return (
     <div className={embedded ? "space-y-5" : "p-6 space-y-6 max-w-[1400px] mx-auto"}>
@@ -80,21 +128,37 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Compliance Trends</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Real time-series across service delivery, student risk, compensatory exposure, and logging timeliness.
+              Service-minute delivery, student risk, compensatory exposure, and logging timeliness over time.
             </p>
           </div>
         )}
         <div className="flex items-center gap-2 ml-auto">
+          {/* Granularity toggle: week / month. The window dropdown re-snaps
+              to a sensible default when this changes. */}
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setGranularity("week")}
+              className={`px-2.5 py-1.5 ${granularity === "week" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              data-testid="granularity-week"
+            >Week</button>
+            <button
+              type="button"
+              onClick={() => setGranularity("month")}
+              className={`px-2.5 py-1.5 border-l border-gray-200 ${granularity === "month" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              data-testid="granularity-month"
+            >Month</button>
+          </div>
           <label className="text-xs text-gray-500">Window</label>
           <select
-            value={months}
-            onChange={e => setMonths(Number(e.target.value))}
+            value={windowSize}
+            onChange={e => setWindowSize(Number(e.target.value))}
             className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700"
+            data-testid="window-size"
           >
-            <option value={6}>Last 6 months</option>
-            <option value={12}>Last 12 months</option>
-            <option value={18}>Last 18 months</option>
-            <option value={24}>Last 24 months</option>
+            {windowOptions.map(n => (
+              <option key={n} value={n}>Last {n} {granularityLabel}</option>
+            ))}
           </select>
         </div>
       </header>
@@ -110,23 +174,81 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           <CardContent className="p-3 text-xs text-amber-800">
             {data.dataQuality === "empty"
               ? "No session activity recorded in this window. Charts will appear empty until providers begin logging."
-              : "Sparse data: only a few months in this window contain logged activity. Trend lines may have gaps and small-sample swings."}
+              : "Sparse data: only a few periods in this window contain logged activity. Trend lines may have gaps and small-sample swings."}
           </CardContent>
         </Card>
       )}
 
+      {/* Headline % line chart — what the user actually asked for: minutes
+          delivered / minutes required, plotted over time at week or month
+          granularity, with a 90% target reference and a 100% ceiling. */}
+      <ChartCard
+        title="Compliance % — Minutes Delivered ÷ Minutes Required"
+        subtitle={
+          avgCompliance != null
+            ? `Average across the window: ${avgCompliance}% · ${data?.studentsTracked ?? 0} students with active service requirements`
+            : "Average across the window: no data yet"
+        }
+        loading={loading}
+        empty={!loading && (!serviceChart.length || serviceChart.every(p => p.Compliance == null))}
+        emptyMessage="No service-minute data in this window — providers need to log sessions before the % line appears"
+      >
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={serviceChart} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="complianceFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tickLine={false}
+              interval="preserveStartEnd"
+              minTickGap={20}
+            />
+            <YAxis
+              domain={[0, 110]}
+              ticks={[0, 25, 50, 75, 90, 100]}
+              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tickLine={false}
+              tickFormatter={v => `${v}%`}
+            />
+            <Tooltip
+              contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              formatter={(v: any, n: any) => n === "Compliance" ? [`${v}%`, "Compliance"] : [v, n]}
+            />
+            <ReferenceLine y={100} stroke="#d1d5db" strokeDasharray="2 4" />
+            <ReferenceLine y={90} stroke="#9ca3af" strokeDasharray="4 4"
+              label={{ value: "90% target", position: "right", fontSize: 10, fill: "#6b7280" }} />
+            <Area
+              type="monotone"
+              dataKey="Compliance"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="url(#complianceFill)"
+              connectNulls={false}
+              dot={{ r: 2.5, fill: "#10b981" }}
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard
-          title="Service Minutes — Required vs Delivered"
-          subtitle={data ? `${data.studentsTracked} students with active service requirements` : ""}
+          title={`Service Minutes — Required vs Delivered per ${granularity === "week" ? "Week" : "Month"}`}
+          subtitle="Raw minutes that produce the % line above"
           loading={loading}
           empty={!loading && (!serviceChart.length || serviceChart.every(p => p.Delivered === 0 && p.Required === 0))}
-          emptyMessage="No minutes logged in this window — providers need to log sessions before trend data appears"
+          emptyMessage="No minutes logged in this window"
         >
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={serviceChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} barCategoryGap="25%" barGap={2}>
+            <BarChart data={serviceChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} barCategoryGap="20%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} interval="preserveStartEnd" minTickGap={20} />
               <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(val: number) => [val.toLocaleString()]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -138,15 +260,15 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
 
         <ChartCard
           title="Students At Risk"
-          subtitle="Active students delivered <70% of monthly required minutes"
+          subtitle="Active students delivered <70% of required minutes that period"
           loading={loading}
           empty={!loading && (!riskChart.length || riskChart.every(p => p.AtRisk === null))}
-          emptyMessage="No at-risk student data in this window — all students met their service thresholds, or no sessions were logged"
+          emptyMessage="No at-risk student data in this window"
         >
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={riskChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} interval="preserveStartEnd" minTickGap={20} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -157,15 +279,15 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
 
         <ChartCard
           title="Compensatory Exposure"
-          subtitle="Monthly accrued vs delivered comp minutes; cumulative open balance"
+          subtitle="Accrued vs delivered comp minutes per period; cumulative open balance"
           loading={loading}
           empty={!loading && (!compChart.length || compChart.every(p => p.Accrued === 0 && p.Delivered === 0 && p.Owed === 0))}
           emptyMessage="No compensatory obligations recorded in this window"
         >
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={compChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} barCategoryGap="25%" barGap={2}>
+            <ComposedChart data={compChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} barCategoryGap="20%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} interval="preserveStartEnd" minTickGap={20} />
               <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -186,12 +308,12 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={loggingChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} interval="preserveStartEnd" minTickGap={20} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} tickFormatter={v => `${v}%`} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: any, n: any) => n === "Timeliness" ? [`${v}%`, n] : [v, n]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <ReferenceLine y={90} stroke="#9ca3af" strokeDasharray="4 4" label={{ value: "90% target", position: "right", fontSize: 10, fill: "#6b7280" }} />
-              <Line type="monotone" dataKey="Timeliness" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Timeliness" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -203,33 +325,39 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
         </CardHeader>
         <CardContent className="text-[12px] text-gray-600 space-y-2 leading-relaxed">
           <p>
-            <strong className="text-gray-800">Service Minutes</strong> — Required minutes per student are
-            normalized to monthly (weekly &times; 4, quarterly &divide; 3) and summed across active
-            requirements. Delivered counts only sessions in <code className="px-1 bg-gray-100 rounded">completed</code>
-            {" "}or <code className="px-1 bg-gray-100 rounded">makeup</code> status. Soft-deleted sessions are excluded.
+            <strong className="text-gray-800">Compliance %</strong> — For each {granularity}, we sum required
+            minutes from every active service requirement and delivered minutes from sessions in
+            <code className="px-1 bg-gray-100 rounded ml-1">completed</code> or
+            <code className="px-1 bg-gray-100 rounded ml-1">makeup</code> status, then plot delivered ÷ required.
+            Periods with no active requirements show as a gap rather than a fake 0% or 100%.
           </p>
           <p>
-            <strong className="text-gray-800">At-Risk Students</strong> — A student is at risk for a given month
-            if their delivered minutes that month are below 70% of their normalized monthly requirement.
-            This is recomputed on read; if a service requirement was edited later, historical at-risk
-            counts will shift.
+            <strong className="text-gray-800">Bucket sizing</strong> — Required minutes are normalized to the
+            chosen bucket (week or month). Weekly requirements are unchanged in the weekly view (×4 in monthly);
+            monthly requirements are ÷4 weekly (×1 monthly); quarterly are ÷13 weekly (÷3 monthly).
+          </p>
+          <p>
+            <strong className="text-gray-800">At-Risk Students</strong> — A student is at risk for a given period
+            if their delivered minutes that period are below 70% of their normalized requirement. Recomputed on
+            read; if a service requirement was edited later, historical at-risk counts will shift.
           </p>
           <p>
             <strong className="text-gray-800">Compensatory Exposure</strong> — Accrued comp minutes use
-            the obligation's <code className="px-1 bg-gray-100 rounded">created_at</code> month (when the obligation
+            the obligation's <code className="px-1 bg-gray-100 rounded">created_at</code> period (when the obligation
             was recorded, not necessarily when the underlying service was missed). Delivered uses the comp
             session's date. Cumulative owed is seeded with the pre-window net balance so the trend doesn't
             falsely start at zero.
           </p>
           <p>
-            <strong className="text-gray-800">Logging Timeliness</strong> — Of all sessions in a month with a
-            terminal status (completed, missed, makeup), the percentage whose <code className="px-1 bg-gray-100 rounded">created_at</code>
+            <strong className="text-gray-800">Logging Timeliness</strong> — Of all sessions in a period with a
+            terminal status (completed, missed, makeup), the percentage whose
+            <code className="px-1 bg-gray-100 rounded ml-1">created_at</code>
             {" "}falls within 48 hours of end-of-session-day. Same-day logs are always counted as timely.
           </p>
           <p>
-            <strong className="text-gray-800">Date axis</strong> — Calendar months in district local time, oldest
-            on the left. Months with zero applicable activity are shown as gaps in lines (and zero in bars)
-            rather than fabricated 0% / 100% values, so sparse pilot data reads honestly.
+            <strong className="text-gray-800">Date axis</strong> — Calendar months or ISO weeks (Monday-start) in
+            UTC, oldest on the left. Sparse periods are shown as gaps rather than fabricated 0% / 100% so the
+            chart reads honestly during a pilot.
           </p>
           {data && (
             <p className="pt-1 text-[11px] text-gray-400">
