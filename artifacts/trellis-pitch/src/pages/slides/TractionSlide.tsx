@@ -42,7 +42,7 @@ export default function TractionSlide() {
 
             <div className="space-y-[1.5vh]">
               {[
-                { q: "Q3 2026", items: ["PowerSchool / IC roster sync", "Medicaid billing integration", "Mobile-optimized Para views"] },
+                { q: "Q3 2026", items: ["PowerSchool / IC sync graduated from pilot to GA", "Direct Medicaid claim submission (today: CSV export)", "Mobile-optimized Para views"] },
                 { q: "Q4 2026", items: ["DESE state reporting exports", "Multi-district admin console", "Advanced analytics dashboard"] },
                 { q: "Q1 2027", items: ["New England expansion", "Custom SIS API marketplace", "White-label SIS partner SDK"] },
               ].map((phase, i) => (

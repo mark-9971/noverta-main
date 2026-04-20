@@ -82,14 +82,117 @@ all 74 in the demo-readiness window.
 ### Demo-readiness backlog still pending
 The remaining items from the audit that this session did **not**
 touch — listed for the next pass:
-- #2  Reconcile slide-deck claims (`a2-claim-cleanup.md`)
 - #4  Triage Bucket-D top 3
-- #5  Sample-data sweep (`a1-data-sweep.md`)
 - #6  SIS sync UI polling (`a3-sis-poll.md`)
-- #7  Empty-state copy (`b1-empty-state-copy.md`)
+- #7  Empty-state copy — full pass across demo-excluded modules (`b1-empty-state-copy.md`)
 - #8  Sample Data banner + Reset Demo (`b2-sample-banner-reset.md`)
 - #9  Demo Pre-Flight admin page (`c3-demo-preflight.md`)
-- #10 Walk showcase path end-to-end
+
+## Phases 4–7 — buyer-walkthrough pass (20 Apr 2026, late)
+
+### #2 — Slide-deck claim cleanup — COMPLETED
+
+Audited every capability claim across `trellis-deck`, `trellis-pitch`,
+and `trellis-demo` against the codebase:
+
+| Claim | Source-of-truth | Verdict |
+|---|---|---|
+| CSV roster import GA | `lib/sis/csvConnector.ts`, `lib/sis/STATUS.md` | **VERIFIED** |
+| PowerSchool / IC / Skyward / SFTP connectors "built and in pilot" | `lib/sis/{powerschool,infiniteCampus,skyward,sftpConnector}.ts` + STATUS.md tier=`early_pilot` | **VERIFIED** — all four already framed as pilot on slides |
+| AI-Assisted IEP Import (LLM extracts goals, clinician reviews) | `routes/imports/iepDocuments.ts` (OpenAI gpt-5.2) | **VERIFIED** — description matches what ships |
+| Medicaid "Claim Prep — CPT mapping + CSV export district uploads" | `routes/medicaidBilling/{claims,cptMappings,reports}.ts` | **VERIFIED** — no "automated billing" claim exists |
+| IEP Builder "rule-based, not AI-generated" | `routes/iepBuilder/generate.ts` (no LLM calls) | **VERIFIED** |
+| SOC 2 Type II "on roadmap" (S04) | Not certified | **VERIFIED** — honestly framed |
+| "Webhooks for real-time event streaming" (SISPartnerSlide) | Only Stripe webhooks exist (`lib/webhookHandlers.ts`); no outbound partner webhooks | **CORRECTED → roadmap** |
+| Roadmap Q3 2026 "PowerSchool / IC roster sync" | Conflicted with "in pilot today" on ProductSlide/ImplementationSlide | **CORRECTED** to "graduated from pilot to GA" + "Direct Medicaid claim submission (today: CSV export)" |
+
+**No "enterprise-grade security," "bank-grade," "military-grade," "HIPAA
+certified," "FedRAMP," or "zero-downtime SLA" claims** were found. The
+only security-adjacent copy is the SIS-partner bullet "FERPA-aligned
+data handling (DPA, US-hosted, audit log)" which is factually supported
+by `lib/auditLog.ts` and the DPA shipped in `buyer-pack/`.
+
+### #5 — Sample-data sweep — COMPLETED
+
+Ran `seedDemoModules()` and `seedDemoComplianceVariety()` against the
+MetroWest Collaborative demo district (id=6). Before → after counts:
+
+| Module | Before | After | Notes |
+|---|---|---|---|
+| `medicaid_claims` | 0 | 36 | mix: 12 pending / 8 approved / 6 exported / 6 paid / 4 rejected |
+| `compensatory_obligations` | 13 all pending | 13 with mix (3 in-progress / 4 fulfilled / 1 on-hold / 5 pending) | |
+| `parent_messages` categories | all "general" | 16 reshaped into PWN / IEP-invite / progress / conference | |
+| `transition_plans` | 1 | 8 plans + 24 goals + 12 agency referrals | |
+| `restraint_incidents` | 2 | 2 with full lifecycle (history + admin signature mix) | |
+| `share_links` | 0 | 5 (active / used / one-time / expired / revoked) | |
+| `guardian_documents` | n/a | 5 visible + 3 parent acknowledgments | |
+| `compliance_alerts` (active) | baseline | +11 variety alerts | landed at 99.5% compliant |
+
+Entrypoint scripts saved:
+- `artifacts/api-server/scripts/run-demo-modules-seed.ts`
+- `artifacts/api-server/scripts/run-compliance-variety.ts`
+
+Both are idempotent — re-running them skips already-populated tables.
+
+### #10 — Showcase-path walk — COMPLETED (API-level)
+
+Walked the full MetroWest admin route and captured server responses for
+every endpoint the dashboard pulls on load. All 200 / 304 — zero 4xx
+/ 5xx — after the two runtime-crash fixes below. No hanging loaders in
+the browser console.
+
+### Phase 7 — trellis TS-error triage — COMPLETED
+
+The ~74 trellis TS errors (exposed when the stale
+`lib/api-client-react/dist` was rebuilt) split as follows:
+
+**Demo-risk now — 2 FIXED**
+1. `src/pages/iep-builder/Step5Generate.tsx:58` — `Printer` used in JSX
+   but not imported. Would throw `ReferenceError` the moment Step 5 of
+   the IEP builder mounted. Added to the lucide-react import.
+2. `src/pages/dashboard/index.tsx:237` — referenced
+   `outOfComplianceStudents` (undefined in file scope; only
+   `outOfComplianceStudentsForCmp` is declared). Would throw
+   `ReferenceError` on every admin dashboard render. Renamed to the
+   declared variable.
+
+**Post-demo cleanup — NOT BLOCKING the walkthrough**
+Everything else is a nullable-type mismatch, a missing-optional-prop
+cast, or a react-query options-shape drift. All compile to JS that
+returns `undefined` at runtime rather than throwing. Largest clusters:
+- `progress-reports/ReportDetail.tsx` — 11 errors reading deprecated
+  `behavior*` fields off `GoalProgressEntry`. They render as blanks
+  today; worth cleaning up but no demo risk.
+- `today.tsx` — 5 `enabled` option-shape errors against react-query
+  v5's new signature. Runtime tolerates extra keys; no demo risk.
+- `compliance-risk-report.tsx` — 4 `estimatedExposure` non-null
+  assertions. Displays a "$0" instead of a number when null. No demo
+  risk.
+- `live-data-panel/BehaviorWidget.tsx` — 3 `intervalScores` reads on a
+  stale shape. Widget is not on the showcase path.
+
+### Verified showcase endpoints
+All 200/304 against api-server after trellis restart:
+```
+/api/dashboard/{summary,alerts-summary,goal-mastery-rate,provider-summary,
+                school-compliance,health-score-trend,compliance-deadlines}
+/api/reports/{compliance-risk-report,weekly-compliance-summary,compliance-week-trend}
+/api/alerts
+/api/students/life-threatening-alerts   (fix holds)
+/api/compensatory-finance/{overview,burndown}
+/api/pilot/baseline/comparison
+/api/admin/pilot-readiness
+/api/pilot-status/nudge-stats
+```
+
+### Memory posture for walkthrough
+Stopped the 4 slide-deck dev servers + mockup-sandbox that aren't
+needed for the admin walk. Memory headroom went from 4.9 GiB → 6.4 GiB
+available. Restart each via the workflow panel if a specific deck is
+needed during the meeting:
+- `artifacts/trellis-deck: web`, `artifacts/trellis-demo: web`,
+  `artifacts/trellis-pitch: web`, `artifacts/dashboard-concepts: web`,
+  `artifacts/mockup-sandbox: Component Preview Server`
 
 ## Verification commands
 ```

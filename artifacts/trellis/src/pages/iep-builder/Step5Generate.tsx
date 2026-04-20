@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  FileText, Loader2, RefreshCw, AlertCircle, CheckCircle2, GraduationCap,
+  FileText, Loader2, RefreshCw, AlertCircle, CheckCircle2, GraduationCap, Printer,
 } from "lucide-react";
 import { PROGRESS_COLORS, ACTION_COLORS, type BuilderContext, type GeneratedDraft } from "./types";
 

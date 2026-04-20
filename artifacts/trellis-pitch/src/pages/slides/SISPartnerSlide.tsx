@@ -34,7 +34,7 @@ export default function SISPartnerSlide() {
                   </div>
                   <div>
                     <p className="font-body text-[1.3vw] font-semibold text-white">API-First Architecture</p>
-                    <p className="font-body text-[1.1vw] text-white/50 leading-relaxed">RESTful APIs for roster sync, session logging, compliance data, and reporting. Webhooks for real-time event streaming.</p>
+                    <p className="font-body text-[1.1vw] text-white/50 leading-relaxed">RESTful APIs for roster sync, session logging, compliance data, and reporting. Outbound webhooks for partner event streams on the roadmap.</p>
                   </div>
                 </div>
 

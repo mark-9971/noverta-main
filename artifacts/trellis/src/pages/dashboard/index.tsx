@@ -234,7 +234,7 @@ function DashboardFull() {
         goalMasteryBreakdown={goalMasteryData?.byServiceArea}
         evalTimelineRisk={evalTimelineRisk ?? null}
         weekTrend={weekTrend ?? null}
-        currentHighRiskCount={outOfComplianceStudents + (ro?.atRisk ?? 0)}
+        currentHighRiskCount={outOfComplianceStudentsForCmp + (ro?.atRisk ?? 0)}
         currentGoalMasteryRate={goalMasteryData?.masteryRate ?? null}
         currentOnTrackComparable={currentOnTrackComparable}
       />
