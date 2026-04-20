@@ -31,7 +31,6 @@ import {
   updateServiceRequirement,
   supersedeServiceRequirement,
   deleteServiceRequirement,
-  type UpdateServiceRequirementBody,
   listServiceTypes,
   listStaff,
   createStaffAssignment,
@@ -54,11 +53,25 @@ import StudentComplianceSection from "./student-detail/StudentComplianceSection"
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
 import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
+import { useSupersedeFlow } from "./student-detail/supersede-flow";
 import {
-  SupersedeServiceRequirementDialog,
-  detectRequiresSupersedeError,
-} from "@/components/supersede-service-requirement-dialog";
-import { performSupersede } from "./student-detail/supersede-flow";
+  archiveStudent,
+  reactivateStudent,
+  saveEnrollmentEvent,
+  deleteEnrollmentEvent,
+  saveEmergencyContact,
+  deleteEmergencyContact,
+  saveMedicalAlert,
+  deleteMedicalAlert,
+  createServiceRequirementHandler,
+  updateServiceRequirementHandler,
+  deleteServiceRequirementHandler,
+  addStaffAssignmentHandler,
+  removeStaffAssignmentHandler,
+  generateShareLinkHandler,
+  fetchProgressSummaryHandler,
+} from "./student-detail/handlers";
+import SupersedeDialog from "./student-detail/SupersedeDialog";
 import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
 import StudentHandoffCard from "./student-detail/StudentHandoffCard";
 
@@ -250,74 +263,62 @@ export default function StudentDetail() {
       .catch(() => {});
   }, [contactsDataFetched, studentId]);
 
+  async function refreshEnrollment() {
+    try {
+      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((r: any) => r.json());
+      setEnrollmentHistory(Array.isArray(d) ? d : []);
+    } catch {}
+  }
+
   async function handleArchive() {
     setArchiveSaving(true);
-    try {
-      const r = await authFetch(`/api/students/${studentId}/archive`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: archiveReason || null }) });
-      if (!r.ok) throw new Error();
+    const result = await archiveStudent(authFetch, studentId, archiveReason || null);
+    if (result.ok) {
       toast.success("Student archived");
       setArchiveDialogOpen(false);
       setArchiveReason("");
       refetchStudent();
-      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((r: any) => r.json());
-      setEnrollmentHistory(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to archive student"); }
+      await refreshEnrollment();
+    } else {
+      toast.error("Failed to archive student");
+    }
     setArchiveSaving(false);
   }
 
   async function handleReactivate() {
     setReactivateSaving(true);
-    try {
-      const r = await authFetch(`/api/students/${studentId}/reactivate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      if (!r.ok) throw new Error();
+    const result = await reactivateStudent(authFetch, studentId);
+    if (result.ok) {
       toast.success("Student reactivated");
       setReactivateDialogOpen(false);
       refetchStudent();
-      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((r: any) => r.json());
-      setEnrollmentHistory(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to reactivate student"); }
+      await refreshEnrollment();
+    } else {
+      toast.error("Failed to reactivate student");
+    }
     setReactivateSaving(false);
   }
 
   async function handleAddEvent() {
-    if (!addEventForm.eventType || !addEventForm.eventDate) { toast.error("Event type and date are required"); return; }
+    if (!addEventForm.eventType || !addEventForm.eventDate) {
+      toast.error("Event type and date are required"); return;
+    }
     setAddEventSaving(true);
-    try {
-      if (editingEvent) {
-        const r = await authFetch(`/api/students/${studentId}/enrollment/${editingEvent.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: addEventForm.eventType,
-            eventDate: addEventForm.eventDate,
-            reasonCode: addEventForm.reasonCode || null,
-            reason: addEventForm.reason || null,
-            notes: addEventForm.notes || null,
-          }),
-        });
-        if (!r.ok) throw new Error();
-        toast.success("Enrollment event updated");
-      } else {
-        const r = await authFetch(`/api/students/${studentId}/enrollment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: addEventForm.eventType,
-            eventDate: addEventForm.eventDate,
-            reasonCode: addEventForm.reasonCode || null,
-            reason: addEventForm.reason || null,
-            notes: addEventForm.notes || null,
-          }),
-        });
-        if (!r.ok) throw new Error();
-        toast.success("Enrollment event logged");
-      }
+    const result = await saveEnrollmentEvent(
+      authFetch,
+      studentId,
+      addEventForm,
+      editingEvent?.id ?? null,
+    );
+    if (result.ok) {
+      toast.success(editingEvent ? "Enrollment event updated" : "Enrollment event logged");
       setAddEventDialogOpen(false);
       setEditingEvent(null);
       setAddEventForm({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
-      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((res: any) => res.json());
-      setEnrollmentHistory(Array.isArray(d) ? d : []);
-    } catch { toast.error(editingEvent ? "Failed to update event" : "Failed to log event"); }
+      await refreshEnrollment();
+    } else {
+      toast.error(editingEvent ? "Failed to update event" : "Failed to log event");
+    }
     setAddEventSaving(false);
   }
 
@@ -340,14 +341,21 @@ export default function StudentDetail() {
   }
 
   async function handleDeleteEvent(ev: any) {
-    try {
-      const r = await authFetch(`/api/students/${studentId}/enrollment/${ev.id}`, { method: "DELETE" });
-      if (!r.ok) throw new Error();
+    const result = await deleteEnrollmentEvent(authFetch, studentId, ev.id);
+    if (result.ok) {
       toast.success("Enrollment event deleted");
       setDeletingEvent(null);
-      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((res: any) => res.json());
-      setEnrollmentHistory(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to delete event"); }
+      await refreshEnrollment();
+    } else {
+      toast.error("Failed to delete event");
+    }
+  }
+
+  async function refreshEmergencyContacts() {
+    try {
+      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json());
+      setEmergencyContacts(Array.isArray(d) ? d : []);
+    } catch {}
   }
 
   async function handleSaveEc() {
@@ -355,33 +363,27 @@ export default function StudentDetail() {
       toast.error("First name, last name, relationship, and phone are required"); return;
     }
     setEcSaving(true);
-    try {
-      if (editingEc) {
-        const r = await authFetch(`/api/emergency-contacts/${editingEc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ecForm) });
-        if (!r.ok) throw new Error();
-        toast.success("Contact updated");
-      } else {
-        const r = await authFetch(`/api/students/${studentId}/emergency-contacts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ecForm, studentId }) });
-        if (!r.ok) throw new Error();
-        toast.success("Contact added");
-      }
+    const result = await saveEmergencyContact(authFetch, studentId, ecForm, editingEc?.id ?? null);
+    if (result.ok) {
+      toast.success(editingEc ? "Contact updated" : "Contact added");
       setEcDialogOpen(false);
       setEditingEc(null);
-      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json());
-      setEmergencyContacts(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to save contact"); }
+      await refreshEmergencyContacts();
+    } else {
+      toast.error("Failed to save contact");
+    }
     setEcSaving(false);
   }
 
   async function handleDeleteEc(contact: EmergencyContactRecord) {
-    try {
-      const r = await authFetch(`/api/emergency-contacts/${contact.id}`, { method: "DELETE" });
-      if (!r.ok) throw new Error();
+    const result = await deleteEmergencyContact(authFetch, contact.id);
+    if (result.ok) {
       toast.success("Contact removed");
       setDeletingEc(null);
-      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json());
-      setEmergencyContacts(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to remove contact"); }
+      await refreshEmergencyContacts();
+    } else {
+      toast.error("Failed to remove contact");
+    }
   }
 
   function openAddEc() {
@@ -406,38 +408,39 @@ export default function StudentDetail() {
     setEcDialogOpen(true);
   }
 
+  async function refreshMedicalAlerts() {
+    try {
+      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json());
+      setMedicalAlerts(Array.isArray(d) ? d : []);
+    } catch {}
+  }
+
   async function handleSaveMa() {
     if (!maForm.description || !maForm.alertType || !maForm.severity) {
       toast.error("Alert type, description, and severity are required"); return;
     }
     setMaSaving(true);
-    try {
-      if (editingMa) {
-        const r = await authFetch(`/api/medical-alerts/${editingMa.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(maForm) });
-        if (!r.ok) throw new Error();
-        toast.success("Alert updated");
-      } else {
-        const r = await authFetch(`/api/students/${studentId}/medical-alerts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...maForm, studentId }) });
-        if (!r.ok) throw new Error();
-        toast.success("Alert added");
-      }
+    const result = await saveMedicalAlert(authFetch, studentId, maForm, editingMa?.id ?? null);
+    if (result.ok) {
+      toast.success(editingMa ? "Alert updated" : "Alert added");
       setMaDialogOpen(false);
       setEditingMa(null);
-      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json());
-      setMedicalAlerts(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to save alert"); }
+      await refreshMedicalAlerts();
+    } else {
+      toast.error("Failed to save alert");
+    }
     setMaSaving(false);
   }
 
   async function handleDeleteMa(alert: MedicalAlertRecord) {
-    try {
-      const r = await authFetch(`/api/medical-alerts/${alert.id}`, { method: "DELETE" });
-      if (!r.ok) throw new Error();
+    const result = await deleteMedicalAlert(authFetch, alert.id);
+    if (result.ok) {
       toast.success("Alert removed");
       setDeletingMa(null);
-      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json());
-      setMedicalAlerts(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to remove alert"); }
+      await refreshMedicalAlerts();
+    } else {
+      toast.error("Failed to remove alert");
+    }
   }
 
   function openAddMa() {
@@ -482,56 +485,46 @@ export default function StudentDetail() {
   }
 
   async function handleSaveSvc() {
-    if (!svcForm.serviceTypeId || !svcForm.requiredMinutes) { toast.error("Service type and minutes are required"); return; }
+    if (!svcForm.serviceTypeId || !svcForm.requiredMinutes) {
+      toast.error("Service type and minutes are required"); return;
+    }
     setSvcSaving(true);
-    try {
-      if (editingSvc) {
-        const edits: UpdateServiceRequirementBody = {
-          providerId: svcForm.providerId && svcForm.providerId !== "__none" ? Number(svcForm.providerId) : null,
-          deliveryType: svcForm.deliveryType,
-          requiredMinutes: Number(svcForm.requiredMinutes),
-          intervalType: svcForm.intervalType,
-          startDate: svcForm.startDate || null,
-          endDate: svcForm.endDate || null,
-          priority: svcForm.priority,
-          notes: svcForm.notes || null,
-        };
-        try {
-          await updateServiceRequirement(editingSvc.id, edits);
-        } catch (err) {
-          const supersede = detectRequiresSupersedeError(err);
-          if (supersede) {
-            setSupersedeCreditedCount(supersede.creditedSessionCount);
-            setSupersedePendingEdits(edits);
-            setSupersedeDate(edits.startDate || new Date().toISOString().split("T")[0]);
-            setSvcDialogOpen(false);
-            setSupersedeOpen(true);
-            setSvcSaving(false);
-            return;
-          }
-          throw err;
-        }
+    if (editingSvc) {
+      const result = await updateServiceRequirementHandler(
+        supersedeFlow,
+        updateServiceRequirement,
+        editingSvc.id,
+        studentId,
+        svcForm,
+      );
+      if (result.kind === "supersede") {
+        // Modal opened by the flow — keep the edit dialog closed and let the
+        // user confirm there. The flow's `refresh` callback fires the
+        // refetches when the supersede confirms.
+        setSvcDialogOpen(false);
+      } else if (result.kind === "ok") {
         toast.success("Service requirement updated");
+        setSvcDialogOpen(false);
+        refetchStudent();
+        refetchProgress();
       } else {
-        await createServiceRequirement({
-          studentId,
-          serviceTypeId: Number(svcForm.serviceTypeId),
-          providerId: svcForm.providerId && svcForm.providerId !== "__none" ? Number(svcForm.providerId) : null,
-          deliveryType: svcForm.deliveryType,
-          requiredMinutes: Number(svcForm.requiredMinutes),
-          intervalType: svcForm.intervalType,
-          startDate: svcForm.startDate,
-          endDate: svcForm.endDate || null,
-          priority: svcForm.priority,
-          notes: svcForm.notes || null,
-          active: true,
-        });
-        toast.success("Service requirement added");
+        toast.error("Failed to save service requirement");
       }
-      setSvcDialogOpen(false);
-      refetchStudent();
-      refetchProgress();
-    } catch { toast.error("Failed to save service requirement"); }
+    } else {
+      const result = await createServiceRequirementHandler(
+        createServiceRequirement,
+        studentId,
+        svcForm,
+      );
+      if (result.ok) {
+        toast.success("Service requirement added");
+        setSvcDialogOpen(false);
+        refetchStudent();
+        refetchProgress();
+      } else {
+        toast.error("Failed to save service requirement");
+      }
+    }
     setSvcSaving(false);
   }
 
@@ -550,41 +543,49 @@ export default function StudentDetail() {
   async function handleDeleteSvc() {
     if (!deletingSvc) return;
     setSvcSaving(true);
-    try {
-      await deleteServiceRequirement(deletingSvc.id);
+    const result = await deleteServiceRequirementHandler(
+      deleteServiceRequirement,
+      deletingSvc.id,
+    );
+    if (result.ok) {
       toast.success("Service requirement deleted");
       setDeletingSvc(null);
       refetchStudent();
       refetchProgress();
-    } catch { toast.error("Failed to delete"); }
+    } else {
+      toast.error("Failed to delete");
+    }
     setSvcSaving(false);
   }
 
   async function handleAddAssignment() {
-    if (!assignForm.staffId || !assignForm.assignmentType) { toast.error("Staff and assignment type required"); return; }
+    if (!assignForm.staffId || !assignForm.assignmentType) {
+      toast.error("Staff and assignment type required"); return;
+    }
     setAssignSaving(true);
-    try {
-      await createStaffAssignment({
-        staffId: Number(assignForm.staffId),
-        studentId,
-        assignmentType: assignForm.assignmentType,
-        startDate: assignForm.startDate || null,
-        endDate: assignForm.endDate || null,
-        notes: assignForm.notes || null,
-      });
+    const result = await addStaffAssignmentHandler(
+      createStaffAssignment,
+      studentId,
+      assignForm,
+    );
+    if (result.ok) {
       toast.success("Staff assigned");
       setAssignDialogOpen(false);
       refetchStudent();
-    } catch { toast.error("Failed to assign staff"); }
+    } else {
+      toast.error("Failed to assign staff");
+    }
     setAssignSaving(false);
   }
 
   async function handleRemoveAssignment(id: number) {
-    try {
-      await deleteStaffAssignment(id);
+    const result = await removeStaffAssignmentHandler(deleteStaffAssignment, id);
+    if (result.ok) {
       toast.success("Assignment removed");
       refetchStudent();
-    } catch { toast.error("Failed to remove assignment"); }
+    } else {
+      toast.error("Failed to remove assignment");
+    }
   }
 
   function openAssignDialog() {
@@ -873,20 +874,26 @@ export default function StudentDetail() {
     setShareLoading(true);
     setShareLink(null);
     setShareSummary(null);
-    try {
-      const data = await getStudentProgressSummary(studentId, { days: shareDays } as any);
-      setShareSummary(data);
-    } catch {}
+    const result = await fetchProgressSummaryHandler(
+      getStudentProgressSummary,
+      studentId,
+      shareDays,
+    );
+    if (result.ok) setShareSummary(result.data);
     setShareLoading(false);
   }
 
   async function generateShareLink() {
-    try {
-      const data = await createProgressShareLink(studentId, { days: shareDays, expiresInHours: 72 } as any);
-      const fullUrl = `${window.location.origin}${data.url}`;
-      setShareLink(fullUrl);
+    const result = await generateShareLinkHandler(
+      createProgressShareLink,
+      studentId,
+      shareDays,
+      window.location.origin,
+    );
+    if (result.ok) {
+      setShareLink(result.url);
       toast.success("Share link generated (expires in 72 hours)");
-    } catch {
+    } else {
       toast.error("Failed to generate share link");
     }
   }
@@ -1552,23 +1559,7 @@ export default function StudentDetail() {
         generateShareLink={generateShareLink}
         studentId={studentId}
       />
-      <SupersedeServiceRequirementDialog
-        open={supersedeOpen}
-        onOpenChange={(v) => {
-          if (!v) {
-            setSupersedeOpen(false);
-            setSupersedePendingEdits(null);
-          } else {
-            setSupersedeOpen(true);
-          }
-        }}
-        creditedSessionCount={supersedeCreditedCount}
-        supersedeDate={supersedeDate}
-        setSupersedeDate={setSupersedeDate}
-        pendingEdits={supersedePendingEdits}
-        saving={supersedeSaving}
-        onConfirm={handleConfirmSupersede}
-      />
+      <SupersedeDialog flow={supersedeFlow} onConfirm={handleConfirmSupersede} />
       <QuickLogSheet
         isOpen={quickLogOpen}
         onClose={() => setQuickLogOpen(false)}
