@@ -1,20 +1,36 @@
 // tenant-scope: district-join
-// DEPRECATED(batch-1): the per-student "currently in force service
-// types" derivation in this route reads every requirement row regardless
-// of supersede state. Switch to
-// `getActiveRequirements(studentId, todayRange)` from
-// `lib/domain-service-delivery` per
-// docs/architecture/active-requirements.md (target: Batch 3).
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-  studentsTable, iepGoalsTable, serviceRequirementsTable,
+  studentsTable, iepGoalsTable, serviceTypesTable,
   behaviorTargetsTable, programTargetsTable, programStepsTable
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { assertStudentInCallerDistrict } from "../lib/districtScope";
 import type { AuthedRequest } from "../middlewares/auth";
+import { getActiveRequirements } from "../lib/domain-service-delivery/activeRequirements";
+
+/**
+ * Service Requirement v1 (Batch 3) — derive the student's
+ * currently-in-force service-type names by walking the supersede chain
+ * via getActiveRequirements, then resolving service_type names. Returns
+ * only types whose live tail is in force today (`source: 'active'`),
+ * which is what the suggestion engine wants to know about.
+ */
+async function getInForceServiceTypeNames(studentId: number): Promise<string[]> {
+  const today = new Date().toISOString().substring(0, 10);
+  const intervals = await getActiveRequirements(studentId, { startDate: today, endDate: today });
+  const activeTypeIds = Array.from(new Set(
+    intervals.filter(i => i.source === "active").map(i => i.serviceTypeId),
+  ));
+  if (activeTypeIds.length === 0) return [];
+  const rows = await db
+    .select({ name: serviceTypesTable.name })
+    .from(serviceTypesTable)
+    .where(inArray(serviceTypesTable.id, activeTypeIds));
+  return rows.map(r => r.name);
+}
 
 const router: IRouter = Router();
 router.use(
@@ -182,18 +198,9 @@ router.get("/students/:studentId/iep-suggestions", async (req, res): Promise<voi
     const goalAreas = [...new Set(goals.map(g => g.goalArea).filter(Boolean) as string[])];
     const serviceAreas = [...new Set(goals.map(g => g.serviceArea).filter(Boolean) as string[])];
 
-    const svcReqs = await db.query.serviceRequirementsTable
-      ? await db.select().from(serviceRequirementsTable).where(eq(serviceRequirementsTable.studentId, studentId))
-      : [];
-
     let serviceTypeNames: string[] = [];
     try {
-      const svcRows = await db.execute(sql`
-        SELECT DISTINCT st.name FROM service_requirements sr
-        JOIN service_types st ON sr.service_type_id = st.id
-        WHERE sr.student_id = ${studentId}
-      `);
-      serviceTypeNames = (svcRows.rows as any[]).map(r => r.name);
+      serviceTypeNames = await getInForceServiceTypeNames(studentId);
     } catch { }
 
     const existingBehaviors = await db.select({ name: behaviorTargetsTable.name })
@@ -397,12 +404,7 @@ router.get("/iep-suggestions/all-students", async (req, res): Promise<void> => {
 
       let serviceTypeNames: string[] = [];
       try {
-        const svcRows = await db.execute(sql`
-          SELECT DISTINCT st.name FROM service_requirements sr
-          JOIN service_types st ON sr.service_type_id = st.id
-          WHERE sr.student_id = ${stu.id}
-        `);
-        serviceTypeNames = (svcRows.rows as any[]).map(r => r.name);
+        serviceTypeNames = await getInForceServiceTypeNames(stu.id);
       } catch { }
 
       const existingBehaviors = await db.select().from(behaviorTargetsTable)

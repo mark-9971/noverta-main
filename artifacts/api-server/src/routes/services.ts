@@ -14,7 +14,7 @@ import {
   SupersedeServiceRequirementParams,
   SupersedeServiceRequirementBody,
 } from "@workspace/api-zod";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 import { ensureStaffAssignment } from "../lib/ensureStaffAssignment";
@@ -23,6 +23,7 @@ import {
   assertNoCreditedSessions,
   materialFieldsChanging,
 } from "../lib/serviceRequirementGuards";
+import { getActiveRequirements } from "../lib/domain-service-delivery/activeRequirements";
 
 const requireServiceAdmin = requireRoles("admin", "coordinator", "case_manager");
 
@@ -112,18 +113,30 @@ router.patch("/service-types/:id", requireServiceAdmin, async (req, res): Promis
   res.json({ ...type, createdAt: type.createdAt.toISOString() });
 });
 
-// DEPRECATED(batch-1): this list endpoint returns raw rows filtered by
-// `active=true|false` only — it does not honor the supersede chain. Add
-// `?asOfDate=` and `?range=` modes that delegate to
-// `getActiveRequirements` from `lib/domain-service-delivery` per
-// docs/architecture/active-requirements.md (target: Batch 2). Preserve
-// the raw-list mode for backward compat until the UI is updated.
+// Service Requirement v1 (Batch 3) — Periodized read.
+//   - Default mode (no asOfDate/rangeStart/rangeEnd): raw-list filtered
+//     by the legacy params. Each row is decorated with `source` derived
+//     from its supersede state so the UI can render history without a
+//     second round-trip.
+//   - asOfDate=YYYY-MM-DD (requires studentId): returns only the
+//     requirements in force on that date, walking the supersede chain.
+//   - rangeStart/rangeEnd (requires studentId): returns one row per
+//     interval clipped to the range, again chain-aware.
+//   See docs/architecture/active-requirements.md.
 router.get("/service-requirements", async (req, res): Promise<void> => {
   const params = ListServiceRequirementsQueryParams.safeParse(req.query);
   const conditions: any[] = [];
+  let studentIdFilter: number | null = null;
+  let serviceTypeIdFilter: number | null = null;
   if (params.success) {
-    if (params.data.studentId) conditions.push(eq(serviceRequirementsTable.studentId, Number(params.data.studentId)));
-    if (params.data.serviceTypeId) conditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(params.data.serviceTypeId)));
+    if (params.data.studentId) {
+      studentIdFilter = Number(params.data.studentId);
+      conditions.push(eq(serviceRequirementsTable.studentId, studentIdFilter));
+    }
+    if (params.data.serviceTypeId) {
+      serviceTypeIdFilter = Number(params.data.serviceTypeId);
+      conditions.push(eq(serviceRequirementsTable.serviceTypeId, serviceTypeIdFilter));
+    }
     if (params.data.providerId) conditions.push(eq(serviceRequirementsTable.providerId, Number(params.data.providerId)));
     if (params.data.active === "true") conditions.push(eq(serviceRequirementsTable.active, true));
     else if (params.data.active === "false") conditions.push(eq(serviceRequirementsTable.active, false));
@@ -135,6 +148,93 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
       SELECT s.id FROM students s JOIN schools sch ON sch.id = s.school_id
       WHERE sch.district_id = ${enforcedDid}
     )`);
+  }
+
+  // Periodized mode parsing.
+  const asOfDate = typeof req.query.asOfDate === "string" ? req.query.asOfDate : null;
+  const rangeStart = typeof req.query.rangeStart === "string" ? req.query.rangeStart : null;
+  const rangeEnd = typeof req.query.rangeEnd === "string" ? req.query.rangeEnd : null;
+  const periodized = asOfDate != null || rangeStart != null || rangeEnd != null;
+
+  if (periodized) {
+    if (studentIdFilter == null) {
+      res.status(400).json({ error: "studentId is required when using asOfDate or rangeStart/rangeEnd" });
+      return;
+    }
+    let range: { startDate: string; endDate: string };
+    if (asOfDate != null) {
+      range = { startDate: asOfDate, endDate: asOfDate };
+    } else {
+      if (rangeStart == null || rangeEnd == null) {
+        res.status(400).json({ error: "rangeStart and rangeEnd must both be provided" });
+        return;
+      }
+      range = { startDate: rangeStart, endDate: rangeEnd };
+    }
+    // District scope check (helper does not enforce it).
+    if (enforcedDid != null && !(await studentInCallerDistrict(req as unknown as AuthedRequest, studentIdFilter))) {
+      res.json([]);
+      return;
+    }
+    const intervals = await getActiveRequirements(studentIdFilter, range, {
+      serviceTypeId: serviceTypeIdFilter ?? undefined,
+    });
+    if (intervals.length === 0) {
+      res.json([]);
+      return;
+    }
+    // Hydrate the underlying rows with their joins, then project one
+    // response item per interval (the same row may appear multiple
+    // times if the queried range straddles a chain transition for the
+    // same row, but `getActiveRequirements` clips to one interval per
+    // chain link so this is at most once per requirementId).
+    const reqIds = Array.from(new Set(intervals.map(i => i.requirementId)));
+    const rows = await db
+      .select({
+        id: serviceRequirementsTable.id,
+        studentId: serviceRequirementsTable.studentId,
+        serviceTypeId: serviceRequirementsTable.serviceTypeId,
+        providerId: serviceRequirementsTable.providerId,
+        deliveryType: serviceRequirementsTable.deliveryType,
+        requiredMinutes: serviceRequirementsTable.requiredMinutes,
+        intervalType: serviceRequirementsTable.intervalType,
+        startDate: serviceRequirementsTable.startDate,
+        endDate: serviceRequirementsTable.endDate,
+        priority: serviceRequirementsTable.priority,
+        notes: serviceRequirementsTable.notes,
+        active: serviceRequirementsTable.active,
+        schoolId: serviceRequirementsTable.schoolId,
+        deliveryModel: serviceRequirementsTable.deliveryModel,
+        supersedesId: serviceRequirementsTable.supersedesId,
+        replacedAt: serviceRequirementsTable.replacedAt,
+        createdAt: serviceRequirementsTable.createdAt,
+        serviceTypeName: serviceTypesTable.name,
+        providerFirst: staffTable.firstName,
+        providerLast: staffTable.lastName,
+      })
+      .from(serviceRequirementsTable)
+      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+      .leftJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
+      .where(inArray(serviceRequirementsTable.id, reqIds));
+    const rowById = new Map(rows.map(r => [r.id, r]));
+    res.json(intervals.map(iv => {
+      const r = rowById.get(iv.requirementId);
+      if (!r) return null;
+      return {
+        ...r,
+        // Clipped interval dates so the UI shows only the in-range
+        // portion of the requirement (e.g. up to a mid-month
+        // supersede).
+        startDate: iv.startDate,
+        endDate: iv.endDate,
+        serviceTypeName: r.serviceTypeName,
+        providerName: r.providerFirst ? `${r.providerFirst} ${r.providerLast}` : null,
+        replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
+        createdAt: r.createdAt.toISOString(),
+        source: iv.source,
+      };
+    }).filter(Boolean));
+    return;
   }
 
   const reqs = await db
@@ -165,13 +265,42 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
     .leftJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-  res.json(reqs.map(r => ({
-    ...r,
-    serviceTypeName: r.serviceTypeName,
-    providerName: r.providerFirst ? `${r.providerFirst} ${r.providerLast}` : null,
-    replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
-    createdAt: r.createdAt.toISOString(),
-  })));
+  // Decorate each row with `source` so even legacy raw-list callers
+  // can distinguish the live tail from a superseded predecessor. A row
+  // is 'active' iff it is the live tail of its (student, service_type)
+  // chain — `active=true` AND no other row in the same group declares
+  // it as a predecessor via supersedes_id.
+  const supersededIds = new Set<number>();
+  if (reqs.length > 0) {
+    const studentServicePairs = new Set(reqs.map(r => `${r.studentId}:${r.serviceTypeId}`));
+    const sibsConditions = Array.from(studentServicePairs).map(p => {
+      const [sid, stid] = p.split(":").map(Number);
+      return sql`(${serviceRequirementsTable.studentId} = ${sid} AND ${serviceRequirementsTable.serviceTypeId} = ${stid})`;
+    });
+    const sibs = await db
+      .select({ supersedesId: serviceRequirementsTable.supersedesId })
+      .from(serviceRequirementsTable)
+      .where(and(
+        sql.join(sibsConditions, sql` OR `),
+        sql`${serviceRequirementsTable.supersedesId} IS NOT NULL`,
+      ));
+    for (const s of sibs) {
+      if (s.supersedesId != null) supersededIds.add(s.supersedesId);
+    }
+  }
+
+  res.json(reqs.map(r => {
+    const source: "active" | "superseded" =
+      r.active && !supersededIds.has(r.id) ? "active" : "superseded";
+    return {
+      ...r,
+      serviceTypeName: r.serviceTypeName,
+      providerName: r.providerFirst ? `${r.providerFirst} ${r.providerLast}` : null,
+      replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
+      createdAt: r.createdAt.toISOString(),
+      source,
+    };
+  }));
 });
 
 router.post("/service-requirements", requireServiceAdmin, async (req, res): Promise<void> => {
@@ -277,12 +406,22 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  // Decorate with `source` so the detail view can show whether this
+  // row is the live tail of its supersede chain or a past entry.
+  const successor = await db
+    .select({ id: serviceRequirementsTable.id })
+    .from(serviceRequirementsTable)
+    .where(eq(serviceRequirementsTable.supersedesId, r.id))
+    .limit(1);
+  const source: "active" | "superseded" =
+    r.active && successor.length === 0 ? "active" : "superseded";
   res.json({
     ...r,
     serviceTypeName: r.serviceTypeName,
     providerName: r.providerFirst ? `${r.providerFirst} ${r.providerLast}` : null,
     replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
+    source,
   });
 });
 

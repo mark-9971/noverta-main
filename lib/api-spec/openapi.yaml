@@ -1039,6 +1039,23 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        # Periodized read params (Service Requirement v1).
+        # When asOfDate is set, the response only contains requirements
+        # in force on that date (chain-aware). When rangeStart/rangeEnd
+        # are set, one row per interval is returned, clipped to the
+        # range. studentId is required for these modes.
+        - name: asOfDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: rangeStart
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: rangeEnd
+          in: query
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: Requirements list
@@ -7197,6 +7214,15 @@ components:
           type: ["integer", "null"]
         replacedAt:
           type: ["string", "null"]
+        # Service Requirement v1 — populated by the periodized read paths
+        # (asOfDate / range modes on the list endpoint, dashboard reads,
+        # iep-suggestions). 'active' = live tail of the supersede chain;
+        # 'superseded' = a past row in the chain or an end-dated row
+        # with no successor. Null on legacy raw-list reads that have not
+        # been migrated.
+        source:
+          type: ["string", "null"]
+          enum: ["active", "superseded", null]
         createdAt:
           type: string
       required: [id, studentId, serviceTypeId, deliveryType, requiredMinutes, intervalType, startDate, active, createdAt]

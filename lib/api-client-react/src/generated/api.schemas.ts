@@ -143,6 +143,18 @@ export interface Student {
   updatedAt: string;
 }
 
+/**
+ * @nullable
+ */
+export type ServiceRequirementSource =
+  | (typeof ServiceRequirementSource)[keyof typeof ServiceRequirementSource]
+  | null;
+
+export const ServiceRequirementSource = {
+  active: "active",
+  superseded: "superseded",
+} as const;
+
 export interface ServiceRequirement {
   id: number;
   studentId: number;
@@ -172,6 +184,8 @@ export interface ServiceRequirement {
   supersedesId?: number | null;
   /** @nullable */
   replacedAt?: string | null;
+  /** @nullable */
+  source?: ServiceRequirementSource;
   createdAt: string;
 }
 
@@ -2581,6 +2595,18 @@ export type ListServiceRequirementsParams = {
    * @nullable
    */
   active?: string | null;
+  /**
+   * @nullable
+   */
+  asOfDate?: string | null;
+  /**
+   * @nullable
+   */
+  rangeStart?: string | null;
+  /**
+   * @nullable
+   */
+  rangeEnd?: string | null;
 };
 
 export type ListSessionsParams = {

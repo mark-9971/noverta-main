@@ -542,6 +542,13 @@ export const GetStudentResponse = zod.object({
       deliveryModel: zod.string().nullish(),
       supersedesId: zod.number().nullish(),
       replacedAt: zod.string().nullish(),
+      source: zod
+        .union([
+          zod.literal("active"),
+          zod.literal("superseded"),
+          zod.literal(null),
+        ])
+        .nullish(),
       createdAt: zod.string(),
     }),
   ),
@@ -1146,6 +1153,9 @@ export const ListServiceRequirementsQueryParams = zod.object({
   serviceTypeId: zod.coerce.number().nullish(),
   providerId: zod.coerce.number().nullish(),
   active: zod.coerce.string().nullish(),
+  asOfDate: zod.coerce.string().nullish(),
+  rangeStart: zod.coerce.string().nullish(),
+  rangeEnd: zod.coerce.string().nullish(),
 });
 
 export const ListServiceRequirementsResponseItem = zod.object({
@@ -1167,6 +1177,13 @@ export const ListServiceRequirementsResponseItem = zod.object({
   deliveryModel: zod.string().nullish(),
   supersedesId: zod.number().nullish(),
   replacedAt: zod.string().nullish(),
+  source: zod
+    .union([
+      zod.literal("active"),
+      zod.literal("superseded"),
+      zod.literal(null),
+    ])
+    .nullish(),
   createdAt: zod.string(),
 });
 export const ListServiceRequirementsResponse = zod.array(
@@ -1220,6 +1237,13 @@ export const GetServiceRequirementResponse = zod.object({
   deliveryModel: zod.string().nullish(),
   supersedesId: zod.number().nullish(),
   replacedAt: zod.string().nullish(),
+  source: zod
+    .union([
+      zod.literal("active"),
+      zod.literal("superseded"),
+      zod.literal(null),
+    ])
+    .nullish(),
   createdAt: zod.string(),
 });
 
@@ -1268,6 +1292,13 @@ export const UpdateServiceRequirementResponse = zod.object({
   deliveryModel: zod.string().nullish(),
   supersedesId: zod.number().nullish(),
   replacedAt: zod.string().nullish(),
+  source: zod
+    .union([
+      zod.literal("active"),
+      zod.literal("superseded"),
+      zod.literal(null),
+    ])
+    .nullish(),
   createdAt: zod.string(),
 });
 
