@@ -376,6 +376,7 @@ import type {
   SupervisionSession,
   SupervisionSessionWithNames,
   SupervisionTrendPoint,
+  TodayScheduleBlock,
   TransitionIncidentStatus200,
   TransitionIncidentStatus400,
   TransitionIncidentStatusBody,
@@ -6678,6 +6679,83 @@ export const useRunComplianceChecks = <
 > => {
   return useMutation(getRunComplianceChecksMutationOptions(options));
 };
+
+/**
+ * Returns the calling staff member's recurring schedule blocks for the current weekday, each annotated with a status field. The status reflects matched session logs ("logged"), wall-clock state ("in_progress" / "missed" / "upcoming"), and per-school calendar exceptions: a closure flips every block to "closed" with durationMinutes=0; an early-release day flips post-dismissal blocks to "closed" and the straddling block to "early_release" with durationMinutes prorated to the pre-dismissal portion.
+
+ * @summary Caller's schedule blocks for today, annotated with status
+ */
+export const getListMyTodayScheduleUrl = () => {
+  return `/api/schedules/today`;
+};
+
+export const listMyTodaySchedule = async (
+  options?: RequestInit,
+): Promise<TodayScheduleBlock[]> => {
+  return customFetch<TodayScheduleBlock[]>(getListMyTodayScheduleUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyTodayScheduleQueryKey = () => {
+  return [`/api/schedules/today`] as const;
+};
+
+export const getListMyTodayScheduleQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyTodaySchedule>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyTodaySchedule>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyTodayScheduleQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyTodaySchedule>>
+  > = ({ signal }) => listMyTodaySchedule({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyTodaySchedule>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyTodayScheduleQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyTodaySchedule>>
+>;
+export type ListMyTodayScheduleQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Caller's schedule blocks for today, annotated with status
+ */
+
+export function useListMyTodaySchedule<
+  TData = Awaited<ReturnType<typeof listMyTodaySchedule>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyTodaySchedule>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyTodayScheduleQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List staff assignments

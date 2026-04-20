@@ -2263,6 +2263,42 @@ export const RunComplianceChecksResponse = zod.object({
 });
 
 /**
+ * Returns the calling staff member's recurring schedule blocks for the current weekday, each annotated with a status field. The status reflects matched session logs ("logged"), wall-clock state ("in_progress" / "missed" / "upcoming"), and per-school calendar exceptions: a closure flips every block to "closed" with durationMinutes=0; an early-release day flips post-dismissal blocks to "closed" and the straddling block to "early_release" with durationMinutes prorated to the pre-dismissal portion.
+
+ * @summary Caller's schedule blocks for today, annotated with status
+ */
+export const ListMyTodayScheduleResponseItem = zod
+  .object({
+    id: zod.number(),
+    staffId: zod.number(),
+    studentId: zod.number().nullish(),
+    studentName: zod.string().nullish(),
+    serviceTypeId: zod.number().nullish(),
+    serviceTypeName: zod.string().nullish(),
+    startTime: zod.string(),
+    endTime: zod.string(),
+    durationMinutes: zod.number(),
+    location: zod.string().nullish(),
+    blockLabel: zod.string().nullish(),
+    sessionLogId: zod.number().nullish(),
+    status: zod.enum([
+      "logged",
+      "in_progress",
+      "missed",
+      "upcoming",
+      "closed",
+      "early_release",
+    ]),
+    date: zod.string(),
+  })
+  .describe(
+    'One row of \/schedules\/today. Mirrors a subset of ScheduleBlock, plus a `status` enum that may now include \"closed\" or \"early_release\" when the school\'s calendar exception applies on the current date. `durationMinutes` is the EFFECTIVE duration for today: zero on closures and on post-dismissal blocks during an early-release day; reduced to the pre-dismissal portion on a block that straddles dismissal.\n',
+  );
+export const ListMyTodayScheduleResponse = zod.array(
+  ListMyTodayScheduleResponseItem,
+);
+
+/**
  * @summary List staff assignments
  */
 export const ListStaffAssignmentsQueryParams = zod.object({

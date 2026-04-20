@@ -130,7 +130,16 @@ export type MinuteProgressResult = {
   earlyReleaseDayCount: number;
 };
 
-export async function computeMinuteProgress(serviceRequirementId: number): Promise<MinuteProgressResult | null> {
+export async function computeMinuteProgress(
+  serviceRequirementId: number,
+  /**
+   * Slice 2 cleanup — optional deterministic clock so the single-row
+   * path matches `computeAllActiveMinuteProgress({ asOfDate })`. Used
+   * by historical reports, debug tooling, and tests that need stable
+   * elapsed/expected math instead of `new Date()` at call time.
+   */
+  asOfDate?: Date,
+): Promise<MinuteProgressResult | null> {
   const [req] = await db
     .select({
       id: serviceRequirementsTable.id,
@@ -161,7 +170,7 @@ export async function computeMinuteProgress(serviceRequirementId: number): Promi
 
   if (!req) return null;
 
-  const { intervalStart, intervalEnd } = getIntervalDates(req.intervalType, req.startDate, req.endDate);
+  const { intervalStart, intervalEnd } = getIntervalDates(req.intervalType, req.startDate, req.endDate, asOfDate);
   const intervalStartStr = intervalStart.toISOString().substring(0, 10);
   const intervalEndStr = intervalEnd.toISOString().substring(0, 10);
 
@@ -196,7 +205,7 @@ export async function computeMinuteProgress(serviceRequirementId: number): Promi
       })
     : new Map<string, SchoolDayException>();
 
-  return buildProgressFromSessions(req, sessions, intervalStart, intervalEnd, intervalStartStr, intervalEndStr, undefined, {
+  return buildProgressFromSessions(req, sessions, intervalStart, intervalEnd, intervalStartStr, intervalEndStr, asOfDate, {
     schoolId: req.schoolId,
     exceptions,
   });

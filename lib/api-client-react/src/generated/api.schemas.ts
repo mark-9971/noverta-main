@@ -1094,6 +1094,46 @@ export interface AuditPackageResponse {
   students: AuditStudent[];
 }
 
+export type TodayScheduleBlockStatus =
+  (typeof TodayScheduleBlockStatus)[keyof typeof TodayScheduleBlockStatus];
+
+export const TodayScheduleBlockStatus = {
+  logged: "logged",
+  in_progress: "in_progress",
+  missed: "missed",
+  upcoming: "upcoming",
+  closed: "closed",
+  early_release: "early_release",
+} as const;
+
+/**
+ * One row of /schedules/today. Mirrors a subset of ScheduleBlock, plus a `status` enum that may now include "closed" or "early_release" when the school's calendar exception applies on the current date. `durationMinutes` is the EFFECTIVE duration for today: zero on closures and on post-dismissal blocks during an early-release day; reduced to the pre-dismissal portion on a block that straddles dismissal.
+
+ */
+export interface TodayScheduleBlock {
+  id: number;
+  staffId: number;
+  /** @nullable */
+  studentId?: number | null;
+  /** @nullable */
+  studentName?: string | null;
+  /** @nullable */
+  serviceTypeId?: number | null;
+  /** @nullable */
+  serviceTypeName?: string | null;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  blockLabel?: string | null;
+  /** @nullable */
+  sessionLogId?: number | null;
+  status: TodayScheduleBlockStatus;
+  date: string;
+}
+
 export interface CreateScheduleBlockBody {
   staffId: number;
   /** @nullable */
