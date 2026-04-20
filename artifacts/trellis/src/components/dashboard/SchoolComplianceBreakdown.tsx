@@ -10,7 +10,12 @@ interface SchoolRow {
   totalStudents: number;
   onTrack: number;
   atRisk: number;
+  /** % of students NOT flagged at-risk (binary student-count metric). */
   rate: number;
+  /** % of mandated minutes actually delivered (matches the headline overallComplianceRate). */
+  complianceRate: number;
+  totalRequiredMinutes: number;
+  totalDeliveredMinutes: number;
 }
 
 function rateColor(rate: number) {
@@ -65,7 +70,18 @@ export default function SchoolComplianceBreakdown() {
     );
   }
 
-  const districtAvg = Math.round(schools.reduce((sum, s) => sum + s.rate, 0) / schools.length);
+  // Minute-weighted district average. This matches the headline
+  // overallComplianceRate (totalDelivered / totalRequired) shown in the
+  // compliance-risk-report and weekly summary, so the per-school rows
+  // and the headline reconcile to the same number. The previous flat
+  // mean of school percentages caused a 3-student school to count as
+  // much as a 600-student school, which is why a district could show
+  // "96% average" up here while the real ratio was 83%.
+  const totalRequired = schools.reduce((sum, s) => sum + s.totalRequiredMinutes, 0);
+  const totalDelivered = schools.reduce((sum, s) => sum + s.totalDeliveredMinutes, 0);
+  const districtAvg = totalRequired > 0
+    ? Math.round((totalDelivered / totalRequired) * 100)
+    : 100;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -79,7 +95,10 @@ export default function SchoolComplianceBreakdown() {
 
       <ul className="divide-y divide-gray-100">
         {schools.map(s => {
-          const c = rateColor(s.rate);
+          // Per-school headline = minute-delivery rate (same definition as
+          // the district headline). Student-count signal is shown as a
+          // secondary stat: "X of Y students at risk".
+          const c = rateColor(s.complianceRate);
           const href = s.schoolId
             ? `/compliance?schoolId=${s.schoolId}`
             : "/compliance";
@@ -89,10 +108,10 @@ export default function SchoolComplianceBreakdown() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[13px] font-medium text-gray-800 truncate">{s.schoolName}</span>
-                    <span className={`text-xs font-bold tabular-nums ml-2 flex-shrink-0 ${c.text}`}>{s.rate}%</span>
+                    <span className={`text-xs font-bold tabular-nums ml-2 flex-shrink-0 ${c.text}`}>{s.complianceRate}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${c.bar}`} style={{ width: `${s.rate}%` }} />
+                    <div className={`h-full rounded-full transition-all ${c.bar}`} style={{ width: `${Math.min(100, s.complianceRate)}%` }} />
                   </div>
                   <div className="flex items-center gap-3 mt-1.5">
                     <span className="text-[11px] text-gray-400">{s.totalStudents} student{s.totalStudents !== 1 ? "s" : ""}</span>
@@ -113,6 +132,7 @@ export default function SchoolComplianceBreakdown() {
       <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
         <span className="text-xs text-gray-400">
           District average: <span className="font-semibold text-gray-600">{districtAvg}%</span>
+          <span className="ml-1 text-gray-400">(minutes delivered ÷ required)</span>
         </span>
         <Link href="/compliance" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">
           View full report →

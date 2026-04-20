@@ -148,11 +148,18 @@ router.get("/dashboard/school-compliance", async (req, res): Promise<void> => {
           atRisk,
           rate,
           complianceRate,
+          // Raw totals are returned so the dashboard can compute a properly
+          // weighted district average (a flat mean of percentages would
+          // count a 3-student rural school the same as a 600-student
+          // comprehensive high school, and would not reconcile with the
+          // headline overallComplianceRate from compliance-risk-report).
+          totalRequiredMinutes: b.totalRequired,
+          totalDeliveredMinutes: b.totalDelivered,
           exposurePerStudent,
           providerLoggingRate,
         };
       })
-      .sort((a, b) => a.rate - b.rate); // worst first
+      .sort((a, b) => a.complianceRate - b.complianceRate); // worst first by minute-delivery
 
     res.json(rows);
   } catch (err) {
