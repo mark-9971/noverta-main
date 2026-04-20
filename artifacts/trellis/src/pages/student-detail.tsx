@@ -29,7 +29,12 @@ import {
   createProgressShareLink,
   createServiceRequirement,
   updateServiceRequirement,
+  supersedeServiceRequirement,
   deleteServiceRequirement,
+  ApiError,
+  type RequiresSupersedeError,
+  type UpdateServiceRequirementBody,
+  type SupersedeServiceRequirementBody,
   listServiceTypes,
   listStaff,
   createStaffAssignment,
@@ -52,6 +57,7 @@ import StudentComplianceSection from "./student-detail/StudentComplianceSection"
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
 import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
 import StudentHandoffCard from "./student-detail/StudentHandoffCard";
 
@@ -158,6 +164,12 @@ export default function StudentDetail() {
   const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [svcForm, setSvcForm] = useState({ serviceTypeId: "", providerId: "", deliveryType: "direct", requiredMinutes: "", intervalType: "weekly", startDate: "", endDate: "", priority: "medium", notes: "" });
+
+  const [supersedeOpen, setSupersedeOpen] = useState(false);
+  const [supersedeSaving, setSupersedeSaving] = useState(false);
+  const [supersedeCreditedCount, setSupersedeCreditedCount] = useState(0);
+  const [supersedeDate, setSupersedeDate] = useState<string>("");
+  const [supersedePendingEdits, setSupersedePendingEdits] = useState<UpdateServiceRequirementBody | null>(null);
 
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
@@ -474,7 +486,7 @@ export default function StudentDetail() {
     setSvcSaving(true);
     try {
       if (editingSvc) {
-        await updateServiceRequirement(editingSvc.id, {
+        const edits: UpdateServiceRequirementBody = {
           providerId: svcForm.providerId && svcForm.providerId !== "__none" ? Number(svcForm.providerId) : null,
           deliveryType: svcForm.deliveryType,
           requiredMinutes: Number(svcForm.requiredMinutes),
@@ -483,7 +495,24 @@ export default function StudentDetail() {
           endDate: svcForm.endDate || null,
           priority: svcForm.priority,
           notes: svcForm.notes || null,
-        });
+        };
+        try {
+          await updateServiceRequirement(editingSvc.id, edits);
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 409) {
+            const data = err.data as RequiresSupersedeError | null;
+            if (data?.code === "REQUIRES_SUPERSEDE") {
+              setSupersedeCreditedCount(data.credited_session_count ?? 0);
+              setSupersedePendingEdits(edits);
+              setSupersedeDate(edits.startDate || new Date().toISOString().split("T")[0]);
+              setSvcDialogOpen(false);
+              setSupersedeOpen(true);
+              setSvcSaving(false);
+              return;
+            }
+          }
+          throw err;
+        }
         toast.success("Service requirement updated");
       } else {
         await createServiceRequirement({
@@ -506,6 +535,43 @@ export default function StudentDetail() {
       refetchProgress();
     } catch { toast.error("Failed to save service requirement"); }
     setSvcSaving(false);
+  }
+
+  async function handleConfirmSupersede() {
+    if (!editingSvc || !supersedePendingEdits) return;
+    if (!supersedeDate) { toast.error("Effective date is required"); return; }
+    setSupersedeSaving(true);
+    try {
+      const {
+        providerId,
+        deliveryType,
+        requiredMinutes,
+        intervalType,
+        endDate,
+        priority,
+        notes,
+      } = supersedePendingEdits;
+      const body: SupersedeServiceRequirementBody = {
+        supersedeDate,
+        providerId,
+        deliveryType,
+        requiredMinutes,
+        intervalType,
+        endDate,
+        priority,
+        notes,
+      };
+      await supersedeServiceRequirement(editingSvc.id, body);
+      toast.success("New service requirement started");
+      setSupersedeOpen(false);
+      setSupersedePendingEdits(null);
+      setEditingSvc(null);
+      refetchStudent();
+      refetchProgress();
+    } catch {
+      toast.error("Failed to supersede service requirement");
+    }
+    setSupersedeSaving(false);
   }
 
   async function handleDeleteSvc() {
@@ -1507,6 +1573,58 @@ export default function StudentDetail() {
         generateShareLink={generateShareLink}
         studentId={studentId}
       />
+      <Dialog open={supersedeOpen} onOpenChange={(v) => { if (!v && !supersedeSaving) { setSupersedeOpen(false); setSupersedePendingEdits(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">
+              This requirement has delivered minutes
+            </DialogTitle>
+            <DialogDescription className="text-[13px] text-gray-600">
+              {supersedeCreditedCount > 0
+                ? `${supersedeCreditedCount} session${supersedeCreditedCount === 1 ? " has" : "s have"} already been credited to this requirement, so it can't be edited in place. Start a new requirement that takes effect on the date below — the existing one will be end-dated automatically.`
+                : "This requirement has credited minutes, so it can't be edited in place. Start a new requirement that takes effect on the date below — the existing one will be end-dated automatically."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">New requirement effective date</Label>
+              <input
+                type="date"
+                value={supersedeDate}
+                onChange={(e) => setSupersedeDate(e.target.value)}
+                className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            {supersedePendingEdits ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] text-gray-700 space-y-0.5">
+                <div className="font-medium text-gray-600 mb-1">Pending changes</div>
+                <div>Minutes: <span className="font-medium">{supersedePendingEdits.requiredMinutes ?? "—"}</span></div>
+                <div>Interval: <span className="font-medium">{supersedePendingEdits.intervalType ?? "—"}</span></div>
+                <div>Delivery: <span className="font-medium">{supersedePendingEdits.deliveryType ?? "—"}</span></div>
+                <div>Priority: <span className="font-medium">{supersedePendingEdits.priority ?? "—"}</span></div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setSupersedeOpen(false); setSupersedePendingEdits(null); }}
+              disabled={supersedeSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmSupersede}
+              disabled={supersedeSaving || !supersedeDate}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {supersedeSaving ? "Starting…" : "Start new requirement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <QuickLogSheet
         isOpen={quickLogOpen}
         onClose={() => setQuickLogOpen(false)}
