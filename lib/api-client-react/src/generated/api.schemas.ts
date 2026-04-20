@@ -65,6 +65,73 @@ export interface CreateSchoolBody {
   districtId?: number | null;
 }
 
+export type SchoolCalendarExceptionType =
+  (typeof SchoolCalendarExceptionType)[keyof typeof SchoolCalendarExceptionType];
+
+export const SchoolCalendarExceptionType = {
+  closure: "closure",
+  early_release: "early_release",
+} as const;
+
+/**
+ * A per-school day-level exception to the default instructional calendar.
+ */
+export interface SchoolCalendarException {
+  id: number;
+  schoolId: number;
+  /** ISO date (YYYY-MM-DD) */
+  exceptionDate: string;
+  type: SchoolCalendarExceptionType;
+  /**
+   * HH:MM (24h). Required when type=early_release, must be null when type=closure.
+   * @nullable
+   */
+  dismissalTime?: string | null;
+  reason: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  createdBy?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateSchoolCalendarExceptionBodyType =
+  (typeof CreateSchoolCalendarExceptionBodyType)[keyof typeof CreateSchoolCalendarExceptionBodyType];
+
+export const CreateSchoolCalendarExceptionBodyType = {
+  closure: "closure",
+  early_release: "early_release",
+} as const;
+
+export interface CreateSchoolCalendarExceptionBody {
+  exceptionDate: string;
+  type: CreateSchoolCalendarExceptionBodyType;
+  /** @nullable */
+  dismissalTime?: string | null;
+  reason: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateSchoolCalendarExceptionBodyType =
+  (typeof UpdateSchoolCalendarExceptionBodyType)[keyof typeof UpdateSchoolCalendarExceptionBodyType];
+
+export const UpdateSchoolCalendarExceptionBodyType = {
+  closure: "closure",
+  early_release: "early_release",
+} as const;
+
+export interface UpdateSchoolCalendarExceptionBody {
+  exceptionDate?: string;
+  type?: UpdateSchoolCalendarExceptionBodyType;
+  /** @nullable */
+  dismissalTime?: string | null;
+  reason?: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export interface Program {
   id: number;
   name: string;
@@ -3926,6 +3993,17 @@ export type UpdateSchoolScheduleSettingsBody = {
 };
 
 export type UpdateSchoolScheduleSettings200 = { [key: string]: unknown };
+
+export type ListSchoolCalendarExceptionsParams = {
+  /**
+   * ISO date (inclusive). Defaults to start of current school year if omitted.
+   */
+  from?: string;
+  /**
+   * ISO date (inclusive). Defaults to end of current school year if omitted.
+   */
+  to?: string;
+};
 
 export type GetStudentMinutesTrend200Item = { [key: string]: unknown };
 

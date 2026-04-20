@@ -6322,6 +6322,123 @@ paths:
               schema:
                 type: object
 
+  # ─── School Calendar Exceptions (School Calendar v0 — Slice 1) ──
+  /schools/{schoolId}/calendar-exceptions:
+    get:
+      operationId: listSchoolCalendarExceptions
+      tags: [schedules]
+      summary: List per-school day-level calendar exceptions
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          required: false
+          description: ISO date (inclusive). Defaults to start of current school year if omitted.
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          description: ISO date (inclusive). Defaults to end of current school year if omitted.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of exceptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SchoolCalendarException"
+    post:
+      operationId: createSchoolCalendarException
+      tags: [schedules]
+      summary: Create a school calendar exception
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSchoolCalendarExceptionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchoolCalendarException"
+        "409":
+          description: An exception already exists for that school on that date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /schools/{schoolId}/calendar-exceptions/{exceptionId}:
+    patch:
+      operationId: updateSchoolCalendarException
+      tags: [schedules]
+      summary: Update a school calendar exception
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: exceptionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSchoolCalendarExceptionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchoolCalendarException"
+        "409":
+          description: Another exception already exists for that school on the new date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteSchoolCalendarException
+      tags: [schedules]
+      summary: Delete a school calendar exception
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: exceptionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ─── Minutes Trend ─────────────────────────────────────────────
   /students/{studentId}/minutes-trend:
     get:
@@ -6832,6 +6949,66 @@ components:
         districtId:
           type: ["integer", "null"]
       required: [name]
+
+    SchoolCalendarException:
+      type: object
+      description: A per-school day-level exception to the default instructional calendar.
+      properties:
+        id:
+          type: integer
+        schoolId:
+          type: integer
+        exceptionDate:
+          type: string
+          description: ISO date (YYYY-MM-DD)
+        type:
+          type: string
+          enum: [closure, early_release]
+        dismissalTime:
+          type: ["string", "null"]
+          description: HH:MM (24h). Required when type=early_release, must be null when type=closure.
+        reason:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdBy:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, schoolId, exceptionDate, type, reason, createdAt, updatedAt]
+
+    CreateSchoolCalendarExceptionBody:
+      type: object
+      properties:
+        exceptionDate:
+          type: string
+        type:
+          type: string
+          enum: [closure, early_release]
+        dismissalTime:
+          type: ["string", "null"]
+        reason:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required: [exceptionDate, type, reason]
+
+    UpdateSchoolCalendarExceptionBody:
+      type: object
+      properties:
+        exceptionDate:
+          type: string
+        type:
+          type: string
+          enum: [closure, early_release]
+        dismissalTime:
+          type: ["string", "null"]
+        reason:
+          type: string
+        notes:
+          type: ["string", "null"]
 
     Program:
       type: object

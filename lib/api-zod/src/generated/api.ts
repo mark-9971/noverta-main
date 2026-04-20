@@ -5609,6 +5609,114 @@ export const UpdateSchoolScheduleSettingsResponse = zod
   .passthrough();
 
 /**
+ * @summary List per-school day-level calendar exceptions
+ */
+export const ListSchoolCalendarExceptionsParams = zod.object({
+  schoolId: zod.coerce.number(),
+});
+
+export const ListSchoolCalendarExceptionsQueryParams = zod.object({
+  from: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "ISO date (inclusive). Defaults to start of current school year if omitted.",
+    ),
+  to: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "ISO date (inclusive). Defaults to end of current school year if omitted.",
+    ),
+});
+
+export const ListSchoolCalendarExceptionsResponseItem = zod
+  .object({
+    id: zod.number(),
+    schoolId: zod.number(),
+    exceptionDate: zod.string().describe("ISO date (YYYY-MM-DD)"),
+    type: zod.enum(["closure", "early_release"]),
+    dismissalTime: zod
+      .string()
+      .nullish()
+      .describe(
+        "HH:MM (24h). Required when type=early_release, must be null when type=closure.",
+      ),
+    reason: zod.string(),
+    notes: zod.string().nullish(),
+    createdBy: zod.number().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .describe(
+    "A per-school day-level exception to the default instructional calendar.",
+  );
+export const ListSchoolCalendarExceptionsResponse = zod.array(
+  ListSchoolCalendarExceptionsResponseItem,
+);
+
+/**
+ * @summary Create a school calendar exception
+ */
+export const CreateSchoolCalendarExceptionParams = zod.object({
+  schoolId: zod.coerce.number(),
+});
+
+export const CreateSchoolCalendarExceptionBody = zod.object({
+  exceptionDate: zod.string(),
+  type: zod.enum(["closure", "early_release"]),
+  dismissalTime: zod.string().nullish(),
+  reason: zod.string(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a school calendar exception
+ */
+export const UpdateSchoolCalendarExceptionParams = zod.object({
+  schoolId: zod.coerce.number(),
+  exceptionId: zod.coerce.number(),
+});
+
+export const UpdateSchoolCalendarExceptionBody = zod.object({
+  exceptionDate: zod.string().optional(),
+  type: zod.enum(["closure", "early_release"]).optional(),
+  dismissalTime: zod.string().nullish(),
+  reason: zod.string().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSchoolCalendarExceptionResponse = zod
+  .object({
+    id: zod.number(),
+    schoolId: zod.number(),
+    exceptionDate: zod.string().describe("ISO date (YYYY-MM-DD)"),
+    type: zod.enum(["closure", "early_release"]),
+    dismissalTime: zod
+      .string()
+      .nullish()
+      .describe(
+        "HH:MM (24h). Required when type=early_release, must be null when type=closure.",
+      ),
+    reason: zod.string(),
+    notes: zod.string().nullish(),
+    createdBy: zod.number().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .describe(
+    "A per-school day-level exception to the default instructional calendar.",
+  );
+
+/**
+ * @summary Delete a school calendar exception
+ */
+export const DeleteSchoolCalendarExceptionParams = zod.object({
+  schoolId: zod.coerce.number(),
+  exceptionId: zod.coerce.number(),
+});
+
+/**
  * @summary Get student minutes trend
  */
 export const GetStudentMinutesTrendParams = zod.object({

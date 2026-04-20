@@ -95,6 +95,7 @@ import type {
   CreateQuickSessionBody,
   CreateScheduleBlockBody,
   CreateSchoolBody,
+  CreateSchoolCalendarExceptionBody,
   CreateServiceRequirementBody,
   CreateServiceTypeBody,
   CreateSessionBody,
@@ -288,6 +289,7 @@ import type {
   ListProtectiveIncidents200Item,
   ListProtectiveIncidentsParams,
   ListScheduleBlocksParams,
+  ListSchoolCalendarExceptionsParams,
   ListServiceRequirementsParams,
   ListSessions200,
   ListSessionsParams,
@@ -345,6 +347,7 @@ import type {
   ScheduleBlock,
   ScheduleConflict,
   School,
+  SchoolCalendarException,
   SearchIep200,
   SearchIepParams,
   SendParentNotificationIncident200,
@@ -409,6 +412,7 @@ import type {
   UpdateProtectiveIncident200,
   UpdateProtectiveIncidentBody,
   UpdateScheduleBlockBody,
+  UpdateSchoolCalendarExceptionBody,
   UpdateSchoolScheduleSettings200,
   UpdateSchoolScheduleSettingsBody,
   UpdateServiceRequirementBody,
@@ -24814,6 +24818,434 @@ export const useUpdateSchoolScheduleSettings = <
   TContext
 > => {
   return useMutation(getUpdateSchoolScheduleSettingsMutationOptions(options));
+};
+
+/**
+ * @summary List per-school day-level calendar exceptions
+ */
+export const getListSchoolCalendarExceptionsUrl = (
+  schoolId: number,
+  params?: ListSchoolCalendarExceptionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/schools/${schoolId}/calendar-exceptions?${stringifiedParams}`
+    : `/api/schools/${schoolId}/calendar-exceptions`;
+};
+
+export const listSchoolCalendarExceptions = async (
+  schoolId: number,
+  params?: ListSchoolCalendarExceptionsParams,
+  options?: RequestInit,
+): Promise<SchoolCalendarException[]> => {
+  return customFetch<SchoolCalendarException[]>(
+    getListSchoolCalendarExceptionsUrl(schoolId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSchoolCalendarExceptionsQueryKey = (
+  schoolId: number,
+  params?: ListSchoolCalendarExceptionsParams,
+) => {
+  return [
+    `/api/schools/${schoolId}/calendar-exceptions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListSchoolCalendarExceptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSchoolCalendarExceptions>>,
+  TError = ErrorType<unknown>,
+>(
+  schoolId: number,
+  params?: ListSchoolCalendarExceptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSchoolCalendarExceptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListSchoolCalendarExceptionsQueryKey(schoolId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSchoolCalendarExceptions>>
+  > = ({ signal }) =>
+    listSchoolCalendarExceptions(schoolId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!schoolId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSchoolCalendarExceptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSchoolCalendarExceptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSchoolCalendarExceptions>>
+>;
+export type ListSchoolCalendarExceptionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List per-school day-level calendar exceptions
+ */
+
+export function useListSchoolCalendarExceptions<
+  TData = Awaited<ReturnType<typeof listSchoolCalendarExceptions>>,
+  TError = ErrorType<unknown>,
+>(
+  schoolId: number,
+  params?: ListSchoolCalendarExceptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSchoolCalendarExceptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSchoolCalendarExceptionsQueryOptions(
+    schoolId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a school calendar exception
+ */
+export const getCreateSchoolCalendarExceptionUrl = (schoolId: number) => {
+  return `/api/schools/${schoolId}/calendar-exceptions`;
+};
+
+export const createSchoolCalendarException = async (
+  schoolId: number,
+  createSchoolCalendarExceptionBody: CreateSchoolCalendarExceptionBody,
+  options?: RequestInit,
+): Promise<SchoolCalendarException> => {
+  return customFetch<SchoolCalendarException>(
+    getCreateSchoolCalendarExceptionUrl(schoolId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createSchoolCalendarExceptionBody),
+    },
+  );
+};
+
+export const getCreateSchoolCalendarExceptionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSchoolCalendarException>>,
+    TError,
+    { schoolId: number; data: BodyType<CreateSchoolCalendarExceptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSchoolCalendarException>>,
+  TError,
+  { schoolId: number; data: BodyType<CreateSchoolCalendarExceptionBody> },
+  TContext
+> => {
+  const mutationKey = ["createSchoolCalendarException"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSchoolCalendarException>>,
+    { schoolId: number; data: BodyType<CreateSchoolCalendarExceptionBody> }
+  > = (props) => {
+    const { schoolId, data } = props ?? {};
+
+    return createSchoolCalendarException(schoolId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSchoolCalendarExceptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSchoolCalendarException>>
+>;
+export type CreateSchoolCalendarExceptionMutationBody =
+  BodyType<CreateSchoolCalendarExceptionBody>;
+export type CreateSchoolCalendarExceptionMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a school calendar exception
+ */
+export const useCreateSchoolCalendarException = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSchoolCalendarException>>,
+    TError,
+    { schoolId: number; data: BodyType<CreateSchoolCalendarExceptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSchoolCalendarException>>,
+  TError,
+  { schoolId: number; data: BodyType<CreateSchoolCalendarExceptionBody> },
+  TContext
+> => {
+  return useMutation(getCreateSchoolCalendarExceptionMutationOptions(options));
+};
+
+/**
+ * @summary Update a school calendar exception
+ */
+export const getUpdateSchoolCalendarExceptionUrl = (
+  schoolId: number,
+  exceptionId: number,
+) => {
+  return `/api/schools/${schoolId}/calendar-exceptions/${exceptionId}`;
+};
+
+export const updateSchoolCalendarException = async (
+  schoolId: number,
+  exceptionId: number,
+  updateSchoolCalendarExceptionBody: UpdateSchoolCalendarExceptionBody,
+  options?: RequestInit,
+): Promise<SchoolCalendarException> => {
+  return customFetch<SchoolCalendarException>(
+    getUpdateSchoolCalendarExceptionUrl(schoolId, exceptionId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateSchoolCalendarExceptionBody),
+    },
+  );
+};
+
+export const getUpdateSchoolCalendarExceptionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSchoolCalendarException>>,
+    TError,
+    {
+      schoolId: number;
+      exceptionId: number;
+      data: BodyType<UpdateSchoolCalendarExceptionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSchoolCalendarException>>,
+  TError,
+  {
+    schoolId: number;
+    exceptionId: number;
+    data: BodyType<UpdateSchoolCalendarExceptionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateSchoolCalendarException"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSchoolCalendarException>>,
+    {
+      schoolId: number;
+      exceptionId: number;
+      data: BodyType<UpdateSchoolCalendarExceptionBody>;
+    }
+  > = (props) => {
+    const { schoolId, exceptionId, data } = props ?? {};
+
+    return updateSchoolCalendarException(
+      schoolId,
+      exceptionId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSchoolCalendarExceptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSchoolCalendarException>>
+>;
+export type UpdateSchoolCalendarExceptionMutationBody =
+  BodyType<UpdateSchoolCalendarExceptionBody>;
+export type UpdateSchoolCalendarExceptionMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a school calendar exception
+ */
+export const useUpdateSchoolCalendarException = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSchoolCalendarException>>,
+    TError,
+    {
+      schoolId: number;
+      exceptionId: number;
+      data: BodyType<UpdateSchoolCalendarExceptionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSchoolCalendarException>>,
+  TError,
+  {
+    schoolId: number;
+    exceptionId: number;
+    data: BodyType<UpdateSchoolCalendarExceptionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateSchoolCalendarExceptionMutationOptions(options));
+};
+
+/**
+ * @summary Delete a school calendar exception
+ */
+export const getDeleteSchoolCalendarExceptionUrl = (
+  schoolId: number,
+  exceptionId: number,
+) => {
+  return `/api/schools/${schoolId}/calendar-exceptions/${exceptionId}`;
+};
+
+export const deleteSchoolCalendarException = async (
+  schoolId: number,
+  exceptionId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteSchoolCalendarExceptionUrl(schoolId, exceptionId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteSchoolCalendarExceptionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSchoolCalendarException>>,
+    TError,
+    { schoolId: number; exceptionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSchoolCalendarException>>,
+  TError,
+  { schoolId: number; exceptionId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSchoolCalendarException"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSchoolCalendarException>>,
+    { schoolId: number; exceptionId: number }
+  > = (props) => {
+    const { schoolId, exceptionId } = props ?? {};
+
+    return deleteSchoolCalendarException(schoolId, exceptionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSchoolCalendarExceptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSchoolCalendarException>>
+>;
+
+export type DeleteSchoolCalendarExceptionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a school calendar exception
+ */
+export const useDeleteSchoolCalendarException = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSchoolCalendarException>>,
+    TError,
+    { schoolId: number; exceptionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSchoolCalendarException>>,
+  TError,
+  { schoolId: number; exceptionId: number },
+  TContext
+> => {
+  return useMutation(getDeleteSchoolCalendarExceptionMutationOptions(options));
 };
 
 /**

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { invalidateSchoolYearsCache } from "@/lib/use-school-years";
 import { CalendarDays, CheckCircle2, AlertTriangle, Users, BookOpen, UserCheck, History, ArrowRight, RefreshCw } from "lucide-react";
+import { SchoolCalendarExceptionsPanel } from "@/components/school-calendar-exceptions-panel";
 
 interface SchoolYear {
   id: number;
@@ -285,6 +286,9 @@ export default function SchoolYearPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* School Calendar v0 — Slice 1: per-school closures & early-release */}
+      <SchoolCalendarExceptionsPanel />
 
       {/* Rollover Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
