@@ -45,6 +45,9 @@ import {
   Activity, FlaskConical, Users, RefreshCw, Sparkles, Loader2,
   AlertTriangle, ExternalLink, RotateCcw,
 } from "lucide-react";
+import BeforeAfterPanel from "@/components/demo-control/BeforeAfterPanel";
+import CompExposurePanel from "@/components/demo-control/CompExposurePanel";
+import CaseloadSimulatorPanel from "@/components/demo-control/CaseloadSimulatorPanel";
 
 interface OverviewResponse {
   demoDistricts: Array<{
@@ -439,6 +442,9 @@ export default function DemoControlCenterPage() {
     // cast / reset-result state from the previous district instead of
     // leaving stale rows visible.
     if (n === 3) return <HeroCastPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
+    if (n === 4) return <BeforeAfterPanel key={`${n}-${demoDistrict.id}`} districtName={demoDistrict.name} />;
+    if (n === 5) return <CompExposurePanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
+    if (n === 6) return <CaseloadSimulatorPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 12) return (
       <ResetDistrictPanel
         key={`${n}-${demoDistrict.id}`}

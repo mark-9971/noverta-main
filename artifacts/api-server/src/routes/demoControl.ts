@@ -707,6 +707,58 @@ router.get("/demo-control/comp-forecast", async (req: Request, res: Response) =>
 });
 
 // ---------------------------------------------------------------------------
+// GET /demo-control/caseload-providers?districtId=
+// Returns flat list of providers in the demo district + their assigned active
+// students. Used by the caseload-balancing simulator (panel 6) to seed the
+// drag/move scenario state. Strictly READ-ONLY — the simulator stores moves
+// in client state only and never writes back. Scoped by demo-district guard.
+// ---------------------------------------------------------------------------
+router.get("/demo-control/caseload-providers", async (req: Request, res: Response) => {
+  const r = await requireDemoDistrict(req.query.districtId);
+  if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
+  try {
+    const schoolIds = await loadSchoolIds(r.district.id);
+    if (schoolIds.length === 0) { res.json({ providers: [], students: [] }); return; }
+    const providers = (await db.execute<{
+      id: number; first_name: string; last_name: string; role: string | null;
+      title: string | null; school_id: number | null;
+    }>(sql`
+      SELECT st.id, st.first_name, st.last_name, st.role, st.title, st.school_id
+      FROM staff st
+      WHERE st.school_id = ANY(${schoolIds}) AND st.deleted_at IS NULL
+        AND st.status = 'active'
+      ORDER BY st.last_name, st.first_name
+    `)).rows;
+    const students = (await db.execute<{
+      id: number; first_name: string; last_name: string; grade: string | null;
+      school_id: number | null; case_manager_id: number | null;
+    }>(sql`
+      SELECT s.id, s.first_name, s.last_name, s.grade, s.school_id,
+             s.case_manager_id
+      FROM students s
+      WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL
+        AND s.status = 'active'
+      ORDER BY s.last_name, s.first_name
+    `)).rows;
+    res.json({
+      ok: true, districtId: r.district.id, districtName: r.district.name,
+      providers: providers.map(p => ({
+        id: p.id, firstName: p.first_name, lastName: p.last_name,
+        role: p.role || "unknown", title: p.title, schoolId: p.school_id,
+      })),
+      students: students.map(s => ({
+        id: s.id, firstName: s.first_name, lastName: s.last_name,
+        grade: s.grade, schoolId: s.school_id,
+        caseManagerId: s.case_manager_id,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "caseload-providers failed");
+    res.status(500).json({ error: "Failed to load caseload providers" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // POST /demo-control/alert-density
 // Body: {
 //   districtId,
