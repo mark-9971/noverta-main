@@ -507,6 +507,22 @@ function ServiceMinutesContent() {
     return acc;
   }, {} as Record<string, number>);
 
+  // Slice 3: surface school-calendar exception impact on the period's
+  // expected-minute math. Each row carries closureDayCount /
+  // earlyReleaseDayCount for its own window; we take the MAX across
+  // rows so the headline reflects the worst-case window the user is
+  // currently looking at (windows are typically the same per
+  // intervalType, so this is effectively the period count).
+  const { exceptionClosureDays, exceptionEarlyReleaseDays } = useMemo(() => {
+    let c = 0;
+    let er = 0;
+    for (const p of progressList) {
+      if (typeof p.closureDayCount === "number" && p.closureDayCount > c) c = p.closureDayCount;
+      if (typeof p.earlyReleaseDayCount === "number" && p.earlyReleaseDayCount > er) er = p.earlyReleaseDayCount;
+    }
+    return { exceptionClosureDays: c, exceptionEarlyReleaseDays: er };
+  }, [progressList]);
+
   const serviceTypeOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const p of progressList) {
@@ -697,6 +713,21 @@ function ServiceMinutesContent() {
                 <span className="ml-1 text-gray-300">· {fmtNum(s.totalExpectedByNow)} expected so far</span>
               )}
             </div>
+            {(exceptionClosureDays > 0 || exceptionEarlyReleaseDays > 0) && (
+              <div
+                data-testid="compliance-exception-indicator"
+                className="text-[10.5px] text-gray-500 mt-1 leading-snug"
+                title="School-calendar exceptions reduce expected minutes for the period."
+              >
+                {exceptionClosureDays > 0 && (
+                  <>Includes {exceptionClosureDays} closure day{exceptionClosureDays === 1 ? "" : "s"}</>
+                )}
+                {exceptionClosureDays > 0 && exceptionEarlyReleaseDays > 0 && " · "}
+                {exceptionEarlyReleaseDays > 0 && (
+                  <>{exceptionEarlyReleaseDays} early-release day{exceptionEarlyReleaseDays === 1 ? "" : "s"}</>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500">

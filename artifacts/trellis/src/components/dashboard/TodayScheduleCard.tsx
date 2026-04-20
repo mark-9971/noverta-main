@@ -108,6 +108,24 @@ export function TodayScheduleCard() {
     enabled: !!teacherId,
   });
 
+  // Slice 3: day-level school-calendar exception banner. Sibling
+  // endpoint, kept separate so /schedules/today's flat-array contract
+  // stays stable for existing consumers.
+  const { data: todayException } = useQuery<{
+    type: "closure" | "early_release";
+    reason: string | null;
+    dismissalTime: string | null;
+    date: string;
+  } | null>({
+    queryKey: ["schedules-today-exception"],
+    queryFn: () =>
+      authFetch("/api/schedules/today/exception").then(r =>
+        r.ok ? r.json() : null,
+      ),
+    staleTime: 60_000,
+    enabled: !!teacherId,
+  });
+
   const openQuickLog = useCallback((block: TodayBlock) => {
     setPrefill({
       studentId: block.studentId ?? undefined,
@@ -154,6 +172,38 @@ export function TodayScheduleCard() {
           </div>
         </CardHeader>
         <CardContent className="pt-0">
+          {todayException && (
+            <div
+              data-testid={`today-exception-banner-${todayException.type}`}
+              className={`mb-2 flex items-start gap-2 rounded-md px-2.5 py-2 border text-[12px] ${
+                todayException.type === "closure"
+                  ? "bg-red-50 border-red-100 text-red-800"
+                  : "bg-amber-50 border-amber-100 text-amber-800"
+              }`}
+            >
+              <CalendarX
+                className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${
+                  todayException.type === "closure" ? "text-red-500" : "text-amber-500"
+                }`}
+              />
+              <div className="leading-snug">
+                <div className="font-semibold">
+                  {todayException.type === "closure"
+                    ? "School Closed Today"
+                    : "Early Release Today"}
+                </div>
+                <div className="text-[11px] opacity-80">
+                  {todayException.type === "early_release" && todayException.dismissalTime && (
+                    <span>Dismissal at {formatTime(todayException.dismissalTime)}</span>
+                  )}
+                  {todayException.type === "early_release" && todayException.dismissalTime && todayException.reason && (
+                    <span> · </span>
+                  )}
+                  {todayException.reason && <span>{todayException.reason}</span>}
+                </div>
+              </div>
+            </div>
+          )}
           {isLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}

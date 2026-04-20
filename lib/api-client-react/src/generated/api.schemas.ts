@@ -278,6 +278,12 @@ export interface MinuteProgress {
   intervalEnd: string;
   missedSessionsCount: number;
   makeupSessionsCount: number;
+  /** Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small "Includes N closure days" affordance on minute-progress UI.
+   */
+  closureDayCount?: number;
+  /** Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.
+   */
+  earlyReleaseDayCount?: number;
 }
 
 /**
@@ -1131,6 +1137,35 @@ export interface TodayScheduleBlock {
   /** @nullable */
   sessionLogId?: number | null;
   status: TodayScheduleBlockStatus;
+  date: string;
+}
+
+export type TodayScheduleExceptionType =
+  (typeof TodayScheduleExceptionType)[keyof typeof TodayScheduleExceptionType];
+
+export const TodayScheduleExceptionType = {
+  closure: "closure",
+  early_release: "early_release",
+} as const;
+
+/**
+ * Day-level school-calendar exception that applies to the caller's primary school today, returned by /schedules/today/exception. Surfaced by the Today view as a banner so users can immediately see WHY their schedule blocks may be flipped to "closed" / "early_release".
+
+ */
+export interface TodayScheduleException {
+  type: TodayScheduleExceptionType;
+  /**
+   * Optional human-readable reason (e.g. "Snow day").
+   * @nullable
+   */
+  reason?: string | null;
+  /**
+   * For early_release days, the wall-clock dismissal time ("HH:MM" 24h). Null for closures.
+
+   * @nullable
+   */
+  dismissalTime?: string | null;
+  /** ISO date (YYYY-MM-DD) the exception applies to. */
   date: string;
 }
 

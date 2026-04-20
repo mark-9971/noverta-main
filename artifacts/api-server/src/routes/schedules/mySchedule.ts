@@ -336,6 +336,73 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
   res.json(blocks);
 });
 
+/**
+ * GET /schedules/today/exception
+ *
+ * Slice 3 (trust/explanation layer). Companion endpoint to
+ * /schedules/today that returns the day-level school-calendar
+ * exception (if any) for the calling staff's primary school. Kept as
+ * a sibling rather than folded into /schedules/today to preserve the
+ * flat-array response contract that existing consumers (mobile, the
+ * provider dashboard) already depend on.
+ *
+ * Response:
+ *   - 200 { type: "closure" | "early_release", reason: string|null,
+ *           dismissalTime: string|null, date: "YYYY-MM-DD" } when an
+ *     exception applies today
+ *   - 200 null when no exception (or the caller has no school)
+ */
+router.get("/schedules/today/exception", requireAuth, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const staffId = resolveCallerStaffId(authed);
+
+  if (!staffId) {
+    res.status(403).json({ error: "No staff record linked to your account. Contact your administrator." });
+    return;
+  }
+
+  const { pool } = await import("@workspace/db");
+  const now = new Date();
+  const y = now.getFullYear();
+  const mo = String(now.getMonth() + 1).padStart(2, "0");
+  const dy = String(now.getDate()).padStart(2, "0");
+  const todayStr = `${y}-${mo}-${dy}`;
+
+  const staffSchoolResult = await pool.query<{ school_id: number | null; district_id: number | null }>(
+    `SELECT s.school_id, sc.district_id
+       FROM staff s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+      WHERE s.id = $1
+      LIMIT 1`,
+    [staffId],
+  );
+  const callerSchoolId = staffSchoolResult.rows[0]?.school_id ?? null;
+  const callerDistrictId = staffSchoolResult.rows[0]?.district_id ?? null;
+
+  if (callerSchoolId == null || callerDistrictId == null) {
+    res.json(null);
+    return;
+  }
+
+  const exception = await getSchoolDayException({
+    districtId: callerDistrictId,
+    schoolId: callerSchoolId,
+    date: todayStr,
+  });
+
+  if (!exception) {
+    res.json(null);
+    return;
+  }
+
+  res.json({
+    type: exception.type,
+    reason: exception.reason ?? null,
+    dismissalTime: exception.dismissalTime ?? null,
+    date: todayStr,
+  });
+});
+
 router.post("/schedules/change-requests", requireAuth, async (req, res): Promise<void> => {
   const authed = req as unknown as AuthedRequest;
   const staffId = resolveCallerStaffId(authed);

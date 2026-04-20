@@ -1,0 +1,152 @@
+Implement “School Calendar v0 — Slice 3: trust / explanation layer” in the existing Trellis codebase.
+
+Context:
+Slice 1 is already shipped:
+- per-school school_calendar_exceptions CRUD under Settings → School Year
+
+Slice 2 is already shipped:
+- closures and early_release days now flow into the shared read-path minute progress calculations
+- downstream compliance/risk consumers inherit corrected expected-minute math
+- /schedules/today now supports closed and early_release statuses
+- OpenAPI/client codegen is updated
+- no schema changes were made
+
+Goal:
+Make the corrected school-calendar behavior understandable to users.
+This is a READ / UX explanation slice, not a scheduling or calculation rewrite.
+
+Primary product objective:
+When closures or early-release days affect expected minutes, compliance, or Today view, the user should be able to understand WHY the numbers/statuses changed without guessing.
+
+Non-goals:
+- no new admin page
+- no new write surface
+- no schema changes or migrations
+- no new scheduling workflow
+- no comp-time / finance rewrite in this slice
+- no attempt yet to replace the early-release 0.5 fallback with exact schedule_blocks proration
+- no broad dashboard redesign
+
+Scope:
+Add lightweight explanatory read-model/UI support in the highest-value places only.
+
+Priority surfaces:
+1. Today / schedule-facing UI
+2. compliance/minute-progress-facing UI where exception-adjusted numbers are visible
+3. optionally student/service detail surfaces if the same shared data already exists there with very low effort
+
+What to implement:
+
+A. Today view explanation
+Enhance the Today experience so users can tell what is happening on exception days.
+
+Desired behavior:
+- If today is a closure day for the user’s school, clearly show a day-level explanation such as:
+  - “School Closed Today”
+  - optional reason if available, e.g. “Snow day”
+- If today is an early-release day, clearly show:
+  - “Early Release Today”
+  - dismissal time if available
+- Existing per-block closed / early_release statuses should remain
+- Do NOT replace the flat array contract unless absolutely necessary
+- Prefer additive fields or a companion read model only if the current client patterns support it cleanly
+
+Implementation guidance:
+- If the route can safely expose day-level metadata without breaking consumers, add something like:
+  - calendarExceptionType
+  - calendarExceptionReason
+  - dismissalTime
+- If changing the route response shape would create too much blast radius, keep the route contract stable and derive the banner from existing block statuses plus one minimal additive endpoint/field pattern that fits the codebase
+- Keep this elegant and minimal
+
+B. Compliance / minute explanation
+Where compliance/minute-progress-adjusted values are displayed, add small explanatory affordances so users know that school-calendar exceptions affected expectations.
+
+Desired behavior:
+- When closure days affected the current window, surface a lightweight indicator such as:
+  - “Includes 2 closure days”
+- When early-release days affected the current window, surface:
+  - “Includes 1 early-release day”
+- If both are present, combine cleanly
+- Use the fields already added in Slice 2 if possible:
+  - closureDayCount
+  - earlyReleaseDayCount
+- Do NOT add noisy UI everywhere; target the key surfaces where the changed math is most likely to confuse users
+
+Likely surfaces:
+- compliance summary / minute cards
+- risk/exposure summary cards
+- student/service progress displays if already easy to touch
+
+C. Preserve architecture discipline
+- Reuse existing shared fields from MinuteProgressResult
+- Do not re-query school_calendar_exceptions directly from UI surfaces
+- Do not duplicate exception-count logic across multiple routes/components if a shared helper/view-model is better
+- Keep changes focused and additive
+
+D. Typed contract hygiene
+- If any API/read model changes are made, update OpenAPI/client codegen as appropriate
+- Do not leave frontend literal unions/types drifting from backend reality
+
+Acceptance criteria:
+1. A user looking at Today can tell whether the school is closed or on early release, and see the reason/dismissal time if available
+2. A user looking at compliance/minute-progress-affected values can tell that school-calendar exceptions changed the expectation math
+3. No new admin surfaces or workflows were introduced
+4. No schema changes or migrations
+5. Existing Slice 2 behavior remains intact
+6. Any API shape changes are typed and codegen-synced
+7. The UX remains understated and high-signal, not cluttered
+
+Testing requirements:
+- add frontend/component tests where practical for any new badges/banners
+- add route/API tests if response fields change
+- verify old consumers are not broken
+- verify explanation UI only appears when relevant
+- verify closure-only, early-release-only, both, and none states where applicable
+
+Output format required:
+
+1. COMPLETION STATUS
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one short paragraph
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact functions/routes/components/types changed
+- exact reason for the change
+- whether it is route wiring, UI wiring, shared helper/view-model, OpenAPI/codegen, or tests
+
+3. USER-VISIBLE BEHAVIOR
+State exactly what the user now sees on:
+- Today view
+- compliance/minute-progress surfaces
+- any additional touched surfaces
+
+4. API / TYPE CONTRACT CHANGES
+State exactly:
+- whether any response shapes changed
+- whether any new fields were added
+- whether OpenAPI/client codegen was updated
+- any compatibility considerations
+
+5. TEST STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- what states are covered
+- any known gaps
+
+6. REMAINING LIMITATIONS
+Only list real remaining follow-ups, such as:
+- exact time-of-day proration via schedule_blocks
+- weekday-aware baseline pacing
+- comp-time / finance alignment
+- bulk exception tooling
+Do not broaden beyond real follow-ups discovered in the work.
+
+Important constraints:
+- This is a trust/explanation slice, not a new workflow slice
+- Favor small, clear, high-signal UX
+- Do not redesign large parts of the product
+- Include a summary of exact changes made, not just a high-level recap

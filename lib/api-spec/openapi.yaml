@@ -1844,6 +1844,28 @@ paths:
                 items:
                   $ref: "#/components/schemas/TodayScheduleBlock"
 
+  /schedules/today/exception:
+    get:
+      operationId: getMyTodayScheduleException
+      tags: [schedules]
+      summary: Day-level school calendar exception (if any) for the caller's school today
+      description: >
+        Returns the school-calendar exception that applies to the caller's
+        primary school on the current date, or `null` if none. Used by the
+        Today view to render a day-level "School Closed" / "Early Release"
+        banner without re-querying school_calendar_exceptions from the UI.
+        Sibling of /schedules/today; kept separate so /schedules/today's
+        flat-array contract is preserved.
+      responses:
+        "200":
+          description: Today's exception (or null)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TodayScheduleException"
+                  - type: "null"
+
   # ─── Staff Assignments ────────────────────────────────────────────
   /staff-assignments:
     get:
@@ -7934,6 +7956,20 @@ components:
           type: integer
         makeupSessionsCount:
           type: integer
+        closureDayCount:
+          type: integer
+          description: >
+            Slice 3. Number of full-closure school-calendar days inside
+            the current evaluation window that contributed to the
+            adjusted `expectedMinutesByNow`. Surfaced as a small
+            "Includes N closure days" affordance on minute-progress UI.
+        earlyReleaseDayCount:
+          type: integer
+          description: >
+            Slice 3. Number of early-release school-calendar days inside
+            the current evaluation window that contributed (at the
+            conservative 0.5 weight) to the adjusted
+            `expectedMinutesByNow`.
       required: [serviceRequirementId, studentId, studentName, serviceTypeId, serviceTypeName, intervalType, requiredMinutes, deliveredMinutes, remainingMinutes, percentComplete, expectedMinutesByNow, projectedMinutes, riskStatus, intervalStart, intervalEnd, missedSessionsCount, makeupSessionsCount]
 
     # ─── Report Response Schemas ────────────────────────────────
@@ -8363,6 +8399,33 @@ components:
         - durationMinutes
         - status
         - date
+
+    TodayScheduleException:
+      type: object
+      description: >
+        Day-level school-calendar exception that applies to the caller's
+        primary school today, returned by /schedules/today/exception.
+        Surfaced by the Today view as a banner so users can immediately
+        see WHY their schedule blocks may be flipped to "closed" /
+        "early_release".
+      properties:
+        type:
+          type: string
+          enum:
+            - closure
+            - early_release
+        reason:
+          type: ["string", "null"]
+          description: Optional human-readable reason (e.g. "Snow day").
+        dismissalTime:
+          type: ["string", "null"]
+          description: >
+            For early_release days, the wall-clock dismissal time
+            ("HH:MM" 24h). Null for closures.
+        date:
+          type: string
+          description: ISO date (YYYY-MM-DD) the exception applies to.
+      required: [type, date]
 
     CreateScheduleBlockBody:
       type: object

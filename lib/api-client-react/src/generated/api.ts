@@ -377,6 +377,7 @@ import type {
   SupervisionSessionWithNames,
   SupervisionTrendPoint,
   TodayScheduleBlock,
+  TodayScheduleException,
   TransitionIncidentStatus200,
   TransitionIncidentStatus400,
   TransitionIncidentStatusBody,
@@ -6749,6 +6750,88 @@ export function useListMyTodaySchedule<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListMyTodayScheduleQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the school-calendar exception that applies to the caller's primary school on the current date, or `null` if none. Used by the Today view to render a day-level "School Closed" / "Early Release" banner without re-querying school_calendar_exceptions from the UI. Sibling of /schedules/today; kept separate so /schedules/today's flat-array contract is preserved.
+
+ * @summary Day-level school calendar exception (if any) for the caller's school today
+ */
+export const getGetMyTodayScheduleExceptionUrl = () => {
+  return `/api/schedules/today/exception`;
+};
+
+export const getMyTodayScheduleException = async (
+  options?: RequestInit,
+): Promise<TodayScheduleException | null> => {
+  return customFetch<TodayScheduleException | null>(
+    getGetMyTodayScheduleExceptionUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMyTodayScheduleExceptionQueryKey = () => {
+  return [`/api/schedules/today/exception`] as const;
+};
+
+export const getGetMyTodayScheduleExceptionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyTodayScheduleException>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyTodayScheduleException>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMyTodayScheduleExceptionQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyTodayScheduleException>>
+  > = ({ signal }) =>
+    getMyTodayScheduleException({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyTodayScheduleException>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyTodayScheduleExceptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyTodayScheduleException>>
+>;
+export type GetMyTodayScheduleExceptionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Day-level school calendar exception (if any) for the caller's school today
+ */
+
+export function useGetMyTodayScheduleException<
+  TData = Awaited<ReturnType<typeof getMyTodayScheduleException>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyTodayScheduleException>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyTodayScheduleExceptionQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

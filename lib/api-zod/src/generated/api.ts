@@ -573,6 +573,18 @@ export const GetStudentResponse = zod.object({
       intervalEnd: zod.string(),
       missedSessionsCount: zod.number(),
       makeupSessionsCount: zod.number(),
+      closureDayCount: zod
+        .number()
+        .optional()
+        .describe(
+          'Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small \"Includes N closure days\" affordance on minute-progress UI.\n',
+        ),
+      earlyReleaseDayCount: zod
+        .number()
+        .optional()
+        .describe(
+          "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+        ),
     }),
   ),
   recentSessions: zod.array(
@@ -748,6 +760,18 @@ export const GetStudentMinuteProgressResponseItem = zod.object({
   intervalEnd: zod.string(),
   missedSessionsCount: zod.number(),
   makeupSessionsCount: zod.number(),
+  closureDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      'Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small \"Includes N closure days\" affordance on minute-progress UI.\n',
+    ),
+  earlyReleaseDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
 });
 export const GetStudentMinuteProgressResponse = zod.array(
   GetStudentMinuteProgressResponseItem,
@@ -1035,6 +1059,18 @@ export const GetStaffCaseloadResponseItem = zod.object({
   intervalEnd: zod.string(),
   missedSessionsCount: zod.number(),
   makeupSessionsCount: zod.number(),
+  closureDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      'Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small \"Includes N closure days\" affordance on minute-progress UI.\n',
+    ),
+  earlyReleaseDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
 });
 export const GetStaffCaseloadResponse = zod.array(GetStaffCaseloadResponseItem);
 
@@ -1834,6 +1870,18 @@ export const ListMinuteProgressResponseItem = zod.object({
   intervalEnd: zod.string(),
   missedSessionsCount: zod.number(),
   makeupSessionsCount: zod.number(),
+  closureDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      'Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small \"Includes N closure days\" affordance on minute-progress UI.\n',
+    ),
+  earlyReleaseDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
 });
 export const ListMinuteProgressResponse = zod.array(
   ListMinuteProgressResponseItem,
@@ -2122,6 +2170,18 @@ export const GenerateScheduleResponse = zod.object({
       intervalEnd: zod.string(),
       missedSessionsCount: zod.number(),
       makeupSessionsCount: zod.number(),
+      closureDayCount: zod
+        .number()
+        .optional()
+        .describe(
+          'Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small \"Includes N closure days\" affordance on minute-progress UI.\n',
+        ),
+      earlyReleaseDayCount: zod
+        .number()
+        .optional()
+        .describe(
+          "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+        ),
     }),
   ),
   summary: zod.string(),
@@ -2297,6 +2357,35 @@ export const ListMyTodayScheduleResponseItem = zod
 export const ListMyTodayScheduleResponse = zod.array(
   ListMyTodayScheduleResponseItem,
 );
+
+/**
+ * Returns the school-calendar exception that applies to the caller's primary school on the current date, or `null` if none. Used by the Today view to render a day-level "School Closed" / "Early Release" banner without re-querying school_calendar_exceptions from the UI. Sibling of /schedules/today; kept separate so /schedules/today's flat-array contract is preserved.
+
+ * @summary Day-level school calendar exception (if any) for the caller's school today
+ */
+export const GetMyTodayScheduleExceptionResponse = zod.union([
+  zod
+    .object({
+      type: zod.enum(["closure", "early_release"]),
+      reason: zod
+        .string()
+        .nullish()
+        .describe('Optional human-readable reason (e.g. \"Snow day\").'),
+      dismissalTime: zod
+        .string()
+        .nullish()
+        .describe(
+          'For early_release days, the wall-clock dismissal time (\"HH:MM\" 24h). Null for closures.\n',
+        ),
+      date: zod
+        .string()
+        .describe("ISO date (YYYY-MM-DD) the exception applies to."),
+    })
+    .describe(
+      'Day-level school-calendar exception that applies to the caller\'s primary school today, returned by \/schedules\/today\/exception. Surfaced by the Today view as a banner so users can immediately see WHY their schedule blocks may be flipped to \"closed\" \/ \"early_release\".\n',
+    ),
+  zod.null(),
+]);
 
 /**
  * @summary List staff assignments
@@ -2487,6 +2576,18 @@ export const GetComplianceRiskReportResponseItem = zod.object({
   intervalEnd: zod.string(),
   missedSessionsCount: zod.number(),
   makeupSessionsCount: zod.number(),
+  closureDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      'Slice 3. Number of full-closure school-calendar days inside the current evaluation window that contributed to the adjusted `expectedMinutesByNow`. Surfaced as a small \"Includes N closure days\" affordance on minute-progress UI.\n',
+    ),
+  earlyReleaseDayCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
 });
 export const GetComplianceRiskReportResponse = zod.array(
   GetComplianceRiskReportResponseItem,
