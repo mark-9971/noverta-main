@@ -1,4 +1,4 @@
-// tenant-scope: platform-admin
+// tenant-scope: super-admin (was: platform-admin — normalized to closed-set vocabulary; gated by requirePlatformAdmin)
 // All routes in this file are protected by requirePlatformAdmin (see below).
 // This router is registered under /api/support and is inaccessible to district users.
 import { Router, type IRouter, type Request, type Response } from "express";

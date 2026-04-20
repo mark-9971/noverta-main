@@ -1,4 +1,4 @@
-// tenant-scope: guardian
+// tenant-scope: portal (guardian-token; was: guardian — normalized to closed-set vocabulary)
 // All routes here require requireGuardianScope — the guardian JWT token scopes
 // every request to the specific guardian's linked student(s). No district ID
 // from the session is used; the tenant boundary is the guardian-token identity.

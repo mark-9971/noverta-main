@@ -118,22 +118,43 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe("Bucket A: compensatory.ts (the originally-reported FERPA bug)", () => {
-  it("LIST: district-A admin sees only district-A obligations (no district-B leakage)", async () => {
+  // True subset check: every returned obligation's studentId must belong to a
+  // student whose school is in the caller's district. This catches a
+  // regression that leaks rows from a *third* district we didn't seed.
+  async function studentIdsInDistrict(districtId: number): Promise<Set<number>> {
+    const rows = await db
+      .select({ id: studentsTable.id })
+      .from(studentsTable)
+      .innerJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .where(eq(schoolsTable.districtId, districtId));
+    return new Set(rows.map(r => r.id));
+  }
+
+  it("LIST: district-A admin sees only district-A obligations (no district-B leakage AND no third-district leakage)", async () => {
     const a = asUser({ userId: adminA, role: "admin", districtId: ctx.districtA.id });
     const r = await a.get("/api/compensatory-obligations");
     expect(r.status).toBe(200);
-    const ids = (r.body as Array<{ id: number }>).map(o => o.id);
+    const rows = r.body as Array<{ id: number; studentId: number }>;
+    const ids = rows.map(o => o.id);
     expect(ids).toContain(ctx.obligationA.id);
     expect(ids).not.toContain(ctx.obligationB.id);
+    // Subset assertion: every returned studentId must be in district-A.
+    const districtAStudents = await studentIdsInDistrict(ctx.districtA.id);
+    const foreignStudentIds = rows.map(o => o.studentId).filter(sid => !districtAStudents.has(sid));
+    expect(foreignStudentIds).toEqual([]);
   });
 
-  it("LIST: district-B admin sees only district-B obligations (mirror case)", async () => {
+  it("LIST: district-B admin sees only district-B obligations (mirror case, with subset assertion)", async () => {
     const b = asUser({ userId: adminB, role: "admin", districtId: ctx.districtB.id });
     const r = await b.get("/api/compensatory-obligations");
     expect(r.status).toBe(200);
-    const ids = (r.body as Array<{ id: number }>).map(o => o.id);
+    const rows = r.body as Array<{ id: number; studentId: number }>;
+    const ids = rows.map(o => o.id);
     expect(ids).toContain(ctx.obligationB.id);
     expect(ids).not.toContain(ctx.obligationA.id);
+    const districtBStudents = await studentIdsInDistrict(ctx.districtB.id);
+    const foreignStudentIds = rows.map(o => o.studentId).filter(sid => !districtBStudents.has(sid));
+    expect(foreignStudentIds).toEqual([]);
   });
 
   it("LIST: platform admin (no district header) sees both districts", async () => {
@@ -257,4 +278,83 @@ describe("Bucket A: additionalFeatures.ts (cross-district search)", () => {
     const r = await a.get(`/api/students/${ctx.studentB.id}/iep-summary`);
     expect(r.status).toBe(404);
   });
+
+  it("/search (general): district-A admin searching for district-B student name returns no district-B rows", async () => {
+    const a = asUser({ userId: adminA, role: "admin", districtId: ctx.districtA.id });
+    const r = await a.get("/api/search?q=Berry");
+    expect(r.status).toBe(200);
+    // The general search returns a payload with student/staff buckets; we assert
+    // no district-B id appears anywhere in the returned ids, regardless of
+    // payload shape (defensive: the cross-district leak we're pinning would
+    // surface district-B's student/staff rows).
+    const blob = JSON.stringify(r.body);
+    expect(blob).not.toContain(`"id":${ctx.studentB.id}`);
+    expect(blob).not.toContain(`"id":${ctx.staffB.id}`);
+  });
 });
+
+// ---------------------------------------------------------------------------
+// compensatory.ts — additional fixed handlers (summary/by-student, calculate-shortfalls)
+// ---------------------------------------------------------------------------
+
+describe("Bucket A: compensatory.ts (remaining fixed handlers)", () => {
+  it("GET summary/by-student/:studentId: district-A admin requesting district-B student returns 404", async () => {
+    const a = asUser({ userId: adminA, role: "admin", districtId: ctx.districtA.id });
+    const r = await a.get(`/api/compensatory-obligations/summary/by-student/${ctx.studentB.id}`);
+    expect(r.status).toBe(404);
+  });
+
+  it("POST calculate-shortfalls: district-A admin passing district-B schoolId in body returns 404 (assertSchoolInCallerDistrict)", async () => {
+    const a = asUser({ userId: adminA, role: "admin", districtId: ctx.districtA.id });
+    const r = await a.post("/api/compensatory-obligations/calculate-shortfalls").send({
+      schoolId: ctx.schoolB.id, // <-- foreign district
+      periodStart: "2026-01-01",
+      periodEnd: "2026-06-30",
+    });
+    expect(r.status).toBe(404);
+  });
+
+  it("POST calculate-shortfalls: district-A admin omitting schoolId — response must contain no district-B service requirements", async () => {
+    const a = asUser({ userId: adminA, role: "admin", districtId: ctx.districtA.id });
+    const r = await a.post("/api/compensatory-obligations/calculate-shortfalls").send({
+      periodStart: "2026-01-01",
+      periodEnd: "2026-06-30",
+    });
+    expect(r.status).toBe(200);
+    // No row in the response should reference district-B's seeded student.
+    const blob = JSON.stringify(r.body);
+    expect(blob).not.toContain(`"studentId":${ctx.studentB.id}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// supportIntensity.ts
+// ---------------------------------------------------------------------------
+
+describe("Bucket A: supportIntensity.ts", () => {
+  it("GET /students/:studentId/support-intensity: district-A admin requesting district-B student returns 404", async () => {
+    const a = asUser({ userId: adminA, role: "admin", districtId: ctx.districtA.id });
+    const r = await a.get(`/api/students/${ctx.studentB.id}/support-intensity`);
+    expect(r.status).toBe(404);
+    // Body must not leak the cross-district student's restraint/BIP/FBA shape.
+    expect(r.body).not.toHaveProperty("restraintHistory");
+    expect(r.body).not.toHaveProperty("bipCount");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// schedules/scheduler.ts — TODO: pin /scheduler/generate and /scheduler/accept
+// ---------------------------------------------------------------------------
+// These two handlers are part of Bucket A but require valid GenerateScheduleBody
+// / AcceptGeneratedScheduleBody payloads (school/service-requirement/staff
+// graphs). Adding them here without a fully-wired schedule fixture would
+// produce 400-on-shape-validation tests that pass for the wrong reason.
+// Tracked as follow-up: extend the fixture in beforeAll() with a service
+// requirement + scheduler block, then add:
+//   it("POST /scheduler/generate: district-A admin must not see district-B staff/services in the projected schedule")
+//   it("POST /scheduler/accept: district-A admin posting district-B staffId/serviceRequirementId in the body returns 404")
+// See artifacts/trellis/buyer-pack/SECURITY-AUDIT.md → Bucket A → schedules/scheduler.ts.
+//
+// Same applies to additionalFeatures.ts → POST /sessions/quick — needs a valid
+// session payload (studentId, serviceRequirementId, duration, date, staffId,
+// status) wired through a service-requirement fixture.

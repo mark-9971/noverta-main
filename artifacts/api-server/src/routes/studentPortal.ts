@@ -1,4 +1,4 @@
-// tenant-scope: student
+// tenant-scope: portal (student-token; was: student — normalized to closed-set vocabulary)
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {

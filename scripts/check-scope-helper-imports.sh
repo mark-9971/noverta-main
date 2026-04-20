@@ -53,15 +53,17 @@ HELPERS=(
   studentDistrictPredicate
   staffDistrictPredicate
   # Legacy / route-local but verified-equivalent patterns
-  # (kept as a transition allowlist — migrate to canonical helpers over time)
-  getDistrictId            # compensatoryFinance/shared.ts
-  resolveDistrictId        # rollover.ts pattern, returns meta.districtId
-  getPublicMeta            # clerk meta pull — usually combined with role check
-  requireDemoDistrict      # demoControl.ts, validates is_demo=true
-  parseDistrictId          # support.ts (super-admin cross-tenant by-design)
-  studentIdParamGuard      # students/idGuard.ts and similar param guards
-  caseloadFilter           # caseload-narrowing helper
-  PRIVILEGED_ROLES         # always paired with internal districtId resolution
+  # (kept as a transition allowlist — migrate to canonical helpers over time
+  # and remove from this list. Each entry below is a *scope* pull, NOT a
+  # role check — role checks like requireRoles/PRIVILEGED_ROLES are
+  # intentionally excluded because passing a role check does not by itself
+  # prevent cross-tenant data leakage.)
+  getDistrictId            # compensatoryFinance/shared.ts — pulls caller's districtId
+  resolveDistrictId        # rollover.ts pattern — returns meta.districtId
+  requireDemoDistrict      # demoControl.ts — validates is_demo=true on caller districtId
+  parseDistrictId          # support.ts — super-admin reads explicit districtId param
+  studentIdParamGuard      # students/idGuard.ts — param guard that 404s on cross-district
+  caseloadFilter           # caseload-narrowing helper — derived from caller scope
 )
 
 # Build alternation regexes once.
@@ -83,9 +85,34 @@ while IFS= read -r -d '' f; do
   # Bypass: existing codebase convention — a top-of-file comment
   #   // tenant-scope: <reason>
   # marks files that are scoped via JOIN paths or are intentionally
-  # cross-tenant (super-admin, public/portal). The comment may appear on
-  # any of the first 10 lines (some files prefix with imports/banners).
+  # cross-tenant (super-admin, public/portal). The reason MUST be one of
+  # a closed set so the bypass cannot be abused with a free-form comment;
+  # adding a new reason requires editing this script and a code-review
+  # decision about whether the new pattern actually defeats tenant
+  # isolation. The comment may appear on any of the first 10 lines.
+  #
+  # Permitted reasons (extend deliberately, not casually):
+  #   district-join   — handler scopes via SQL JOIN to caller districtId
+  #   super-admin     — handler is gated by requirePlatformAdmin and is
+  #                     intentionally cross-tenant (e.g. benchmarks)
+  #   public          — unauthenticated public route (e.g. /health, /demo-requests)
+  #   portal          — student/guardian portal whose tenant boundary is
+  #                     the portal JWT, not district
+  #   regression-pin  — this file is a vitest regression suite, not a route
+  #   by-design       — fully justified in an inline block-comment below
+  PERMITTED_REASONS='(district-join|super-admin|public|portal|regression-pin|by-design)'
+  if head -n 10 "$f" | grep -Eq "^// tenant-scope: ${PERMITTED_REASONS}(\b|$)"; then
+    continue
+  fi
+  # If the file has a tenant-scope comment but the reason is not in the
+  # permitted set, fail loudly with a hint instead of silently allowing it.
   if head -n 10 "$f" | grep -Eq "^// tenant-scope:"; then
+    rel="${f#$PWD/}"
+    bad_reason="$(head -n 10 "$f" | grep -Eo '^// tenant-scope: \S+' | head -1)"
+    echo "::error file=${rel}:: tenant-scope reason not in permitted set: ${bad_reason}"
+    echo "  permitted: district-join | super-admin | public | portal | regression-pin | by-design"
+    echo "  to add a new reason, edit scripts/check-scope-helper-imports.sh and document the rationale"
+    bad=1
     continue
   fi
   if ! grep -Eq "${HE_RE}" "$f"; then

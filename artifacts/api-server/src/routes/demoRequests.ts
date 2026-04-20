@@ -1,3 +1,4 @@
+// tenant-scope: public (unauthenticated demo-signup endpoint; each request creates its own NEW district via seedSampleDataForDistrict, so there is no caller-district to scope to)
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
