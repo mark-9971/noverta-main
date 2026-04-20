@@ -12,12 +12,29 @@ import {
 import { eq, and, gte, lte, desc, sql, inArray, isNull } from "drizzle-orm";
 import { pool } from "@workspace/db";
 import { requireTierAccess } from "../middlewares/tierGate";
-import type { AuthedRequest } from "../middlewares/auth";
+import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 import {
   assertStudentInCallerDistrict, assertStaffInCallerDistrict,
   assertServiceRequirementInCallerDistrict,
   assertCompensatoryObligationInCallerDistrict,
+  assertSchoolInCallerDistrict,
 } from "../lib/districtScope";
+
+/**
+ * Predicate that restricts compensatory_obligations rows to the caller's
+ * district by joining studentId → students → schools → district_id.
+ * Returns `undefined` for platform admins (did == null) so they can see
+ * across districts; otherwise returns a SQL fragment safe to AND with
+ * other conditions.
+ */
+function compensatoryDistrictPredicate(did: number | null) {
+  if (did == null) return undefined;
+  return sql`${compensatoryObligationsTable.studentId} IN (
+    SELECT s.id FROM students s
+    JOIN schools sch ON sch.id = s.school_id
+    WHERE sch.district_id = ${did}
+  )`;
+}
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   ListCompensatoryObligationsQueryParams,
@@ -39,9 +56,22 @@ router.get("/compensatory-obligations", async (req, res): Promise<void> => {
     return;
   }
   const { studentId, status, schoolId } = req.query;
+  const authed = req as unknown as AuthedRequest;
+  const did = getEnforcedDistrictId(authed);
 
   const conditions: any[] = [];
-  if (studentId) conditions.push(eq(compensatoryObligationsTable.studentId, Number(studentId)));
+  // Tenant scope: hard-pin every list query to the caller's district unless
+  // the caller is a platform admin (did == null). Without this, any signed-in
+  // district user could see compensatory obligations across every district.
+  const districtPredicate = compensatoryDistrictPredicate(did);
+  if (districtPredicate) conditions.push(districtPredicate);
+  if (studentId) {
+    // Body-IDOR defense: the studentId must also belong to the caller's
+    // district, otherwise we'd silently return an empty list and leak the
+    // existence of cross-tenant rows via timing.
+    if (did != null && !(await assertStudentInCallerDistrict(authed, Number(studentId), res))) return;
+    conditions.push(eq(compensatoryObligationsTable.studentId, Number(studentId)));
+  }
   if (status) conditions.push(eq(compensatoryObligationsTable.status, status as string));
   if (schoolId) conditions.push(sql`${compensatoryObligationsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(schoolId)})`);
 
@@ -84,6 +114,10 @@ router.get("/compensatory-obligations", async (req, res): Promise<void> => {
 router.get("/compensatory-obligations/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  // Tenant guard: 404 (not 403) if the obligation belongs to another district,
+  // matching the convention in lib/districtScope.ts to avoid leaking existence.
+  if (!(await assertCompensatoryObligationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
   const [row] = await db
     .select({
@@ -310,6 +344,11 @@ router.get("/compensatory-obligations/summary/by-student/:studentId", async (req
   const studentId = Number(req.params.studentId);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
+  // Tenant guard: the student must belong to the caller's district. Without
+  // this, any signed-in user could enumerate compensatory exposure for any
+  // student in any district by guessing or scraping IDs.
+  if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+
   const obligations = await db
     .select({
       id: compensatoryObligationsTable.id,
@@ -354,8 +393,24 @@ router.post("/compensatory-obligations/calculate-shortfalls", async (req, res): 
     return;
   }
 
+  // Tenant scope: hard-pin the shortfall scan to the caller's district by
+  // joining service_requirements → students → schools → district_id. Without
+  // this, any signed-in district user who omitted schoolId would scan every
+  // service requirement across every district in the system.
+  const authed = req as unknown as AuthedRequest;
+  const did = getEnforcedDistrictId(authed);
   const conditions: any[] = [eq(serviceRequirementsTable.active, true)];
+  if (did != null) {
+    conditions.push(sql`${serviceRequirementsTable.studentId} IN (
+      SELECT s.id FROM students s
+      JOIN schools sch ON sch.id = s.school_id
+      WHERE sch.district_id = ${did}
+    )`);
+  }
   if (schoolId) {
+    // Body-IDOR defense: the schoolId must belong to the caller's district.
+    // (assertSchoolInCallerDistrict already 404s on cross-district ids.)
+    if (did != null && !(await assertSchoolInCallerDistrict(authed, Number(schoolId), res))) return;
     conditions.push(sql`${serviceRequirementsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(schoolId)})`);
   }
 

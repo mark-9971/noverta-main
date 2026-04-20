@@ -1,14 +1,48 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { studentsTable, staffTable, sessionLogsTable, scheduleBlocksTable, schoolsTable, serviceTypesTable } from "@workspace/db";
-import { eq, isNotNull, desc, and } from "drizzle-orm";
+import { eq, isNotNull, desc, and, sql } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
-import { requireRoles } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import {
+  assertStudentInCallerDistrict,
+  assertStaffInCallerDistrict,
+  assertSessionLogInCallerDistrict,
+  assertScheduleBlockInCallerDistrict,
+} from "../lib/districtScope";
 
 // tenant-scope: district-join
+// Even district admins/coordinators must only see soft-deleted records from
+// their OWN district. Without these predicates a district admin would see (and
+// could restore) other districts' deleted students, staff, and sessions.
 const router: IRouter = Router();
 
-router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_req, res): Promise<void> => {
+router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+  const authed = req as unknown as AuthedRequest;
+  const did = getEnforcedDistrictId(authed);
+
+  // Predicates: NULL did = platform admin (all districts visible).
+  const studentDistrict = did == null
+    ? sql`TRUE`
+    : sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${did})`;
+  const staffDistrict = did == null
+    ? sql`TRUE`
+    : sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${did})`;
+  const sessionDistrict = did == null
+    ? sql`TRUE`
+    : sql`${sessionLogsTable.studentId} IN (
+        SELECT s.id FROM students s
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE sch.district_id = ${did}
+      )`;
+  const blockDistrict = did == null
+    ? sql`TRUE`
+    : sql`${scheduleBlocksTable.staffId} IN (
+        SELECT st.id FROM staff st
+        JOIN schools sch ON sch.id = st.school_id
+        WHERE sch.district_id = ${did}
+      )`;
+
   const [students, staff, sessions, scheduleBlocks] = await Promise.all([
     db.select({
       id: studentsTable.id,
@@ -21,7 +55,7 @@ router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_re
     })
       .from(studentsTable)
       .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
-      .where(isNotNull(studentsTable.deletedAt))
+      .where(and(isNotNull(studentsTable.deletedAt), studentDistrict))
       .orderBy(desc(studentsTable.deletedAt))
       .limit(50),
 
@@ -34,7 +68,7 @@ router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_re
       deletedAt: staffTable.deletedAt,
     })
       .from(staffTable)
-      .where(isNotNull(staffTable.deletedAt))
+      .where(and(isNotNull(staffTable.deletedAt), staffDistrict))
       .orderBy(desc(staffTable.deletedAt))
       .limit(50),
 
@@ -52,7 +86,7 @@ router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_re
     })
       .from(sessionLogsTable)
       .leftJoin(studentsTable, eq(studentsTable.id, sessionLogsTable.studentId))
-      .where(isNotNull(sessionLogsTable.deletedAt))
+      .where(and(isNotNull(sessionLogsTable.deletedAt), sessionDistrict))
       .orderBy(desc(sessionLogsTable.deletedAt))
       .limit(50),
 
@@ -69,7 +103,7 @@ router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_re
     })
       .from(scheduleBlocksTable)
       .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
-      .where(isNotNull(scheduleBlocksTable.deletedAt))
+      .where(and(isNotNull(scheduleBlocksTable.deletedAt), blockDistrict))
       .orderBy(desc(scheduleBlocksTable.deletedAt))
       .limit(50),
   ]);
@@ -95,22 +129,30 @@ router.post("/recently-deleted/restore", requireRoles("admin"), async (req, res)
     return;
   }
 
+  // Body-IDOR defence: an admin in district A must not be able to undelete a
+  // soft-deleted row in district B by guessing its id. Validate the target
+  // belongs to the caller's district BEFORE touching it.
+  const authed = req as unknown as AuthedRequest;
   let tableName: string;
   let rows: { id: number }[];
   switch (table) {
     case "students":
+      if (!(await assertStudentInCallerDistrict(authed, numId, res))) return;
       rows = await db.update(studentsTable).set({ deletedAt: null }).where(and(eq(studentsTable.id, numId), isNotNull(studentsTable.deletedAt))).returning({ id: studentsTable.id });
       tableName = "students";
       break;
     case "staff":
+      if (!(await assertStaffInCallerDistrict(authed, numId, res))) return;
       rows = await db.update(staffTable).set({ deletedAt: null }).where(and(eq(staffTable.id, numId), isNotNull(staffTable.deletedAt))).returning({ id: staffTable.id });
       tableName = "staff";
       break;
     case "sessions":
+      if (!(await assertSessionLogInCallerDistrict(authed, numId, res))) return;
       rows = await db.update(sessionLogsTable).set({ deletedAt: null }).where(and(eq(sessionLogsTable.id, numId), isNotNull(sessionLogsTable.deletedAt))).returning({ id: sessionLogsTable.id });
       tableName = "session_logs";
       break;
     case "scheduleBlocks":
+      if (!(await assertScheduleBlockInCallerDistrict(authed, numId, res))) return;
       rows = await db.update(scheduleBlocksTable).set({ deletedAt: null }).where(and(eq(scheduleBlocksTable.id, numId), isNotNull(scheduleBlocksTable.deletedAt))).returning({ id: scheduleBlocksTable.id });
       tableName = "schedule_blocks";
       break;

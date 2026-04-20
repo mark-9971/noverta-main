@@ -61,7 +61,10 @@ import {
   functionalAnalysesTable,
 } from "@workspace/db";
 import { eq, and, gte, count } from "drizzle-orm";
+import type { AuthedRequest } from "../middlewares/auth";
+import { assertStudentInCallerDistrict } from "../lib/districtScope";
 
+// tenant-scope: per-student (district-join via assertStudentInCallerDistrict)
 const router = Router();
 
 // Prompt levels ordered from most to least intrusive
@@ -140,6 +143,11 @@ router.get("/students/:studentId/support-intensity", async (req, res): Promise<v
     res.status(400).json({ error: "Invalid student ID" });
     return;
   }
+
+  // Tenant guard: this endpoint exposes restraint history, BIPs, and FBA
+  // counts. Without a district assertion, any signed-in user could enumerate
+  // protective-measures intensity for any student in any district.
+  if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
   try {
     const cutoff90 = new Date();

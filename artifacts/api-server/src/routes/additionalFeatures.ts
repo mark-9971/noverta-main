@@ -1,4 +1,9 @@
 // tenant-scope: district-join
+// Every handler in this module is scoped to the caller's enforced district by
+// joining studentsTable.schoolId → schoolsTable.districtId. Platform admins
+// (getEnforcedDistrictId returns null) see all districts. Per-id endpoints
+// also gate on assertStudentInCallerDistrict / assertStaffInCallerDistrict
+// to defend against IDOR.
 import { Router } from "express";
 import {
   db,
@@ -16,11 +21,37 @@ import {
   parentContactsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, sql } from "drizzle-orm";
+import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import {
+  assertStudentInCallerDistrict,
+  assertStaffInCallerDistrict,
+  assertServiceRequirementInCallerDistrict,
+} from "../lib/districtScope";
 
 const router = Router();
 
+/**
+ * Helper: SQL predicate that restricts students-joined queries to the caller's
+ * district. Returns sql`TRUE` for platform admins (no enforced district).
+ */
+function studentDistrictPredicate(authed: AuthedRequest) {
+  const did = getEnforcedDistrictId(authed);
+  if (did == null) return sql`TRUE`;
+  return sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${did})`;
+}
+
+/** Same predicate, parameterised by table for joins on staffTable.schoolId etc. */
+function staffDistrictPredicate(authed: AuthedRequest) {
+  const did = getEnforcedDistrictId(authed);
+  if (did == null) return sql`TRUE`;
+  return sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${did})`;
+}
+
 router.get("/search/iep", async (req, res): Promise<void> => {
   try {
+    const authed = req as unknown as AuthedRequest;
+    const districtPredicate = studentDistrictPredicate(authed);
+
     const q = (req.query.q as string || "").trim();
     const searchType = (req.query.type as string) || "all";
     if (!q || q.length < 2) {
@@ -38,9 +69,12 @@ router.get("/search/iep", async (req, res): Promise<void> => {
       })
         .from(iepGoalsTable)
         .innerJoin(studentsTable, eq(iepGoalsTable.studentId, studentsTable.id))
-        .where(or(
-          ilike(iepGoalsTable.annualGoal, pattern),
-          ilike(iepGoalsTable.goalArea, pattern),
+        .where(and(
+          districtPredicate,
+          or(
+            ilike(iepGoalsTable.annualGoal, pattern),
+            ilike(iepGoalsTable.goalArea, pattern),
+          ),
         ))
         .limit(20);
       results.goals = goals.map(g => ({
@@ -58,9 +92,12 @@ router.get("/search/iep", async (req, res): Promise<void> => {
       })
         .from(iepAccommodationsTable)
         .innerJoin(studentsTable, eq(iepAccommodationsTable.studentId, studentsTable.id))
-        .where(or(
-          ilike(iepAccommodationsTable.description, pattern),
-          ilike(iepAccommodationsTable.category, pattern),
+        .where(and(
+          districtPredicate,
+          or(
+            ilike(iepAccommodationsTable.description, pattern),
+            ilike(iepAccommodationsTable.category, pattern),
+          ),
         ))
         .limit(20);
       results.accommodations = accs.map(a => ({
@@ -73,10 +110,13 @@ router.get("/search/iep", async (req, res): Promise<void> => {
 
     if (searchType === "all" || searchType === "students") {
       const students = await db.select().from(studentsTable)
-        .where(or(
-          ilike(studentsTable.firstName, pattern),
-          ilike(studentsTable.lastName, pattern),
-          ilike(studentsTable.disabilityCategory, pattern),
+        .where(and(
+          districtPredicate,
+          or(
+            ilike(studentsTable.firstName, pattern),
+            ilike(studentsTable.lastName, pattern),
+            ilike(studentsTable.disabilityCategory, pattern),
+          ),
         ))
         .limit(20);
       results.students = students;
@@ -89,9 +129,13 @@ router.get("/search/iep", async (req, res): Promise<void> => {
   }
 });
 
-// Unified site-wide search — role-scoped results
+// Unified site-wide search — role-scoped + district-scoped results
 router.get("/search", async (req, res): Promise<void> => {
   try {
+    const authed = req as unknown as AuthedRequest;
+    const studentPred = studentDistrictPredicate(authed);
+    const staffPred = staffDistrictPredicate(authed);
+
     const q = (req.query.q as string || "").trim();
     const role = (req.query.role as string) || "admin";
     if (!q || q.length < 2) {
@@ -102,7 +146,7 @@ router.get("/search", async (req, res): Promise<void> => {
     const LIMIT = 6;
 
     const [students, staff, alerts, goals] = await Promise.all([
-      // Students — all roles (teachers/admins see all; scoping by real auth TBD)
+      // Students — admin/sped_teacher; district-scoped
       (role === "admin" || role === "sped_teacher")
         ? db.select({
             id: studentsTable.id,
@@ -115,6 +159,7 @@ router.get("/search", async (req, res): Promise<void> => {
           .from(studentsTable)
           .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
           .where(and(
+            studentPred,
             eq(studentsTable.status, "active"),
             or(
               ilike(studentsTable.firstName, pattern),
@@ -126,7 +171,7 @@ router.get("/search", async (req, res): Promise<void> => {
           .limit(LIMIT)
         : Promise.resolve([]),
 
-      // Staff — admin only
+      // Staff — admin only; district-scoped
       role === "admin"
         ? db.select({
             id: staffTable.id,
@@ -139,6 +184,7 @@ router.get("/search", async (req, res): Promise<void> => {
           .from(staffTable)
           .leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
           .where(and(
+            staffPred,
             eq(staffTable.status, "active"),
             or(
               ilike(staffTable.firstName, pattern),
@@ -151,7 +197,7 @@ router.get("/search", async (req, res): Promise<void> => {
           .limit(LIMIT)
         : Promise.resolve([]),
 
-      // Alerts — admin and teacher (unresolved only)
+      // Alerts — district-scoped via the joined student
       (role === "admin" || role === "sped_teacher")
         ? db.select({
             id: alertsTable.id,
@@ -163,8 +209,9 @@ router.get("/search", async (req, res): Promise<void> => {
             lastName: studentsTable.lastName,
           })
           .from(alertsTable)
-          .leftJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
+          .innerJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
           .where(and(
+            studentPred,
             eq(alertsTable.resolved, false),
             ilike(alertsTable.message, pattern),
           ))
@@ -172,7 +219,7 @@ router.get("/search", async (req, res): Promise<void> => {
           .limit(LIMIT)
         : Promise.resolve([]),
 
-      // IEP Goals — all roles (student portal would be scoped by auth in future)
+      // IEP Goals — district-scoped via the joined student
       db.select({
         id: iepGoalsTable.id,
         annualGoal: iepGoalsTable.annualGoal,
@@ -183,9 +230,12 @@ router.get("/search", async (req, res): Promise<void> => {
       })
       .from(iepGoalsTable)
       .innerJoin(studentsTable, eq(iepGoalsTable.studentId, studentsTable.id))
-      .where(or(
-        ilike(iepGoalsTable.annualGoal, pattern),
-        ilike(iepGoalsTable.goalArea, pattern),
+      .where(and(
+        studentPred,
+        or(
+          ilike(iepGoalsTable.annualGoal, pattern),
+          ilike(iepGoalsTable.goalArea, pattern),
+        ),
       ))
       .limit(LIMIT),
     ]);
@@ -228,6 +278,9 @@ router.get("/staff/:staffId/caseload-summary", async (req, res): Promise<void> =
   try {
     const staffId = parseInt(req.params.staffId as string, 10);
     if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
+
+    // Body-IDOR defence: the staffId must belong to the caller's district.
+    if (!(await assertStaffInCallerDistrict(req as unknown as AuthedRequest, staffId, res))) return;
 
     const assignments = await db.select({
       studentId: staffAssignmentsTable.studentId,
@@ -300,6 +353,9 @@ router.get("/students/:studentId/iep-summary", async (req, res): Promise<void> =
     const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
+    // Tenant guard: the student must belong to the caller's district.
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+
     const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
     if (!student) { res.status(404).json({ error: "Student not found" }); return; }
 
@@ -361,6 +417,12 @@ router.post("/sessions/quick", async (req, res): Promise<void> => {
       res.status(400).json({ error: "studentId, serviceRequirementId, duration, and date are required" });
       return;
     }
+
+    // Body-IDOR defence on every tenant-scoped FK before insert.
+    const authed = req as unknown as AuthedRequest;
+    if (!(await assertStudentInCallerDistrict(authed, Number(studentId), res))) return;
+    if (!(await assertServiceRequirementInCallerDistrict(authed, Number(serviceRequirementId), res))) return;
+    if (staffId != null && !(await assertStaffInCallerDistrict(authed, Number(staffId), res))) return;
 
     const [req_] = await db.select({
       sr: serviceRequirementsTable,

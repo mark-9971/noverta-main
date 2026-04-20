@@ -5,8 +5,9 @@ import {
   studentsTable, serviceTypesTable, serviceRequirementsTable, staffTable,
 } from "@workspace/db";
 import { GenerateScheduleBody, AcceptGeneratedScheduleBody } from "@workspace/api-zod";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -19,10 +20,22 @@ router.post("/scheduler/generate", async (req, res): Promise<void> => {
 
   const { weekOf, staffIds, studentIds } = parsed.data;
 
-  const reqConditions: any[] = [eq(serviceRequirementsTable.active, true)];
-  if (studentIds && studentIds.length > 0) {
-    // Filter to specific students - simplified
-  }
+  // Tenant scope: only consider service requirements / staff that belong to
+  // the caller's district. Without this, generating a schedule from a small
+  // district would propose blocks against students and providers in EVERY
+  // district in the system.
+  const authed = req as unknown as AuthedRequest;
+  const did = getEnforcedDistrictId(authed);
+  const reqDistrictPredicate = did == null
+    ? sql`TRUE`
+    : sql`${serviceRequirementsTable.studentId} IN (
+        SELECT s.id FROM students s
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE sch.district_id = ${did}
+      )`;
+  const staffDistrictPredicate = did == null
+    ? sql`TRUE`
+    : sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${did})`;
 
   const reqs = await db
     .select({
@@ -39,9 +52,10 @@ router.post("/scheduler/generate", async (req, res): Promise<void> => {
     .from(serviceRequirementsTable)
     .leftJoin(studentsTable, eq(studentsTable.id, serviceRequirementsTable.studentId))
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
-    .where(eq(serviceRequirementsTable.active, true));
+    .where(and(eq(serviceRequirementsTable.active, true), reqDistrictPredicate));
 
-  const allStaff = await db.select().from(staffTable).where(eq(staffTable.status, "active"));
+  const allStaff = await db.select().from(staffTable)
+    .where(and(eq(staffTable.status, "active"), staffDistrictPredicate));
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const timeSlots = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
@@ -137,7 +151,12 @@ router.post("/scheduler/generate", async (req, res): Promise<void> => {
     }
   }
 
-  const projectedFulfillment = await computeAllActiveMinuteProgress();
+  // Tenant scope: clamp the projected-fulfillment summary to the caller's
+  // district. The default (no filter) returns global rows across all districts,
+  // which would re-leak the same data the predicates above were closing.
+  const projectedFulfillment = await computeAllActiveMinuteProgress(
+    did == null ? undefined : { districtId: did },
+  );
 
   res.json({
     weekOf,
