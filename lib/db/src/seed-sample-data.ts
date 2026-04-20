@@ -1725,11 +1725,16 @@ export async function seedSampleDataForDistrict(
   // belonging to staff from earlier seed runs, producing duplicate
   // (staff_id, day_of_week, start_time, end_time) rows. Fresh-seed runs
   // are no-ops because newly-inserted staff have no blocks yet.
+  // Strictly scope to sample-tagged staff in this district. The seeder
+  // must never touch operator-authored schedule blocks belonging to real
+  // (non-sample) staff in a tenant where sample data has been added on
+  // top — joining on `s.is_sample = true` prevents a re-seed from wiping
+  // production schedules.
   const districtStaff = await db.execute(sql`
     SELECT s.id AS staff_id
     FROM staff s
     JOIN schools sc ON sc.id = s.school_id
-    WHERE sc.district_id = ${districtId}
+    WHERE sc.district_id = ${districtId} AND s.is_sample = true
   `);
   const wipeStaffIds = Array.from(new Set([
     ...blockRows.map(b => b.staffId).filter((v): v is number => typeof v === "number"),
