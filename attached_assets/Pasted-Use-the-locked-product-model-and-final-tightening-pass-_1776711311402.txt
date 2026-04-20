@@ -1,0 +1,87 @@
+Use the locked product model and final tightening pass as the source of truth.
+
+We are done with abstract strategy. Now turn this into the first real implementation batch.
+
+I want the first build batch only. Do not plan the whole year again.
+
+SCOPE OF THIS BATCH
+This batch should cover the foundational objects and workflows needed to make the daily loop correct end-to-end:
+
+- Service Requirement v1
+- School Context + School Calendar v0
+- Assignment adapter v1
+- Schedule Block v1
+- Session model with session_participants
+- One-tap session log v1
+
+GOAL OF THIS BATCH
+At the end of this batch, the product should be able to:
+- understand what services are required
+- know which school context the user is operating in
+- know who is responsible for which students/services
+- represent planned recurring delivery through schedule blocks
+- log actual sessions, including group sessions
+- capture delivered / partial / missed states correctly
+- support the future compliance engine without needing a rewrite
+
+RETURN THE FOLLOWING:
+
+1. IMPLEMENTATION ORDER
+Give me the exact order these 6 building blocks should be implemented in, with reasoning.
+
+2. TASK BREAKDOWN
+Break this first batch into concrete engineering tasks.
+For each task include:
+- title
+- why it matters
+- dependencies
+- backend/frontend/data/infra category
+- estimated difficulty
+- definition of done
+
+3. FILE / SYSTEM IMPACT MAP
+Based on the current codebase, identify which existing areas will most likely need to change for this batch.
+Focus especially on:
+- DB schema / migrations
+- session logging routes and UI
+- Today / My Day pages
+- assignment-related models/routes
+- student Services & Sessions surfaces
+- school context / school filtering
+- minute/compliance engine inputs
+
+4. RISKS AND SAFER INCREMENTS
+For each of the 6 building blocks, identify:
+- biggest implementation risk
+- safest incremental v1
+- what not to overbuild yet
+
+5. ACCEPTANCE TEST SCENARIOS
+Write the most important end-to-end test scenarios for this batch.
+Especially include:
+- single-student scheduled session
+- multi-student group session
+- partial session
+- missed session with reason
+- school closure affecting expected slots
+- provider working across two schools
+- para supporting a provider-led session
+- mid-year service requirement change
+
+6. WHAT TO DEFER UNTIL BATCH 2
+Tell me what should explicitly NOT be attempted yet from:
+- compliance hub UI
+- admin Today
+- coverage automation
+- behavior tab depth
+- fidelity prompts
+- SIS sync depth
+- document/IEP work
+- audit-log hardening beyond what is strictly necessary for this batch
+
+IMPORTANT CONSTRAINTS
+- Build for correctness first, not visual polish
+- Keep the model simple enough to ship
+- Do not overbuild permissions, SIS, or behavior depth yet
+- Do not drift into Medicaid, clinic ABA, or IEP-heavy work
+- Make sure the implementation order reduces rewrite risk later

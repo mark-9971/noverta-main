@@ -1,0 +1,77 @@
+This product model is now close enough to implementation, but I need one final tightening pass before we turn it into build batches.
+
+Do not write code yet.
+Do not give me a broad strategy memo.
+I want precision on the last ambiguous parts of the model.
+
+Please return the following:
+
+1. DEFINE SCHEDULE BLOCK AS A FIRST-CLASS OBJECT
+Schedule Block appears in the delivery chain but is not yet defined as a canonical object.
+
+Define:
+- what a Schedule Block is
+- what it owns vs what Assignment owns
+- how it relates to School, Provider, Student, Service Requirement, and Session
+- how recurring blocks, exceptions, group sessions, and school-calendar changes should work
+- the minimum viable v1 schema and behavior
+
+2. CLARIFY ASSIGNMENT VS SCHEDULE BLOCK VS SESSION
+I want one clean explanation of the distinction between:
+- Assignment = responsibility
+- Schedule Block = planned work
+- Session = actual work
+
+Be explicit about:
+- what is durable
+- what is editable
+- what can be generated automatically
+- what must always be human-confirmed
+- how coverage affects each layer
+
+3. WRITE THE COMPLIANCE STATUS DERIVATION CONTRACT
+Define the exact contract for how Compliance Status is computed.
+
+Include:
+- inputs
+- outputs
+- time periods supported
+- how Service Requirement supersedes are handled
+- how school closures / early release affect required minutes
+- how partial sessions affect delivered vs owed
+- how missed sessions affect owed
+- how make-up sessions reduce owed
+- how group sessions allocate credit per student
+- when snapshots are recomputed
+- what must be unit-tested with golden fixtures
+
+4. ROLE OWNERSHIP / PERMISSIONS FOR CORE OBJECTS
+For District Admin, Provider, Para, Case Manager, and BCBA:
+specify who can create, edit, view, or approve:
+- Service Requirement
+- Assignment
+- Schedule Block
+- Session
+- Missed reason
+- Make-up Session
+- Coverage Event
+- Behavior Log
+- Academic Log
+- BIP
+- Behavior Target
+- Fidelity Check
+
+5. IDENTIFY ANY MODEL CONTRADICTIONS OR UNRESOLVED RISKS
+Review the current model and tell me if any part is still contradictory, overloaded, or likely to create implementation churn later.
+Especially check:
+- Schedule Block overlap with Assignment
+- group session complexity
+- school boundary behavior
+- compliance derivation ambiguity
+- behavior logging scope creep
+
+IMPORTANT CONSTRAINTS
+- Optimize for real school operations
+- Keep the daily habit centered on assignments + sessions
+- Keep the model simple enough to build, but correct enough not to lie
+- Do not drift into clinic ABA, Medicaid-first design, or IEP-heavy product thinking

@@ -1,0 +1,144 @@
+Use the roadmap we already built, but now lock the product model around the specific areas I believe are most important.
+
+Do not write code yet.
+Do not give me another broad strategic essay.
+I want a product-model definition that is concrete enough to guide the next year of implementation.
+
+SOURCE OF TRUTH FOR THIS PROMPT
+The most important product objects and workflows are:
+- service requirement
+- session
+- missed session
+- school as a key operational boundary
+
+Behavior/ABA depth for now should focus on:
+- basic session-linked behavior logging
+- basic session-linked academic logging
+- BIP
+- behavior targets
+- fidelity tracking
+
+Not the focus right now:
+- deep progress summaries
+- IEP-heavy analytics
+- Medicaid-centered design
+- clinic/home ABA workflows
+
+The product is still:
+- an operating layer on top of the SIS
+- balanced by role
+- centered on checking assignments and sessions
+- built for school-based service delivery and minute compliance
+
+Return the following:
+
+1. CANONICAL PRODUCT OBJECT MODEL
+Define the canonical objects and relationships for:
+- School
+- Student
+- Provider
+- Paraprofessional
+- Service requirement
+- Assignment
+- Session
+- Missed session
+- Make-up session
+- Coverage event
+- Behavior log
+- Academic log
+- BIP
+- Behavior target
+- Fidelity check
+- Compliance status
+
+For each object, explain:
+- what it means in the product
+- whether SIS owns it, Trellis owns it, or it is derived
+- what other objects it connects to
+- what the minimum viable v1 version should be
+
+2. SCHOOL-BASED OPERATING MODEL
+Show how the system should work at the school level, not just district level.
+Specifically answer:
+- what belongs at the school boundary
+- what data/actions should be filtered or grouped by school
+- how staff working across multiple schools should behave
+- how school calendars and schedule realities affect sessions and missed minutes
+
+3. THE CORE DELIVERY CHAIN
+Define the exact chain from requirement to proof:
+- service requirement
+- assignment
+- scheduled work
+- actual session
+- missed/cancelled session
+- makeup session
+- compliance/minute status
+
+I want one clean explanation of how these connect.
+Be explicit about:
+- what is entered by humans
+- what is imported from SIS
+- what is computed by Trellis
+
+4. EDGE CASE STRESS TEST
+Test the model against these real school cases:
+- one provider serves students in two schools
+- a para supports a provider-led session
+- a group session serves multiple students with different requirements
+- a session happens for fewer minutes than planned
+- a session is missed and later made up
+- an IEP/service requirement changes mid-year
+- school holiday / early release changes what was possible
+- a behavior incident is logged during a session
+- a quick academic note is logged during a session
+
+For each case:
+- explain how the model should handle it
+- identify where the current roadmap is sufficient or insufficient
+
+5. BEHAVIOR / ACADEMIC LOGGING V1
+Define the minimum viable school-based logging model for:
+- behavior logging during a session
+- academic logging during a session
+- BIP linkage
+- target tracking
+- fidelity check-ins
+
+I do NOT want a full clinic-style ABA data system.
+I want the lightest model that creates real daily value for schools.
+
+For each of those, define:
+- what is required
+- what is optional
+- what should be quick to enter
+- what should be visible later on the student record
+
+6. FIRST IMPLEMENTATION CONSEQUENCES
+Based on this model, tell me:
+- which parts of the roadmap are validated
+- which parts need to be revised
+- which proposed tasks are still too abstract
+- which 8 tasks should change wording or scope because of this product-model definition
+
+7. THE TRUE FIRST BUILDING BLOCKS
+After defining the model, recommend the first 8 implementation building blocks in order.
+These should be the first real product foundations to build before broad feature work.
+They should balance:
+- user value
+- correctness
+- manageable implementation risk
+
+For each one include:
+- title
+- why it matters
+- visible product impact
+- key risk if modeled wrong
+
+IMPORTANT CONSTRAINTS
+- Optimize for real school operations, not abstract schema elegance
+- Keep school as a major organizing boundary
+- Keep assignments/sessions as the daily habit center
+- Keep service requirement / session / missed session as the core truth chain
+- Keep behavior + academic logging lightweight and school-appropriate
+- Do not drift into Medicaid, IEP-heavy strategy, or clinic ABA
