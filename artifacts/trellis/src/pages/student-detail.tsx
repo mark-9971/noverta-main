@@ -5,8 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
 import { ArrowLeft, CheckCircle, XCircle, TrendingUp, FileText, Activity, Target, Gift, Share2, Plus, Archive, ArchiveRestore, CalendarDays, Bell, AlertTriangle, Clock, ClipboardList, CalendarPlus } from "lucide-react";
-import { toast } from "sonner";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import StudentSnapshot from "@/components/student-snapshot";
@@ -25,21 +24,9 @@ import {
   getCompensatorySummaryByStudent,
   getDataSession,
   getSession,
-  getStudentProgressSummary,
-  createProgressShareLink,
-  createServiceRequirement,
-  updateServiceRequirement,
-  supersedeServiceRequirement,
-  deleteServiceRequirement,
   listServiceTypes,
   listStaff,
-  createStaffAssignment,
-  deleteStaffAssignment,
 } from "@workspace/api-client-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Stethoscope } from "lucide-react";
 
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 import StudentGoalSection from "./student-detail/StudentGoalSection";
@@ -50,77 +37,23 @@ import ReinforcerInventoryPanel from "@/components/preference-assessment/Reinfor
 import SupportIntensityCard from "@/components/support-intensity/SupportIntensityCard";
 import StudentSessionHistory from "./student-detail/StudentSessionHistory";
 import StudentComplianceSection from "./student-detail/StudentComplianceSection";
-import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
+import StudentContactsMedical from "./student-detail/StudentContactsMedical";
 import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
-import { useSupersedeFlow } from "./student-detail/supersede-flow";
-import {
-  archiveStudent,
-  reactivateStudent,
-  saveEnrollmentEvent,
-  deleteEnrollmentEvent,
-  saveEmergencyContact,
-  deleteEmergencyContact,
-  saveMedicalAlert,
-  deleteMedicalAlert,
-  createServiceRequirementHandler,
-  updateServiceRequirementHandler,
-  deleteServiceRequirementHandler,
-  addStaffAssignmentHandler,
-  removeStaffAssignmentHandler,
-  generateShareLinkHandler,
-  fetchProgressSummaryHandler,
-} from "./student-detail/handlers";
 import SupersedeDialog from "./student-detail/SupersedeDialog";
 import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
 import StudentHandoffCard from "./student-detail/StudentHandoffCard";
+import StudentMedicaidField from "./student-detail/StudentMedicaidField";
+import { useEmergencyContacts } from "./student-detail/hooks/useEmergencyContacts";
+import { useMedicalAlerts } from "./student-detail/hooks/useMedicalAlerts";
+import { useEnrollmentEvents } from "./student-detail/hooks/useEnrollmentEvents";
+import { useStudentArchive } from "./student-detail/hooks/useStudentArchive";
+import { useStaffAssignments } from "./student-detail/hooks/useStaffAssignments";
+import { useServiceRequirements } from "./student-detail/hooks/useServiceRequirements";
+import { useShareProgress } from "./student-detail/hooks/useShareProgress";
+import { useStudentMessageGuardians } from "./student-detail/hooks/useStudentMessageGuardians";
 
 const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
-
-function StudentMedicaidField({ student, onSave }: { student: any; onSave: () => void }) {
-  const [mid, setMid] = useState(student?.medicaidId || "");
-  const [saving, setSaving] = useState(false);
-  const dirty = mid !== (student?.medicaidId || "");
-
-  useEffect(() => { setMid(student?.medicaidId || ""); }, [student?.medicaidId]);
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const res = await authFetch(`/api/students/${student.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ medicaidId: mid || null }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      onSave();
-      toast.success("Medicaid ID saved");
-    } catch {
-      toast.error("Failed to save Medicaid ID");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card>
-      <CardContent className="p-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-          <Stethoscope className="w-5 h-5 text-emerald-600" />
-        </div>
-        <div className="flex-1 flex items-center gap-3">
-          <Label htmlFor="medicaidId" className="text-xs text-gray-500 whitespace-nowrap">Medicaid ID</Label>
-          <Input id="medicaidId" placeholder="Student Medicaid ID" value={mid} onChange={e => setMid(e.target.value)} className="h-8 max-w-xs" />
-          {dirty && (
-            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8">
-              {saving ? "Saving..." : "Save"}
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function StudentDetail() {
   const params = useParams<{ id: string }>();
@@ -133,6 +66,7 @@ export default function StudentDetail() {
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const { data: sessions } = useGetStudentSessions(studentId, { limit: 20 } as any);
 
+  // Heavy data fetched lazily, gated by which tab the user has visited.
   const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
   const [programTargets, setProgramTargets] = useState<any[]>([]);
   const [behaviorTrends, setBehaviorTrends] = useState<any[]>([]);
@@ -149,76 +83,37 @@ export default function StudentDetail() {
   const [reEvalStatus, setReEvalStatus] = useState<{ hasEligibility: boolean; reEvalStatus: { nextReEvalDate: string | null; daysUntilReEval: number | null; urgency: string; primaryDisability: string | null; reEvalCycleMonths: number } | null } | null>(null);
   const [transitionData, setTransitionData] = useState<{ isTransitionAge: boolean; age: number | null; plans: { id: number; planDate: string; status: string; goals?: { id: number; domain: string; goalStatement: string; status: string }[]; agencyReferrals?: { id: number; agencyName: string; status: string }[] }[] } | null>(null);
 
+  // Session expansion state
   const [expandedDataSessionId, setExpandedDataSessionId] = useState<number | null>(null);
   const [expandedDataDetail, setExpandedDataDetail] = useState<any>(null);
   const [expandedDataLoading, setExpandedDataLoading] = useState(false);
-
   const [expandedServiceSessionId, setExpandedServiceSessionId] = useState<number | null>(null);
   const [expandedServiceDetail, setExpandedServiceDetail] = useState<any>(null);
   const [expandedServiceLoading, setExpandedServiceLoading] = useState(false);
 
+  // Charting / annotation state shared by multiple sections
   const [behaviorPhaseLines, setBehaviorPhaseLines] = useState<Record<number, { id: string; date: string; label: string; color?: string }[]>>({});
   const [programPhaseLines, setProgramPhaseLines] = useState<Record<number, { id: string; date: string; label: string; color?: string }[]>>({});
   const [goalAbaView, setGoalAbaView] = useState<Record<string | number, boolean>>({});
   const [minutesExpanded, setMinutesExpanded] = useState(false);
   const [minutesTrend, setMinutesTrend] = useState<any[]>([]);
   const [minutesPhaseLines, setMinutesPhaseLines] = useState<{ id: string; date: string; label: string; color?: string }[]>([]);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareSummary, setShareSummary] = useState<any>(null);
-  const [shareLoading, setShareLoading] = useState(false);
-  const [shareLink, setShareLink] = useState<string | null>(null);
-  const [shareDays, setShareDays] = useState(30);
   const [phaseChangesByTarget, setPhaseChangesByTarget] = useState<Record<number, any[]>>({});
   const [annotationsByGoal, setAnnotationsByGoal] = useState<Record<number, any[]>>({});
 
-  const [svcDialogOpen, setSvcDialogOpen] = useState(false);
-  const [editingSvc, setEditingSvc] = useState<any>(null);
-  const [deletingSvc, setDeletingSvc] = useState<any>(null);
-  const [svcSaving, setSvcSaving] = useState(false);
+  // Lookup lists for dialogs
   const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
-  const [svcForm, setSvcForm] = useState({ serviceTypeId: "", providerId: "", deliveryType: "direct", requiredMinutes: "", intervalType: "weekly", startDate: "", endDate: "", priority: "medium", notes: "" });
 
-  const supersedeFlow = useSupersedeFlow(supersedeServiceRequirement, () => {
-    refetchStudent();
-    refetchProgress();
-  });
-
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assignSaving, setAssignSaving] = useState(false);
-  const [assignForm, setAssignForm] = useState({ staffId: "", assignmentType: "service_provider", startDate: "", endDate: "", notes: "" });
-
-  const [enrollmentHistory, setEnrollmentHistory] = useState<any[]>([]);
-  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
-
-  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContactRecord[]>([]);
-  const [emergencyContactsLoading, setEmergencyContactsLoading] = useState(false);
-  const [ecDialogOpen, setEcDialogOpen] = useState(false);
-  const [editingEc, setEditingEc] = useState<EmergencyContactRecord | null>(null);
-  const [ecSaving, setEcSaving] = useState(false);
-  const [deletingEc, setDeletingEc] = useState<EmergencyContactRecord | null>(null);
-  const [ecForm, setEcForm] = useState({ firstName: "", lastName: "", relationship: "", phone: "", phoneSecondary: "", email: "", isAuthorizedForPickup: false, priority: 1, notes: "" });
-
-  const [medicalAlerts, setMedicalAlerts] = useState<MedicalAlertRecord[]>([]);
-  const [medicalAlertsLoading, setMedicalAlertsLoading] = useState(false);
-  const [maDialogOpen, setMaDialogOpen] = useState(false);
-  const [editingMa, setEditingMa] = useState<MedicalAlertRecord | null>(null);
-  const [maSaving, setMaSaving] = useState(false);
-  const [deletingMa, setDeletingMa] = useState<MedicalAlertRecord | null>(null);
-  const [maForm, setMaForm] = useState({ alertType: "allergy", description: "", severity: "mild", treatmentNotes: "", epiPenOnFile: false, notifyAllStaff: false });
-
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [archiveReason, setArchiveReason] = useState("");
-  const [archiveSaving, setArchiveSaving] = useState(false);
-  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
-  const [reactivateSaving, setReactivateSaving] = useState(false);
-  const [messageGuardians, setMessageGuardians] = useState<{ id: number; name: string; relationship: string; email: string | null }[]>([]);
-
-  const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
-  const [addEventSaving, setAddEventSaving] = useState(false);
-  const [addEventForm, setAddEventForm] = useState({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
-  const [editingEvent, setEditingEvent] = useState<any | null>(null);
-  const [deletingEvent, setDeletingEvent] = useState<any | null>(null);
+  // Section-level concerns extracted into focused hooks.
+  const enrollment = useEnrollmentEvents(studentId, contactsDataFetched);
+  const archive = useStudentArchive(studentId, refetchStudent, enrollment.reloadEnrollment);
+  const contacts = useEmergencyContacts(studentId, contactsDataFetched);
+  const alerts = useMedicalAlerts(studentId, contactsDataFetched);
+  const messageGuardians = useStudentMessageGuardians(studentId, contactsDataFetched);
+  const assignments = useStaffAssignments(studentId, refetchStudent);
+  const services = useServiceRequirements(studentId, refetchStudent, refetchProgress);
+  const share = useShareProgress(studentId);
 
   useEffect(() => {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
@@ -235,363 +130,6 @@ export default function StudentDetail() {
       .then((d: unknown) => setTransitionData(d as typeof transitionData))
       .catch(() => {});
   }, [studentId]);
-
-  // Contacts & Medical — fires on first Contacts tab visit
-  useEffect(() => {
-    if (!contactsDataFetched || !studentId) return;
-    setEnrollmentLoading(true);
-    authFetch(`/api/students/${studentId}/enrollment`)
-      .then((r: any) => r.json())
-      .then((d: any) => setEnrollmentHistory(Array.isArray(d) ? d : []))
-      .catch(() => {})
-      .finally(() => setEnrollmentLoading(false));
-    setEmergencyContactsLoading(true);
-    authFetch(`/api/students/${studentId}/emergency-contacts`)
-      .then((r: Response) => r.json())
-      .then((d: EmergencyContactRecord[]) => setEmergencyContacts(Array.isArray(d) ? d : []))
-      .catch(() => {})
-      .finally(() => setEmergencyContactsLoading(false));
-    setMedicalAlertsLoading(true);
-    authFetch(`/api/students/${studentId}/medical-alerts`)
-      .then((r: Response) => r.json())
-      .then((d: MedicalAlertRecord[]) => setMedicalAlerts(Array.isArray(d) ? d : []))
-      .catch(() => {})
-      .finally(() => setMedicalAlertsLoading(false));
-    authFetch(`/api/students/${studentId}/guardians`)
-      .then((r: Response) => r.ok ? r.json() : [])
-      .then((d: any) => setMessageGuardians(Array.isArray(d) ? d : []))
-      .catch(() => {});
-  }, [contactsDataFetched, studentId]);
-
-  async function refreshEnrollment() {
-    try {
-      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((r: any) => r.json());
-      setEnrollmentHistory(Array.isArray(d) ? d : []);
-    } catch {}
-  }
-
-  async function handleArchive() {
-    setArchiveSaving(true);
-    const result = await archiveStudent(authFetch, studentId, archiveReason || null);
-    if (result.ok) {
-      toast.success("Student archived");
-      setArchiveDialogOpen(false);
-      setArchiveReason("");
-      refetchStudent();
-      await refreshEnrollment();
-    } else {
-      toast.error("Failed to archive student");
-    }
-    setArchiveSaving(false);
-  }
-
-  async function handleReactivate() {
-    setReactivateSaving(true);
-    const result = await reactivateStudent(authFetch, studentId);
-    if (result.ok) {
-      toast.success("Student reactivated");
-      setReactivateDialogOpen(false);
-      refetchStudent();
-      await refreshEnrollment();
-    } else {
-      toast.error("Failed to reactivate student");
-    }
-    setReactivateSaving(false);
-  }
-
-  async function handleAddEvent() {
-    if (!addEventForm.eventType || !addEventForm.eventDate) {
-      toast.error("Event type and date are required"); return;
-    }
-    setAddEventSaving(true);
-    const result = await saveEnrollmentEvent(
-      authFetch,
-      studentId,
-      addEventForm,
-      editingEvent?.id ?? null,
-    );
-    if (result.ok) {
-      toast.success(editingEvent ? "Enrollment event updated" : "Enrollment event logged");
-      setAddEventDialogOpen(false);
-      setEditingEvent(null);
-      setAddEventForm({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
-      await refreshEnrollment();
-    } else {
-      toast.error(editingEvent ? "Failed to update event" : "Failed to log event");
-    }
-    setAddEventSaving(false);
-  }
-
-  function openAddEvent() {
-    setEditingEvent(null);
-    setAddEventForm({ eventType: "note", eventDate: new Date().toISOString().slice(0, 10), reasonCode: "", reason: "", notes: "" });
-    setAddEventDialogOpen(true);
-  }
-
-  function openEditEvent(ev: any) {
-    setEditingEvent(ev);
-    setAddEventForm({
-      eventType: ev.eventType ?? "note",
-      eventDate: ev.eventDate ?? "",
-      reasonCode: ev.reasonCode ?? "",
-      reason: ev.reason ?? "",
-      notes: ev.notes ?? "",
-    });
-    setAddEventDialogOpen(true);
-  }
-
-  async function handleDeleteEvent(ev: any) {
-    const result = await deleteEnrollmentEvent(authFetch, studentId, ev.id);
-    if (result.ok) {
-      toast.success("Enrollment event deleted");
-      setDeletingEvent(null);
-      await refreshEnrollment();
-    } else {
-      toast.error("Failed to delete event");
-    }
-  }
-
-  async function refreshEmergencyContacts() {
-    try {
-      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json());
-      setEmergencyContacts(Array.isArray(d) ? d : []);
-    } catch {}
-  }
-
-  async function handleSaveEc() {
-    if (!ecForm.firstName || !ecForm.lastName || !ecForm.relationship || !ecForm.phone) {
-      toast.error("First name, last name, relationship, and phone are required"); return;
-    }
-    setEcSaving(true);
-    const result = await saveEmergencyContact(authFetch, studentId, ecForm, editingEc?.id ?? null);
-    if (result.ok) {
-      toast.success(editingEc ? "Contact updated" : "Contact added");
-      setEcDialogOpen(false);
-      setEditingEc(null);
-      await refreshEmergencyContacts();
-    } else {
-      toast.error("Failed to save contact");
-    }
-    setEcSaving(false);
-  }
-
-  async function handleDeleteEc(contact: EmergencyContactRecord) {
-    const result = await deleteEmergencyContact(authFetch, contact.id);
-    if (result.ok) {
-      toast.success("Contact removed");
-      setDeletingEc(null);
-      await refreshEmergencyContacts();
-    } else {
-      toast.error("Failed to remove contact");
-    }
-  }
-
-  function openAddEc() {
-    setEditingEc(null);
-    setEcForm({ firstName: "", lastName: "", relationship: "", phone: "", phoneSecondary: "", email: "", isAuthorizedForPickup: false, priority: 1, notes: "" });
-    setEcDialogOpen(true);
-  }
-
-  function openEditEc(contact: EmergencyContactRecord) {
-    setEditingEc(contact);
-    setEcForm({
-      firstName: contact.firstName ?? "",
-      lastName: contact.lastName ?? "",
-      relationship: contact.relationship ?? "",
-      phone: contact.phone ?? "",
-      phoneSecondary: contact.phoneSecondary ?? "",
-      email: contact.email ?? "",
-      isAuthorizedForPickup: contact.isAuthorizedForPickup ?? false,
-      priority: contact.priority ?? 1,
-      notes: contact.notes ?? "",
-    });
-    setEcDialogOpen(true);
-  }
-
-  async function refreshMedicalAlerts() {
-    try {
-      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json());
-      setMedicalAlerts(Array.isArray(d) ? d : []);
-    } catch {}
-  }
-
-  async function handleSaveMa() {
-    if (!maForm.description || !maForm.alertType || !maForm.severity) {
-      toast.error("Alert type, description, and severity are required"); return;
-    }
-    setMaSaving(true);
-    const result = await saveMedicalAlert(authFetch, studentId, maForm, editingMa?.id ?? null);
-    if (result.ok) {
-      toast.success(editingMa ? "Alert updated" : "Alert added");
-      setMaDialogOpen(false);
-      setEditingMa(null);
-      await refreshMedicalAlerts();
-    } else {
-      toast.error("Failed to save alert");
-    }
-    setMaSaving(false);
-  }
-
-  async function handleDeleteMa(alert: MedicalAlertRecord) {
-    const result = await deleteMedicalAlert(authFetch, alert.id);
-    if (result.ok) {
-      toast.success("Alert removed");
-      setDeletingMa(null);
-      await refreshMedicalAlerts();
-    } else {
-      toast.error("Failed to remove alert");
-    }
-  }
-
-  function openAddMa() {
-    setEditingMa(null);
-    setMaForm({ alertType: "allergy", description: "", severity: "mild", treatmentNotes: "", epiPenOnFile: false, notifyAllStaff: false });
-    setMaDialogOpen(true);
-  }
-
-  function openEditMa(alert: MedicalAlertRecord) {
-    setEditingMa(alert);
-    setMaForm({
-      alertType: alert.alertType ?? "allergy",
-      description: alert.description ?? "",
-      severity: alert.severity ?? "mild",
-      treatmentNotes: alert.treatmentNotes ?? "",
-      epiPenOnFile: alert.epiPenOnFile ?? false,
-      notifyAllStaff: alert.notifyAllStaff ?? false,
-    });
-    setMaDialogOpen(true);
-  }
-
-  function openAddSvc() {
-    setEditingSvc(null);
-    setSvcForm({ serviceTypeId: "", providerId: "", deliveryType: "direct", requiredMinutes: "", intervalType: "weekly", startDate: new Date().toISOString().split("T")[0], endDate: "", priority: "medium", notes: "" });
-    setSvcDialogOpen(true);
-  }
-
-  function openEditSvc(req: any) {
-    setEditingSvc(req);
-    setSvcForm({
-      serviceTypeId: String(req.serviceTypeId),
-      providerId: req.providerId ? String(req.providerId) : "",
-      deliveryType: req.deliveryType || "direct",
-      requiredMinutes: String(req.requiredMinutes),
-      intervalType: req.intervalType || "weekly",
-      startDate: req.startDate || "",
-      endDate: req.endDate || "",
-      priority: req.priority || "medium",
-      notes: req.notes || "",
-    });
-    setSvcDialogOpen(true);
-  }
-
-  async function handleSaveSvc() {
-    if (!svcForm.serviceTypeId || !svcForm.requiredMinutes) {
-      toast.error("Service type and minutes are required"); return;
-    }
-    setSvcSaving(true);
-    if (editingSvc) {
-      const result = await updateServiceRequirementHandler(
-        supersedeFlow,
-        updateServiceRequirement,
-        editingSvc.id,
-        studentId,
-        svcForm,
-      );
-      if (result.kind === "supersede") {
-        // Modal opened by the flow — keep the edit dialog closed and let the
-        // user confirm there. The flow's `refresh` callback fires the
-        // refetches when the supersede confirms.
-        setSvcDialogOpen(false);
-      } else if (result.kind === "ok") {
-        toast.success("Service requirement updated");
-        setSvcDialogOpen(false);
-        refetchStudent();
-        refetchProgress();
-      } else {
-        toast.error("Failed to save service requirement");
-      }
-    } else {
-      const result = await createServiceRequirementHandler(
-        createServiceRequirement,
-        studentId,
-        svcForm,
-      );
-      if (result.ok) {
-        toast.success("Service requirement added");
-        setSvcDialogOpen(false);
-        refetchStudent();
-        refetchProgress();
-      } else {
-        toast.error("Failed to save service requirement");
-      }
-    }
-    setSvcSaving(false);
-  }
-
-  async function handleConfirmSupersede() {
-    if (!editingSvc) return;
-    if (!supersedeFlow.effectiveDate) { toast.error("Effective date is required"); return; }
-    const result = await supersedeFlow.confirm(editingSvc.id);
-    if (result.ok) {
-      toast.success("New service requirement started");
-      setEditingSvc(null);
-    } else {
-      toast.error("Failed to supersede service requirement");
-    }
-  }
-
-  async function handleDeleteSvc() {
-    if (!deletingSvc) return;
-    setSvcSaving(true);
-    const result = await deleteServiceRequirementHandler(
-      deleteServiceRequirement,
-      deletingSvc.id,
-    );
-    if (result.ok) {
-      toast.success("Service requirement deleted");
-      setDeletingSvc(null);
-      refetchStudent();
-      refetchProgress();
-    } else {
-      toast.error("Failed to delete");
-    }
-    setSvcSaving(false);
-  }
-
-  async function handleAddAssignment() {
-    if (!assignForm.staffId || !assignForm.assignmentType) {
-      toast.error("Staff and assignment type required"); return;
-    }
-    setAssignSaving(true);
-    const result = await addStaffAssignmentHandler(
-      createStaffAssignment,
-      studentId,
-      assignForm,
-    );
-    if (result.ok) {
-      toast.success("Staff assigned");
-      setAssignDialogOpen(false);
-      refetchStudent();
-    } else {
-      toast.error("Failed to assign staff");
-    }
-    setAssignSaving(false);
-  }
-
-  async function handleRemoveAssignment(id: number) {
-    const result = await removeStaffAssignmentHandler(deleteStaffAssignment, id);
-    if (result.ok) {
-      toast.success("Assignment removed");
-      refetchStudent();
-    } else {
-      toast.error("Failed to remove assignment");
-    }
-  }
-
-  function openAssignDialog() {
-    setAssignForm({ staffId: "", assignmentType: "service_provider", startDate: "", endDate: "", notes: "" });
-    setAssignDialogOpen(true);
-  }
 
   const workspaceConfig = getStudentWorkspaceConfig(role);
   const caps = workspaceConfig.caps;
@@ -741,9 +279,9 @@ export default function StudentDetail() {
       // Requirement no longer exists on this student (e.g. it was already
       // superseded and the data-health row is stale). Tell the user instead
       // of silently doing nothing on a retried deep-link click.
-      toast.error("That service requirement is no longer on this student. It may have already been replaced — check the active requirements below.");
+      import("sonner").then(({ toast }) => toast.error("That service requirement is no longer on this student. It may have already been replaced — check the active requirements below."));
     } else {
-      openEditSvc(match);
+      services.openEditSvc(match);
     }
     params.delete("editServiceRequirement");
     const next = params.toString();
@@ -769,8 +307,8 @@ export default function StudentDetail() {
   }
   const riskCfg = RISK_CONFIG[worstRisk] ?? RISK_CONFIG.on_track;
 
-  const latestEnrollment = enrollmentHistory.length > 0 ? enrollmentHistory[0] : null;
-  const enrolledEvent = enrollmentHistory.find((e: any) => e.eventType === "enrolled");
+  const latestEnrollment = enrollment.enrollmentHistory.length > 0 ? enrollment.enrollmentHistory[0] : null;
+  const enrolledEvent = enrollment.enrollmentHistory.find((e: any) => e.eventType === "enrolled");
   const enrollmentDate = enrolledEvent?.eventDate ?? s?.createdAt?.substring(0, 10);
 
   const atRiskServices = progressList.filter((p: any) =>
@@ -869,76 +407,6 @@ export default function StudentDetail() {
     setExpandedServiceLoading(false);
   }
 
-  async function handleShareProgress() {
-    setShowShareModal(true);
-    setShareLoading(true);
-    setShareLink(null);
-    setShareSummary(null);
-    const result = await fetchProgressSummaryHandler(
-      getStudentProgressSummary,
-      studentId,
-      shareDays,
-    );
-    if (result.ok) setShareSummary(result.data);
-    setShareLoading(false);
-  }
-
-  async function generateShareLink() {
-    const result = await generateShareLinkHandler(
-      createProgressShareLink,
-      studentId,
-      shareDays,
-      window.location.origin,
-    );
-    if (result.ok) {
-      setShareLink(result.url);
-      toast.success("Share link generated (expires in 72 hours)");
-    } else {
-      toast.error("Failed to generate share link");
-    }
-  }
-
-  function handlePrintSummary() {
-    const w = window.open("", "_blank");
-    if (!w || !shareSummary) return;
-    const s = shareSummary;
-    w.document.write(`<!DOCTYPE html><html><head><title>Progress Summary - ${s.student.name}</title>
-      <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#1f2937}
-      h1{font-size:24px;border-bottom:2px solid #059669;padding-bottom:8px}
-      h2{font-size:16px;color:#059669;margin-top:24px}
-      table{width:100%;border-collapse:collapse;margin:8px 0}
-      th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb;font-size:13px}
-      th{background:#f9fafb;font-weight:600}
-      .meta{color:#6b7280;font-size:13px}
-      .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600}
-      .on_track{background:#ecfdf5;color:#059669}.at_risk{background:#fef3c7;color:#d97706}
-      .out_of_compliance{background:#fef2f2;color:#dc2626}.completed{background:#ecfdf5;color:#059669}
-      @media print{body{margin:0}}</style></head><body>
-      <h1>Progress Summary</h1>
-      <p class="meta">${s.student.name} | Grade ${s.student.grade} | ${s.student.school || ""}</p>
-      <p class="meta">Report Period: ${s.reportPeriod.startDate} to ${s.reportPeriod.endDate} (${s.reportPeriod.days} days)</p>
-      <h2>IEP Goals</h2>
-      <table><tr><th>Area</th><th>#</th><th>Goal</th><th>Status</th></tr>
-      ${s.goals.map((g: any) => `<tr><td>${g.goalArea}</td><td>${g.goalNumber}</td><td>${g.annualGoal}</td><td>${g.status}</td></tr>`).join("")}
-      </table>
-      <h2>Service Delivery</h2>
-      <table><tr><th>Service</th><th>Required</th><th>Delivered</th><th>%</th><th>Status</th></tr>
-      ${s.serviceDelivery.map((d: any) => `<tr><td>${d.serviceType}</td><td>${d.requiredMinutes} min</td><td>${d.deliveredMinutes} min</td><td>${d.percentComplete}%</td><td><span class="badge ${d.riskStatus}">${d.riskStatus.replace(/_/g, " ")}</span></td></tr>`).join("")}
-      </table>
-      ${s.behaviorData.length > 0 ? `<h2>Behavior Data Trends</h2>
-      <table><tr><th>Target</th><th>Type</th><th>Baseline</th><th>Goal</th><th>Avg</th><th>Recent</th><th>Trend</th></tr>
-      ${s.behaviorData.map((b: any) => `<tr><td>${b.targetName}</td><td>${b.measurementType}</td><td>${b.baselineValue}</td><td>${b.goalValue}</td><td>${b.average ?? "\u2014"}</td><td>${b.recentAverage ?? "\u2014"}</td><td>${b.trend}</td></tr>`).join("")}
-      </table>` : ""}
-      ${s.programData.length > 0 ? `<h2>Program/Academic Progress</h2>
-      <table><tr><th>Target</th><th>Mastery</th><th>Avg %</th><th>Recent %</th><th>Trend</th></tr>
-      ${s.programData.map((p: any) => `<tr><td>${p.targetName}</td><td>${p.masteryCriterion}%</td><td>${p.averagePercent ?? "\u2014"}</td><td>${p.recentAveragePercent ?? "\u2014"}</td><td>${p.trend}</td></tr>`).join("")}
-      </table>` : ""}
-      <p class="meta" style="margin-top:24px">Generated ${new Date().toLocaleDateString()}</p>
-      </body></html>`);
-    w.document.close();
-    w.print();
-  }
-
   const studentName = s ? `${s.firstName} ${s.lastName}` : "";
 
   return (
@@ -1015,7 +483,7 @@ export default function StudentDetail() {
                 <CalendarPlus className="w-3.5 h-3.5" /> Schedule
               </Link>
               <button
-                onClick={handleShareProgress}
+                onClick={share.handleShareProgress}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
               >
                 <Share2 className="w-3.5 h-3.5" /> Share Progress
@@ -1023,14 +491,14 @@ export default function StudentDetail() {
               {caps.archiveStudent && (
                 s.status === "inactive" ? (
                   <button
-                    onClick={() => setReactivateDialogOpen(true)}
+                    onClick={() => archive.setReactivateDialogOpen(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
                   >
                     <ArchiveRestore className="w-3.5 h-3.5" /> Reactivate
                   </button>
                 ) : (
                   <button
-                    onClick={() => setArchiveDialogOpen(true)}
+                    onClick={() => archive.setArchiveDialogOpen(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
                   >
                     <Archive className="w-3.5 h-3.5" /> Archive
@@ -1229,11 +697,11 @@ export default function StudentDetail() {
               progressList={progressList}
               isEditable={isEditable}
               student={s}
-              openAddSvc={openAddSvc}
-              openEditSvc={openEditSvc}
-              setDeletingSvc={setDeletingSvc}
-              openAssignDialog={openAssignDialog}
-              handleRemoveAssignment={handleRemoveAssignment}
+              openAddSvc={services.openAddSvc}
+              openEditSvc={services.openEditSvc}
+              setDeletingSvc={services.setDeletingSvc}
+              openAssignDialog={assignments.openAssignDialog}
+              handleRemoveAssignment={assignments.handleRemoveAssignment}
             />
             {compSummary && compSummary.counts?.total > 0 && (
               <Card>
@@ -1435,16 +903,16 @@ export default function StudentDetail() {
             <StudentContactsMedical
               section="contactsAndMedical"
               isEditable={isEditable}
-              emergencyContacts={emergencyContacts}
-              emergencyContactsLoading={emergencyContactsLoading}
-              openAddEc={openAddEc}
-              openEditEc={openEditEc}
-              setDeletingEc={setDeletingEc}
-              medicalAlerts={medicalAlerts}
-              medicalAlertsLoading={medicalAlertsLoading}
-              openAddMa={openAddMa}
-              openEditMa={openEditMa}
-              setDeletingMa={setDeletingMa}
+              emergencyContacts={contacts.emergencyContacts}
+              emergencyContactsLoading={contacts.emergencyContactsLoading}
+              openAddEc={contacts.openAddEc}
+              openEditEc={contacts.openEditEc}
+              setDeletingEc={contacts.setDeletingEc}
+              medicalAlerts={alerts.medicalAlerts}
+              medicalAlertsLoading={alerts.medicalAlertsLoading}
+              openAddMa={alerts.openAddMa}
+              openEditMa={alerts.openEditMa}
+              setDeletingMa={alerts.setDeletingMa}
             />
             <StudentComplianceSection
               section="afterTransition"
@@ -1460,12 +928,12 @@ export default function StudentDetail() {
             />
             <StudentContactsMedical
               section="enrollment"
-              enrollmentHistory={enrollmentHistory}
-              enrollmentLoading={enrollmentLoading}
+              enrollmentHistory={enrollment.enrollmentHistory}
+              enrollmentLoading={enrollment.enrollmentLoading}
               role={role}
-              openAddEvent={openAddEvent}
-              openEditEvent={openEditEvent}
-              setDeletingEvent={setDeletingEvent}
+              openAddEvent={enrollment.openAddEvent}
+              openEditEvent={enrollment.openEditEvent}
+              setDeletingEvent={enrollment.setDeletingEvent}
             />
           </>
         )}
@@ -1487,79 +955,82 @@ export default function StudentDetail() {
 
       {/* Dialogs — always rendered so modals work from any tab */}
       <StudentDialogs
-        addEventDialogOpen={addEventDialogOpen}
-        setAddEventDialogOpen={setAddEventDialogOpen}
-        addEventForm={addEventForm}
-        setAddEventForm={setAddEventForm}
-        addEventSaving={addEventSaving}
-        handleAddEvent={handleAddEvent}
-        editingEvent={editingEvent}
-        setEditingEvent={setEditingEvent}
-        deletingEvent={deletingEvent}
-        setDeletingEvent={setDeletingEvent}
-        handleDeleteEvent={handleDeleteEvent}
-        ecDialogOpen={ecDialogOpen}
-        setEcDialogOpen={setEcDialogOpen}
-        editingEc={editingEc}
-        setEditingEc={setEditingEc}
-        ecForm={ecForm}
-        setEcForm={setEcForm}
-        ecSaving={ecSaving}
-        handleSaveEc={handleSaveEc}
-        deletingEc={deletingEc}
-        setDeletingEc={setDeletingEc}
-        handleDeleteEc={handleDeleteEc}
-        maDialogOpen={maDialogOpen}
-        setMaDialogOpen={setMaDialogOpen}
-        editingMa={editingMa}
-        setEditingMa={setEditingMa}
-        maForm={maForm}
-        setMaForm={setMaForm}
-        maSaving={maSaving}
-        handleSaveMa={handleSaveMa}
-        deletingMa={deletingMa}
-        setDeletingMa={setDeletingMa}
-        handleDeleteMa={handleDeleteMa}
-        archiveDialogOpen={archiveDialogOpen}
-        setArchiveDialogOpen={setArchiveDialogOpen}
-        archiveReason={archiveReason}
-        setArchiveReason={setArchiveReason}
-        archiveSaving={archiveSaving}
-        handleArchive={handleArchive}
-        reactivateDialogOpen={reactivateDialogOpen}
-        setReactivateDialogOpen={setReactivateDialogOpen}
-        reactivateSaving={reactivateSaving}
-        handleReactivate={handleReactivate}
-        svcDialogOpen={svcDialogOpen}
-        setSvcDialogOpen={setSvcDialogOpen}
-        editingSvc={editingSvc}
-        svcForm={svcForm}
-        setSvcForm={setSvcForm}
-        svcSaving={svcSaving}
-        handleSaveSvc={handleSaveSvc}
+        addEventDialogOpen={enrollment.addEventDialogOpen}
+        setAddEventDialogOpen={enrollment.setAddEventDialogOpen}
+        addEventForm={enrollment.addEventForm}
+        setAddEventForm={enrollment.setAddEventForm}
+        addEventSaving={enrollment.addEventSaving}
+        handleAddEvent={enrollment.handleAddEvent}
+        editingEvent={enrollment.editingEvent}
+        setEditingEvent={enrollment.setEditingEvent}
+        deletingEvent={enrollment.deletingEvent}
+        setDeletingEvent={enrollment.setDeletingEvent}
+        handleDeleteEvent={enrollment.handleDeleteEvent}
+        ecDialogOpen={contacts.ecDialogOpen}
+        setEcDialogOpen={contacts.setEcDialogOpen}
+        editingEc={contacts.editingEc}
+        setEditingEc={contacts.setEditingEc}
+        ecForm={contacts.ecForm}
+        setEcForm={contacts.setEcForm}
+        ecSaving={contacts.ecSaving}
+        handleSaveEc={contacts.handleSaveEc}
+        deletingEc={contacts.deletingEc}
+        setDeletingEc={contacts.setDeletingEc}
+        handleDeleteEc={contacts.handleDeleteEc}
+        maDialogOpen={alerts.maDialogOpen}
+        setMaDialogOpen={alerts.setMaDialogOpen}
+        editingMa={alerts.editingMa}
+        setEditingMa={alerts.setEditingMa}
+        maForm={alerts.maForm}
+        setMaForm={alerts.setMaForm}
+        maSaving={alerts.maSaving}
+        handleSaveMa={alerts.handleSaveMa}
+        deletingMa={alerts.deletingMa}
+        setDeletingMa={alerts.setDeletingMa}
+        handleDeleteMa={alerts.handleDeleteMa}
+        archiveDialogOpen={archive.archiveDialogOpen}
+        setArchiveDialogOpen={archive.setArchiveDialogOpen}
+        archiveReason={archive.archiveReason}
+        setArchiveReason={archive.setArchiveReason}
+        archiveSaving={archive.archiveSaving}
+        handleArchive={archive.handleArchive}
+        reactivateDialogOpen={archive.reactivateDialogOpen}
+        setReactivateDialogOpen={archive.setReactivateDialogOpen}
+        reactivateSaving={archive.reactivateSaving}
+        handleReactivate={archive.handleReactivate}
+        svcDialogOpen={services.svcDialogOpen}
+        setSvcDialogOpen={services.setSvcDialogOpen}
+        editingSvc={services.editingSvc}
+        svcForm={services.svcForm}
+        setSvcForm={services.setSvcForm}
+        svcSaving={services.svcSaving}
+        handleSaveSvc={services.handleSaveSvc}
         serviceTypesList={serviceTypesList}
         staffList={staffList}
-        deletingSvc={deletingSvc}
-        handleDeleteSvc={handleDeleteSvc}
-        assignDialogOpen={assignDialogOpen}
-        setAssignDialogOpen={setAssignDialogOpen}
-        assignForm={assignForm}
-        setAssignForm={setAssignForm}
-        assignSaving={assignSaving}
-        handleAddAssignment={handleAddAssignment}
-        showShareModal={showShareModal}
-        setShowShareModal={setShowShareModal}
-        shareDays={shareDays}
-        setShareDays={setShareDays}
-        shareLoading={shareLoading}
-        shareSummary={shareSummary}
-        shareLink={shareLink ?? ""}
-        handleShareProgress={handleShareProgress}
-        handlePrintSummary={handlePrintSummary}
-        generateShareLink={generateShareLink}
+        deletingSvc={services.deletingSvc}
+        handleDeleteSvc={services.handleDeleteSvc}
+        assignDialogOpen={assignments.assignDialogOpen}
+        setAssignDialogOpen={assignments.setAssignDialogOpen}
+        assignForm={assignments.assignForm}
+        setAssignForm={assignments.setAssignForm}
+        assignSaving={assignments.assignSaving}
+        handleAddAssignment={assignments.handleAddAssignment}
+        showShareModal={share.showShareModal}
+        setShowShareModal={share.setShowShareModal}
+        shareDays={share.shareDays}
+        setShareDays={share.setShareDays}
+        shareLoading={share.shareLoading}
+        shareSummary={share.shareSummary}
+        shareLink={share.shareLink ?? ""}
+        handleShareProgress={share.handleShareProgress}
+        handlePrintSummary={share.handlePrintSummary}
+        generateShareLink={share.generateShareLink}
         studentId={studentId}
       />
-      <SupersedeDialog flow={supersedeFlow} onConfirm={handleConfirmSupersede} />
+      <SupersedeDialog
+        flow={services.supersedeFlow}
+        onConfirm={services.handleConfirmSupersede}
+      />
       <QuickLogSheet
         isOpen={quickLogOpen}
         onClose={() => setQuickLogOpen(false)}

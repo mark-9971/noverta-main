@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { History, Phone, Stethoscope, Archive, ArchiveRestore, Share2, XCircle, Copy, Mail, MailCheck, MailX } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import type { EmergencyContactRecord, MedicalAlertRecord } from "./StudentContactsMedical";
 
@@ -249,7 +249,7 @@ interface StudentDialogsProps {
   setSvcDialogOpen: (v: boolean) => void;
   editingSvc: any;
   svcForm: SvcForm;
-  setSvcForm: (updater: (f: SvcForm) => SvcForm) => void;
+  setSvcForm: React.Dispatch<React.SetStateAction<SvcForm>>;
   svcSaving: boolean;
   handleSaveSvc: () => void;
   serviceTypesList: any[];
@@ -260,7 +260,7 @@ interface StudentDialogsProps {
   assignDialogOpen: boolean;
   setAssignDialogOpen: (v: boolean) => void;
   assignForm: AssignForm;
-  setAssignForm: (updater: (f: AssignForm) => AssignForm) => void;
+  setAssignForm: React.Dispatch<React.SetStateAction<AssignForm>>;
   assignSaving: boolean;
   handleAddAssignment: () => void;
   // Share Progress
