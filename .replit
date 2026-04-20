@@ -24,6 +24,34 @@ args = "incident-e2e"
 task = "workflow.run"
 args = "api-codegen"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "lsp"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "scope-helper-grep"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-tenant"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-bucket-a"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-dashboard"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-incidents"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "quick"
+
 [[workflows.workflow]]
 name = "incident-e2e"
 author = "agent"
@@ -36,9 +64,86 @@ args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/nu
 name = "api-codegen"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash scripts/check-api-codegen.sh"
+
+[[workflows.workflow]]
+name = "lsp"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server exec tsc --noEmit -p tsconfig.json && pnpm --filter @workspace/trellis exec tsc --noEmit -p tsconfig.json"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "scope-helper-grep"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/check-scope-helper-imports.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test-tenant"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server exec vitest run tests/02-tenant-isolation.test.ts tests/10-tenant-write-idor.test.ts tests/22-enforce-district-scope.test.ts tests/23-bucket-a-tenant-isolation.test.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test-bucket-a"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server exec vitest run tests/23-bucket-a-tenant-isolation.test.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test-dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server exec vitest run tests/16-dashboard-caseload-scope.test.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "e2e-incidents"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-form-wizard.spec.ts tests/incident-lifecycle.spec.ts tests/quick-report-form.spec.ts --reporter=line"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "quick"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/run-quick-checks.sh"
 
 [workflows.workflow.metadata]
 isValidation = true

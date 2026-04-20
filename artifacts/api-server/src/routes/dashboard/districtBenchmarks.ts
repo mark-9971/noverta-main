@@ -1,3 +1,4 @@
+// tenant-scope: super-admin (requirePlatformAdmin gates the only handler; cross-district benchmarks by-design)
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { districtsTable, studentsTable, schoolsTable, sessionLogsTable } from "@workspace/db";
