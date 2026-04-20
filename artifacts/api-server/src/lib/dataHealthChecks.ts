@@ -4,6 +4,20 @@ import {
 } from "@workspace/db";
 import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 
+export interface HealthCheckItem {
+  id: number;
+  label: string;
+  detail: string;
+  /** Optional per-item reason — used by checks that expose a reason filter. */
+  reason?: string;
+  /**
+   * Optional deep-link target. When set, the front-end renders an open-in-editor
+   * affordance that navigates to /students/:studentId?editServiceRequirement=:id
+   * (the existing service requirement edit dialog auto-opens on mount).
+   */
+  studentId?: number;
+}
+
 export interface HealthCheck {
   id: string;
   category: "students" | "staff" | "services" | "schedules" | "data_quality";
@@ -12,7 +26,9 @@ export interface HealthCheck {
   description: string;
   count: number;
   total: number;
-  items: { id: number; label: string; detail: string }[];
+  items: HealthCheckItem[];
+  /** Optional set of reason values present in `items`, sorted ascending. */
+  reasons?: string[];
 }
 
 export interface DataHealthReport {
@@ -319,6 +335,62 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
       id: s.id, label: `${s.firstName} ${s.lastName}`,
       detail: `Grade ${s.grade || "?"} · No IEP goals`,
     })),
+  });
+
+  // ── Service Requirement v1 (Batch 1): backfill review queue ──────
+  // Surface every unresolved row from migration_report_service_requirements
+  // for service requirements belonging to students in this district. The
+  // existing edit dialog (driven by the requirement id) is the "open in
+  // editor" affordance — no new editor needed.
+  // Each item carries its `reason` so the Data Health card can offer a
+  // reason filter (front-end). The check also returns the unique
+  // `reasons` set so the UI can build filter chips without scanning items.
+  const reviewItems: HealthCheckItem[] = [];
+  const reviewReasonSet = new Set<string>();
+  let reviewCount = 0;
+  if (studentIds.length > 0) {
+    const reviewRows = await db.execute<{
+      id: number;
+      requirement_id: number;
+      reason: string;
+      details_json: unknown;
+      student_id: number;
+      service_type_id: number;
+    }>(sql`
+      SELECT mrsr.id, mrsr.requirement_id, mrsr.reason, mrsr.details_json,
+             sr.student_id, sr.service_type_id
+        FROM migration_report_service_requirements mrsr
+        JOIN service_requirements sr ON sr.id = mrsr.requirement_id
+       WHERE mrsr.resolved_at IS NULL
+         AND sr.student_id IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})
+       ORDER BY mrsr.created_at DESC, mrsr.id DESC
+    `);
+    reviewCount = reviewRows.rows.length;
+    for (const row of reviewRows.rows) {
+      reviewReasonSet.add(row.reason);
+    }
+    for (const row of reviewRows.rows.slice(0, 25)) {
+      const studentName = studentMap.get(row.student_id) || `Student #${row.student_id}`;
+      const svc = serviceTypeMap.get(row.service_type_id) || "Service";
+      reviewItems.push({
+        id: row.requirement_id,
+        label: `${studentName} · ${svc}`,
+        detail: `Reason: ${row.reason}`,
+        reason: row.reason,
+        studentId: row.student_id,
+      });
+    }
+  }
+  checks.push({
+    id: "service_reqs_needing_review",
+    category: "services",
+    severity: reviewCount > 0 ? "warning" : "info",
+    title: "Service Requirements needing review",
+    description: "Requirements flagged by the Service Requirement v1 backfill (missing school assignment, ambiguous group size, or active past their end date). Filter by reason and open each row in the editor to confirm.",
+    count: reviewCount,
+    total: allServiceReqs.length,
+    items: reviewItems,
+    reasons: Array.from(reviewReasonSet).sort(),
   });
 
   const studentsMissingDemo = allStudents.filter(s => !s.dateOfBirth || !s.grade || !s.disabilityCategory);

@@ -7141,6 +7141,18 @@ components:
           type: ["string", "null"]
         active:
           type: boolean
+        # Batch 1 (Service Requirement v1) — operational denormalization.
+        # Canonical school for a requirement remains students.school_id.
+        schoolId:
+          type: ["integer", "null"]
+        # "individual" | "group" — derived from legacy groupSize.
+        deliveryModel:
+          type: ["string", "null"]
+        # Set by the (separate) supersede flow. Always null today.
+        supersedesId:
+          type: ["integer", "null"]
+        replacedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
       required: [id, studentId, serviceTypeId, deliveryType, requiredMinutes, intervalType, startDate, active, createdAt]
@@ -7170,6 +7182,14 @@ components:
           type: ["string", "null"]
         active:
           type: boolean
+        schoolId:
+          type: ["integer", "null"]
+        deliveryModel:
+          type: ["string", "null"]
+        supersedesId:
+          type: ["integer", "null"]
+        replacedAt:
+          type: ["string", "null"]
       required: [studentId, serviceTypeId, deliveryType, requiredMinutes, intervalType, startDate, active]
 
     UpdateServiceRequirementBody:
@@ -7193,6 +7213,14 @@ components:
           type: ["string", "null"]
         active:
           type: ["boolean", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        deliveryModel:
+          type: ["string", "null"]
+        supersedesId:
+          type: ["integer", "null"]
+        replacedAt:
+          type: ["string", "null"]
 
     # ─── Session Logs ─────────────────────────────────────────────
     SessionLog:

@@ -14,6 +14,13 @@ interface HealthCheckItem {
   id: number;
   label: string;
   detail: string;
+  // Optional per-item classifier used by checks that support a reason
+  // filter (currently `service_reqs_needing_review`).
+  reason?: string;
+  // When set, the card renders a one-click deep link to the relevant
+  // editor (currently used by service_reqs_needing_review to open the
+  // service requirement edit dialog on the student detail page).
+  studentId?: number;
 }
 
 interface HealthCheck {
@@ -25,6 +32,9 @@ interface HealthCheck {
   count: number;
   total: number;
   items: HealthCheckItem[];
+  // When present, the card renders filter chips for each reason and
+  // narrows the visible item list to the selected reason.
+  reasons?: string[];
 }
 
 interface HealthResult {
@@ -64,8 +74,14 @@ function SeverityIcon({ severity }: { severity: string }) {
 
 function HealthCheckCard({ check }: { check: HealthCheck }) {
   const [expanded, setExpanded] = useState(false);
+  // null = "All" (no reason filter). Only relevant when check.reasons is set.
+  const [reasonFilter, setReasonFilter] = useState<string | null>(null);
   const passed = check.count === 0;
   const pct = check.total > 0 ? Math.round(((check.total - check.count) / check.total) * 100) : 100;
+  const hasReasonFilter = !!check.reasons && check.reasons.length > 0;
+  const visibleItems = hasReasonFilter && reasonFilter
+    ? check.items.filter((it) => it.reason === reasonFilter)
+    : check.items;
 
   return (
     <div className={`rounded-xl border transition-all ${
@@ -126,8 +142,44 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
 
       {expanded && check.items.length > 0 && (
         <div className="border-t border-gray-100 px-4 pb-3">
+          {hasReasonFilter && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-3">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1">Filter</span>
+              <button
+                type="button"
+                onClick={() => setReasonFilter(null)}
+                className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                  reasonFilter === null
+                    ? "bg-emerald-100 border-emerald-300 text-emerald-800"
+                    : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                All ({check.items.length})
+              </button>
+              {check.reasons!.map((r) => {
+                const c = check.items.filter((it) => it.reason === r).length;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setReasonFilter(r === reasonFilter ? null : r)}
+                    className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                      reasonFilter === r
+                        ? "bg-amber-100 border-amber-300 text-amber-800"
+                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    {r} ({c})
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div className="max-h-[300px] overflow-y-auto mt-2 space-y-1">
-            {check.items.map((item, i) => (
+            {visibleItems.length === 0 && (
+              <p className="text-[11px] text-gray-400 text-center py-3">No items match the selected reason.</p>
+            )}
+            {visibleItems.map((item, i) => (
               <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-50/80 group">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-[10px] text-gray-400 font-mono w-5 text-right">{i + 1}</span>
@@ -136,16 +188,30 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-gray-400 truncate max-w-[250px]">{item.detail}</span>
                   {(check.category === "students" || check.id === "students_no_iep_goals") && (
-                    <Link href={`/students/${item.id}`} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Link href={`/students/${item.id}`} className="opacity-0 group-hover:opacity-100 transition-opacity" title="Open student">
+                      <ExternalLink className="w-3 h-3 text-emerald-500" />
+                    </Link>
+                  )}
+                  {check.id === "service_reqs_needing_review" && item.studentId && (
+                    <Link
+                      href={`/students/${item.studentId}?editServiceRequirement=${item.id}`}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Open in service requirement editor"
+                    >
                       <ExternalLink className="w-3 h-3 text-emerald-500" />
                     </Link>
                   )}
                 </div>
               </div>
             ))}
-            {check.count > check.items.length && (
+            {!hasReasonFilter && check.count > check.items.length && (
               <p className="text-[11px] text-gray-400 text-center py-2">
                 Showing {check.items.length} of {check.count} — review in the full list
+              </p>
+            )}
+            {hasReasonFilter && reasonFilter === null && check.count > check.items.length && (
+              <p className="text-[11px] text-gray-400 text-center py-2">
+                Showing {check.items.length} of {check.count} — filter by reason to narrow the list
               </p>
             )}
           </div>

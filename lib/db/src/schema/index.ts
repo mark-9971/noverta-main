@@ -5,6 +5,8 @@ export * from "./staff";
 export * from "./students";
 export * from "./serviceTypes";
 export * from "./serviceRequirements";
+export * from "./migrationReportServiceRequirements";
+export * from "./migrationAudits";
 export * from "./missedReasons";
 export * from "./sessionLogs";
 export * from "./staffAbsences";

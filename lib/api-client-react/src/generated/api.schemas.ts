@@ -164,6 +164,14 @@ export interface ServiceRequirement {
   /** @nullable */
   notes?: string | null;
   active: boolean;
+  /** @nullable */
+  schoolId?: number | null;
+  /** @nullable */
+  deliveryModel?: string | null;
+  /** @nullable */
+  supersedesId?: number | null;
+  /** @nullable */
+  replacedAt?: string | null;
   createdAt: string;
 }
 
@@ -609,6 +617,14 @@ export interface CreateServiceRequirementBody {
   /** @nullable */
   notes?: string | null;
   active: boolean;
+  /** @nullable */
+  schoolId?: number | null;
+  /** @nullable */
+  deliveryModel?: string | null;
+  /** @nullable */
+  supersedesId?: number | null;
+  /** @nullable */
+  replacedAt?: string | null;
 }
 
 export interface UpdateServiceRequirementBody {
@@ -630,6 +646,14 @@ export interface UpdateServiceRequirementBody {
   notes?: string | null;
   /** @nullable */
   active?: boolean | null;
+  /** @nullable */
+  schoolId?: number | null;
+  /** @nullable */
+  deliveryModel?: string | null;
+  /** @nullable */
+  supersedesId?: number | null;
+  /** @nullable */
+  replacedAt?: string | null;
 }
 
 /**

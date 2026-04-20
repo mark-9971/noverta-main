@@ -538,6 +538,10 @@ export const GetStudentResponse = zod.object({
       priority: zod.string().nullish(),
       notes: zod.string().nullish(),
       active: zod.boolean(),
+      schoolId: zod.number().nullish(),
+      deliveryModel: zod.string().nullish(),
+      supersedesId: zod.number().nullish(),
+      replacedAt: zod.string().nullish(),
       createdAt: zod.string(),
     }),
   ),
@@ -1159,6 +1163,10 @@ export const ListServiceRequirementsResponseItem = zod.object({
   priority: zod.string().nullish(),
   notes: zod.string().nullish(),
   active: zod.boolean(),
+  schoolId: zod.number().nullish(),
+  deliveryModel: zod.string().nullish(),
+  supersedesId: zod.number().nullish(),
+  replacedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListServiceRequirementsResponse = zod.array(
@@ -1180,6 +1188,10 @@ export const CreateServiceRequirementBody = zod.object({
   priority: zod.string().nullish(),
   notes: zod.string().nullish(),
   active: zod.boolean(),
+  schoolId: zod.number().nullish(),
+  deliveryModel: zod.string().nullish(),
+  supersedesId: zod.number().nullish(),
+  replacedAt: zod.string().nullish(),
 });
 
 /**
@@ -1204,6 +1216,10 @@ export const GetServiceRequirementResponse = zod.object({
   priority: zod.string().nullish(),
   notes: zod.string().nullish(),
   active: zod.boolean(),
+  schoolId: zod.number().nullish(),
+  deliveryModel: zod.string().nullish(),
+  supersedesId: zod.number().nullish(),
+  replacedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -1224,6 +1240,10 @@ export const UpdateServiceRequirementBody = zod.object({
   priority: zod.string().nullish(),
   notes: zod.string().nullish(),
   active: zod.boolean().nullish(),
+  schoolId: zod.number().nullish(),
+  deliveryModel: zod.string().nullish(),
+  supersedesId: zod.number().nullish(),
+  replacedAt: zod.string().nullish(),
 });
 
 export const UpdateServiceRequirementResponse = zod.object({
@@ -1241,6 +1261,10 @@ export const UpdateServiceRequirementResponse = zod.object({
   priority: zod.string().nullish(),
   notes: zod.string().nullish(),
   active: zod.boolean(),
+  schoolId: zod.number().nullish(),
+  deliveryModel: zod.string().nullish(),
+  supersedesId: zod.number().nullish(),
+  replacedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 

@@ -680,6 +680,30 @@ export default function StudentDetail() {
   const progressList = (progress as any[]) ?? [];
   const sessionList = (sessions as any[]) ?? [];
 
+  // Deep-link from /data-health: when ?editServiceRequirement=:id is in the
+  // URL, auto-open the existing service requirement edit dialog as soon as
+  // the student data (which includes the requirement payload) finishes
+  // loading. The query param is then cleared so a refresh doesn't reopen
+  // the dialog. Guarded so it only fires once per param value.
+  const autoOpenedReqRef = useRef<number | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const target = params.get("editServiceRequirement");
+    if (!target) return;
+    const targetId = Number(target);
+    if (!Number.isFinite(targetId)) return;
+    if (autoOpenedReqRef.current === targetId) return;
+    const reqs: any[] | undefined = s?.serviceRequirements;
+    if (!Array.isArray(reqs)) return;
+    const match = reqs.find((r) => r?.id === targetId);
+    if (!match) return;
+    autoOpenedReqRef.current = targetId;
+    openEditSvc(match);
+    params.delete("editServiceRequirement");
+    const next = params.toString();
+    navigate(`/students/${studentId}${next ? `?${next}` : ""}`, { replace: true });
+  }, [search, s, studentId, navigate]);
+
   const totalDelivered = progressList.reduce((sum: number, p: any) => sum + (p.deliveredMinutes ?? 0), 0);
   const totalRequired = progressList.reduce((sum: number, p: any) => sum + (p.requiredMinutes ?? 0), 0);
   const overallPct = totalRequired > 0 ? Math.round((totalDelivered / totalRequired) * 100) : 0;

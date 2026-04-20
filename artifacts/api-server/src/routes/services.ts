@@ -137,6 +137,10 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
       priority: serviceRequirementsTable.priority,
       notes: serviceRequirementsTable.notes,
       active: serviceRequirementsTable.active,
+      schoolId: serviceRequirementsTable.schoolId,
+      deliveryModel: serviceRequirementsTable.deliveryModel,
+      supersedesId: serviceRequirementsTable.supersedesId,
+      replacedAt: serviceRequirementsTable.replacedAt,
       createdAt: serviceRequirementsTable.createdAt,
       serviceTypeName: serviceTypesTable.name,
       providerFirst: staffTable.firstName,
@@ -151,6 +155,7 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
     ...r,
     serviceTypeName: r.serviceTypeName,
     providerName: r.providerFirst ? `${r.providerFirst} ${r.providerLast}` : null,
+    replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
   })));
 });
@@ -165,7 +170,26 @@ router.post("/service-requirements", requireServiceAdmin, async (req, res): Prom
     res.status(403).json({ error: "Student is not in your district" });
     return;
   }
-  const [req2] = await db.insert(serviceRequirementsTable).values(parsed.data).returning();
+  const insertValues: typeof serviceRequirementsTable.$inferInsert = {
+    studentId: parsed.data.studentId,
+    serviceTypeId: parsed.data.serviceTypeId,
+    providerId: parsed.data.providerId ?? null,
+    deliveryType: parsed.data.deliveryType,
+    requiredMinutes: parsed.data.requiredMinutes,
+    intervalType: parsed.data.intervalType,
+    startDate: parsed.data.startDate,
+    endDate: parsed.data.endDate ?? null,
+    priority: parsed.data.priority ?? null,
+    notes: parsed.data.notes ?? null,
+    active: parsed.data.active,
+  };
+  // Service Requirement v1 (Batch 1) — accept the new optional fields
+  // but do not enforce the supersede guard yet (separate task).
+  if (parsed.data.schoolId !== undefined) insertValues.schoolId = parsed.data.schoolId;
+  if (parsed.data.deliveryModel !== undefined) insertValues.deliveryModel = parsed.data.deliveryModel;
+  if (parsed.data.supersedesId !== undefined) insertValues.supersedesId = parsed.data.supersedesId;
+  if (parsed.data.replacedAt !== undefined) insertValues.replacedAt = parsed.data.replacedAt ? new Date(parsed.data.replacedAt) : null;
+  const [req2] = await db.insert(serviceRequirementsTable).values(insertValues).returning();
   // Mirror the new requirement's provider into staff_assignments so the
   // student doesn't appear unassigned on the Care Team / Assigned Providers
   // panel. Idempotent — safe if a row already exists from a prior requirement.
@@ -175,7 +199,11 @@ router.post("/service-requirements", requireServiceAdmin, async (req, res): Prom
     assignmentType: "service_provider",
     startDate: req2.startDate ?? null,
   });
-  res.status(201).json({ ...req2, createdAt: req2.createdAt.toISOString() });
+  res.status(201).json({
+    ...req2,
+    replacedAt: req2.replacedAt ? req2.replacedAt.toISOString() : null,
+    createdAt: req2.createdAt.toISOString(),
+  });
 });
 
 async function requireServiceRequirementInDistrict(
@@ -217,6 +245,10 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
       priority: serviceRequirementsTable.priority,
       notes: serviceRequirementsTable.notes,
       active: serviceRequirementsTable.active,
+      schoolId: serviceRequirementsTable.schoolId,
+      deliveryModel: serviceRequirementsTable.deliveryModel,
+      supersedesId: serviceRequirementsTable.supersedesId,
+      replacedAt: serviceRequirementsTable.replacedAt,
       createdAt: serviceRequirementsTable.createdAt,
       serviceTypeName: serviceTypesTable.name,
       providerFirst: staffTable.firstName,
@@ -235,6 +267,7 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
     ...r,
     serviceTypeName: r.serviceTypeName,
     providerName: r.providerFirst ? `${r.providerFirst} ${r.providerLast}` : null,
+    replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
   });
 });
@@ -261,6 +294,13 @@ router.patch("/service-requirements/:id", requireServiceAdmin, async (req, res):
   if (parsed.data.priority !== undefined) updateData.priority = parsed.data.priority;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
   if (parsed.data.active != null) updateData.active = parsed.data.active;
+  // Service Requirement v1 (Batch 1) — accept the new optional fields.
+  // The supersede guard is intentionally not enforced here yet — it ships
+  // with the supersede flow task.
+  if (parsed.data.schoolId !== undefined) updateData.schoolId = parsed.data.schoolId;
+  if (parsed.data.deliveryModel !== undefined) updateData.deliveryModel = parsed.data.deliveryModel;
+  if (parsed.data.supersedesId !== undefined) updateData.supersedesId = parsed.data.supersedesId;
+  if (parsed.data.replacedAt !== undefined) updateData.replacedAt = parsed.data.replacedAt ? new Date(parsed.data.replacedAt) : null;
 
   const [r] = await db.update(serviceRequirementsTable).set(updateData).where(eq(serviceRequirementsTable.id, params.data.id)).returning();
   if (!r) {
@@ -277,7 +317,11 @@ router.patch("/service-requirements/:id", requireServiceAdmin, async (req, res):
       startDate: r.startDate ?? null,
     });
   }
-  res.json({ ...r, createdAt: r.createdAt.toISOString() });
+  res.json({
+    ...r,
+    replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
+    createdAt: r.createdAt.toISOString(),
+  });
 });
 
 router.delete("/service-requirements/:id", requireServiceAdmin, async (req, res): Promise<void> => {
