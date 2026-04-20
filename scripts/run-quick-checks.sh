@@ -18,32 +18,24 @@
 #     not shell, see scripts/security/README.md)
 set -uo pipefail
 
+# NOTE: previously these four checks ran in parallel (each backgrounded
+# with &). On a constrained sandbox where 6+ vite dev servers and a
+# tsserver are also resident, four concurrent heavy node processes (two
+# tsc + two helper scripts spawning more node) were exhausting fork()
+# capacity and producing spurious "Cannot fork" /
+# "resource temporarily unavailable" failures. Running sequentially is
+# only marginally slower on a warm cache and is dramatically more
+# reliable as a validation gate.
+
 results=()
 fail=0
 log_dir="$(mktemp -d)"
 trap 'rm -rf "$log_dir"' EXIT
 
-run() {
+run_seq() {
   local name="$1"; shift
   local logf="$log_dir/$name.log"
-  ( "$@" ) > "$logf" 2>&1 &
-  local pid=$!
-  echo "$pid:$name:$logf"
-}
-
-procs=(
-  "$(run lsp-api    pnpm --filter @workspace/api-server exec tsc --noEmit -p tsconfig.json)"
-  "$(run lsp-web    pnpm --filter @workspace/trellis exec tsc --noEmit -p tsconfig.json)"
-  "$(run scope-grep bash scripts/check-scope-helper-imports.sh)"
-  "$(run codegen    bash scripts/check-api-codegen.sh)"
-)
-
-for entry in "${procs[@]}"; do
-  pid="${entry%%:*}"
-  rest="${entry#*:}"
-  name="${rest%%:*}"
-  logf="${rest#*:}"
-  if wait "$pid"; then
+  if "$@" > "$logf" 2>&1; then
     results+=("PASS  $name")
   else
     results+=("FAIL  $name  (log: $logf)")
@@ -54,7 +46,12 @@ for entry in "${procs[@]}"; do
     echo "===== end $name ====="
     echo ""
   fi
-done
+}
+
+run_seq lsp-api    pnpm --filter @workspace/api-server exec tsc --noEmit -p tsconfig.json
+run_seq lsp-web    pnpm --filter @workspace/trellis    exec tsc --noEmit -p tsconfig.json
+run_seq scope-grep bash scripts/check-scope-helper-imports.sh
+run_seq codegen    bash scripts/check-api-codegen.sh
 
 echo ""
 echo "Quick-check summary:"

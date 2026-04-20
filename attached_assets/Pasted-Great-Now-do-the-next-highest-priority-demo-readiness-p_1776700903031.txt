@@ -1,0 +1,70 @@
+Great. Now do the next highest-priority demo-readiness pass with ruthless focus on buyer perception during a 30-minute walkthrough.
+
+Work in this exact order:
+
+PHASE 4 — CLEAN UP DEMO / BUYER CLAIMS
+1. Find the current slide deck source(s), buyer-pack materials, and any demo one-pagers or speaker-note docs.
+2. Audit every major product claim against what is actually shipped and safely demoable today.
+3. Specifically verify and correct any claims related to:
+   - live SIS connectors (PowerSchool / Infinite Campus / Skyward)
+   - automated Medicaid billing
+   - AI-driven IEP suggestions
+   - enterprise-grade security
+4. For each overstated claim, either:
+   - rewrite as roadmap/future-state, or
+   - remove it entirely.
+5. Update the materials so nothing overclaims shipped reality.
+
+PHASE 5 — DEMO DATA SWEEP ON THE ACTUAL SHOWCASE PATH
+1. Identify the exact MetroWest admin showcase path a seller would use in a 30-minute walkthrough.
+2. Walk that path screen by screen and classify each stop as:
+   - good as-is
+   - needs sample data
+   - needs honest empty-state copy
+   - should be skipped from the demo
+3. Prioritize these modules because they were previously called out as empty or near-empty:
+   - parent portal
+   - restraint incidents
+   - Medicaid claims
+   - compensatory obligations
+   - agency contracts
+   - transition plans
+   - exports
+4. Seed or repair the minimum believable sample data needed to make the showcased modules feel real.
+5. Make sure values reconcile where visible (percentages, dollars, counts, dates).
+
+PHASE 6 — END-TO-END SHOWCASE WALK
+1. Sign in as a MetroWest admin.
+2. Click through the exact planned demo route in order.
+3. With the network tab / logs in mind, identify every:
+   - empty or suspicious screen
+   - 4xx / 5xx
+   - hanging loader
+   - broken total
+   - inconsistent label or copy issue
+4. Fix the highest-signal issues encountered on the route.
+5. Repeat the route once cleanly.
+
+PHASE 7 — HONEST FRONTEND RISK ASSESSMENT
+You surfaced ~74 pre-existing TypeScript issues in the trellis web app after stale dist outputs were removed.
+1. Identify which of those 74 affect the actual showcase/demo path.
+2. Separate them into:
+   - demo-risk now
+   - post-demo cleanup
+3. Only fix the demo-risk-now items in this pass.
+
+OUTPUT FORMAT
+Return:
+A. Updated honest demo status (can we demo tomorrow confidently: yes / yes with caveats / no)
+B. Files changed
+C. Claims corrected
+D. Screens fixed or seeded
+E. Remaining weak spots on the showcase path
+F. The 5 screens/features I should definitely show
+G. The 5 screens/features I should avoid showing
+
+IMPORTANT CONSTRAINTS
+- Do not overclaim
+- Optimize for what a buyer sees, not architectural elegance
+- Prefer believable demo quality over broad feature coverage
+- If a module is weak, either populate it honestly or recommend skipping it
