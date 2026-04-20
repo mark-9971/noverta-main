@@ -216,6 +216,7 @@ import type {
   GetResourceCaseloadParams,
   GetScheduleConflictsParams,
   GetSchool200,
+  GetServiceRequirementChain200,
   GetStaffCaseloadSummary200,
   GetStaffClassroom200,
   GetStaffCoverageParams,
@@ -4623,6 +4624,106 @@ export const useSupersedeServiceRequirement = <
 > => {
   return useMutation(getSupersedeServiceRequirementMutationOptions(options));
 };
+
+/**
+ * Returns the full supersede chain (root → newest) for the given
+service requirement, regardless of which row in the chain is passed
+in. Each entry includes the requirement row, the actor who created
+it, the supersede correlation id (when applicable), and the list of
+material fields that changed from the prior entry. Use this to
+render the "history" view on the student detail page so coordinators
+can see why and when each requirement was rewritten.
+
+ * @summary Get the supersede chain for a service requirement
+ */
+export const getGetServiceRequirementChainUrl = (id: number) => {
+  return `/api/service-requirements/${id}/chain`;
+};
+
+export const getServiceRequirementChain = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GetServiceRequirementChain200> => {
+  return customFetch<GetServiceRequirementChain200>(
+    getGetServiceRequirementChainUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetServiceRequirementChainQueryKey = (id: number) => {
+  return [`/api/service-requirements/${id}/chain`] as const;
+};
+
+export const getGetServiceRequirementChainQueryOptions = <
+  TData = Awaited<ReturnType<typeof getServiceRequirementChain>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getServiceRequirementChain>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetServiceRequirementChainQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getServiceRequirementChain>>
+  > = ({ signal }) =>
+    getServiceRequirementChain(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getServiceRequirementChain>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetServiceRequirementChainQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getServiceRequirementChain>>
+>;
+export type GetServiceRequirementChainQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the supersede chain for a service requirement
+ */
+
+export function useGetServiceRequirementChain<
+  TData = Awaited<ReturnType<typeof getServiceRequirementChain>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getServiceRequirementChain>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetServiceRequirementChainQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List session logs

@@ -401,6 +401,60 @@ describe("POST /api/service-requirements/:id/supersede", () => {
 
 });
 
+describe("GET /api/service-requirements/:id/chain", () => {
+  it("returns the full chain (root → newest) with changedFields, actor, and correlationId per entry", async () => {
+    const student = await createStudent(schoolId);
+    const r1 = await makeReq({ studentId: student.id, requiredMinutes: 30, startDate: "2025-09-01" });
+    await creditSession(student.id, r1.id);
+
+    const adm = asUser({ userId: USER_ADMIN, role: "admin", districtId });
+    const res2 = await adm.post(`/api/service-requirements/${r1.id}/supersede`).send({
+      supersedeDate: "2025-10-01",
+      requiredMinutes: 60,
+    });
+    expect(res2.status).toBe(201);
+    const r2Id: number = res2.body.new.id;
+    insertedReqIds.push(r2Id);
+    await creditSession(student.id, r2Id, "partial");
+
+    const res3 = await adm.post(`/api/service-requirements/${r2Id}/supersede`).send({
+      supersedeDate: "2025-11-01",
+      requiredMinutes: 90,
+      notes: "second rewrite",
+    });
+    expect(res3.status).toBe(201);
+    const r3Id: number = res3.body.new.id;
+    insertedReqIds.push(r3Id);
+
+    // Allow fire-and-forget audit insert to land before reading chain.
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Caller may pass any chain member — response is normalized to root.
+    for (const seed of [r1.id, r2Id, r3Id]) {
+      const chainRes = await adm.get(`/api/service-requirements/${seed}/chain`);
+      expect(chainRes.status).toBe(200);
+      const chain = chainRes.body.chain as Array<Record<string, unknown>>;
+      expect(chain.length).toBe(3);
+      expect((chain[0].requirement as any).id).toBe(r1.id);
+      expect((chain[1].requirement as any).id).toBe(r2Id);
+      expect((chain[2].requirement as any).id).toBe(r3Id);
+      expect(chain[0].changedFields).toEqual([]);
+      expect(chain[1].changedFields).toContain("requiredMinutes");
+      expect(chain[2].changedFields).toContain("requiredMinutes");
+      expect(chain[2].changedFields).toContain("notes");
+      expect(typeof chain[1].supersedeCorrelationId).toBe("string");
+      expect(chain[1].supersededByActorUserId).toBe(USER_ADMIN);
+      expect(chain[2].supersededAt).toBeTruthy();
+    }
+  });
+
+  it("returns 404 for an id that doesn't exist or isn't in the caller's district", async () => {
+    const adm = asUser({ userId: USER_ADMIN, role: "admin", districtId });
+    const res = await adm.get(`/api/service-requirements/999999999/chain`);
+    expect(res.status).toBe(404);
+  });
+});
+
 describe("audit chain coverage", () => {
   it("supersede emits two audit rows sharing one correlation id", async () => {
     const student = await createStudent(schoolId);

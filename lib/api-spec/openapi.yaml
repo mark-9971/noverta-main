@@ -1182,6 +1182,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /service-requirements/{id}/chain:
+    get:
+      operationId: getServiceRequirementChain
+      tags: [services]
+      summary: Get the supersede chain for a service requirement
+      description: |
+        Returns the full supersede chain (root → newest) for the given
+        service requirement, regardless of which row in the chain is passed
+        in. Each entry includes the requirement row, the actor who created
+        it, the supersede correlation id (when applicable), and the list of
+        material fields that changed from the prior entry. Use this to
+        render the "history" view on the student detail page so coordinators
+        can see why and when each requirement was rewritten.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ordered chain entries from root to newest.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [chain]
+                properties:
+                  chain:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ServiceRequirementChainEntry"
+        "404":
+          description: Service requirement not found or not in caller's district
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Session Logs ────────────────────────────────────────────────
   /sessions:
     get:
@@ -6644,6 +6683,14 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        # Filters audit rows by metadata->>'correlation_id'. The
+        # supersede flow stamps both the old-row update and the new-row
+        # create with the same correlationId so the student-detail history
+        # view can deep-link straight to "what happened in this rewrite".
+        - name: correlationId
+          in: query
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: Paginated list of audit logs
@@ -7366,6 +7413,36 @@ components:
         new:
           $ref: "#/components/schemas/ServiceRequirement"
       required: [old, new]
+
+    # One link in a service requirement's supersede chain. Returned (in
+    # root → newest order) by GET /service-requirements/{id}/chain to power
+    # the student-detail history view.
+    ServiceRequirementChainEntry:
+      type: object
+      properties:
+        requirement:
+          $ref: "#/components/schemas/ServiceRequirement"
+        # supersedeCorrelationId / supersededByActorUserId are present for
+        # every chain entry except the root (which was an original create,
+        # not a supersede). They identify the audit rows the supersede
+        # transaction wrote so the UI can deep-link to them.
+        supersedeCorrelationId:
+          type: ["string", "null"]
+        supersededByActorUserId:
+          type: ["string", "null"]
+        supersededByActorRole:
+          type: ["string", "null"]
+        # ISO-8601 timestamp of the supersede transaction, sourced from
+        # the create-audit row's createdAt. Null on the root.
+        supersededAt:
+          type: ["string", "null"]
+        # Material fields whose value differs from the prior entry in the
+        # chain. Empty array on the root entry.
+        changedFields:
+          type: array
+          items:
+            type: string
+      required: [requirement, changedFields]
 
     # ─── Session Logs ─────────────────────────────────────────────
     SessionLog:

@@ -716,6 +716,19 @@ export interface SupersedeServiceRequirementResponse {
   new: ServiceRequirement;
 }
 
+export interface ServiceRequirementChainEntry {
+  requirement: ServiceRequirement;
+  /** @nullable */
+  supersedeCorrelationId?: string | null;
+  /** @nullable */
+  supersededByActorUserId?: string | null;
+  /** @nullable */
+  supersededByActorRole?: string | null;
+  /** @nullable */
+  supersededAt?: string | null;
+  changedFields: string[];
+}
+
 /**
  * @nullable
  */
@@ -2609,6 +2622,10 @@ export type ListServiceRequirementsParams = {
   rangeEnd?: string | null;
 };
 
+export type GetServiceRequirementChain200 = {
+  chain: ServiceRequirementChainEntry[];
+};
+
 export type ListSessionsParams = {
   /**
    * @nullable
@@ -4001,6 +4018,10 @@ export type ListAuditLogsParams = {
    * @nullable
    */
   search?: string | null;
+  /**
+   * @nullable
+   */
+  correlationId?: string | null;
 };
 
 export type ListAuditLogs200 = PaginationMeta & {

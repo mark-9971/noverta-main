@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { serviceTypesTable, serviceRequirementsTable, staffTable, studentsTable } from "@workspace/db";
+import { serviceTypesTable, serviceRequirementsTable, staffTable, studentsTable, auditLogsTable } from "@workspace/db";
 import {
   CreateServiceTypeBody,
   UpdateServiceTypeParams,
@@ -13,6 +13,7 @@ import {
   DeleteServiceRequirementParams,
   SupersedeServiceRequirementParams,
   SupersedeServiceRequirementBody,
+  GetServiceRequirementChainParams,
 } from "@workspace/api-zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -685,6 +686,179 @@ router.post("/service-requirements/:id/supersede", requireServiceAdmin, async (r
       createdAt: result.newRow.createdAt.toISOString(),
     },
   });
+});
+
+/**
+ * Service Requirement v1 — supersede chain history.
+ *
+ * Walks the chain belonging to the requested requirement (root → newest)
+ * and joins each non-root entry with the audit-log row that recorded its
+ * creation so the student-detail history view can show: who superseded
+ * the prior row, when, what changed, and the correlation id to deep-link
+ * into the audit log. The caller may pass ANY requirement in the chain;
+ * the response is normalized to the chain root.
+ */
+router.get("/service-requirements/:id/chain", async (req, res): Promise<void> => {
+  const params = GetServiceRequirementChainParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  if (!(await requireServiceRequirementInDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
+
+  const [seed] = await db
+    .select()
+    .from(serviceRequirementsTable)
+    .where(eq(serviceRequirementsTable.id, params.data.id));
+  if (!seed) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  // Walk backwards via supersedesId to find the chain root. Mirrors the
+  // defensive cycle cap used by the supersede route.
+  let rootId = seed.id;
+  let cursor: number | null = seed.supersedesId ?? null;
+  let hops = 0;
+  while (cursor != null && hops < 100) {
+    const [parent] = await db
+      .select({ id: serviceRequirementsTable.id, supersedesId: serviceRequirementsTable.supersedesId })
+      .from(serviceRequirementsTable)
+      .where(eq(serviceRequirementsTable.id, cursor));
+    if (!parent) break;
+    rootId = parent.id;
+    cursor = parent.supersedesId ?? null;
+    hops += 1;
+  }
+
+  // Pull every row in the chain in one go using a recursive CTE — cheaper
+  // than walking forward with one query per hop and naturally limits the
+  // scan to the rows actually reachable from the root.
+  const chainRows = await db.execute(sql`
+    WITH RECURSIVE chain AS (
+      SELECT * FROM service_requirements WHERE id = ${rootId}
+      UNION ALL
+      SELECT sr.* FROM service_requirements sr
+      JOIN chain c ON sr.supersedes_id = c.id
+    )
+    SELECT * FROM chain ORDER BY created_at ASC, id ASC
+  `);
+
+  const requirements = chainRows.rows as Array<Record<string, unknown>>;
+
+  // Look up the audit "create" rows for the supersede children to surface
+  // actor + correlation id. The root row's create row may not have
+  // metadata.correlation_id (it predates the chain), so we tolerate
+  // missing lookups gracefully.
+  const childIds = requirements
+    .filter((r) => r.supersedes_id != null)
+    .map((r) => String(r.id));
+  const auditByTarget = new Map<string, { correlationId: string | null; actorUserId: string | null; actorRole: string | null; createdAt: string | null }>();
+  if (childIds.length > 0) {
+    const auditRows = await db
+      .select({
+        targetId: auditLogsTable.targetId,
+        actorUserId: auditLogsTable.actorUserId,
+        actorRole: auditLogsTable.actorRole,
+        createdAt: auditLogsTable.createdAt,
+        metadata: auditLogsTable.metadata,
+      })
+      .from(auditLogsTable)
+      .where(and(
+        eq(auditLogsTable.targetTable, "service_requirements"),
+        eq(auditLogsTable.action, "create"),
+        inArray(auditLogsTable.targetId, childIds),
+      ));
+    for (const row of auditRows) {
+      if (!row.targetId) continue;
+      const meta = (row.metadata ?? {}) as Record<string, unknown>;
+      const corr = typeof meta.correlation_id === "string" ? meta.correlation_id : null;
+      auditByTarget.set(row.targetId, {
+        correlationId: corr,
+        actorUserId: row.actorUserId ?? null,
+        actorRole: row.actorRole ?? null,
+        createdAt: row.createdAt ? row.createdAt.toISOString() : null,
+      });
+    }
+  }
+
+  // Material fields whose changes constitute a "supersede" — keep this in
+  // sync with materialFieldsChanging in lib/serviceRequirementGuards.
+  const MATERIAL_FIELDS = [
+    "service_type_id",
+    "provider_id",
+    "delivery_type",
+    "required_minutes",
+    "interval_type",
+    "start_date",
+    "end_date",
+    "priority",
+    "notes",
+    "delivery_model",
+    "setting",
+    "group_size",
+    "school_id",
+    "active",
+  ] as const;
+  const FIELD_LABEL: Record<string, string> = {
+    service_type_id: "serviceTypeId",
+    provider_id: "providerId",
+    delivery_type: "deliveryType",
+    required_minutes: "requiredMinutes",
+    interval_type: "intervalType",
+    start_date: "startDate",
+    end_date: "endDate",
+    priority: "priority",
+    notes: "notes",
+    delivery_model: "deliveryModel",
+    setting: "setting",
+    group_size: "groupSize",
+    school_id: "schoolId",
+    active: "active",
+  };
+
+  const toRequirementJson = (r: Record<string, unknown>) => ({
+    id: r.id as number,
+    studentId: r.student_id as number,
+    serviceTypeId: r.service_type_id as number,
+    providerId: (r.provider_id as number | null) ?? null,
+    deliveryType: r.delivery_type as string,
+    requiredMinutes: r.required_minutes as number,
+    intervalType: r.interval_type as string,
+    startDate: r.start_date as string,
+    endDate: (r.end_date as string | null) ?? null,
+    priority: (r.priority as string | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+    active: r.active as boolean,
+    schoolId: (r.school_id as number | null) ?? null,
+    deliveryModel: (r.delivery_model as string | null) ?? null,
+    supersedesId: (r.supersedes_id as number | null) ?? null,
+    replacedAt: r.replaced_at instanceof Date ? r.replaced_at.toISOString() : (r.replaced_at as string | null) ?? null,
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  });
+
+  const chain = requirements.map((row, idx) => {
+    const prior = idx > 0 ? requirements[idx - 1] : null;
+    const changed: string[] = [];
+    if (prior) {
+      for (const f of MATERIAL_FIELDS) {
+        if (JSON.stringify(prior[f] ?? null) !== JSON.stringify(row[f] ?? null)) {
+          changed.push(FIELD_LABEL[f]);
+        }
+      }
+    }
+    const audit = auditByTarget.get(String(row.id));
+    return {
+      requirement: toRequirementJson(row),
+      supersedeCorrelationId: audit?.correlationId ?? null,
+      supersededByActorUserId: audit?.actorUserId ?? null,
+      supersededByActorRole: audit?.actorRole ?? null,
+      supersededAt: audit?.createdAt ?? null,
+      changedFields: changed,
+    };
+  });
+
+  res.json({ chain });
 });
 
 router.delete("/service-requirements/:id", requireServiceAdmin, async (req, res): Promise<void> => {

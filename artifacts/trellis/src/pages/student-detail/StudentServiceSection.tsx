@@ -1,14 +1,137 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, Maximize2, Plus, Pencil, Trash2, UserPlus, UserMinus, CalendarPlus, ChevronDown, ChevronRight, History, X } from "lucide-react";
+import { ChevronUp, Maximize2, Plus, Pencil, Trash2, UserPlus, UserMinus, CalendarPlus, ChevronDown, ChevronRight, History, X, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { RISK_CONFIG } from "@/lib/constants";
 import { authFetch } from "@/lib/auth-fetch";
+import { getServiceRequirementChain, getGetServiceRequirementChainQueryKey } from "@workspace/api-client-react";
+
+interface ChainEntry {
+  requirement: {
+    id: number;
+    serviceTypeId: number;
+    providerId: number | null;
+    requiredMinutes: number;
+    intervalType: string;
+    startDate: string;
+    endDate: string | null;
+    notes: string | null;
+    active: boolean;
+    supersedesId: number | null;
+    replacedAt: string | null;
+    createdAt: string;
+  };
+  supersedeCorrelationId: string | null;
+  supersededByActorUserId: string | null;
+  supersededByActorRole: string | null;
+  supersededAt: string | null;
+  changedFields: string[];
+}
+
+function formatActor(userId: string | null, role: string | null): string {
+  if (!userId && !role) return "Unknown";
+  const r = role ? role.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : null;
+  if (userId && r) return `${userId} · ${r}`;
+  return userId ?? r ?? "Unknown";
+}
+
+function formatDateShort(s: string | null): string {
+  if (!s) return "—";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function ServiceRequirementHistory({ requirementId }: { requirementId: number }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: getGetServiceRequirementChainQueryKey(requirementId),
+    queryFn: ({ signal }) => getServiceRequirementChain(requirementId, { signal }) as Promise<{ chain: ChainEntry[] }>,
+  });
+
+  if (isLoading) {
+    return <div className="px-3 pb-3 text-[11px] text-gray-400">Loading history…</div>;
+  }
+  if (error) {
+    return <div className="px-3 pb-3 text-[11px] text-red-500">Failed to load history.</div>;
+  }
+  const chain = data?.chain ?? [];
+  if (chain.length <= 1) {
+    return (
+      <div className="px-3 pb-3 text-[11px] text-gray-400 italic">
+        No prior versions — this requirement has not been superseded.
+      </div>
+    );
+  }
+
+  // Render newest → oldest so the most recent rewrite is on top.
+  const ordered = [...chain].reverse();
+  return (
+    <div className="px-3 pb-3 space-y-2 border-t border-gray-100 pt-2 mt-1">
+      {ordered.map((entry, idx) => {
+        const isCurrent = idx === 0;
+        const isRoot = entry.requirement.supersedesId == null;
+        return (
+          <div
+            key={entry.requirement.id}
+            className={`text-[11px] rounded-md p-2 border ${isCurrent ? "border-emerald-200 bg-emerald-50/40" : "border-gray-200 bg-white"}`}
+            data-testid={`history-entry-${entry.requirement.id}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-medium text-gray-700">
+                <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider ${isCurrent ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                  {isCurrent ? "Current" : isRoot ? "Original" : "Superseded"}
+                </span>
+                <span className="text-gray-500">#{entry.requirement.id}</span>
+                <span className="text-gray-400">·</span>
+                <span className="text-gray-600">
+                  {formatDateShort(entry.requirement.startDate)}
+                  {" – "}
+                  {entry.requirement.endDate ? formatDateShort(entry.requirement.endDate) : "present"}
+                </span>
+              </div>
+              {entry.supersedeCorrelationId ? (
+                <Link
+                  href={`/audit-log?correlationId=${encodeURIComponent(entry.supersedeCorrelationId)}`}
+                  className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 hover:text-blue-700"
+                  data-testid={`link-audit-${entry.requirement.id}`}
+                  title="Open the audit log entries for this supersede"
+                >
+                  Audit <ExternalLink className="w-2.5 h-2.5" />
+                </Link>
+              ) : null}
+            </div>
+            <div className="mt-1 text-gray-500">
+              {entry.requirement.requiredMinutes} min / {entry.requirement.intervalType}
+              {entry.requirement.providerId != null ? ` · provider #${entry.requirement.providerId}` : ""}
+            </div>
+            {!isRoot && (
+              <div className="mt-1 text-gray-500">
+                Superseded by {formatActor(entry.supersededByActorUserId, entry.supersededByActorRole)}
+                {entry.supersededAt ? ` on ${formatDateShort(entry.supersededAt)}` : ""}
+              </div>
+            )}
+            {entry.changedFields.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                <span className="text-gray-400">Changed:</span>
+                {entry.changedFields.map((f) => (
+                  <span key={f} className="px-1.5 py-0.5 bg-amber-50 border border-amber-100 text-amber-700 rounded text-[10px]">
+                    {f}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface StudentServiceSectionProps {
   chartData: any[];
@@ -410,6 +533,9 @@ export default function StudentServiceSection({
                               );
                             })}
                           </ul>
+                        )}
+                        {open && (
+                          <ServiceRequirementHistory requirementId={primary.id} />
                         )}
                       </div>
                     )}

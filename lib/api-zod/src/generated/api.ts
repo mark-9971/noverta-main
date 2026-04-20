@@ -1340,6 +1340,61 @@ export const SupersedeServiceRequirementBody = zod.object({
 });
 
 /**
+ * Returns the full supersede chain (root → newest) for the given
+service requirement, regardless of which row in the chain is passed
+in. Each entry includes the requirement row, the actor who created
+it, the supersede correlation id (when applicable), and the list of
+material fields that changed from the prior entry. Use this to
+render the "history" view on the student detail page so coordinators
+can see why and when each requirement was rewritten.
+
+ * @summary Get the supersede chain for a service requirement
+ */
+export const GetServiceRequirementChainParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetServiceRequirementChainResponse = zod.object({
+  chain: zod.array(
+    zod.object({
+      requirement: zod.object({
+        id: zod.number(),
+        studentId: zod.number(),
+        serviceTypeId: zod.number(),
+        serviceTypeName: zod.string().nullish(),
+        providerId: zod.number().nullish(),
+        providerName: zod.string().nullish(),
+        deliveryType: zod.string(),
+        requiredMinutes: zod.number(),
+        intervalType: zod.string(),
+        startDate: zod.string(),
+        endDate: zod.string().nullish(),
+        priority: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        active: zod.boolean(),
+        schoolId: zod.number().nullish(),
+        deliveryModel: zod.string().nullish(),
+        supersedesId: zod.number().nullish(),
+        replacedAt: zod.string().nullish(),
+        source: zod
+          .union([
+            zod.literal("active"),
+            zod.literal("superseded"),
+            zod.literal(null),
+          ])
+          .nullish(),
+        createdAt: zod.string(),
+      }),
+      supersedeCorrelationId: zod.string().nullish(),
+      supersededByActorUserId: zod.string().nullish(),
+      supersededByActorRole: zod.string().nullish(),
+      supersededAt: zod.string().nullish(),
+      changedFields: zod.array(zod.string()),
+    }),
+  ),
+});
+
+/**
  * @summary List session logs
  */
 export const ListSessionsQueryParams = zod.object({
@@ -5698,6 +5753,7 @@ export const ListAuditLogsQueryParams = zod.object({
   startDate: zod.coerce.string().nullish(),
   endDate: zod.coerce.string().nullish(),
   search: zod.coerce.string().nullish(),
+  correlationId: zod.coerce.string().nullish(),
 });
 
 export const ListAuditLogsResponse = zod

@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,18 @@ const RATE_LIMIT_WINDOW_LABEL: Record<RateLimitWindow, string> = {
 };
 
 export default function AuditLogPage() {
+  const search = useSearch();
+  // The student-detail history view deep-links here with a
+  // ?correlationId=... param. Strip it out of the querystring once we've
+  // adopted it into local state so manual filter edits stay in control.
+  const initialCorrelationId = (() => {
+    try {
+      return new URLSearchParams(search).get("correlationId") ?? "";
+    } catch {
+      return "";
+    }
+  })();
+
   const [tab, setTab] = useState<TabKey>("all");
   const [offset, setOffset] = useState(0);
   const [actionFilter, setActionFilter] = useState("");
@@ -131,10 +144,23 @@ export default function AuditLogPage() {
   const [searchText, setSearchText] = useState("");
   const [actorFilter, setActorFilter] = useState("");
   const [studentIdFilter, setStudentIdFilter] = useState("");
+  const [correlationFilter, setCorrelationFilter] = useState(initialCorrelationId);
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(!!initialCorrelationId);
   const [rlWindow, setRlWindow] = useState<RateLimitWindow>("24h");
   const [rlOffset, setRlOffset] = useState(0);
+
+  // Keep the input synced if the user navigates here with a fresh
+  // correlation id (e.g. clicks another history entry while the page is
+  // already mounted).
+  useEffect(() => {
+    if (initialCorrelationId && initialCorrelationId !== correlationFilter) {
+      setCorrelationFilter(initialCorrelationId);
+      setShowFilters(true);
+      setOffset(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCorrelationId]);
 
   const rlSinceIso = (() => {
     const d = new Date(Date.now() - RATE_LIMIT_WINDOW_MS[rlWindow]);
@@ -153,9 +179,10 @@ export default function AuditLogPage() {
       if (searchText) params.set("search", searchText);
       if (actorFilter) params.set("actorUserId", actorFilter);
       if (studentIdFilter) params.set("studentId", studentIdFilter);
+      if (correlationFilter) params.set("correlationId", correlationFilter);
       return params.toString();
     },
-    [offset, actionFilter, tableFilter, dateFrom, dateTo, searchText, actorFilter, studentIdFilter]
+    [offset, actionFilter, tableFilter, dateFrom, dateTo, searchText, actorFilter, studentIdFilter, correlationFilter]
   );
 
   const { data, isLoading, error } = useQuery<AuditLogsResponse>({
@@ -169,6 +196,7 @@ export default function AuditLogPage() {
       searchText,
       actorFilter,
       studentIdFilter,
+      correlationFilter,
     ],
     queryFn: async () => {
       return listAuditLogs(Object.fromEntries(new URLSearchParams(buildParams())) as any) as unknown as AuditLogsResponse;
@@ -241,11 +269,12 @@ export default function AuditLogPage() {
     setSearchText("");
     setActorFilter("");
     setStudentIdFilter("");
+    setCorrelationFilter("");
     setOffset(0);
   };
 
   const hasFilters =
-    actionFilter || tableFilter || dateFrom || dateTo || searchText || actorFilter || studentIdFilter;
+    actionFilter || tableFilter || dateFrom || dateTo || searchText || actorFilter || studentIdFilter || correlationFilter;
 
   return (
     <div className="p-4 md:p-6 max-w-[1200px] mx-auto space-y-6">
@@ -485,6 +514,20 @@ export default function AuditLogPage() {
                   setOffset(0);
                 }}
                 className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 mb-1 block">
+                Correlation ID
+              </label>
+              <Input
+                placeholder="supersede correlationId"
+                value={correlationFilter}
+                onChange={(e) => {
+                  setCorrelationFilter(e.target.value);
+                  setOffset(0);
+                }}
+                className="h-8 text-sm font-mono"
               />
             </div>
             <div>

@@ -40,6 +40,7 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
       dateFrom,
       dateTo,
       search,
+      correlationId,
       limit: limitStr,
       offset: offsetStr,
     } = req.query;
@@ -47,6 +48,16 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
     const conditions: ReturnType<typeof eq>[] = [
       eq(auditLogsTable.districtId, districtId),
     ];
+
+    // Deep-link filter: surface every audit row stamped with the given
+    // supersede correlation id. Used by the student-detail history view
+    // to drill into "what happened in this rewrite". The metadata column
+    // is jsonb; ->> 'correlation_id' returns the string at that key.
+    if (correlationId && typeof correlationId === "string") {
+      conditions.push(
+        sql`${auditLogsTable.metadata}->>'correlation_id' = ${correlationId}` as unknown as ReturnType<typeof eq>,
+      );
+    }
 
     if (actorUserId && typeof actorUserId === "string") {
       conditions.push(eq(auditLogsTable.actorUserId, actorUserId));
