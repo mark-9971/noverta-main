@@ -16,31 +16,88 @@ const router: IRouter = Router();
 router.get("/compliance-timeline", async (req, res): Promise<void> => {
   try {
     const { status, limit: limitParam, schoolYearId } = req.query;
-    const conditions: any[] = [];
-    if (status && status !== "all") {
-      conditions.push(eq(complianceEventsTable.status, status as string));
-    }
+
+    // Two-query split: open events are unbounded (capped generously), completed
+    // events are tail-limited so the "Resolved Archive" panel has recent items
+    // without dragging the whole history into the response.
+    //
+    // Why this matters: previously a single query did
+    //   ORDER BY due_date ASC LIMIT 200
+    // With ~14k events in a seeded district, the oldest 200 by due_date are
+    // all `completed` historicals — so the page rendered "All Open (0) ·
+    // Resolved 200" even though thousands of events were open. Splitting the
+    // query guarantees the open list is never starved by old completed rows.
+    const HARD_MAX = 2000;
+    const DEFAULT_TOTAL = 2000;
+    const DEFAULT_COMPLETED_TAIL = 200;
+
+    const requestedLimit = Number(limitParam);
+    const totalCap = Math.min(
+      HARD_MAX,
+      Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : DEFAULT_TOTAL,
+    );
+
+    const baseConditions: any[] = [];
     if (schoolYearId) {
-      conditions.push(eq(complianceEventsTable.schoolYearId, Number(schoolYearId)));
+      baseConditions.push(eq(complianceEventsTable.schoolYearId, Number(schoolYearId)));
     }
 
-    const events = await db.select({
-      event: complianceEventsTable,
-      student: {
-        id: studentsTable.id,
-        firstName: studentsTable.firstName,
-        lastName: studentsTable.lastName,
-        grade: studentsTable.grade,
-      },
-    })
-      .from(complianceEventsTable)
-      .innerJoin(studentsTable, eq(complianceEventsTable.studentId, studentsTable.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(asc(complianceEventsTable.dueDate))
-      .limit(Number(limitParam) || 200);
+    const studentSel = {
+      id: studentsTable.id,
+      firstName: studentsTable.firstName,
+      lastName: studentsTable.lastName,
+      grade: studentsTable.grade,
+    } as const;
+
+    const filterToCompletedOnly = status === "completed";
+    const filterToOpenOnly = !!status && status !== "all" && status !== "completed";
+
+    // Allocate the cap across the two queries based on which side(s) we're
+    // returning. Always at least 1 per active side, never negative.
+    let openCap = 0;
+    let completedCap = 0;
+    if (filterToCompletedOnly) {
+      completedCap = totalCap;
+    } else if (filterToOpenOnly) {
+      openCap = totalCap;
+    } else {
+      completedCap = Math.max(1, Math.min(DEFAULT_COMPLETED_TAIL, Math.floor(totalCap / 2)));
+      openCap = Math.max(1, totalCap - completedCap);
+    }
+
+    let openRows: { event: typeof complianceEventsTable.$inferSelect; student: any }[] = [];
+    let completedRows: typeof openRows = [];
+
+    if (openCap > 0) {
+      const openConditions = [
+        ...baseConditions,
+        sql`${complianceEventsTable.status} != 'completed'`,
+      ];
+      // Client-side buckets all open computed statuses (overdue/due_soon/upcoming),
+      // so the server just returns every non-completed row up to the cap.
+      openRows = await db.select({ event: complianceEventsTable, student: studentSel })
+        .from(complianceEventsTable)
+        .innerJoin(studentsTable, eq(complianceEventsTable.studentId, studentsTable.id))
+        .where(and(...openConditions))
+        .orderBy(asc(complianceEventsTable.dueDate))
+        .limit(openCap);
+    }
+
+    if (completedCap > 0) {
+      const completedConditions = [
+        ...baseConditions,
+        eq(complianceEventsTable.status, "completed"),
+      ];
+      completedRows = await db.select({ event: complianceEventsTable, student: studentSel })
+        .from(complianceEventsTable)
+        .innerJoin(studentsTable, eq(complianceEventsTable.studentId, studentsTable.id))
+        .where(and(...completedConditions))
+        .orderBy(desc(complianceEventsTable.dueDate))
+        .limit(completedCap);
+    }
 
     const today = new Date().toISOString().split("T")[0];
-    const enriched = events.map(({ event, student }) => {
+    const enrich = ({ event, student }: { event: typeof complianceEventsTable.$inferSelect; student: any }) => {
       const dueDate = event.dueDate;
       const daysRemaining = Math.ceil((new Date(dueDate).getTime() - new Date(today).getTime()) / 86400000);
       let computedStatus = event.status;
@@ -57,9 +114,9 @@ router.get("/compliance-timeline", async (req, res): Promise<void> => {
         createdAt: event.createdAt.toISOString(),
         updatedAt: event.updatedAt.toISOString(),
       };
-    });
+    };
 
-    res.json(enriched);
+    res.json([...openRows.map(enrich), ...completedRows.map(enrich)]);
   } catch (e: any) {
     console.error("GET compliance-timeline error:", e);
     res.status(500).json({ error: "Failed to fetch compliance timeline" });
