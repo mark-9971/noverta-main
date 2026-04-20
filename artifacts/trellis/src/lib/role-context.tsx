@@ -102,8 +102,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
   const isDevMode = import.meta.env.DEV;
 
+  // Persona override is enabled in dev mode AND for platform admins in prod
+  // (used by the Demo Control Center role-walkthrough panel). The override
+  // only changes client-side routing/UI; server-side role gates still apply.
   const [devRole, setDevRoleState] = useState<UserRole | null>(() => {
-    if (!import.meta.env.DEV) return null;
     const saved = lsGet("trellis_role");
     return isValidRole(saved) ? saved : null;
   });
@@ -132,7 +134,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const clerkStaffId = Number(clerkUser?.publicMetadata?.staffId) || 0;
   const isPlatformAdmin = clerkUser?.publicMetadata?.platformAdmin === true;
 
-  const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? (isDevMode ? "admin" : "sped_teacher"));
+  const canOverrideRole = isDevMode || isPlatformAdmin;
+  const role: UserRole = (canOverrideRole && devRole) ? devRole : (clerkRole ?? (isDevMode ? "admin" : "sped_teacher"));
   const studentId = (isDevMode && devStudentId) ? devStudentId : clerkStudentId;
   const teacherId = (isDevMode && devTeacherId) ? devTeacherId : clerkStaffId;
   const clerkGuardianId = Number(clerkUser?.publicMetadata?.guardianId) || 0;
@@ -169,7 +172,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   };
 
   function setRole(r: UserRole) {
-    if (!isDevMode) return;
+    if (!isDevMode && !isPlatformAdmin) return;
     setDevRoleState(r);
     lsSet("trellis_role", r);
     setLocation(ROLE_HOME[r]);

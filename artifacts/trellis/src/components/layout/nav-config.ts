@@ -67,6 +67,7 @@ export const platformAdminSection: NavSection = {
   collapsible: true,
   items: [
     { href: "/tenants", label: "Tenant Management", icon: Crown },
+    { href: "/demo-control-center", label: "Demo Control Center", icon: Sparkles },
     { href: "/admin/demo-readiness", label: "Demo Pre-Flight", icon: Activity },
     { href: "/pilot-feedback", label: "Pilot Feedback", icon: MessageSquare },
     { href: "/pilot-status", label: "Pilot Status", icon: Gauge },

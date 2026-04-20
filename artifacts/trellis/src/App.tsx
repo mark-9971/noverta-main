@@ -128,6 +128,7 @@ const WeeklyComplianceSummaryPage = lazy(() => import("@/pages/weekly-compliance
 const CompensatoryFinancePage = lazy(() => import("@/pages/compensatory-finance"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
 const DemoReadinessPage = lazy(() => import("@/pages/demo-readiness"));
+const DemoControlCenterPage = lazy(() => import("@/pages/demo-control-center"));
 const DemoRequestPage = lazy(() => import("@/pages/demo-request"));
 const AdminDemoDistrictsPage = lazy(() => import("@/pages/admin-demo-districts"));
 const SupportPage = lazy(() => import("@/pages/support"));
@@ -392,6 +393,7 @@ function StaffRouter() {
       <BoundedRoute path="/_compensatory-finance-legacy" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <BoundedRoute path="/admin/demo-readiness" component={DemoReadinessPage} fallbackTitle="Demo readiness error" />
+      <BoundedRoute path="/demo-control-center" component={DemoControlCenterPage} fallbackTitle="Demo Control Center error" />
       <BoundedRoute path="/pilot-feedback" component={PilotFeedbackPage} fallbackTitle="Pilot feedback error" />
       <BoundedRoute path="/admin/demo-districts" component={AdminDemoDistrictsPage} fallbackTitle="Demo districts error" />
       <BoundedRoute path="/support" component={SupportPage} fallbackTitle="Support tools error" />
