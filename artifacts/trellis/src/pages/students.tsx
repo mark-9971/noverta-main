@@ -166,13 +166,20 @@ export default function Students() {
   })();
 
   // District-wide totals for the header/type-filter chips. studentList only
-  // holds the current page (PAGE_SIZE=100), so deriving counts from it would
-  // make the header disagree with the risk-tier chips (which count the full
-  // district via the minute-progress list).
-  const spedTotal: number = (Array.isArray(spedStudentsRaw) ? spedStudentsRaw.length : 0);
-  const genEdTotal: number = Math.max(0, totalStudents - spedTotal);
-  const spedCount = spedTotal;
-  const genEdCount = genEdTotal;
+  // holds the current page (PAGE_SIZE=100) and `students.total` is scoped to
+  // the active/inactive filter, so neither matches the risk-tier chips (which
+  // count the full district via the minute-progress list). Source the SPED
+  // count from the district-wide SPED endpoint and derive Gen Ed from the
+  // unique studentIds present in the progress list, so all three numbers in
+  // the header agree with "All (N)" on the risk row.
+  const districtSpedTotal: number = Array.isArray(spedStudentsRaw) ? spedStudentsRaw.length : 0;
+  let districtGenEdTotal = 0;
+  for (const idStr of Object.keys(studentRisk)) {
+    if (!spedIds.has(Number(idStr))) districtGenEdTotal++;
+  }
+  const districtTotalStudents: number = districtSpedTotal + districtGenEdTotal;
+  const spedCount = districtSpedTotal;
+  const genEdCount = districtGenEdTotal;
 
   const filtered = useMemo(() => {
     return studentList.filter(s => {
@@ -224,7 +231,7 @@ export default function Students() {
             )}
           </div>
           <p className="text-xs md:text-sm text-gray-400 mt-1">
-            {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
+            {districtTotalStudents} total students · {spedCount} SPED · {genEdCount} Gen Ed
           </p>
         </div>
         {isAdmin && !hasSIS && (
@@ -260,7 +267,7 @@ export default function Students() {
 
       <div className="flex gap-2 flex-wrap">
         {([
-          { key: "all" as TypeFilter, label: "All Students", count: studentList.length, icon: null },
+          { key: "all" as TypeFilter, label: "All Students", count: districtTotalStudents, icon: null },
           { key: "sped" as TypeFilter, label: "SPED", count: spedCount, icon: GraduationCap },
           { key: "gen_ed" as TypeFilter, label: "Gen Ed", count: genEdCount, icon: BookOpen },
         ]).map(t => (
