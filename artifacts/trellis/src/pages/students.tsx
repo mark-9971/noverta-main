@@ -165,8 +165,14 @@ export default function Students() {
       .sort((a, b) => a.label.localeCompare(b.label));
   })();
 
-  const spedCount = studentList.filter(s => spedIds.has(s.id)).length;
-  const genEdCount = studentList.length - spedCount;
+  // District-wide totals for the header/type-filter chips. studentList only
+  // holds the current page (PAGE_SIZE=100), so deriving counts from it would
+  // make the header disagree with the risk-tier chips (which count the full
+  // district via the minute-progress list).
+  const spedTotal: number = (Array.isArray(spedStudentsRaw) ? spedStudentsRaw.length : 0);
+  const genEdTotal: number = Math.max(0, totalStudents - spedTotal);
+  const spedCount = spedTotal;
+  const genEdCount = genEdTotal;
 
   const filtered = useMemo(() => {
     return studentList.filter(s => {
