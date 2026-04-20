@@ -1,4 +1,10 @@
 // tenant-scope: district-join
+// DEPRECATED(batch-1): the per-student "currently in force service
+// types" derivation in this route reads every requirement row regardless
+// of supersede state. Switch to
+// `getActiveRequirements(studentId, todayRange)` from
+// `lib/domain-service-delivery` per
+// docs/architecture/active-requirements.md (target: Batch 3).
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {

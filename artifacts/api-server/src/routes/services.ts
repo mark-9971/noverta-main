@@ -104,6 +104,12 @@ router.patch("/service-types/:id", requireServiceAdmin, async (req, res): Promis
   res.json({ ...type, createdAt: type.createdAt.toISOString() });
 });
 
+// DEPRECATED(batch-1): this list endpoint returns raw rows filtered by
+// `active=true|false` only — it does not honor the supersede chain. Add
+// `?asOfDate=` and `?range=` modes that delegate to
+// `getActiveRequirements` from `lib/domain-service-delivery` per
+// docs/architecture/active-requirements.md (target: Batch 2). Preserve
+// the raw-list mode for backward compat until the UI is updated.
 router.get("/service-requirements", async (req, res): Promise<void> => {
   const params = ListServiceRequirementsQueryParams.safeParse(req.query);
   const conditions: any[] = [];

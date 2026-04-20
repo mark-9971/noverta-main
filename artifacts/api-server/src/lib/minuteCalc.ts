@@ -1,3 +1,10 @@
+// DEPRECATED(batch-1): the `eq(serviceRequirementsTable.active, true)`
+// filter in computeAllActiveMinuteProgress and the inline single-row read
+// in computeMinuteProgress both bypass the supersede chain and silently
+// lose mid-period transitions. Replace with
+// `getActiveRequirements(studentId, intervalRange)` from
+// `lib/domain-service-delivery` per the migration plan in
+// docs/architecture/active-requirements.md (target: Batch 2).
 import { db } from "@workspace/db";
 import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable } from "@workspace/db";
 import { eq, and, gte, lte, sql, inArray, isNull } from "drizzle-orm";

@@ -1,3 +1,9 @@
+// DEPRECATED(batch-1): runComplianceChecks consumes
+// computeAllActiveMinuteProgress, which today reads only `active=true`
+// rows and so misses minutes from a row that was superseded mid-period.
+// This module flows automatically once minuteCalc is migrated to
+// `getActiveRequirements` from `lib/domain-service-delivery` — see
+// docs/architecture/active-requirements.md (target: Batch 2).
 import { db } from "@workspace/db";
 import {
   alertsTable,

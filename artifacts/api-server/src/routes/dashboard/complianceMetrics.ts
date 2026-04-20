@@ -1,4 +1,11 @@
 // tenant-scope: district-join
+// DEPRECATED(batch-1): the compliance-by-service path consumes
+// computeAllActiveMinuteProgress (active=true rows only); the
+// staff-coverage path reads `eq(serviceRequirementsTable.active, true)`
+// directly. Both miss superseded mid-period rows. Migrate to
+// `getActiveRequirements` from `lib/domain-service-delivery` per
+// docs/architecture/active-requirements.md (compliance-by-service:
+// Batch 2; staff-coverage: Batch 3).
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
