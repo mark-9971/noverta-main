@@ -1,0 +1,167 @@
+Implement “School Calendar v0 — Slice 4: compensatory / makeup / exposure alignment” in the existing Trellis codebase.
+
+Context:
+Slice 1 is already shipped:
+- per-school school_calendar_exceptions CRUD under Settings → School Year
+
+Slice 2 is already shipped:
+- closures and early_release days flow into the shared minute-progress read-path calculations
+- downstream compliance/risk consumers inherit corrected expected-minute math
+- /schedules/today supports closed and early_release statuses
+- OpenAPI/client codegen updated
+
+Slice 3 is already shipped:
+- GET /schedules/today/exception provides day-level explanation metadata
+- Today UI shows closure / early-release banner with reason/dismissal time when available
+- compliance UI shows “Includes N closure days · M early-release days”
+
+Goal:
+Make sure school-calendar exceptions also flow correctly into compensatory / makeup / exposure logic, so closure days and early-release days do NOT create false owed minutes, false missed-service exposure, or inflated financial/cost views.
+
+This is a read/business-logic alignment slice. Do not broaden into a workflow redesign.
+
+Primary product objective:
+A district user should never see:
+- compliance math discounted correctly
+- but compensatory / makeup / cost logic still acting like the school day was normal
+
+Non-goals:
+- no new admin page
+- no schema changes or migrations unless absolutely unavoidable
+- no new write workflow
+- no broad finance redesign
+- no exact time-of-day schedule_blocks proration rewrite in this slice unless already trivial and low-risk
+- no mass UI redesign
+
+Scope:
+Audit and align every downstream place where service shortfall becomes:
+- compensatory time owed
+- makeup-needed logic
+- missed-minute exposure
+- cost / finance / liability summaries
+- action-center style operational recommendations, if present
+
+What to implement:
+
+A. Identify the true downstream consequence paths
+Find the real shared calculation paths and route consumers for:
+- compensatory services / owed-minute calculations
+- makeup-needed logic
+- missed-minute / risk exposure
+- finance / cost-avoidance / liability summaries
+- any alerts/reminders/actions derived from shortfall
+
+Do not patch UI surfaces one by one if shared logic exists lower in the stack.
+
+B. Align business logic with school-calendar exceptions
+Required behavior:
+1. closure day for a school/date:
+- should not create expected service obligation for that date
+- should not generate compensatory time purely because no service occurred that day
+- should not inflate missed-minute exposure/cost/liability for that date
+
+2. early_release day:
+- should only create obligation/exposure based on the currently implemented fallback rule already used in the shared minute-progress logic
+- do not introduce a second competing rule
+- if the current shared fallback is 0.5 day weight, downstream consequence logic must use that same rule
+
+3. requiredMinutes / IEP contract remains unchanged overall
+- the alignment should affect expected-by-now / shortfall / owed logic, not rewrite the underlying IEP requirement itself
+
+C. Centralize and reuse
+- Reuse the shared school-calendar logic from prior slices
+- Do not duplicate closure/early-release math inside compensatory or finance routes
+- If a single shared helper/view-model needs to be extended so all downstream consequence consumers stay consistent, do that
+
+D. User-visible behavior
+Where users currently see compensatory / makeup / exposure numbers:
+- the values should now reflect school-calendar-adjusted expectation logic
+- if the UI already has a good place for a small explanation, add a subtle note only where needed
+- avoid clutter
+
+Examples of acceptable small UX:
+- “School calendar exceptions applied”
+- reuse closureDayCount / earlyReleaseDayCount if already available with minimal effort
+But only where it materially helps understanding.
+
+E. Typed contract hygiene
+- If API/read models change, update OpenAPI/client codegen as appropriate
+- Do not leave frontend literal unions or response types drifting from backend behavior
+
+Acceptance criteria:
+1. Closure days do not create false comp time / makeup need / cost exposure
+2. Early-release days use the SAME fallback rule already used by shared minute-progress logic
+3. No duplicate school-calendar math is introduced in downstream routes/components
+4. Shared business logic stays centralized
+5. No schema changes unless truly necessary
+6. Existing Slice 1–3 behavior remains intact
+7. Any API changes are typed and codegen-synced
+8. Tests prove the downstream consequence paths now align with the school-calendar-adjusted expectation logic
+
+Testing requirements:
+Add focused tests for:
+- closure day does not create owed/comp/missed-minute exposure
+- early-release day reduces consequence math consistently with the existing fallback
+- mixed normal/closure/early-release windows
+- school A exception does not affect school B
+- cross-district isolation still holds
+- any updated route/API response behavior if applicable
+
+Also add at least one integration-level test that proves a downstream consumer (not just the shared helper) now reflects the aligned consequence math.
+
+Output format required:
+
+1. COMPLETION STATUS
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one short paragraph
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact functions/routes/components/types changed
+- exact reason for the change
+- whether it is shared business logic, route wiring, UI wiring, OpenAPI/codegen, or tests
+
+3. DOWNSTREAM CONSEQUENCE COVERAGE
+State exactly which of these now honor school-calendar exceptions and how:
+- compensatory time / owed logic
+- makeup-needed logic
+- missed-minute exposure
+- finance / cost / liability summaries
+- alerts / reminders / action-center-style consumers if any
+- any additional downstream consumers changed automatically because of shared logic
+
+4. BUSINESS RULE CONSISTENCY
+State explicitly:
+- what closure now does
+- what early release now does
+- whether the same fallback rule as Slice 2 is reused
+- whether requiredMinutes remains unchanged
+
+5. API / TYPE CONTRACT CHANGES
+State exactly:
+- whether any response shapes changed
+- whether any new fields were added
+- whether OpenAPI/client codegen was updated
+- any compatibility considerations
+
+6. TEST STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- what scenarios are covered
+- any known gaps
+
+7. REMAINING LIMITATIONS
+Only list real remaining follow-ups, such as:
+- exact time-of-day proration via schedule_blocks
+- weekday-aware baseline pacing
+- advanced bulk calendar tooling
+- deeper finance redesign
+Do not broaden beyond real follow-ups discovered in the work.
+
+Important constraints:
+- This is an alignment slice, not a redesign slice
+- Favor shared-logic correctness over UI polish
+- Do not patch symptoms in isolated routes if a core helper should be updated instead
+- Include a summary of exact changes made, not just a high-level recap
