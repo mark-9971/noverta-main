@@ -11,6 +11,7 @@ import { requireAuth, requireRoles } from "../../middlewares/auth";
 import { blockToJson } from "./shared";
 import { isBlockActiveOnDate } from "../../lib/scheduleUtils";
 import { sendAdminEmail, getAppBaseUrl } from "../../lib/email";
+import { getSchoolDayException } from "../../lib/schoolCalendar";
 
 const router: IRouter = Router();
 
@@ -186,6 +187,23 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
   const todayStr = `${y}-${mo}-${dy}`;
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
+  // Slice 2 — look up today's school-day exception (if any) for the
+  // caller's primary school. We need staff.school_id and the school's
+  // district_id to keep the read tenant-scoped.
+  const staffSchoolResult = await pool.query<{ school_id: number | null; district_id: number | null }>(
+    `SELECT s.school_id, sc.district_id
+       FROM staff s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+      WHERE s.id = $1
+      LIMIT 1`,
+    [staffId],
+  );
+  const callerSchoolId = staffSchoolResult.rows[0]?.school_id ?? null;
+  const callerDistrictId = staffSchoolResult.rows[0]?.district_id ?? null;
+  const todayException = callerSchoolId != null && callerDistrictId != null
+    ? await getSchoolDayException({ districtId: callerDistrictId, schoolId: callerSchoolId, date: todayStr })
+    : null;
+
   const blocksResult = await pool.query<{
     id: number; staff_id: number; student_id: number | null; service_type_id: number | null;
     start_time: string; end_time: string; location: string | null; block_label: string | null;
@@ -255,11 +273,42 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
       ) ?? null;
     }
 
-    let status: "logged" | "in_progress" | "missed" | "upcoming";
-    if (matched) status = "logged";
-    else if (nowMinutes >= startMin && nowMinutes < endMin) status = "in_progress";
-    else if (endMin < nowMinutes) status = "missed";
-    else status = "upcoming";
+    let status: "logged" | "in_progress" | "missed" | "upcoming" | "closed" | "early_release";
+    let effectiveDurationMinutes = durationMinutes;
+
+    if (todayException?.type === "closure") {
+      // School is fully closed today — every block is short-circuited to
+      // a "closed" status with zero expected minutes regardless of where
+      // it falls on the wall clock or whether a session was logged.
+      status = "closed";
+      effectiveDurationMinutes = 0;
+    } else if (todayException?.type === "early_release" && todayException.dismissalTime) {
+      const [dh = 0, dm = 0] = todayException.dismissalTime.split(":").map(Number);
+      const dismissMin = dh * 60 + dm;
+      if (matched) {
+        status = "logged";
+      } else if (startMin >= dismissMin) {
+        // Block starts at or after dismissal → the block won't happen.
+        status = "closed";
+        effectiveDurationMinutes = 0;
+      } else if (endMin > dismissMin) {
+        // Block straddles dismissal — keep it visible but flagged so the
+        // user knows the back half is cut off. Reduce expected minutes
+        // proportionally to the part before dismissal.
+        status = "early_release";
+        effectiveDurationMinutes = Math.max(0, dismissMin - startMin);
+      } else {
+        // Block ends before dismissal: nothing changes for this block.
+        if (nowMinutes >= startMin && nowMinutes < endMin) status = "in_progress";
+        else if (endMin < nowMinutes) status = "missed";
+        else status = "upcoming";
+      }
+    } else {
+      if (matched) status = "logged";
+      else if (nowMinutes >= startMin && nowMinutes < endMin) status = "in_progress";
+      else if (endMin < nowMinutes) status = "missed";
+      else status = "upcoming";
+    }
 
     return {
       id: b.id,
@@ -270,7 +319,7 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
       serviceTypeName: b.service_type_name,
       startTime: b.start_time,
       endTime: b.end_time,
-      durationMinutes,
+      durationMinutes: effectiveDurationMinutes,
       location: b.location,
       blockLabel: b.block_label,
       sessionLogId: matched?.id ?? null,
@@ -279,6 +328,11 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
     };
   });
 
+  // Slice 2 — keep the response shape as a plain array of blocks so the
+  // existing TodayScheduleCard consumer keeps working without an API
+  // contract change. The per-block `status` already carries "closed" or
+  // "early_release" when an exception applies; a follow-up slice will
+  // add a separate top-of-day banner endpoint when the UI needs it.
   res.json(blocks);
 });
 

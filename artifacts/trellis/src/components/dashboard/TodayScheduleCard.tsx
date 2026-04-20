@@ -25,7 +25,7 @@ interface TodayBlock {
   location: string | null;
   blockLabel: string | null;
   sessionLogId: number | null;
-  status: "logged" | "in_progress" | "missed" | "upcoming";
+  status: "logged" | "in_progress" | "missed" | "upcoming" | "closed" | "early_release";
   date: string;
 }
 
@@ -55,6 +55,20 @@ function StatusChip({ status }: { status: TodayBlock["status"] }) {
     return (
       <Badge className="text-[10px] h-5 px-1.5 bg-red-50 text-red-700 border-red-200 font-medium">
         <AlertTriangle className="w-3 h-3 mr-0.5" /> Missed
+      </Badge>
+    );
+  }
+  if (status === "closed") {
+    return (
+      <Badge className="text-[10px] h-5 px-1.5 bg-slate-100 text-slate-600 border-slate-200 font-medium">
+        <CalendarX className="w-3 h-3 mr-0.5" /> School Closed
+      </Badge>
+    );
+  }
+  if (status === "early_release") {
+    return (
+      <Badge className="text-[10px] h-5 px-1.5 bg-amber-50 text-amber-700 border-amber-200 font-medium">
+        <Clock className="w-3 h-3 mr-0.5" /> Early Release
       </Badge>
     );
   }
@@ -188,7 +202,7 @@ export function TodayScheduleCard() {
                         </Button>
                       </Link>
                     )}
-                    {(b.status === "upcoming" || b.status === "in_progress") && b.studentId && (
+                    {(b.status === "upcoming" || b.status === "in_progress" || b.status === "early_release") && b.studentId && (
                       <Button
                         size="sm"
                         onClick={() => openQuickLog(b)}

@@ -6,8 +6,14 @@
 // `lib/domain-service-delivery` per the migration plan in
 // docs/architecture/active-requirements.md (target: Batch 2).
 import { db } from "@workspace/db";
-import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable } from "@workspace/db";
+import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable, schoolsTable } from "@workspace/db";
 import { eq, and, gte, lte, sql, inArray, isNull } from "drizzle-orm";
+import {
+  getSchoolDayException,
+  getSchoolDayExceptionsForRange,
+  summarizeSchoolDayWeights,
+  type SchoolDayException,
+} from "./schoolCalendar";
 
 export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance" | "completed" | "no_data";
 
@@ -108,6 +114,20 @@ export type MinuteProgressResult = {
   intervalEnd: string;
   missedSessionsCount: number;
   makeupSessionsCount: number;
+  /**
+   * School Calendar v0 — Slice 2. Number of full-closure days for the
+   * student's school that fall inside the elapsed slice of the current
+   * interval. Surfaces the discount applied to expectedMinutesByNow so
+   * the UI can show "2 closures this period" without a second query.
+   */
+  closureDayCount: number;
+  /**
+   * Same as `closureDayCount` but for early-release days. Each one
+   * counts as 0.5 of a normal day in the denominator (see
+   * lib/schoolCalendar.ts EARLY_RELEASE_DAY_WEIGHT) until time-of-day
+   * proration ships in a later slice.
+   */
+  earlyReleaseDayCount: number;
 };
 
 export async function computeMinuteProgress(serviceRequirementId: number): Promise<MinuteProgressResult | null> {
@@ -126,11 +146,17 @@ export async function computeMinuteProgress(serviceRequirementId: number): Promi
       serviceTypeName: serviceTypesTable.name,
       providerFirstName: staffTable.firstName,
       providerLastName: staffTable.lastName,
+      // School Calendar v0 — needed to look up that school's closures /
+      // early-release days for the requirement's interval. Nullable
+      // because some legacy student rows still lack a school assignment.
+      schoolId: studentsTable.schoolId,
+      districtId: schoolsTable.districtId,
     })
     .from(serviceRequirementsTable)
     .leftJoin(studentsTable, eq(studentsTable.id, serviceRequirementsTable.studentId))
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
     .leftJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
+    .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
     .where(eq(serviceRequirementsTable.id, serviceRequirementId));
 
   if (!req) return null;
@@ -157,7 +183,23 @@ export async function computeMinuteProgress(serviceRequirementId: number): Promi
       )
     );
 
-  return buildProgressFromSessions(req, sessions, intervalStart, intervalEnd, intervalStartStr, intervalEndStr);
+  // Slice 2: load this school's exceptions inside the requirement window
+  // so expectedMinutesByNow honors closures and early-release days. If
+  // the student isn't tied to a school, or the school has no district,
+  // we leave the map empty and the math degrades to the legacy behavior.
+  const exceptions = req.schoolId != null && req.districtId != null
+    ? await getSchoolDayExceptionsForRange({
+        districtId: req.districtId,
+        schoolIds: [req.schoolId],
+        startDate: intervalStartStr,
+        endDate: intervalEndStr,
+      })
+    : new Map<string, SchoolDayException>();
+
+  return buildProgressFromSessions(req, sessions, intervalStart, intervalEnd, intervalStartStr, intervalEndStr, undefined, {
+    schoolId: req.schoolId,
+    exceptions,
+  });
 }
 
 function buildProgressFromSessions(
@@ -181,7 +223,18 @@ function buildProgressFromSessions(
   intervalEnd: Date,
   intervalStartStr: string,
   intervalEndStr: string,
-  asOfDate?: Date
+  asOfDate?: Date,
+  /**
+   * Slice 2: optional school-day exception input. When supplied, the
+   * elapsed/remaining day fractions are weighted by closures (=0) and
+   * early-release days (=0.5 fallback) for the student's school. When
+   * omitted (legacy callers / tests), the math falls back to the original
+   * pure-calendar-day behavior so nothing else has to change at once.
+   */
+  schoolCalendarInput?: {
+    schoolId: number | null;
+    exceptions: Map<string, SchoolDayException>;
+  },
 ): MinuteProgressResult {
   const completedSessions = sessions.filter(s => s.status === "completed" || s.status === "makeup");
   const missedSessions = sessions.filter(s => s.status === "missed");
@@ -190,14 +243,44 @@ function buildProgressFromSessions(
   const deliveredMinutes = completedSessions.reduce((sum, s) => sum + s.durationMinutes, 0);
 
   const now = asOfDate ?? new Date();
-  const totalDays = Math.max(1, (intervalEnd.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
-  const elapsedDays = Math.max(0, (now.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
-  const progressFraction = Math.min(1, elapsedDays / totalDays);
+  const totalCalendarDays = Math.max(1, (intervalEnd.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
+  const elapsedCalendarDays = Math.max(0, (now.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Slice 2 — weight the day count by school-calendar exceptions so a
+  // closure pulls expectedByNow toward zero for that day and an early
+  // release counts as half a day. If no exception input is supplied, or
+  // the school has no exceptions in this window, this collapses to the
+  // legacy linear elapsedCalendarDays / totalCalendarDays.
+  const haveExceptions =
+    schoolCalendarInput != null && schoolCalendarInput.exceptions.size > 0;
+  let progressFraction: number;
+  let closureDayCount = 0;
+  let earlyReleaseDayCount = 0;
+
+  if (haveExceptions) {
+    const summary = summarizeSchoolDayWeights({
+      schoolId: schoolCalendarInput!.schoolId,
+      exceptions: schoolCalendarInput!.exceptions,
+      startDate: intervalStart,
+      endDate: intervalEnd,
+      asOf: now,
+    });
+    closureDayCount = summary.closureDays;
+    earlyReleaseDayCount = summary.earlyReleaseDays;
+    if (summary.totalWeight > 0) {
+      progressFraction = Math.min(1, summary.elapsedWeight / summary.totalWeight);
+    } else {
+      // Every day in the interval is a closure: nothing was expected.
+      progressFraction = 0;
+    }
+  } else {
+    progressFraction = Math.min(1, elapsedCalendarDays / totalCalendarDays);
+  }
 
   const expectedByNow = req.requiredMinutes * progressFraction;
 
-  const currentPacePerDay = elapsedDays > 0 ? deliveredMinutes / elapsedDays : 0;
-  const remainingDays = Math.max(0, totalDays - elapsedDays);
+  const currentPacePerDay = elapsedCalendarDays > 0 ? deliveredMinutes / elapsedCalendarDays : 0;
+  const remainingDays = Math.max(0, totalCalendarDays - elapsedCalendarDays);
   const projectedMinutes = deliveredMinutes + (currentPacePerDay * remainingDays);
 
   const remainingMinutes = Math.max(0, req.requiredMinutes - deliveredMinutes);
@@ -225,6 +308,8 @@ function buildProgressFromSessions(
     intervalEnd: intervalEndStr,
     missedSessionsCount: missedSessions.length,
     makeupSessionsCount: makeupSessions.length,
+    closureDayCount,
+    earlyReleaseDayCount,
   };
 }
 
@@ -264,11 +349,17 @@ export async function computeAllActiveMinuteProgress(filters?: {
       serviceTypeName: serviceTypesTable.name,
       providerFirstName: staffTable.firstName,
       providerLastName: staffTable.lastName,
+      // Slice 2 — needed to honor school closures / early-release days
+      // when computing expectedMinutesByNow. School → district join lets
+      // us tenant-scope the exceptions lookup without a second query.
+      schoolId: studentsTable.schoolId,
+      schoolDistrictId: schoolsTable.districtId,
     })
     .from(serviceRequirementsTable)
     .leftJoin(studentsTable, eq(studentsTable.id, serviceRequirementsTable.studentId))
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
     .leftJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
+    .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
     .where(conditions.length === 1 ? conditions[0] : and(...conditions));
 
   if (reqs.length === 0) return [];
@@ -298,6 +389,40 @@ export async function computeAllActiveMinuteProgress(filters?: {
 
   const sessionStartStr = filters?.startDate && filters.startDate > globalEarliestStr ? filters.startDate : globalEarliestStr;
   const sessionEndStr = filters?.endDate && filters.endDate < globalLatestStr ? filters.endDate : globalLatestStr;
+
+  // Slice 2 — bulk-load every relevant school's exceptions across the
+  // global window in a single query, grouped by district to keep the
+  // tenant-scope check explicit. Reqs whose student has no school (legacy
+  // data) are skipped — they get an empty map and the legacy math.
+  const schoolsByDistrict = new Map<number, Set<number>>();
+  for (const r of reqs) {
+    if (r.schoolId == null || r.schoolDistrictId == null) continue;
+    let set = schoolsByDistrict.get(r.schoolDistrictId);
+    if (!set) {
+      set = new Set();
+      schoolsByDistrict.set(r.schoolDistrictId, set);
+    }
+    set.add(r.schoolId);
+  }
+  const exceptionsBySchool = new Map<number, Map<string, SchoolDayException>>();
+  for (const [did, schoolSet] of schoolsByDistrict.entries()) {
+    const map = await getSchoolDayExceptionsForRange({
+      districtId: did,
+      schoolIds: Array.from(schoolSet),
+      startDate: globalEarliestStr,
+      endDate: globalLatestStr,
+    });
+    // Re-bucket by schoolId so each requirement only sees its own school.
+    for (const [k, v] of map.entries()) {
+      const sid = v.schoolId;
+      let perSchool = exceptionsBySchool.get(sid);
+      if (!perSchool) {
+        perSchool = new Map();
+        exceptionsBySchool.set(sid, perSchool);
+      }
+      perSchool.set(k, v);
+    }
+  }
 
   const allSessions = await db
     .select({
@@ -338,7 +463,20 @@ export async function computeAllActiveMinuteProgress(filters?: {
       .filter(s => s.sessionDate >= filterStart && s.sessionDate <= filterEnd)
       .map(s => ({ durationMinutes: s.durationMinutes, status: s.status, isMakeup: s.isMakeup }));
 
-    results.push(buildProgressFromSessions(req, filteredSessions, iv.intervalStart, iv.intervalEnd, iv.startStr, iv.endStr, filters?.asOfDate));
+    const perSchoolExceptions = req.schoolId != null
+      ? exceptionsBySchool.get(req.schoolId) ?? new Map<string, SchoolDayException>()
+      : new Map<string, SchoolDayException>();
+
+    results.push(buildProgressFromSessions(
+      req,
+      filteredSessions,
+      iv.intervalStart,
+      iv.intervalEnd,
+      iv.startStr,
+      iv.endStr,
+      filters?.asOfDate,
+      { schoolId: req.schoolId, exceptions: perSchoolExceptions },
+    ));
   }
 
   if (filters?.riskStatus) {

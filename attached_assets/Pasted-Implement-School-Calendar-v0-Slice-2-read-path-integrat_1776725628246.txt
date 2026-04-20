@@ -1,0 +1,115 @@
+Implement “School Calendar v0 — Slice 2: read-path integration” in the existing Trellis codebase.
+
+Context:
+Slice 1 is already shipped and merged. We already have a per-school exception model with two types:
+- closure (full day)
+- early_release (requires dismissal_time)
+
+Those rows are managed only from:
+Settings → School Year → “School Closures & Early Release”
+
+That write surface is complete and should NOT be replaced, duplicated, or moved. There must be no new admin page, no parallel tool, and no global school context selector. The existing local school dropdown inside that panel stays as-is.
+
+Goal:
+Make those exception rows affect downstream READ PATHS only:
+- compliance / minute expectation calculations
+- student/service minute rollups
+- risk / exposure summaries
+- Today / schedule-facing reads where applicable
+
+Non-goals:
+- no new write UI
+- no changes to raw session logs
+- no retroactive mutation/deletion/rewrite of logged services
+- no new nav items
+- no schema redesign unless strictly required
+- no reading from client-supplied district context; preserve current tenant enforcement model
+
+Business rules:
+1. closure on a school/date => expected service minutes for that school/date are 0
+2. early_release on a school/date => expected service minutes are reduced using dismissal_time
+3. exceptions apply only to students/services tied to that school
+4. other schools/districts must be unaffected
+5. logged sessions remain untouched; only expected-minute / risk calculations change
+
+Implementation requirements:
+1. Create a CENTRAL shared read helper for school-day exceptions. Do not duplicate exception lookup logic across pages/routes.
+   Suggested shapes:
+   - getSchoolDayException({ districtId, schoolId, date })
+   - getSchoolDayExceptionsForRange({ districtId, schoolIds, startDate, endDate })
+   Use whatever naming fits the codebase.
+
+2. Create a CENTRAL domain helper to adjust expected minutes based on an exception.
+   Suggested shape:
+   - adjustExpectedMinutesForSchoolException({ expectedMinutes, serviceWindowStart?, serviceWindowEnd?, exception })
+   Rules:
+   - closure => 0
+   - early_release:
+     - if service would occur fully after dismissal => 0
+     - if service overlaps dismissal => prorate only the portion before dismissal
+     - if the current path does NOT have exact time-of-day precision, use the best supported deterministic conservative fallback and document it clearly in code/comments/tests
+   Do NOT fake precision where the data model does not support it.
+
+3. Wire this logic into the true underlying calculation paths, not just the UI.
+   Priority:
+   - service minute rollups
+   - compliance summaries
+   - risk / exposure calculations
+   - Today / schedule-facing read models if they currently assume a normal instructional day
+
+4. Keep the School Year settings page readable; do not bloat it further.
+   If needed, add small read-only badges/indicators on downstream pages, but do not create new workflows.
+
+5. Preserve tenancy and auth behavior.
+   - district-scoped reads only
+   - no cross-school leakage in aggregates
+   - no changes to write-role gating unless required by existing patterns
+
+Testing requirements:
+Add/expand tests to cover at minimum:
+
+Domain/unit:
+- normal day leaves expected minutes unchanged
+- closure => 0 expected minutes
+- early release before service window => 0
+- early release during service window => prorated reduction
+- early release after service window => unchanged
+
+Integration:
+- compliance rollup excludes closure date from expected minutes
+- compliance rollup reduces expected minutes on early release
+- school A exception does not affect school B
+- cross-district isolation still holds
+- editing an exception changes downstream reads
+- deleting an exception restores normal calculations
+
+UI/read tests where applicable:
+- downstream page reflects adjusted totals
+- contextual closure/early-release indicator appears only when relevant
+
+OpenAPI / API contract:
+- update any read models / schemas that now expose exception-adjusted values or source attribution
+- document any new response fields if added
+- do not invent noisy API churn unless needed
+
+Code quality expectations:
+- prefer small focused helpers / subcomponents
+- remove dead branches if introduced
+- follow existing middleware contracts (don’t “fix” unrelated 401 vs 403 behavior unless truly necessary)
+- avoid touching unrelated known-problem files unless required to get this slice working
+
+Deliverables:
+1. Code changes
+2. Tests
+3. Brief implementation summary:
+   - where the exception lookup is centralized
+   - where expected-minute adjustment is centralized
+   - which read paths now honor closures/early release
+   - any fallback rule used when exact service times are unavailable
+4. Final status:
+   - pass/fail
+   - test counts
+   - any remaining limitations
+
+Important:
+This slice should make the numbers correct without creating admin sprawl. If you need to choose, prefer correctness in core compliance/minute calculations over extra UI polish.

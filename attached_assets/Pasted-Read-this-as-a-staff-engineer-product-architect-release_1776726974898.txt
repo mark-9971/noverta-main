@@ -1,0 +1,102 @@
+Read this as a staff engineer + product architect + release gatekeeper.
+
+School Calendar v0 — Slice 2 should now be COMPLETE.
+
+I need a strict completion/status audit, not a general summary.
+
+Your job:
+Determine whether Slice 2 is actually done, partially done, or incorrectly implemented.
+
+What Slice 2 was supposed to do:
+- integrate existing per-school school_calendar_exceptions read logic into downstream READ PATHS only
+- affect compliance / minute expectation calculations
+- affect student/service minute rollups
+- affect risk / exposure summaries
+- affect Today / schedule-facing reads where applicable
+- keep the existing School Year settings panel as the only write surface
+- make no schema changes, no migrations, no new admin pages, no raw session-log mutation
+
+Business rules to verify:
+1. closure on a school/date => expected service minutes for that school/date are 0
+2. early_release on a school/date => expected service minutes are reduced using the implemented fallback rule
+3. exceptions apply only to the affected school
+4. other schools and districts are unaffected
+5. requiredMinutes remains the fixed IEP obligation; only expected/read-path progress changes
+6. Today view remains backward-compatible with current consumers
+
+I want your response in this exact structure:
+
+1. EXECUTIVE VERDICT
+- one of:
+  - COMPLETE
+  - PARTIAL
+  - INCORRECTLY IMPLEMENTED
+- one paragraph explaining why
+
+2. EXACT CHANGES MADE
+List the exact files changed and for each one:
+- what was added/changed
+- exact functions/types/routes/components touched
+- whether the change is core logic, helper logic, route wiring, UI wiring, or tests
+
+3. READ-PATH COVERAGE
+For each of the following, say whether it now honors closures / early release, and how:
+- core minute progress calculation
+- compliance summaries
+- risk / exposure calculations
+- student/service minute rollups
+- Today / schedule-facing reads
+- any other downstream consumers that changed automatically because of shared calculation code
+
+4. FALLBACK RULE
+State the exact early-release fallback rule implemented today.
+- where it lives in code
+- whether it is deterministic
+- what future improvement is still needed for exact time-of-day proration
+
+5. ARCHITECTURE CHECK
+Answer explicitly:
+- Is exception lookup centralized?
+- Is expected-minute adjustment centralized?
+- Was the logic inserted at the correct underlying abstraction layer instead of just the UI?
+- Did the implementation avoid duplicate exception logic across routes/pages?
+- Did it avoid adding new admin sprawl?
+
+6. SAFETY / TENANCY CHECK
+Answer explicitly:
+- any schema or migration changes? yes/no
+- any log mutation? yes/no
+- district scoping safe? yes/no
+- school scoping safe? yes/no
+- any risk of cross-school or cross-district leakage?
+- any response-shape break risk in Today view?
+
+7. TEST STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- what is covered
+- what is still not covered
+- whether any failures are real vs pre-existing test noise
+
+8. DEFECTS OR GAPS
+List every remaining issue, including:
+- intraday math issues
+- Today view contract/consumer issues
+- performance concerns
+- NULL school_id fallback behavior
+- any mismatch between implemented behavior and the intended product rules
+
+9. FINAL RELEASE RECOMMENDATION
+Choose exactly one:
+- SHIP
+- SHIP AFTER ONE SMALL CLEANUP PASS
+- DO NOT SHIP
+Then explain the minimum next action required.
+
+Important constraints:
+- Be concrete, not vague.
+- Do not just say “looks good.”
+- Call out fake-complete work if any consumer was only visually updated instead of using the true calculation path.
+- If behavior changed indirectly through shared code, say so explicitly.
+- Include the exact changes made, not just a high-level recap.
