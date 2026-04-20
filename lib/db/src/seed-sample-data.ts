@@ -598,7 +598,9 @@ export interface SeedSampleOptions {
   paraCount?: number;
   /** Override BCBA count. */
   bcbaCount?: number;
-  /** Average IEP goals per student (1–8). Defaults to 3–5 random. */
+  /** Average IEP goals per student (1–25). Defaults to 15–20 random — matches
+   *  realistic MA SPED IEPs which carry one goal per service area plus
+   *  multiple objectives per area. */
   avgGoalsPerStudent?: number;
   /** Average required service minutes per week (30–300). Defaults to ~15–90/wk. */
   avgRequiredMinutesPerWeek?: number;
@@ -665,13 +667,16 @@ const INTENSITY_TO_SCALE_RANGE: Record<Intensity, readonly [number, number]> = {
 function resolveSeedShape(opts: SeedSampleOptions): SeedShape {
   const schoolCount = Math.max(1, Math.min(12, opts.schoolCount ?? 5));
 
-  // Goals/student: center on the requested mean, +/- 1.
+  // Goals/student: center on the requested mean, ±2. Default band 15–20
+  // mirrors real MA SPED IEPs (one annual goal per service area + multiple
+  // objectives per area). Hard cap 25 keeps insert volume bounded for the
+  // 2,000-student demo (≤50k iep_goals rows).
   const g = opts.avgGoalsPerStudent != null
-    ? Math.max(1, Math.min(8, Math.round(opts.avgGoalsPerStudent)))
+    ? Math.max(1, Math.min(25, Math.round(opts.avgGoalsPerStudent)))
     : null;
   const goalsRange: readonly [number, number] = g != null
-    ? [Math.max(1, g - 1), Math.min(8, g + 1)]
-    : [3, 5];
+    ? [Math.max(1, g - 2), Math.min(25, g + 2)]
+    : [15, 20];
 
   // Weekly minutes → monthly minutes (×4.345). Range = ±40% around the mean.
   let reqMinutesMonthlyRange: readonly [number, number] = SAMPLE_BOUNDS.requiredMinutes;
@@ -1455,7 +1460,18 @@ export async function seedSampleDataForDistrict(
   const insertedIeps = await chunkedInsert(iepDocumentsTable, iepRows, { returning: true });
   const iepByStudent = new Map(insertedIeps.map(d => [d.studentId, d.id]));
 
-  // ── 5. IEP goals (3–5 measurable goals per student) ──
+  // ── 5. IEP goals (15–20 measurable goals per student by default) ──
+  //
+  // Real MA SPED IEPs typically carry one annual goal per service area plus
+  // 2–4 measurable objectives under each area, landing 15–20 goal rows per
+  // student. The previous seed produced 3–5, which made the per-student
+  // "Goals" tab read like a one-page summary rather than a real IEP.
+  //
+  // The loop cycles through the priority areas as many times as needed to
+  // hit numGoals, so for a transition student with ["Transition","Academics",
+  // "Social Skills"] and numGoals=18 we get 6 goals per area instead of
+  // capping at 3. Areas repeat in round-robin order; each iteration draws a
+  // fresh entry from the goal bank for that area.
 
   const goalRows: (typeof iepGoalsTable.$inferInsert)[] = [];
   const goalAreas = ["Communication", "Social Skills", "Self-Regulation", "Academics", "Behavior", "Transition"];
@@ -1472,9 +1488,10 @@ export async function seedSampleDataForDistrict(
         ? ["Behavior", "Self-Regulation", "Communication"]
         : sshuffle(goalAreas);
 
-    const chosenAreas = priorityAreas.slice(0, numGoals);
-    for (let g = 0; g < chosenAreas.length; g++) {
-      const area = chosenAreas[g];
+    for (let g = 0; g < numGoals; g++) {
+      // Cycle through the priority areas so we can produce 15–20 goals even
+      // when the priority list is only 3 items long.
+      const area = priorityAreas[g % priorityAreas.length];
       const bank = GOAL_BANK[area] ?? GOAL_BANK["Academics"];
       const goal = pick(bank);
       goalRows.push({

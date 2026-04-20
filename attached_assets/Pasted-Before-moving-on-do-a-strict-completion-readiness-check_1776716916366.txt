@@ -1,0 +1,71 @@
+Before moving on, do a strict completion / readiness check across the recent follow-ups.
+
+Do NOT start any new implementation.
+Do NOT broaden scope.
+I want to know whether the recent requirement-related follow-ups are actually complete, stable, and safe to build on.
+
+CHECK THESE ITEMS:
+1. Clean up uncoupled requirement overlaps flagged during the rollout
+2. Switch the services list to the new requirement timeline
+3. Switch IEP suggestions to the new requirement timeline
+4. Coordinator UI path for supersede flow when they hit the 409
+5. Show superseded requirement history on the student page
+
+RETURN EXACTLY THIS:
+
+1. COMPLETION STATUS
+For each of the 5 items above, mark:
+- COMPLETE
+- PARTIAL
+- NOT DONE
+
+For each one include:
+- files changed
+- tests added
+- visible behavior change
+- docs/deprecation updates if any
+
+2. ACCEPTANCE CHECK
+For each item, tell me:
+- is it safe to accept now? yes / no
+- why
+- any caveats or cleanup still needed
+
+3. REGRESSION / RISK CHECK
+List any risks introduced by these follow-ups, especially around:
+- requirement timeline correctness
+- supersede chain behavior
+- student page rendering/history correctness
+- services list behavior
+- IEP suggestions correctness
+- legacy paths still reading old logic
+
+4. REPLACED VS DEPRECATED
+For the 5 follow-ups above, list:
+- what old logic/UI is already replaced
+- what legacy logic is deprecated but intentionally retained
+- exact removal trigger for each deprecated item
+
+5. MANUAL VERIFICATION CHECKLIST
+Give me the exact manual checks to run now, including:
+- student with a simple active requirement
+- student with a superseded requirement chain
+- services list displaying correct active timeline
+- IEP suggestions using the correct active requirement
+- coordinator hitting the 409 and completing supersede from the UI
+- student page showing requirement history correctly
+- no breakage on legacy requirement views
+
+6. GO / NO-GO FOR NEXT WORK
+End with one of:
+- GO to next block
+- GO with caveats
+- NO-GO
+
+If not a clean GO, list the exact blockers.
+
+IMPORTANT
+- Be concise
+- Be honest
+- No new repo exploration unless absolutely necessary
+- Stop after the summary

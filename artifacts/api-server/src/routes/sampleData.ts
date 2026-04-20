@@ -59,7 +59,7 @@ function parseSeedOptions(body: unknown): SeedSampleOptions {
   const pv = intInRange(b.providerCount, 0, 200);           if (pv !== undefined) out.providerCount = pv;
   const pa = intInRange(b.paraCount, 0, 200);               if (pa !== undefined) out.paraCount = pa;
   const bc = intInRange(b.bcbaCount, 0, 50);                if (bc !== undefined) out.bcbaCount = bc;
-  const ag = intInRange(b.avgGoalsPerStudent, 1, 8);        if (ag !== undefined) out.avgGoalsPerStudent = ag;
+  const ag = intInRange(b.avgGoalsPerStudent, 1, 25);       if (ag !== undefined) out.avgGoalsPerStudent = ag;
   const am = intInRange(b.avgRequiredMinutesPerWeek, 30, 300); if (am !== undefined) out.avgRequiredMinutesPerWeek = am;
   const bm = intInRange(b.backfillMonths, 1, 12);           if (bm !== undefined) out.backfillMonths = bm;
   const ch = intensity(b.complianceHealth);                 if (ch) out.complianceHealth = ch;

@@ -420,7 +420,7 @@ const DEFAULT_CUSTOM_FORM: CustomSeedForm = {
   providerCount: 8,
   paraCount: 6,
   bcbaCount: 2,
-  avgGoalsPerStudent: 4,
+  avgGoalsPerStudent: 17,
   avgRequiredMinutesPerWeek: 90,
   backfillMonths: 8,
   complianceHealth: "medium",
@@ -620,7 +620,7 @@ function CustomSeedForm({ form, onChange, onSubmit, submitting }: CustomSeedForm
         </label>
         <NumField label="Schools" k="schoolCount" min={1} max={12} />
         <NumField label="SPED students" k="targetStudents" min={5} max={2000} />
-        <NumField label="Avg goals / student" k="avgGoalsPerStudent" min={1} max={8} />
+        <NumField label="Avg goals / student" k="avgGoalsPerStudent" min={1} max={25} />
         <NumField label="Avg required min / week" k="avgRequiredMinutesPerWeek" min={30} max={300} />
         <NumField label="Backfill (months)" k="backfillMonths" min={1} max={12} />
       </Section>
