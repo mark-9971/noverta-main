@@ -1,0 +1,71 @@
+I want to treat this product as a 12-month company-building effort, not a demo sprint.
+
+Do not optimize for short-term polish. Optimize for becoming a real, sellable, trusted product with a clear wedge.
+
+I need a full strategic product and architecture reset based on the existing codebase.
+
+Please analyze the entire app and return the following:
+
+1. ONE-SENTENCE PRODUCT IDENTITY
+Based on the actual code and workflows, what is the clearest product this should become?
+
+2. CORE WEDGE RECOMMENDATION
+Choose the strongest wedge and justify it:
+- SPED compliance operating system
+- SPED + ABA workflow platform
+- SPED operations + Medicaid/billing/revenue
+- another better framing you identify
+
+3. KEEP / MERGE / CUT / DEFER
+For every major module/page/feature in the app, classify it as:
+- KEEP CORE
+- KEEP BUT MERGE
+- DEFER
+- CUT
+For each item, explain why:
+- user value
+- sales value
+- implementation quality
+- strategic fit
+- maintenance burden
+
+4. INFORMATION ARCHITECTURE RESET
+Propose the ideal nav and page structure for:
+- district admin
+- case manager / provider / BCBA
+- paraprofessional
+Only include what those users actually need frequently.
+
+5. ARCHITECTURE MAP
+Explain the current architecture as it actually exists:
+- backend structure
+- frontend structure
+- auth / tenant model
+- data model shape
+- shared libraries
+- major technical debt patterns
+Then propose the ideal target architecture for the next 12 months.
+
+6. TOP 20 TECHNICAL RISKS
+Rank the most important engineering / data / product risks by severity and why they matter.
+
+7. 12-MONTH BUILD PLAN
+Create a phased roadmap:
+- Phase 1: foundation
+- Phase 2: core workflow excellence
+- Phase 3: trust / reporting / admin depth
+- Phase 4: expansion layers
+For each phase, include concrete workstreams and goals.
+
+8. WHAT NOT TO BUILD
+Tell me which tempting features I should avoid for the next 6–12 months, even if they sound impressive.
+
+9. HARDEST TRUTH
+Give me the bluntest honest assessment of what this app is currently best positioned to be, and what story I should stop telling myself if it is not supported by the product.
+
+Constraints:
+- Be brutally honest
+- Optimize for product clarity, not ego
+- Prefer a narrower strong product over a broad weak one
+- Assume I have a year to rebuild intelligently
+- Focus on what wins customers and survives diligence

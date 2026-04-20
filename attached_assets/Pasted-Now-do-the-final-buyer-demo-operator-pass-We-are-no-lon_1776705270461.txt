@@ -1,0 +1,47 @@
+Now do the final buyer-demo operator pass. We are no longer doing broad engineering cleanup. We are optimizing for a smooth, credible 30-minute walkthrough tomorrow.
+
+PHASE 8 — DEFINE THE EXACT SHOW PATH
+1. Identify the best 25–30 minute MetroWest admin demo route based on what is now strongest and most believable.
+2. Produce the route in exact click order.
+3. Mark each step as one of:
+   - must show
+   - optional if time
+   - avoid
+4. Prefer screens with strong seeded data, clear visual payoff, and minimal risk.
+
+PHASE 9 — ELIMINATE REMAINING “THAT LOOKS BROKEN” MOMENTS
+1. Walk the exact demo route again end-to-end.
+2. For every stop on the route, identify:
+   - bad empty states
+   - awkward copy
+   - suspicious numbers
+   - weak labels
+   - loading states that feel broken
+3. Fix only the highest-signal issues visible on the route.
+4. If a screen is weak and not worth fixing now, mark it as “avoid in demo.”
+
+PHASE 10 — SIS / SETTINGS TRUST CHECK
+1. Determine whether the SIS sync/status UI appears anywhere on the likely buyer route.
+2. If yes:
+   - verify whether status polling is honest
+   - fix or reframe it so it does not appear silently broken
+3. If no:
+   - explicitly mark it as off-route and not worth touching before demo
+
+PHASE 11 — DEMO SAFETY LAYER
+1. Add the lightest-weight possible demo safeguards:
+   - visible “Sample Data” indicator if easy
+   - or at minimum, a clear note somewhere in the admin experience / buyer pack that this is a seeded demo tenant
+2. Create the simplest possible pre-flight artifact:
+   - either a small admin page or a written checklist in buyer-pack
+   - include: reseed done, showcase data present, no console errors, key endpoints green, last verification time
+
+OUTPUT FORMAT
+Return:
+A. Final recommended 30-minute demo route in exact order
+B. 5 must-show screens
+C. 5 screens/features to avoid
+D. Remaining visible weaknesses that still exist
+E. Whether SIS sync needs action before demo
+F. The simplest pre-flight checklist I should run 10 minutes before the call
+G. Final call: demo tomorrow = yes / yes with caveats / no

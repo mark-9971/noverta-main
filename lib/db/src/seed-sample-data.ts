@@ -458,12 +458,27 @@ function buildStaffSeeds(
   return out;
 }
 
+// 11 default service types covering the requested catalog: 5 direct
+// services + 3 academic/APE interventions + 3 consult variants. Consult
+// variants reuse the same CPT code as their direct parent (consult time
+// is bundled under the same procedure code by Medicaid in MA) but at a
+// lower hourly rate to reflect indirect service delivery.
 const SERVICE_TYPE_DEFAULTS = [
+  // Direct services
   { name: "Speech-Language Therapy", category: "speech",     color: "#06b6d4", defaultIntervalType: "monthly", cptCode: "92507", defaultBillingRate: "68.00" },
   { name: "Occupational Therapy",    category: "ot",         color: "#8b5cf6", defaultIntervalType: "monthly", cptCode: "97530", defaultBillingRate: "65.00" },
   { name: "Counseling",              category: "counseling", color: "#10b981", defaultIntervalType: "monthly", cptCode: "90837", defaultBillingRate: "55.00" },
   { name: "ABA Therapy",             category: "aba",        color: "#6366f1", defaultIntervalType: "monthly", cptCode: "97153", defaultBillingRate: "72.00" },
   { name: "Physical Therapy",        category: "pt",         color: "#f59e0b", defaultIntervalType: "monthly", cptCode: "97110", defaultBillingRate: "62.00" },
+  // Academic interventions + APE
+  { name: "Specialized Reading",     category: "reading",    color: "#ef4444", defaultIntervalType: "monthly", cptCode: null,    defaultBillingRate: "52.00" },
+  { name: "Math Intervention",       category: "math",       color: "#f97316", defaultIntervalType: "monthly", cptCode: null,    defaultBillingRate: "52.00" },
+  { name: "Adaptive Physical Education", category: "ape",    color: "#84cc16", defaultIntervalType: "monthly", cptCode: null,    defaultBillingRate: "58.00" },
+  // Consult variants (indirect service: provider consults with classroom
+  // teacher / paraprofessional rather than delivering 1:1)
+  { name: "Speech Consult",          category: "speech_consult",     color: "#0891b2", defaultIntervalType: "monthly", cptCode: "92507", defaultBillingRate: "55.00" },
+  { name: "OT Consult",              category: "ot_consult",         color: "#7c3aed", defaultIntervalType: "monthly", cptCode: "97530", defaultBillingRate: "52.00" },
+  { name: "Counseling Consult",      category: "counseling_consult", color: "#059669", defaultIntervalType: "monthly", cptCode: "90837", defaultBillingRate: "44.00" },
 ];
 
 interface StudentSpec {
@@ -1026,6 +1041,16 @@ export async function seedSampleDataForDistrict(
   // different rosters (names, scenario assignments, completion patterns).
   setSeed(districtId);
 
+  // Rollback wrapper: if any insert below throws after we've written rows,
+  // we tear down the partial seed via `teardownSampleData(districtId)` so
+  // the caller can safely retry. We only tear down when this call also
+  // *created* the district stub (`districtCreatedHere`, set further down)
+  // — never when seeding into a pre-existing tenant, where teardown could
+  // wipe operator data unrelated to this seed run. The original error is
+  // re-thrown unchanged so callers still see the root cause.
+  let districtCreatedHereForRollback = false;
+  try {
+
   const shape = resolveSeedShape(options);
   const sizeProfile = resolveSizeProfile(options.sizeProfile);
   // When the caller does not specify a profile, randomize the roster size
@@ -1047,6 +1072,34 @@ export async function seedSampleDataForDistrict(
   // future plain INSERT into districts (which relies on the default nextval)
   // doesn't collide on this id.
   let [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, districtId));
+  // Track whether this call is the one that created the district stub. On a
+  // mid-seed failure we tear down the partial seed only when we created the
+  // district here — never if the caller is re-seeding into an existing
+  // tenant (could clobber a real district with operator data).
+  const districtCreatedHere = !district;
+  districtCreatedHereForRollback = districtCreatedHere;
+  // Realistic config baseline applied on auto-provision (and to existing
+  // *default-named* stubs that have never been configured). This matches
+  // what a freshly onboarded MA district looks like: 85% compliance
+  // threshold, role-keyed caseload caps, MA timezone, all nudge / digest /
+  // renewal emails enabled, and a $60/hr default billing rate.
+  const REALISTIC_DISTRICT_CONFIG = {
+    complianceMinuteThreshold: 85,
+    caseloadThresholds: {
+      provider: 35,
+      bcba: 25,
+      case_manager: 20,
+      sped_teacher: 18,
+    } as Record<string, number>,
+    timeZone: "America/New_York",
+    alertDigestMode: false,
+    spikeAlertEnabled: true,
+    spikeAlertThreshold: 3,
+    weeklyRiskEmailEnabled: true,
+    pilotScorecardEmailEnabled: true,
+    iepRenewalEmailEnabled: true,
+    defaultHourlyRate: "60.00",
+  };
   if (!district) {
     // Honor caller-supplied districtName when auto-provisioning so demo
     // setups can label the district up front (e.g. "MetroWest Collaborative")
@@ -1061,6 +1114,7 @@ export async function seedSampleDataForDistrict(
         isPilot: false,
         isSandbox: false,
         hasSampleData: false,
+        ...REALISTIC_DISTRICT_CONFIG,
       })
       .onConflictDoNothing();
     await db.execute(sql`
@@ -1078,6 +1132,15 @@ export async function seedSampleDataForDistrict(
     const newName = options.districtName.trim();
     await db.update(districtsTable).set({ name: newName }).where(eq(districtsTable.id, districtId));
     district = { ...district, name: newName };
+  }
+
+  // Backfill the realistic config on existing stubs that still carry the
+  // empty defaults (no caseload thresholds set yet). Skipped entirely once
+  // an operator has configured the district — we only fill, never overwrite.
+  if (district && district.caseloadThresholds == null) {
+    await db.update(districtsTable)
+      .set(REALISTIC_DISTRICT_CONFIG)
+      .where(eq(districtsTable.id, districtId));
   }
 
   // Ensure enough schools exist to satisfy shape.schoolCount. SCHOOL_NAMES
@@ -1112,10 +1175,43 @@ export async function seedSampleDataForDistrict(
     };
     [schoolYear] = await db.insert(schoolYearsTable).values(schoolYearInsert).returning();
   }
+  // Also ensure a *prior* (inactive) school year row exists so historical
+  // reports — year-over-year compliance comparisons, archived progress
+  // reports, the "previous year" filter on the goal-mastery page — render
+  // with real labels instead of an empty dropdown. Idempotent: skipped when
+  // a row with the prior label already exists.
+  {
+    const activeStart = parseInt(schoolYear.startDate.slice(0, 4), 10);
+    const priorLabel = `${activeStart - 1}-${activeStart}`;
+    const existingPrior = await db.select({ id: schoolYearsTable.id })
+      .from(schoolYearsTable)
+      .where(and(eq(schoolYearsTable.districtId, districtId), eq(schoolYearsTable.label, priorLabel)));
+    if (existingPrior.length === 0) {
+      await db.insert(schoolYearsTable).values({
+        districtId,
+        label: priorLabel,
+        startDate: `${activeStart - 1}-08-15`,
+        endDate: `${activeStart}-06-15`,
+        isActive: false,
+      });
+    }
+  }
 
   let serviceTypes = await db.select().from(serviceTypesTable);
   if (serviceTypes.length === 0) {
     serviceTypes = await db.insert(serviceTypesTable).values(SERVICE_TYPE_DEFAULTS).returning();
+  } else {
+    // Backfill any catalog entries the table is missing by name. The
+    // catalog is global (not district-scoped), so an older seed run may
+    // have inserted only the original 5 rows. We add what's missing
+    // without disturbing any operator-edited rates / codes on existing
+    // ones — match strictly by name.
+    const existingNames = new Set(serviceTypes.map(s => s.name));
+    const missing = SERVICE_TYPE_DEFAULTS.filter(d => !existingNames.has(d.name));
+    if (missing.length > 0) {
+      const inserted = await db.insert(serviceTypesTable).values(missing).returning();
+      serviceTypes = [...serviceTypes, ...inserted];
+    }
   }
   const svcByCategory = new Map(serviceTypes.map(s => [s.category, s]));
   // Resolve palette (fall back to first available for missing categories)
@@ -1583,16 +1679,59 @@ export async function seedSampleDataForDistrict(
       });
     }
   }
+  // Idempotency guard: clear any pre-existing recurring blocks for *every*
+  // staff member currently assigned to this district — not just the staff
+  // freshly inserted in this run. Re-seeds accumulate staff (the seeder
+  // does not delete prior staff), so scoping the wipe to only newly-
+  // inserted IDs would leave behind stale availability and service blocks
+  // belonging to staff from earlier seed runs, producing duplicate
+  // (staff_id, day_of_week, start_time, end_time) rows. Fresh-seed runs
+  // are no-ops because newly-inserted staff have no blocks yet.
+  const districtStaff = await db.execute(sql`
+    SELECT s.id AS staff_id
+    FROM staff s
+    JOIN schools sc ON sc.id = s.school_id
+    WHERE sc.district_id = ${districtId}
+  `);
+  const wipeStaffIds = Array.from(new Set([
+    ...blockRows.map(b => b.staffId).filter((v): v is number => typeof v === "number"),
+    ...providers.map(p => p.id),
+    ...districtStaff.rows.map((r: { staff_id: number }) => r.staff_id),
+  ]));
+  if (wipeStaffIds.length > 0) {
+    await db.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.staffId, wipeStaffIds));
+  }
   if (blockRows.length > 0) {
-    // Idempotency guard: clear any pre-existing recurring blocks for the
-    // staff being seeded so re-running this function does not pile up
-    // duplicate (staff_id, day_of_week, start_time, end_time) rows.
-    // Fresh-seed runs are no-ops because newly-inserted staff have no rows.
-    const seededStaffIds = Array.from(new Set(blockRows.map(b => b.staffId).filter((v): v is number => typeof v === "number")));
-    if (seededStaffIds.length > 0) {
-      await db.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.staffId, seededStaffIds));
-    }
     await chunkedInsert(scheduleBlocksTable, blockRows);
+  }
+
+  // ── 8a. Provider availability skeleton ──
+  // One `blockType='availability'` row per (provider × weekday) covering
+  // 8:00–15:00. The service blocks above layer on top of these so the
+  // calendar UI shows a baseline "I'm here Mon–Fri" presence under the
+  // actual delivery slots. Without this, providers look "off" any time
+  // they aren't actively in a service block, which misrepresents the
+  // weekly heatmap.
+  const availabilityRows: (typeof scheduleBlocksTable.$inferInsert)[] = [];
+  for (const provider of providers) {
+    for (const day of DAYS) {
+      availabilityRows.push({
+        staffId: provider.id,
+        studentId: null,
+        serviceTypeId: null,
+        dayOfWeek: day,
+        startTime: "08:00",
+        endTime: "15:00",
+        location: "School",
+        blockType: "availability",
+        isRecurring: true,
+        isAutoGenerated: true,
+        schoolYearId: schoolYear.id,
+      });
+    }
+  }
+  if (availabilityRows.length > 0) {
+    await chunkedInsert(scheduleBlocksTable, availabilityRows);
   }
 
   // ── 8.5. Future scheduled sessions (next 14 weekdays) ──
@@ -1740,69 +1879,149 @@ export async function seedSampleDataForDistrict(
   }
   await chunkedInsert(medicalAlertsTable, medicalRows);
 
-  // ── 11. Alerts ──
-
+  // ── 11. Alerts (state-driven from observed delivery) ──
+  //
+  // Mirrors the severity rules in
+  // `artifacts/api-server/src/lib/complianceEngine.ts::runComplianceChecks()`
+  // but operates on the rows we just inserted (we already hold them in
+  // memory, so a second pass through `complianceEngine` over the network
+  // would be wasted work). The categories below match what the engine
+  // would emit on a fresh pass:
+  //   - behind_on_minutes  (severity from delivered/required ratio)
+  //   - missed_sessions    (high, when ≥3 missed for one SR)
+  //   - projected_shortfall (high, when projection < 90%)
+  // Plus the two non-minute alerts that aren't derived from session data:
+  //   - iep / annual_review_due
+  //   - compliance / incident_history
+  //
+  // Severity bands match the engine and the dashboard's `riskStatus`:
+  //   pct < 50%       → critical (out_of_compliance)
+  //   pct 50–70%      → high     (at_risk)
+  //   pct 70–85%      → medium   (slightly_behind)
+  //   pct ≥ 85%       → no alert (on_track)
   const alertRows: (typeof alertsTable.$inferInsert)[] = [];
-  for (const spec of studentSpecs) {
-    switch (spec.scenario) {
-      case "crisis":
-        alertRows.push({
-          type: "compliance", severity: "high", studentId: spec.id,
-          message: "Critical: Service delivery at 28% — significant compensatory obligation accruing. Financial exposure exceeds $3,000.",
-          suggestedAction: "Convene emergency team meeting, develop intensive make-up plan, and notify district director.",
-          resolved: false,
-        });
-        break;
-      case "urgent":
-        alertRows.push({
-          type: "compliance", severity: "high", studentId: spec.id,
-          message: "Service delivery below 50% — student at risk of compensatory obligation.",
-          suggestedAction: "Schedule make-up sessions immediately and notify case manager.",
-          resolved: false,
-        });
-        break;
-      case "compensatory_risk":
-        alertRows.push({
-          type: "compliance", severity: "medium", studentId: spec.id,
-          message: "Cumulative shortfall approaching compensatory threshold.",
-          suggestedAction: "Calculate minutes owed and prepare a make-up plan.",
-          resolved: false,
-        });
-        break;
-      case "shortfall":
-        alertRows.push({
-          type: "compliance", severity: "medium", studentId: spec.id,
-          message: "Service delivery below 80% this month.",
-          suggestedAction: "Review scheduling and prioritize make-up sessions.",
-          resolved: false,
-        });
-        break;
-      case "sliding":
-        alertRows.push({
-          type: "compliance", severity: "medium", studentId: spec.id,
-          message: "Compliance trending downward — was on-track in Q1, now below 50%.",
-          suggestedAction: "Review provider schedule changes; confirm no service gaps.",
-          resolved: false,
-        });
-        break;
-      case "annual_review_due":
-        alertRows.push({
-          type: "iep", severity: "high", studentId: spec.id,
-          message: "Annual IEP review due within 30 days. Team meeting must be scheduled.",
-          suggestedAction: "Contact family to schedule annual IEP meeting and send prior written notice.",
-          resolved: false,
-        });
-        break;
-      case "incident_history":
-        alertRows.push({
-          type: "compliance", severity: "medium", studentId: spec.id,
-          message: "Student has 2 documented restraint incidents this year. BIP review recommended.",
-          suggestedAction: "Schedule BIP fidelity review with BCBA and update behavior support strategies.",
-          resolved: false,
-        });
-        break;
+
+  // Aggregate completed minutes and missed counts by (studentId, srId).
+  type Agg = { delivered: number; missed: number };
+  const aggByStudentSr = new Map<string, Agg>();
+  for (const row of sessionRows) {
+    if (row.studentId == null || row.serviceRequirementId == null) continue;
+    const key = `${row.studentId}|${row.serviceRequirementId}`;
+    const agg = aggByStudentSr.get(key) ?? { delivered: 0, missed: 0 };
+    if (row.status === "completed") {
+      agg.delivered += row.durationMinutes ?? 0;
+    } else if (row.status === "missed") {
+      agg.missed += 1;
+    }
+    aggByStudentSr.set(key, agg);
+  }
+
+  // Walk every SR and synthesize alerts for the worst-case SR per student so
+  // we don't fire 3 stacked alerts on one student with 3 services.
+  type WorstSr = {
+    studentId: number;
+    srId: number;
+    pct: number;
+    delivered: number;
+    required: number;
+    missed: number;
+    serviceTypeId: number;
+  };
+  const worstByStudent = new Map<number, WorstSr>();
+  for (const sr of insertedSrs) {
+    if (sr.requiredMinutes <= 0) continue;
+    const agg = aggByStudentSr.get(`${sr.studentId}|${sr.id}`) ?? { delivered: 0, missed: 0 };
+    const pct = agg.delivered / sr.requiredMinutes;
+    const current = worstByStudent.get(sr.studentId);
+    if (!current || pct < current.pct) {
+      worstByStudent.set(sr.studentId, {
+        studentId: sr.studentId,
+        srId: sr.id,
+        pct,
+        delivered: agg.delivered,
+        required: sr.requiredMinutes,
+        missed: agg.missed,
+        serviceTypeId: sr.serviceTypeId,
+      });
     }
   }
+
+  const serviceTypeNameById = new Map(serviceTypes.map(t => [t.id, t.name]));
+  const studentNameById = new Map(insertedStudents.map(s => [s.id, `${s.firstName} ${s.lastName}`]));
+
+  for (const w of worstByStudent.values()) {
+    const studentName = studentNameById.get(w.studentId) ?? "Student";
+    const serviceName = serviceTypeNameById.get(w.serviceTypeId) ?? "service";
+    const pctRounded = Math.round(w.pct * 100);
+
+    if (w.pct < 0.5) {
+      alertRows.push({
+        type: "behind_on_minutes",
+        severity: "critical",
+        studentId: w.studentId,
+        serviceRequirementId: w.srId,
+        message: `${studentName} is out of compliance for ${serviceName}. Delivered ${w.delivered} of ${w.required} required minutes (${pctRounded}% complete).`,
+        suggestedAction: "Schedule makeup sessions immediately to address the deficit.",
+        resolved: false,
+      });
+    } else if (w.pct < 0.7) {
+      alertRows.push({
+        type: "behind_on_minutes",
+        severity: "high",
+        studentId: w.studentId,
+        serviceRequirementId: w.srId,
+        message: `${studentName} is at risk for ${serviceName}. Delivered ${w.delivered} of ${w.required} minutes (${pctRounded}% complete).`,
+        suggestedAction: "Review schedule and add additional sessions to close the gap.",
+        resolved: false,
+      });
+    } else if (w.pct < 0.85) {
+      alertRows.push({
+        type: "behind_on_minutes",
+        severity: "medium",
+        studentId: w.studentId,
+        serviceRequirementId: w.srId,
+        message: `${studentName} is slightly behind on ${serviceName}. ${Math.max(0, w.required - w.delivered)} minutes remaining.`,
+        suggestedAction: "Monitor and ensure upcoming sessions are not missed.",
+        resolved: false,
+      });
+    }
+
+    // Independent missed_sessions alert when ≥3 misses on the worst SR.
+    if (w.missed >= 3) {
+      alertRows.push({
+        type: "missed_sessions",
+        severity: "high",
+        studentId: w.studentId,
+        serviceRequirementId: w.srId,
+        message: `${studentName} has ${w.missed} missed sessions for ${serviceName} this interval.`,
+        suggestedAction: "Investigate root cause of missed sessions and address staffing or scheduling issues.",
+        resolved: false,
+      });
+    }
+  }
+
+  // Non-minute alerts derived from scenario state (IEP-due, incident
+  // history). These aren't surfaced by the compliance engine — they come
+  // from IEP and restraint state, not session delivery — so they remain
+  // scenario-driven.
+  for (const spec of studentSpecs) {
+    if (spec.scenario === "annual_review_due") {
+      alertRows.push({
+        type: "iep", severity: "high", studentId: spec.id,
+        message: "Annual IEP review due within 30 days. Team meeting must be scheduled.",
+        suggestedAction: "Contact family to schedule annual IEP meeting and send prior written notice.",
+        resolved: false,
+      });
+    } else if (spec.scenario === "incident_history") {
+      alertRows.push({
+        type: "compliance", severity: "medium", studentId: spec.id,
+        message: "Student has 2 documented restraint incidents this year. BIP review recommended.",
+        suggestedAction: "Schedule BIP fidelity review with BCBA and update behavior support strategies.",
+        resolved: false,
+      });
+    }
+  }
+
   if (alertRows.length > 0) await chunkedInsert(alertsTable, alertRows);
 
   // ── 12. Compensatory obligations (urgent + compensatory_risk + crisis) ──
@@ -2426,6 +2645,25 @@ export async function seedSampleDataForDistrict(
     compensatoryObligations: compRows.length,
     sizeProfile,
   };
+
+  } catch (err) {
+    // Best-effort rollback: tear down anything we wrote so the caller can
+    // retry from a clean slate. Only safe when this call also created the
+    // district stub — see comment at the top of the function. We swallow
+    // teardown errors (logging) and rethrow the original error so the
+    // root cause surfaces unchanged.
+    if (districtCreatedHereForRollback) {
+      try {
+        await teardownSampleData(districtId);
+      } catch (teardownErr) {
+        console.error(
+          `[seed-sample-data] rollback teardown failed for district ${districtId}:`,
+          teardownErr,
+        );
+      }
+    }
+    throw err;
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────

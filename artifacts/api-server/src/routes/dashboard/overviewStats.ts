@@ -7,7 +7,7 @@ import {
   agencyContractsTable, agenciesTable,
   coverageInstancesTable, errorLogsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, count, sql, asc, isNull, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, count, sql, asc, isNull, inArray, type SQL } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import {
   resolveCallerDistrictId,
@@ -65,19 +65,19 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const sessionFilter = buildSessionStudentFilter(sdFilters);
   const alertFilter = buildAlertStudentFilter(sdFilters);
 
-  const studentConditions = [eq(studentsTable.status, "active")];
-  if (studentFilter) studentConditions.push(studentFilter as any);
-  if (isCaseloadScoped) studentConditions.push(inArray(studentsTable.id, caseloadStudentIds) as any);
+  const studentConditions: SQL[] = [eq(studentsTable.status, "active")];
+  if (studentFilter) studentConditions.push(studentFilter);
+  if (isCaseloadScoped) studentConditions.push(inArray(studentsTable.id, caseloadStudentIds));
 
-  const missedConditions: any[] = [eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, weekStartStr), lte(sessionLogsTable.sessionDate, todayStr), isNull(sessionLogsTable.deletedAt)];
+  const missedConditions: SQL[] = [eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, weekStartStr), lte(sessionLogsTable.sessionDate, todayStr), isNull(sessionLogsTable.deletedAt)];
   if (sessionFilter) missedConditions.push(sessionFilter);
   if (isCaseloadScoped) missedConditions.push(inArray(sessionLogsTable.studentId, caseloadStudentIds));
 
-  const makeupConditions: any[] = [eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt)];
+  const makeupConditions: SQL[] = [eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt)];
   if (sessionFilter) makeupConditions.push(sessionFilter);
   if (isCaseloadScoped) makeupConditions.push(inArray(sessionLogsTable.studentId, caseloadStudentIds));
 
-  const alertConditions: any[] = [eq(alertsTable.resolved, false)];
+  const alertConditions: SQL[] = [eq(alertsTable.resolved, false)];
   if (alertFilter) alertConditions.push(alertFilter);
   if (isCaseloadScoped) alertConditions.push(inArray(alertsTable.studentId, caseloadStudentIds));
 
@@ -468,7 +468,6 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
         LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
         LEFT JOIN iep_documents d   ON d.id = g.iep_document_id
         WHERE g.active = true
-          AND g.status = 'active'
           ${schoolFilter}
           ${staffFilter}
       )
@@ -524,7 +523,6 @@ router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
         LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
         LEFT JOIN iep_documents d   ON d.id = g.iep_document_id
         WHERE g.active = true
-          AND g.status = 'active'
           ${schoolFilter}
           ${staffFilter}
       )
