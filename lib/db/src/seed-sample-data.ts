@@ -1041,13 +1041,17 @@ export async function seedSampleDataForDistrict(
   // different rosters (names, scenario assignments, completion patterns).
   setSeed(districtId);
 
-  // Rollback wrapper: if any insert below throws after we've written rows,
-  // we tear down the partial seed via `teardownSampleData(districtId)` so
-  // the caller can safely retry. We only tear down when this call also
-  // *created* the district stub (`districtCreatedHere`, set further down)
-  // — never when seeding into a pre-existing tenant, where teardown could
-  // wipe operator data unrelated to this seed run. The original error is
-  // re-thrown unchanged so callers still see the root cause.
+  // Rollback wrapper: if any insert below throws after we've written
+  // rows, we ALWAYS tear down the partial seed via
+  // `teardownSampleData(districtId)` so the caller can safely retry.
+  // teardownSampleData is scoped to rows tagged `is_sample = true`
+  // within this district's schools, so it cannot touch operator data
+  // even when this call is seeding into an existing tenant. The
+  // `districtCreatedHereForRollback` flag (set just after the district
+  // lookup) gates *only* the post-rollback cleanup of the empty
+  // district stub itself — we should not delete a pre-existing
+  // district row, but we should clean up one we just created. The
+  // original error is rethrown unchanged so callers see the root cause.
   let districtCreatedHereForRollback = false;
   try {
 
