@@ -4,7 +4,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Badge } from "@/components/ui/badge";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
+import { useActiveDemoDistrict } from "@/components/DemoBanner";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
 import {
   Users, AlertTriangle, ShieldAlert, TrendingDown,
   ArrowRight, Calendar, BarChart3, Clock, Target, CheckCircle2
@@ -120,11 +124,14 @@ export default function ExecutiveDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Executive Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Building-wide SPED compliance overview</p>
         </div>
-        <Link href="/iep-calendar" className="inline-flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-700 font-medium">
-          <Calendar className="w-4 h-4" />
-          IEP Calendar
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        <div className="flex items-center gap-3">
+          <ExecPacketEntryPoint />
+          <Link href="/iep-calendar" className="inline-flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+            <Calendar className="w-4 h-4" />
+            IEP Calendar
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -400,5 +407,20 @@ function RiskBar({ label, count, total, color, href }: { label: string; count: n
         <div className={`h-full rounded-full transition-all duration-500`} style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
     </div>
+  );
+}
+
+
+function ExecPacketEntryPoint() {
+  const { isPlatformAdmin } = useRole();
+  const demoDistrict = useActiveDemoDistrict();
+  if (!isPlatformAdmin || !demoDistrict) return null;
+  return (
+    <Link href="/demo-control-center#panel-8">
+      <Button variant="outline" size="sm" className="gap-2" data-testid="button-open-exec-packet">
+        <FileText className="w-4 h-4" />
+        Open packet
+      </Button>
+    </Link>
   );
 }

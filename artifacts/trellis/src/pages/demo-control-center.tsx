@@ -25,11 +25,12 @@
  * is_demo before doing any work.
  */
 import * as React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import { apiGet, apiPost } from "@/lib/api";
+import { authFetch } from "@/lib/auth-fetch";
 import { useRole, type UserRole } from "@/lib/role-context";
 import { useActiveDemoDistrict } from "@/components/DemoBanner";
 import { useSchoolContext } from "@/lib/school-context";
@@ -39,6 +40,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -50,6 +52,7 @@ import {
 import {
   Activity, FlaskConical, Compass, Users, Lightbulb, RefreshCw, Sparkles,
   Loader2, AlertTriangle, ExternalLink, RotateCcw,
+  FileText, Download, Eye, FileSpreadsheet, CheckCircle2,
 } from "lucide-react";
 import BeforeAfterPanel from "@/components/demo-control/BeforeAfterPanel";
 import CompExposurePanel from "@/components/demo-control/CompExposurePanel";
@@ -135,6 +138,355 @@ function PanelHeader({ num, title, icon: Icon }: {
         <span>{title}</span>
       </CardTitle>
     </CardHeader>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Panel 7 — Import / Spreadsheet Conversion Preview.
+// Lets the demo operator paste a CSV/TSV blob (or load a small sample) and
+// see how Trellis would parse it into student/IEP rows BEFORE committing to
+// an import. Strictly preview-only; never writes to the database. Used in
+// the live demo to show "we'll handle your messy export" without risking
+// anything to the demo district's data.
+// ---------------------------------------------------------------------------
+const SAMPLE_CSV = `Student ID,First,Last,Grade,Disability,IEP Due,Service Minutes
+S1024,Aaliyah,Brooks,5,SLD,2026-09-12,150
+S1025,Marcus,Chen,7,OHI,2026-06-30,90
+S1027,Priya,Desai,3,Speech,2026-05-04,60
+S1031,Jordan,Ellis,9,EBD,2025-11-20,240
+S1042,Tomás,Flores,4,SLD,2026-08-01,120`;
+
+interface ImportPreviewResp {
+  ok: boolean;
+  delimiter: string;
+  rowCount: number;
+  columns: string[];
+  fieldMap: Array<{ source: string; target: string | null; confidence: number }>;
+  rows: Array<Record<string, string>>;
+  warnings: string[];
+}
+
+function ImportPreviewPanel({ districtId }: { districtId: number }) {
+  const [text, setText] = useState<string>(SAMPLE_CSV);
+  const [result, setResult] = useState<ImportPreviewResp | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runPreview() {
+    setBusy(true); setError(null);
+    try {
+      const resp = await authFetch(
+        `/api/demo-control/import-preview?districtId=${districtId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        },
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = (await resp.json()) as ImportPreviewResp;
+      setResult(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Preview failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card data-testid="demo-control-slot-7" className="lg:col-span-2">
+      <CardHeader className="py-3 bg-amber-50 border-b border-amber-100">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-200 text-[10px] text-amber-900">7</span>
+          <FileSpreadsheet className="w-4 h-4" />
+          Import / Spreadsheet Preview
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        <p className="text-xs text-gray-500">
+          Paste a CSV/TSV export from the prospect's SIS. Trellis will infer column mappings and
+          show the first parsed rows. This is preview-only — nothing is written to the demo
+          district.
+        </p>
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={6}
+          className="font-mono text-xs"
+          data-testid="textarea-import-preview"
+          placeholder="Paste CSV or TSV here…"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={runPreview}
+            disabled={busy || text.trim().length === 0}
+            size="sm"
+            className="gap-1"
+            data-testid="button-run-import-preview"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            {busy ? "Parsing…" : "Preview parse"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setText(SAMPLE_CSV); setResult(null); setError(null); }}
+            data-testid="button-reset-import-preview"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+            Load sample
+          </Button>
+          <Link href="/import">
+            <Button variant="ghost" size="sm" className="gap-1 text-xs">
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open full import flow
+            </Button>
+          </Link>
+        </div>
+        {error && (
+          <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+        {result && (
+          <div className="space-y-3" data-testid="import-preview-result">
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                {result.rowCount} rows parsed
+              </span>
+              <span className="px-2 py-1 rounded bg-gray-100 text-gray-700">
+                Delimiter: <code className="font-mono">{result.delimiter === "\t" ? "TAB" : result.delimiter}</code>
+              </span>
+              <span className="px-2 py-1 rounded bg-gray-100 text-gray-700">
+                {result.columns.length} columns
+              </span>
+            </div>
+            {result.fieldMap.length > 0 && (
+              <div className="border rounded overflow-hidden">
+                <div className="px-2 py-1 bg-gray-50 text-[10px] font-semibold text-gray-600 uppercase">
+                  Field map (inferred)
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      <th className="text-left px-2 py-1 font-medium">Source column</th>
+                      <th className="text-left px-2 py-1 font-medium">Trellis field</th>
+                      <th className="text-right px-2 py-1 font-medium">Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.fieldMap.map((m, i) => (
+                      <tr key={i} className="border-t" data-testid={`row-fieldmap-${i}`}>
+                        <td className="px-2 py-1 font-mono">{m.source}</td>
+                        <td className="px-2 py-1">{m.target ?? <span className="text-gray-400 italic">unmapped</span>}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{Math.round(m.confidence * 100)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {result.rows.length > 0 && (
+              <div className="border rounded overflow-x-auto">
+                <div className="px-2 py-1 bg-gray-50 text-[10px] font-semibold text-gray-600 uppercase">
+                  First {result.rows.length} parsed rows
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      {result.columns.map((c) => (
+                        <th key={c} className="text-left px-2 py-1 font-medium whitespace-nowrap">{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rows.map((row, i) => (
+                      <tr key={i} className="border-t">
+                        {result.columns.map((c) => (
+                          <td key={c} className="px-2 py-1 whitespace-nowrap">{row[c] ?? ""}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {result.warnings.length > 0 && (
+              <ul className="text-xs text-amber-800 space-y-1">
+                {result.warnings.map((w, i) => (
+                  <li key={i} className="flex items-start gap-1">
+                    <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    {w}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Panel 8 — Executive Packet Generator.
+// Renders a one-page district summary backed by the same metric math as the
+// Pilot Readout, plus a one-click PDF export. Replaces the deprecated
+// standalone /leadership-packet page.
+// ---------------------------------------------------------------------------
+interface ExecPacketResp {
+  ok: boolean;
+  districtId: number;
+  districtName: string;
+  filename: string;
+  html: string;
+  summary: {
+    compliancePct: number;
+    total: number;
+    affected: number;
+    highRisk: number;
+    exposureDollars: number;
+    compEdMinutesOutstanding: number;
+    overdueEvaluations: number;
+    expiringIepsNext60: number;
+    staffing: {
+      avgCaseload: number;
+      overloaded: number;
+      maxCaseload: number;
+      staffWithLoad: number;
+      staffTotal: number;
+    };
+    trend: {
+      capturedAt: string;
+      compliancePts: number;
+      exposureDollars: number;
+      compEdMinutes: number;
+      overdueEvaluations: number;
+      expiringIeps: number;
+    } | null;
+  };
+}
+
+function fmtSigned(n: number, suffix = ""): string {
+  const v = Math.round(n);
+  if (v === 0) return `±0${suffix}`;
+  return `${v > 0 ? "+" : ""}${v.toLocaleString()}${suffix}`;
+}
+
+function ExecPacketPanel({ districtId }: { districtId: number }) {
+  const { data, isLoading, refetch, isFetching } = useQuery<ExecPacketResp>({
+    queryKey: ["demo-control", "exec-packet", districtId],
+    queryFn: () => apiGet<ExecPacketResp>(`/api/demo-control/exec-packet?districtId=${districtId}`),
+    enabled: !!districtId,
+  });
+  const previewRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (data?.html && previewRef.current) {
+      const doc = previewRef.current.contentDocument;
+      if (doc) { doc.open(); doc.write(data.html); doc.close(); }
+    }
+  }, [data?.html]);
+
+  const pdfUrl = `/api/demo-control/exec-packet.pdf?districtId=${districtId}`;
+  const s = data?.summary;
+
+  return (
+    <Card data-testid="demo-control-slot-8" className="lg:col-span-3">
+      <CardHeader className="py-3 bg-sky-50 border-b border-sky-100">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-sky-900">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-200 text-[10px] text-sky-900">8</span>
+          <FileText className="w-4 h-4" />
+          Executive Packet
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-gray-500 max-w-xl">
+            One-page leadership summary for this demo district. Numbers come from the same
+            pilot-baseline math as the Pilot Readout, plus staffing strain and a delta vs the
+            Day-0 baseline. Export as a polished PDF for hand-off after the demo.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              data-testid="button-refresh-exec-packet"
+              className="gap-1"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="link-exec-packet-pdf">
+              <Button size="sm" className="gap-1">
+                <Download className="w-3.5 h-3.5" />
+                Download PDF
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        {isLoading && <div className="text-xs text-gray-400 italic">Building packet…</div>}
+
+        {s && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2" data-testid="exec-packet-kpis">
+            <KpiTile label="Compliance" value={`${s.compliancePct}%`} sub={`${s.total} active students`} />
+            <KpiTile label="Students at risk" value={String(s.affected)} sub={`${s.highRisk} high-risk`} />
+            <KpiTile label="Comp-ed exposure" value={`$${s.exposureDollars.toLocaleString()}`} sub={`${s.compEdMinutesOutstanding.toLocaleString()} min outstanding`} />
+            <KpiTile label="Overdue evaluations" value={String(s.overdueEvaluations)} sub="past 60-day deadline" />
+            <KpiTile label="IEPs due next 60d" value={String(s.expiringIepsNext60)} sub="renewals coming up" />
+            <KpiTile
+              label="Staffing strain"
+              value={String(s.staffing.avgCaseload)}
+              sub={`${s.staffing.overloaded} CMs > 25 · max ${s.staffing.maxCaseload}`}
+            />
+          </div>
+        )}
+
+        {s?.trend ? (
+          <div className="text-xs bg-sky-50 border border-sky-100 text-sky-900 rounded p-2" data-testid="exec-packet-trend">
+            <span className="font-semibold">vs Day-0 baseline:</span>{" "}
+            {fmtSigned(s.trend.compliancePts, " pts")} compliance ·{" "}
+            {fmtSigned(-s.trend.exposureDollars)} exposure $ ·{" "}
+            {fmtSigned(-s.trend.compEdMinutes)} comp-ed min ·{" "}
+            {fmtSigned(-s.trend.overdueEvaluations)} overdue evals
+          </div>
+        ) : s ? (
+          <div className="text-xs italic text-gray-500">
+            No baseline captured yet — trend will populate after the next snapshot.
+          </div>
+        ) : null}
+
+        {data?.html && (
+          <div className="border rounded overflow-hidden" data-testid="exec-packet-preview">
+            <div className="px-2 py-1 bg-gray-50 text-[10px] font-semibold text-gray-600 uppercase border-b">
+              Preview
+            </div>
+            <iframe
+              ref={previewRef}
+              title="Executive packet preview"
+              className="w-full"
+              style={{ height: 480, background: "white" }}
+              sandbox=""
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function KpiTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="border rounded p-2 bg-white">
+      <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-lg font-semibold text-gray-900 mt-0.5 tabular-nums">{value}</div>
+      {sub && <div className="text-[10px] text-gray-500 mt-0.5">{sub}</div>}
+    </div>
   );
 }
 
@@ -587,6 +939,8 @@ export default function DemoControlCenterPage() {
     if (n === 4) return <BeforeAfterPanel key={`${n}-${demoDistrict.id}`} districtName={demoDistrict.name} />;
     if (n === 5) return <CompExposurePanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 6) return <CaseloadSimulatorPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
+    if (n === 7) return <ImportPreviewPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
+    if (n === 8) return <ExecPacketPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 9) return <RoleWalkthroughTogglePanel key={n} />;
     if (n === 12) return (
       <ResetDistrictPanel

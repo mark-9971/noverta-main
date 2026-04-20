@@ -323,7 +323,7 @@ function StaffRouter() {
       <Route path="/compliance/checklist">{() => <Redirect to="/compliance?tab=checklist" />}</Route>
       <Route path="/compliance/trends">{() => <Redirect to="/compliance?tab=trends" />}</Route>
       {/* Phase 1a silent redirect: leadership packet now folded into Executive Dashboard */}
-      <Route path="/leadership-packet">{() => <Redirect to="/executive?tab=leadership" />}</Route>
+      <Route path="/leadership-packet">{() => <Redirect to="/demo-control-center#panel-8" />}</Route>
       <BoundedRoute path="/_leadership-packet-legacy" component={LeadershipPacketPage} fallbackTitle="Leadership packet error" featureKey="district.executive" />
       {/* SURVIVAL FEATURE: compliance.service_minutes is in the Essentials tier — accessible to all districts */}
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />

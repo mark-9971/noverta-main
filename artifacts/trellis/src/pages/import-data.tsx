@@ -10,6 +10,10 @@ import {
   Settings2, TriangleAlert, CircleDot, Info
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { Link } from "wouter";
+import { useRole } from "@/lib/role-context";
+import { useActiveDemoDistrict } from "@/components/DemoBanner";
+import { Eye } from "lucide-react";
 
 type ImportType = "students" | "staff" | "service-requirements" | "sessions" | "goals-data" | "iep-documents";
 
@@ -462,9 +466,12 @@ export default function ImportData() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Import Data</h1>
-        <p className="text-xs md:text-sm text-gray-400 mt-1">Bulk import students, staff, IEP requirements, sessions, and historical goal data</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Import Data</h1>
+          <p className="text-xs md:text-sm text-gray-400 mt-1">Bulk import students, staff, IEP requirements, sessions, and historical goal data</p>
+        </div>
+        <ImportPreviewEntryPoint />
       </div>
 
       <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800 flex gap-3 items-start">
@@ -1274,5 +1281,19 @@ function IepUploadCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ImportPreviewEntryPoint() {
+  const { isPlatformAdmin } = useRole();
+  const demoDistrict = useActiveDemoDistrict();
+  if (!isPlatformAdmin || !demoDistrict) return null;
+  return (
+    <Link href="/demo-control-center#panel-7">
+      <Button variant="outline" size="sm" className="gap-2" data-testid="button-open-import-preview">
+        <Eye className="w-4 h-4" />
+        Preview as demo
+      </Button>
+    </Link>
   );
 }

@@ -33,10 +33,12 @@ import {
   staffTable,
   alertsTable,
   compensatoryObligationsTable,
+  pilotBaselineSnapshotsTable,
   seedSampleDataForDistrict,
   teardownSampleData,
 } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { computePilotBaselineMetrics } from "../lib/pilotBaselineSnapshots";
 
 const router: IRouter = Router();
 
@@ -943,87 +945,154 @@ router.post("/demo-control/import-preview", async (req: Request, res: Response) 
 });
 
 // ---------------------------------------------------------------------------
-// GET /demo-control/exec-packet?districtId= — district-scoped HTML packet.
+// Shared exec packet metric assembly. Reuses computePilotBaselineMetrics
+// (the same math that powers the Pilot Readout) so the packet, the pilot
+// baseline, and the comparison panels never disagree about the headline
+// numbers. Adds staffing strain + trend-vs-baseline on top.
 // ---------------------------------------------------------------------------
+async function buildExecPacketData(districtId: number, districtName: string) {
+  const schoolIds = await loadSchoolIds(districtId);
+  if (schoolIds.length === 0) {
+    return { schoolIds, empty: true as const, districtName };
+  }
+  const metrics = await computePilotBaselineMetrics(districtId);
+  const [baselineRow] = await db
+    .select()
+    .from(pilotBaselineSnapshotsTable)
+    .where(eq(pilotBaselineSnapshotsTable.districtId, districtId))
+    .limit(1);
+  const [stuRow] = (await db.execute<{ total: number; affected: number; high_risk: number }>(sql`
+    SELECT
+      (SELECT COUNT(*) FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL)::int AS total,
+      (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false
+         AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS affected,
+      (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false AND severity = 'high'
+         AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS high_risk
+  `)).rows as Array<{ total: number; affected: number; high_risk: number }>;
+  const topRisk = (await db.execute<{ id: number; first_name: string; last_name: string; n: number }>(sql`
+    SELECT s.id, s.first_name, s.last_name, COUNT(a.id)::int AS n FROM students s
+    JOIN alerts a ON a.student_id = s.id AND a.resolved = false
+    WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL
+    GROUP BY s.id, s.first_name, s.last_name ORDER BY n DESC LIMIT 5
+  `)).rows;
+  // Staffing strain: ratio of active students per active staff member with a
+  // caseload, plus the count of staff carrying >25 students (overloaded).
+  const [staffRow] = (await db.execute<{
+    staff_total: number; staff_with_load: number; overloaded: number; max_caseload: number;
+  }>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM staff WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL) AS staff_total,
+      COUNT(*)::int AS staff_with_load,
+      COUNT(*) FILTER (WHERE n > 25)::int AS overloaded,
+      COALESCE(MAX(n), 0)::int AS max_caseload
+    FROM (
+      SELECT case_manager_id AS sid, COUNT(*) AS n FROM students
+      WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL AND case_manager_id IS NOT NULL
+      GROUP BY case_manager_id
+    ) cl
+  `)).rows as Array<Record<string, number>>;
+  const total = Number(stuRow.total || 0);
+  const affected = Number(stuRow.affected || 0);
+  const staffWithLoad = Number(staffRow?.staff_with_load || 0);
+  const avgCaseload = staffWithLoad > 0 ? Math.round((total / staffWithLoad) * 10) / 10 : 0;
+  // Trend vs baseline: +/- delta on key metrics; baseline acts as the
+  // "prior period" anchor for districts in pilot mode.
+  const trend = baselineRow ? {
+    capturedAt: baselineRow.capturedAt,
+    compliancePts: (metrics.compliancePercent ?? 0) - (baselineRow.compliancePercent ?? 0),
+    exposureDollars: metrics.exposureDollars - baselineRow.exposureDollars,
+    compEdMinutes: metrics.compEdMinutesOutstanding - baselineRow.compEdMinutesOutstanding,
+    overdueEvaluations: metrics.overdueEvaluations - baselineRow.overdueEvaluations,
+    expiringIeps: metrics.expiringIepsNext60 - baselineRow.expiringIepsNext60,
+  } : null;
+  return {
+    empty: false as const,
+    schoolIds, districtName,
+    total, affected, highRisk: Number(stuRow.high_risk || 0),
+    topRisk,
+    metrics, trend,
+    staffing: {
+      staffTotal: Number(staffRow?.staff_total || 0),
+      staffWithLoad,
+      overloaded: Number(staffRow?.overloaded || 0),
+      maxCaseload: Number(staffRow?.max_caseload || 0),
+      avgCaseload,
+    },
+  };
+}
+
+function fmtSign(n: number, suffix = ""): string {
+  const v = Math.round(n);
+  if (v === 0) return `±0${suffix}`;
+  return `${v > 0 ? "+" : ""}${v.toLocaleString()}${suffix}`;
+}
+
 router.get("/demo-control/exec-packet", async (req: Request, res: Response) => {
   const r = await requireDemoDistrict(req.query.districtId);
   if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
   try {
-    const schoolIds = await loadSchoolIds(r.district.id);
-    if (schoolIds.length === 0) {
-      res.json({ html: `<h1>${r.district.name}</h1><p>No schools.</p>`, districtId: r.district.id }); return;
+    const data = await buildExecPacketData(r.district.id, r.district.name);
+    if (data.empty) {
+      res.json({ html: `<h1>${r.district.name}</h1><p>No schools.</p>`, districtId: r.district.id });
+      return;
     }
-    const [stuRow] = (await db.execute<{ total: number; affected: number; high_risk: number }>(sql`
-      SELECT
-        (SELECT COUNT(*) FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL)::int AS total,
-        (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false
-           AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS affected,
-        (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false AND severity = 'high'
-           AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS high_risk
-    `)).rows as Array<{ total: number; affected: number; high_risk: number }>;
-    const topRisk = (await db.execute<{ id: number; first_name: string; last_name: string; n: number }>(sql`
-      SELECT s.id, s.first_name, s.last_name, COUNT(a.id)::int AS n FROM students s
-      JOIN alerts a ON a.student_id = s.id AND a.resolved = false
-      WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL
-      GROUP BY s.id, s.first_name, s.last_name ORDER BY n DESC LIMIT 5
-    `)).rows;
-    const alertMix = (await db.execute<{ type: string; n: number }>(sql`
-      SELECT type, COUNT(*)::int AS n FROM alerts
-      WHERE resolved = false
-        AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
-      GROUP BY type ORDER BY n DESC
-    `)).rows;
-    const [compRow] = (await db.execute<{ owed: number; delivered: number; n: number }>(sql`
-      SELECT COALESCE(SUM(minutes_owed),0)::int AS owed,
-             COALESCE(SUM(minutes_delivered),0)::int AS delivered,
-             COUNT(*)::int AS n FROM compensatory_obligations
-      WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
-    `)).rows as Array<{ owed: number; delivered: number; n: number }>;
-    const total = Number(stuRow.total || 0);
-    const affected = Number(stuRow.affected || 0);
-    const compliancePct = total > 0 ? Math.round((1 - affected / total) * 100) : 100;
-    const minutesOpen = Math.max(0, Number(compRow.owed || 0) - Number(compRow.delivered || 0));
-    const dollarsAtRisk = Math.round((minutesOpen / 60) * 85);
+    const { metrics, trend, staffing, total, affected, highRisk, topRisk } = data;
+    const compliancePct = metrics.compliancePercent ?? 0;
     const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+    const trendLine = trend
+      ? `vs Day-0 baseline: <strong>${fmtSign(trend.compliancePts, " pts")}</strong> compliance · ` +
+        `<strong>${fmtSign(-trend.exposureDollars).replace(/^([+-])/, (m) => m === "+" ? "−" : "+")}</strong> exposure $ · ` +
+        `<strong>${fmtSign(-trend.compEdMinutes)}</strong> comp-ed min · ` +
+        `<strong>${fmtSign(-trend.overdueEvaluations)}</strong> overdue evals`
+      : `<em>No baseline captured yet — trend will populate after the next snapshot.</em>`;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Executive Packet — ${esc(r.district.name)}</title>
 <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:780px;margin:24px auto;color:#111;padding:0 20px}
 h1{font-size:22px;margin:0 0 4px}h2{font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-top:24px}
 .banner{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:16px}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
 .kpi{border:1px solid #ddd;border-radius:6px;padding:10px}
 .kpi-label{font-size:10px;text-transform:uppercase;color:#6b7280;letter-spacing:.04em}
 .kpi-value{font-size:20px;font-weight:600;margin-top:4px}
+.kpi-sub{font-size:10px;color:#6b7280;margin-top:2px}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #eee}
 th{font-size:10px;text-transform:uppercase;color:#6b7280}
+.trend{background:#f0f9ff;border:1px solid #bae6fd;color:#075985;padding:8px 12px;border-radius:6px;font-size:12px;margin:12px 0}
 .foot{font-size:10px;color:#6b7280;border-top:1px solid #eee;margin-top:24px;padding-top:8px}
 </style></head><body>
 <div class="banner">SAMPLE DATA — Generated from a demo district. Numbers are not real.</div>
 <h1>Executive Packet — ${esc(r.district.name)}</h1>
-<p style="font-size:12px;color:#6b7280">Generated ${new Date().toLocaleString()}</p>
+<p style="font-size:12px;color:#6b7280">Generated ${new Date().toLocaleString()} · One-page district summary</p>
 <div class="kpi-row">
-  <div class="kpi"><div class="kpi-label">Compliance</div><div class="kpi-value">${compliancePct}%</div></div>
-  <div class="kpi"><div class="kpi-label">Active Students</div><div class="kpi-value">${total}</div></div>
-  <div class="kpi"><div class="kpi-label">At-Risk Students</div><div class="kpi-value">${affected}</div></div>
-  <div class="kpi"><div class="kpi-label">High-Risk</div><div class="kpi-value">${Number(stuRow.high_risk || 0)}</div></div>
+  <div class="kpi"><div class="kpi-label">Compliance</div><div class="kpi-value">${compliancePct}%</div><div class="kpi-sub">${total} active students</div></div>
+  <div class="kpi"><div class="kpi-label">Students at risk</div><div class="kpi-value">${affected}</div><div class="kpi-sub">${highRisk} high-risk · open alerts</div></div>
+  <div class="kpi"><div class="kpi-label">Comp-ed exposure</div><div class="kpi-value">$${metrics.exposureDollars.toLocaleString()}</div><div class="kpi-sub">${metrics.compEdMinutesOutstanding.toLocaleString()} min outstanding</div></div>
 </div>
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-label">Overdue evaluations</div><div class="kpi-value">${metrics.overdueEvaluations}</div><div class="kpi-sub">past 60-day deadline</div></div>
+  <div class="kpi"><div class="kpi-label">IEPs / progress next 60d</div><div class="kpi-value">${metrics.expiringIepsNext60}</div><div class="kpi-sub">renewals coming due</div></div>
+  <div class="kpi"><div class="kpi-label">Staffing strain</div><div class="kpi-value">${staffing.avgCaseload}</div><div class="kpi-sub">${staffing.overloaded} CMs &gt; 25 · max ${staffing.maxCaseload}</div></div>
+</div>
+<div class="trend">${trendLine}</div>
 <h2>Top high-risk students</h2>
 <table><thead><tr><th>Student</th><th>Open alerts</th></tr></thead><tbody>
 ${topRisk.map(s => `<tr><td>${esc(s.first_name)} ${esc(s.last_name)}</td><td>${s.n}</td></tr>`).join("") || `<tr><td colspan="2">None</td></tr>`}
 </tbody></table>
-<h2>Alert mix</h2>
-<table><thead><tr><th>Type</th><th>Open</th></tr></thead><tbody>
-${alertMix.map(a => `<tr><td>${esc(a.type.replace(/_/g, " "))}</td><td>${a.n}</td></tr>`).join("") || `<tr><td colspan="2">None</td></tr>`}
-</tbody></table>
-<h2>Compensatory exposure</h2>
-<p style="font-size:13px">${Number(compRow.n || 0)} obligations · ${minutesOpen.toLocaleString()} minutes open · ~$${dollarsAtRisk.toLocaleString()} at risk (heuristic @ $85/hr)</p>
 <div class="foot">Generated by Demo Control Center for the ${esc(r.district.name)} demo district. Not for distribution outside Trellis demos.</div>
 </body></html>`;
     res.json({
       ok: true, districtId: r.district.id, districtName: r.district.name,
       filename: `exec-packet-${r.district.id}-${new Date().toISOString().slice(0, 10)}.html`,
       html,
-      summary: { compliancePct, total, affected, openAlerts: Number(stuRow.affected || 0), minutesOpen, dollarsAtRisk },
+      summary: {
+        compliancePct, total, affected, highRisk,
+        exposureDollars: metrics.exposureDollars,
+        compEdMinutesOutstanding: metrics.compEdMinutesOutstanding,
+        overdueEvaluations: metrics.overdueEvaluations,
+        expiringIepsNext60: metrics.expiringIepsNext60,
+        staffing,
+        trend,
+      },
     });
   } catch (err) {
     logger.error({ err }, "exec-packet failed");
@@ -1039,89 +1108,79 @@ router.get("/demo-control/exec-packet.pdf", async (req: Request, res: Response) 
   const r = await requireDemoDistrict(req.query.districtId);
   if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
   try {
-    const schoolIds = await loadSchoolIds(r.district.id);
-    const [stuRow] = (await db.execute<{ total: number; affected: number; high_risk: number }>(sql`
-      SELECT
-        (SELECT COUNT(*) FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL)::int AS total,
-        (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false
-           AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS affected,
-        (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false AND severity = 'high'
-           AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS high_risk
-    `)).rows as Array<{ total: number; affected: number; high_risk: number }>;
-    const topRisk = (await db.execute<{ id: number; first_name: string; last_name: string; n: number }>(sql`
-      SELECT s.id, s.first_name, s.last_name, COUNT(a.id)::int AS n FROM students s
-      JOIN alerts a ON a.student_id = s.id AND a.resolved = false
-      WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL
-      GROUP BY s.id, s.first_name, s.last_name ORDER BY n DESC LIMIT 5
-    `)).rows;
-    const alertMix = (await db.execute<{ type: string; n: number }>(sql`
-      SELECT type, COUNT(*)::int AS n FROM alerts
-      WHERE resolved = false
-        AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
-      GROUP BY type ORDER BY n DESC
-    `)).rows;
-    const [compRow] = (await db.execute<{ owed: number; delivered: number; n: number }>(sql`
-      SELECT COALESCE(SUM(minutes_owed),0)::int AS owed,
-             COALESCE(SUM(minutes_delivered),0)::int AS delivered,
-             COUNT(*)::int AS n FROM compensatory_obligations
-      WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
-    `)).rows as Array<{ owed: number; delivered: number; n: number }>;
-    const total = Number(stuRow.total || 0);
-    const affected = Number(stuRow.affected || 0);
-    const compliancePct = total > 0 ? Math.round((1 - affected / total) * 100) : 100;
-    const minutesOpen = Math.max(0, Number(compRow.owed || 0) - Number(compRow.delivered || 0));
-    const dollarsAtRisk = Math.round((minutesOpen / 60) * 85);
+    const data = await buildExecPacketData(r.district.id, r.district.name);
     const filename = `exec-packet-${r.district.id}-${new Date().toISOString().slice(0, 10)}.pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
     const doc = new PDFDocument({ size: "LETTER", margin: 48 });
     doc.pipe(res);
-    // Sample-data banner
     doc.fillColor("#92400e").fontSize(9)
        .text("SAMPLE DATA — Generated for a Trellis demo. Numbers are not real.", { align: "left" });
-    doc.moveDown(0.5);
+    doc.moveDown(0.4);
     doc.fillColor("#111827").fontSize(20).font("Helvetica-Bold")
        .text(`Executive Packet — ${r.district.name}`);
     doc.fillColor("#6b7280").fontSize(9).font("Helvetica")
-       .text(`Generated ${new Date().toLocaleString()}`);
-    doc.moveDown(0.8);
-    // KPI grid (4 boxes)
-    const kpis = [
-      { label: "COMPLIANCE", value: `${compliancePct}%` },
-      { label: "ACTIVE STUDENTS", value: String(total) },
-      { label: "AT-RISK STUDENTS", value: String(affected) },
-      { label: "HIGH-RISK", value: String(Number(stuRow.high_risk || 0)) },
-    ];
-    const startX = 48; const boxW = 120; const boxH = 50; const gap = 8;
-    const rowY = doc.y;
-    kpis.forEach((k, i) => {
-      const x = startX + i * (boxW + gap);
-      doc.rect(x, rowY, boxW, boxH).strokeColor("#d1d5db").lineWidth(1).stroke();
-      doc.fillColor("#6b7280").fontSize(7).font("Helvetica-Bold").text(k.label, x + 6, rowY + 6, { width: boxW - 12 });
-      doc.fillColor("#111827").fontSize(18).font("Helvetica-Bold").text(k.value, x + 6, rowY + 20, { width: boxW - 12 });
-    });
-    doc.y = rowY + boxH + 16;
-    // Section: Top high-risk
+       .text(`Generated ${new Date().toLocaleString()} · One-page district summary`);
+    doc.moveDown(0.6);
+    if (data.empty) {
+      doc.fillColor("#111827").fontSize(11).text("No schools configured for this demo district.");
+      doc.end();
+      return;
+    }
+    const { metrics, trend, staffing, total, affected, highRisk, topRisk } = data;
+    const compliancePct = metrics.compliancePercent ?? 0;
+    const drawKpiRow = (kpis: Array<{ label: string; value: string; sub?: string }>, y: number) => {
+      const startX = 48; const boxW = 162; const boxH = 56; const gap = 8;
+      kpis.forEach((k, i) => {
+        const x = startX + i * (boxW + gap);
+        doc.rect(x, y, boxW, boxH).strokeColor("#d1d5db").lineWidth(1).stroke();
+        doc.fillColor("#6b7280").fontSize(7).font("Helvetica-Bold")
+           .text(k.label, x + 6, y + 6, { width: boxW - 12 });
+        doc.fillColor("#111827").fontSize(16).font("Helvetica-Bold")
+           .text(k.value, x + 6, y + 20, { width: boxW - 12 });
+        if (k.sub) {
+          doc.fillColor("#6b7280").fontSize(7).font("Helvetica")
+             .text(k.sub, x + 6, y + 42, { width: boxW - 12 });
+        }
+      });
+      doc.y = y + boxH + 8;
+    };
+    drawKpiRow([
+      { label: "COMPLIANCE", value: `${compliancePct}%`, sub: `${total} active students` },
+      { label: "STUDENTS AT RISK", value: String(affected), sub: `${highRisk} high-risk` },
+      { label: "COMP-ED EXPOSURE", value: `$${metrics.exposureDollars.toLocaleString()}`,
+        sub: `${metrics.compEdMinutesOutstanding.toLocaleString()} min outstanding` },
+    ], doc.y);
+    drawKpiRow([
+      { label: "OVERDUE EVALUATIONS", value: String(metrics.overdueEvaluations), sub: "past 60-day deadline" },
+      { label: "IEPS DUE NEXT 60D", value: String(metrics.expiringIepsNext60), sub: "renewals coming up" },
+      { label: "STAFFING STRAIN", value: String(staffing.avgCaseload),
+        sub: `${staffing.overloaded} CMs > 25 · max ${staffing.maxCaseload}` },
+    ], doc.y);
+    // Trend vs baseline
+    doc.fillColor("#374151").fontSize(10).font("Helvetica-Bold").text("Trend vs Day-0 baseline");
+    doc.moveTo(48, doc.y).lineTo(548, doc.y).strokeColor("#e5e7eb").stroke();
+    doc.moveDown(0.2);
+    doc.fillColor("#111827").fontSize(10).font("Helvetica");
+    if (trend) {
+      const expSign = trend.exposureDollars <= 0 ? "↓" : "↑";
+      doc.text(
+        `Compliance: ${fmtSign(trend.compliancePts, " pts")}   ` +
+        `Exposure $: ${expSign} ${Math.abs(trend.exposureDollars).toLocaleString()}   ` +
+        `Comp-ed minutes: ${fmtSign(-trend.compEdMinutes)}   ` +
+        `Overdue evals: ${fmtSign(-trend.overdueEvaluations)}`,
+      );
+    } else {
+      doc.fillColor("#6b7280").text("No baseline captured yet — trend will populate after the next snapshot.");
+    }
+    doc.moveDown(0.6);
+    // Top high-risk
     doc.fillColor("#374151").fontSize(11).font("Helvetica-Bold").text("Top high-risk students");
     doc.moveTo(48, doc.y).lineTo(548, doc.y).strokeColor("#e5e7eb").stroke();
     doc.moveDown(0.3); doc.fillColor("#111827").fontSize(10).font("Helvetica");
     if (topRisk.length === 0) doc.text("None.");
     else topRisk.forEach(s => doc.text(`• ${s.first_name} ${s.last_name} — ${s.n} open alert(s)`));
-    doc.moveDown(0.7);
-    // Section: Alert mix
-    doc.fillColor("#374151").fontSize(11).font("Helvetica-Bold").text("Alert mix");
-    doc.moveTo(48, doc.y).lineTo(548, doc.y).strokeColor("#e5e7eb").stroke();
-    doc.moveDown(0.3); doc.fillColor("#111827").fontSize(10).font("Helvetica");
-    if (alertMix.length === 0) doc.text("None.");
-    else alertMix.forEach(a => doc.text(`• ${a.type.replace(/_/g, " ")} — ${a.n}`));
-    doc.moveDown(0.7);
-    // Section: Compensatory exposure
-    doc.fillColor("#374151").fontSize(11).font("Helvetica-Bold").text("Compensatory exposure");
-    doc.moveTo(48, doc.y).lineTo(548, doc.y).strokeColor("#e5e7eb").stroke();
-    doc.moveDown(0.3); doc.fillColor("#111827").fontSize(10).font("Helvetica")
-       .text(`${Number(compRow.n || 0)} obligations · ${minutesOpen.toLocaleString()} minutes open · ~$${dollarsAtRisk.toLocaleString()} at risk (heuristic @ $85/hr)`);
-    // Footer
-    doc.moveDown(2);
+    doc.moveDown(1.5);
     doc.fillColor("#6b7280").fontSize(8)
        .text(`Generated by Demo Control Center for the ${r.district.name} demo district. Not for distribution outside Trellis demos.`, { align: "left" });
     doc.end();
