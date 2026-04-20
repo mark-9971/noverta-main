@@ -8,6 +8,13 @@ export const auditLogsTable = pgTable("audit_logs", {
   targetTable: text("target_table").notNull(),
   targetId: text("target_id"),
   studentId: integer("student_id"),
+  // Denormalized tenant scope. Populated at write-time from
+  // req.tenantDistrictId (the authoritative source used by
+  // getEnforcedDistrictId and view-as middleware). Nullable to tolerate
+  // pre-scoping rows and truly unscoped writes (platform-admin / anonymous).
+  // The /api/audit-logs read path filters strictly on this column for
+  // district-admin callers — NULL rows are NOT returned to district admins.
+  districtId: integer("district_id"),
   ipAddress: text("ip_address"),
   summary: text("summary"),
   oldValues: jsonb("old_values"),
@@ -21,6 +28,7 @@ export const auditLogsTable = pgTable("audit_logs", {
   index("audit_target_created_idx").on(table.targetTable, table.targetId, table.createdAt),
   index("audit_student_idx").on(table.studentId),
   index("audit_created_idx").on(table.createdAt),
+  index("audit_district_created_idx").on(table.districtId, table.createdAt),
 ]);
 
 export type AuditLog = typeof auditLogsTable.$inferSelect;

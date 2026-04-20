@@ -65,6 +65,14 @@ export function logAudit(req: Request, entry: AuditEntry): void {
     };
   }
 
+  // Denormalize tenant scope onto the row itself so /api/audit-logs can
+  // filter strictly by district without per-targetTable join gymnastics.
+  // Source of truth is req.tenantDistrictId — same value getEnforcedDistrictId
+  // returns and the same value view-as middleware rewrites for impersonation,
+  // so view-as audit rows correctly inherit the TARGET district, not the
+  // platform admin's (null) district.
+  const districtId: number | null = authed.tenantDistrictId ?? null;
+
   db.insert(auditLogsTable)
     .values({
       actorUserId,
@@ -73,6 +81,7 @@ export function logAudit(req: Request, entry: AuditEntry): void {
       targetTable: entry.targetTable,
       targetId: entry.targetId != null ? String(entry.targetId) : null,
       studentId: entry.studentId ?? null,
+      districtId,
       ipAddress,
       summary: entry.summary ?? null,
       oldValues: entry.oldValues ?? null,

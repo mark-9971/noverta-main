@@ -1,15 +1,37 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db, auditLogsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, ilike, sql } from "drizzle-orm";
-import { requireRoles } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 
-// tenant-scope: district-join
+// tenant-scope: denormalized audit_logs.district_id (populated at write-time
+// by lib/auditLog.ts from req.tenantDistrictId). All read endpoints in this
+// file unconditionally append `district_id = :tenantDistrictId` for the
+// authenticated district-admin caller. Rows with NULL district_id are
+// intentionally excluded from district-admin views — they represent either
+// pre-scoping legacy data (best-effort backfilled separately) or platform-
+// admin/unscoped writes that must not leak across tenants.
 const router: IRouter = Router();
 
 const ADMIN_ROLES = ["admin"] as const;
 
+/**
+ * Resolve the district scope for an /api/audit-logs caller. requireRoles("admin")
+ * gates this router to district-admin trellisRole only (trellis_support and
+ * platform_admin are excluded). A district admin without a tenantDistrictId is
+ * a misconfiguration — fail closed rather than return everything.
+ */
+function resolveAuditScope(req: Request): number | null {
+  return getEnforcedDistrictId(req as AuthedRequest);
+}
+
 router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promise<void> => {
   try {
+    const districtId = resolveAuditScope(req);
+    if (districtId == null) {
+      res.status(403).json({ error: "District scope required" });
+      return;
+    }
+
     const {
       actorUserId,
       action,
@@ -22,7 +44,9 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
       offset: offsetStr,
     } = req.query;
 
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: ReturnType<typeof eq>[] = [
+      eq(auditLogsTable.districtId, districtId),
+    ];
 
     if (actorUserId && typeof actorUserId === "string") {
       conditions.push(eq(auditLogsTable.actorUserId, actorUserId));
@@ -53,7 +77,7 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
     const parsedOffset = typeof offsetStr === "string" ? parseInt(offsetStr, 10) : NaN;
     const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
 
     const [logs, countResult] = await Promise.all([
       db
@@ -91,9 +115,17 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
 
 router.get("/audit-logs/export", requireRoles(...ADMIN_ROLES), async (req, res): Promise<void> => {
   try {
+    const districtId = resolveAuditScope(req);
+    if (districtId == null) {
+      res.status(403).json({ error: "District scope required" });
+      return;
+    }
+
     const { actorUserId, action, targetTable, studentId, dateFrom, dateTo } = req.query;
 
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: ReturnType<typeof eq>[] = [
+      eq(auditLogsTable.districtId, districtId),
+    ];
     if (actorUserId && typeof actorUserId === "string") {
       conditions.push(eq(auditLogsTable.actorUserId, actorUserId));
     }
@@ -115,7 +147,7 @@ router.get("/audit-logs/export", requireRoles(...ADMIN_ROLES), async (req, res):
       conditions.push(lte(auditLogsTable.createdAt, endDate));
     }
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
 
     const logs = await db
       .select()
@@ -159,9 +191,17 @@ router.get("/audit-logs/export", requireRoles(...ADMIN_ROLES), async (req, res):
 
 router.get("/audit-logs/stats", requireRoles(...ADMIN_ROLES), async (req, res): Promise<void> => {
   try {
+    const districtId = resolveAuditScope(req);
+    if (districtId == null) {
+      res.status(403).json({ error: "District scope required" });
+      return;
+    }
+
     const { dateFrom, dateTo } = req.query;
 
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: ReturnType<typeof eq>[] = [
+      eq(auditLogsTable.districtId, districtId),
+    ];
     if (dateFrom && typeof dateFrom === "string") {
       conditions.push(gte(auditLogsTable.createdAt, new Date(dateFrom)));
     }
@@ -171,7 +211,7 @@ router.get("/audit-logs/stats", requireRoles(...ADMIN_ROLES), async (req, res): 
       conditions.push(lte(auditLogsTable.createdAt, endDate));
     }
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
 
     const [byAction, byTable, totalResult] = await Promise.all([
       db
