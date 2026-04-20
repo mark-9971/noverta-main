@@ -21,6 +21,7 @@ import { StudentQuickView } from "@/components/student-quick-view";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
+import { useSisConnection } from "@/lib/use-sis-connection";
 import { useSchoolYears } from "@/lib/use-school-years";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -91,9 +92,11 @@ export default function Students() {
     .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
   const isAdmin = role === "admin";
-  // hasSIS: set to true once a Student Information System integration is configured.
-  // When false, admins manually add students; when true, redirect to SIS sync flow.
-  const hasSIS = false;
+  // Source-of-truth gate for SIS-owned data (demographics, guardians,
+  // medical alerts, etc.). Hides manual-entry affordances once a real
+  // SIS connection is live so Trellis never contradicts the SIS of record.
+  const sis = useSisConnection();
+  const hasSIS = sis.connected;
 
   async function handleAddStudent() {
     if (!addForm.firstName || !addForm.lastName) { toast.error("First and last name are required"); return; }
