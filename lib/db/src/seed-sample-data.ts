@@ -1502,13 +1502,19 @@ export async function seedSampleDataForDistrict(
         : rand(shape.reqMinutesMonthlyRange[0], shape.reqMinutesMonthlyRange[1]);
 
       // Backdate startDate to span the full session history window so historical
-      // compliance reports can render (sessions go back ~180 weekdays).
-      // Use earlier of: 240 days ago or the student's enrollment date.
+      // compliance reports can render. Validator requires ≥6 months of past
+      // activity per student, so we *force* startDate to be at least 180 days
+      // before today regardless of how recently the student was enrolled —
+      // demo simplification: assume seeded students received this service at
+      // a prior placement. We start from the earliest of (enrolledAt,
+      // backfillDays-ago, 180-days-ago) so the cadence emitter has a full
+      // 6+ month window to walk through.
       const sessionWindowStart = addDays(today, -shape.backfillDays);
+      const sixMonthsAgo = addDays(today, -180);
       const enrolledAt = (spec as { enrolledAt?: string }).enrolledAt;
-      const startDate = enrolledAt && enrolledAt < sessionWindowStart
-        ? sessionWindowStart
-        : (enrolledAt ?? sessionWindowStart);
+      const candidates = [sessionWindowStart, sixMonthsAgo];
+      if (enrolledAt) candidates.push(enrolledAt);
+      const startDate = candidates.sort()[0];
       srRows.push({
         studentId: spec.id,
         serviceTypeId: stId,
@@ -1522,6 +1528,36 @@ export async function seedSampleDataForDistrict(
       });
     }
   }
+  // ── Provider capacity envelope check ──
+  // Per validator: each provider's mandated minutes must fit within a 5-day
+  // × 6.5-hour delivery week. Convert to monthly minutes (4.345 weeks/month)
+  // and assert no provider is overbooked relative to the SR rows we're
+  // about to write. We fail loudly *before* the insert so the catch block
+  // can roll back cleanly without leaving partial state. Capacity assumes
+  // 100% utilization (no admin / planning time) — intentionally generous;
+  // operators can override scheduling later, but the envelope must hold.
+  const PROVIDER_WEEKLY_MIN_CAPACITY = 5 * 6.5 * 60;            // 1950 min/wk
+  const PROVIDER_MONTHLY_MIN_CAPACITY = PROVIDER_WEEKLY_MIN_CAPACITY * 4.345; // ≈8473
+  const loadByProvider = new Map<number, number>();
+  for (const r of srRows) {
+    if (r.providerId == null) continue;
+    loadByProvider.set(r.providerId, (loadByProvider.get(r.providerId) ?? 0) + r.requiredMinutes);
+  }
+  const overloaded: Array<{ providerId: number; loadMin: number; capMin: number }> = [];
+  for (const [providerId, loadMin] of loadByProvider) {
+    if (loadMin > PROVIDER_MONTHLY_MIN_CAPACITY) {
+      overloaded.push({ providerId, loadMin, capMin: Math.round(PROVIDER_MONTHLY_MIN_CAPACITY) });
+    }
+  }
+  if (overloaded.length > 0) {
+    throw new Error(
+      `Seed capacity violation for district ${districtId}: ${overloaded.length} provider(s) over the ` +
+      `5d × 6.5h envelope (${Math.round(PROVIDER_MONTHLY_MIN_CAPACITY)} min/mo). ` +
+      `Overloaded: ${overloaded.map(o => `provider#${o.providerId}=${o.loadMin}min`).join(", ")}. ` +
+      `Increase staffShape.providers or reduce reqMinutesMonthlyRange.`,
+    );
+  }
+
   const insertedSrs = await chunkedInsert(serviceRequirementsTable, srRows, { returning: true });
 
   const srByStudent = new Map<number, typeof insertedSrs>();
@@ -1606,12 +1642,14 @@ export async function seedSampleDataForDistrict(
     }
   }
 
-  // ── 7.5. Goal data per completed session (session_goal_data) ──
-  // Every completed session links to one of the student's active iep_goals.
-  // This is what powers the dashboard's "goals with recent data" metric.
+  // ── 7.5. Goal data per session (session_goal_data) ──
+  // Every session — completed, missed, makeup, or scheduled — links to one
+  // of the student's active iep_goals so the calendar / progress views can
+  // display "what was this session for?" alongside missed sessions and
+  // future scheduled blocks. The dashboard's "goals with recent data"
+  // metric still filters on completed status downstream.
   const sgdRows: (typeof sessionGoalDataTable.$inferInsert)[] = [];
   for (const row of insertedSessionIds) {
-    if (row.status !== "completed") continue;
     const goals = goalsByStudentEarly.get(row.studentId);
     if (!goals || goals.length === 0) continue;
     const goal = goals[Math.floor(srand() * goals.length)];
@@ -1775,8 +1813,28 @@ export async function seedSampleDataForDistrict(
     }
   }
   if (futureSessionRows.length > 0) {
+    // Capture inserted ids so each scheduled session also gets a goal link
+    // (validator: every session must link to ≥ 1 IEP goal via session_goal_data).
+    const futureSgdRows: (typeof sessionGoalDataTable.$inferInsert)[] = [];
     for (let i = 0; i < futureSessionRows.length; i += 200) {
-      await db.insert(sessionLogsTable).values(futureSessionRows.slice(i, i + 200));
+      const ret = await db.insert(sessionLogsTable)
+        .values(futureSessionRows.slice(i, i + 200))
+        .returning({ id: sessionLogsTable.id, studentId: sessionLogsTable.studentId });
+      for (const row of ret) {
+        const goals = goalsByStudentEarly.get(row.studentId);
+        if (!goals || goals.length === 0) continue;
+        const goal = goals[Math.floor(srand() * goals.length)];
+        futureSgdRows.push({
+          sessionLogId: row.id,
+          iepGoalId: goal.id,
+          notes: "Sample data — scheduled session for upcoming goal work.",
+        });
+      }
+    }
+    if (futureSgdRows.length > 0) {
+      for (let i = 0; i < futureSgdRows.length; i += 500) {
+        await db.insert(sessionGoalDataTable).values(futureSgdRows.slice(i, i + 500));
+      }
     }
   }
 
@@ -2647,19 +2705,32 @@ export async function seedSampleDataForDistrict(
   };
 
   } catch (err) {
-    // Best-effort rollback: tear down anything we wrote so the caller can
-    // retry from a clean slate. Only safe when this call also created the
-    // district stub — see comment at the top of the function. We swallow
-    // teardown errors (logging) and rethrow the original error so the
-    // root cause surfaces unchanged.
+    // Deterministic rollback: always tear down the partial seed so the
+    // caller can retry from a clean slate. teardownSampleData is scoped
+    // to rows tagged `is_sample = true` within this district's schools,
+    // so it cannot delete operator-authored data even when this call
+    // didn't create the district stub. We log (don't swallow) the
+    // teardown error and rethrow the original error so the root cause
+    // surfaces unchanged. The `districtCreatedHereForRollback` flag is
+    // retained only for the post-rollback district-stub cleanup below —
+    // we should not leave behind an empty stub we just created.
+    try {
+      await teardownSampleData(districtId);
+    } catch (teardownErr) {
+      console.error(
+        `[seed-sample-data] rollback teardown failed for district ${districtId}:`,
+        teardownErr,
+      );
+    }
     if (districtCreatedHereForRollback) {
+      // Best-effort cleanup of the empty district stub we created in this
+      // call — only attempted after teardown so all FK children are gone.
       try {
-        await teardownSampleData(districtId);
-      } catch (teardownErr) {
-        console.error(
-          `[seed-sample-data] rollback teardown failed for district ${districtId}:`,
-          teardownErr,
-        );
+        await db.delete(districtsTable).where(eq(districtsTable.id, districtId));
+      } catch {
+        // FK constraints may still exist (schools, school_years etc. are
+        // not is_sample-scoped); ignore silently — operators can clean
+        // the orphaned stub manually.
       }
     }
     throw err;
