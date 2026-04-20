@@ -635,10 +635,32 @@ interface SeedShape {
   staffOverrides: { caseManager?: number; bcba?: number; provider?: number; paraprofessional?: number };
 }
 
-const INTENSITY_TO_COMPLETION: Record<Intensity, number> = { low: 0.65, medium: 1.0, high: 1.20 };
-const INTENSITY_TO_ONTIME:    Record<Intensity, number> = { low: 0.45, medium: 0.75, high: 0.92 };
-const INTENSITY_TO_STAFFRATIO: Record<Intensity, number> = { low: 0.7, medium: 1.0, high: 1.5 };
-const INTENSITY_TO_SCALE:     Record<Intensity, number> = { low: 0.4, medium: 1.0, high: 1.8 };
+// Intensity-tier multipliers as RANGES rather than fixed magic numbers.
+// Each call to resolveSeedShape samples a single value from the appropriate
+// band so successive seed runs don't pin to the same target. Bands overlap
+// modestly between adjacent tiers (e.g. low.completion can graze medium)
+// so a "low compliance" seed isn't always identifiably worse than a
+// "medium" one — that's intentional realism, not a bug.
+const INTENSITY_TO_COMPLETION_RANGE: Record<Intensity, readonly [number, number]> = {
+  low:    [0.55, 0.78],
+  medium: [0.85, 1.10],
+  high:   [1.10, 1.30],
+};
+const INTENSITY_TO_ONTIME_RANGE: Record<Intensity, readonly [number, number]> = {
+  low:    [0.35, 0.55],
+  medium: [0.65, 0.85],
+  high:   [0.88, 0.97],
+};
+const INTENSITY_TO_STAFFRATIO_RANGE: Record<Intensity, readonly [number, number]> = {
+  low:    [0.55, 0.85],
+  medium: [0.90, 1.15],
+  high:   [1.30, 1.70],
+};
+const INTENSITY_TO_SCALE_RANGE: Record<Intensity, readonly [number, number]> = {
+  low:    [0.30, 0.55],
+  medium: [0.85, 1.20],
+  high:   [1.55, 2.05],
+};
 
 function resolveSeedShape(opts: SeedSampleOptions): SeedShape {
   const schoolCount = Math.max(1, Math.min(12, opts.schoolCount ?? 5));
@@ -662,14 +684,19 @@ function resolveSeedShape(opts: SeedSampleOptions): SeedShape {
     ];
   }
 
-  const backfillDays = Math.max(20, Math.min(365, Math.round((opts.backfillMonths ?? 8) * 30)));
+  // backfillDays: requested-months × 30 with ±15-day jitter so successive
+  // seed runs don't always land on the exact same window length. Floor at
+  // 180 to honor the validator's ≥6-month-history requirement; ceiling at
+  // 365 to stay inside one school-year envelope.
+  const baseBackfill = Math.round((opts.backfillMonths ?? 8) * 30);
+  const backfillDays = Math.max(180, Math.min(365, baseBackfill + Math.round(randf(-15, 15))));
 
-  const completionMultiplier = INTENSITY_TO_COMPLETION[opts.complianceHealth ?? "medium"];
-  const onTimeLogProb        = INTENSITY_TO_ONTIME[opts.documentationQuality ?? "medium"];
-  const staffRatioMultiplier = INTENSITY_TO_STAFFRATIO[opts.staffingStrain ?? "medium"];
+  const completionMultiplier = randf(...INTENSITY_TO_COMPLETION_RANGE[opts.complianceHealth ?? "medium"]);
+  const onTimeLogProb        = randf(...INTENSITY_TO_ONTIME_RANGE[opts.documentationQuality ?? "medium"]);
+  const staffRatioMultiplier = randf(...INTENSITY_TO_STAFFRATIO_RANGE[opts.staffingStrain ?? "medium"]);
 
-  const compMul = INTENSITY_TO_SCALE[opts.compensatoryExposure ?? "medium"];
-  const behMul  = INTENSITY_TO_SCALE[opts.behaviorIntensity ?? "medium"];
+  const compMul = randf(...INTENSITY_TO_SCALE_RANGE[opts.compensatoryExposure ?? "medium"]);
+  const behMul  = randf(...INTENSITY_TO_SCALE_RANGE[opts.behaviorIntensity ?? "medium"]);
   const scenarioWeights: Partial<Record<Exclude<Scenario, "healthy">, number>> = {
     crisis: compMul,
     compensatory_risk: compMul,
@@ -1592,23 +1619,27 @@ export async function seedSampleDataForDistrict(
       const srStart = sr.startDate ?? addDays(today, -180);
       switch (spec.scenario) {
         case "recovered": {
-          // Linear ramp from ~30% in week 0 → ~95% by the final week.
-          const lo = 0.30;
-          const hi = randf(0.92, 0.98);
+          // Linear ramp from a low early-period rate to a high recent rate.
+          // Both ends sampled per student so the "recovered" cohort spans
+          // the full plausible turnaround band rather than a fixed 30→95.
+          const lo = randf(0.20, 0.42);
+          const hi = randf(0.88, 0.98);
           sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id,
             (w, tw) => lo + ((hi - lo) * (w / Math.max(1, tw - 1))), cadenceOpts));
           break;
         }
         case "sliding": {
-          // Inverse: starts high then declines steadily.
-          const hi = randf(0.88, 0.96);
-          const lo = randf(0.35, 0.48);
+          // Inverse: starts high then declines steadily across the window.
+          const hi = randf(0.85, 0.97);
+          const lo = randf(0.28, 0.52);
           sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id,
             (w, tw) => hi - ((hi - lo) * (w / Math.max(1, tw - 1))), cadenceOpts));
           break;
         }
         case "crisis": {
-          const r = randf(0.22, 0.32);
+          // Sustained low delivery across the full window. Wider band so
+          // not every "crisis" student lands at exactly ~28%.
+          const r = randf(0.15, 0.38);
           sessionRows.push(...buildCadenceSessionRows(spec, sr, srStart, today, schoolYear.id, () => r, cadenceOpts));
           break;
         }
@@ -1754,21 +1785,32 @@ export async function seedSampleDataForDistrict(
 
   // ── 8a. Provider availability skeleton ──
   // One `blockType='availability'` row per (provider × weekday) covering
-  // 8:00–15:00. The service blocks above layer on top of these so the
-  // calendar UI shows a baseline "I'm here Mon–Fri" presence under the
-  // actual delivery slots. Without this, providers look "off" any time
-  // they aren't actively in a service block, which misrepresents the
-  // weekly heatmap.
+  // that provider's workday. The service blocks above layer on top of
+  // these so the calendar UI shows a baseline "I'm here Mon–Fri"
+  // presence under the actual delivery slots. Workday start/end are
+  // sampled per provider (start 7:00–9:30, length 6–7.5 hrs) so the
+  // calendar shows realistic variation rather than every provider
+  // pinned to the same 8:00–15:00. Bounded to stay inside the school
+  // day envelope.
   const availabilityRows: (typeof scheduleBlocksTable.$inferInsert)[] = [];
+  const fmtHHMM = (h: number, m: number) =>
+    `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   for (const provider of providers) {
+    const startH = 7 + Math.floor(srand() * 3);   // 7, 8, or 9
+    const startM = srand() < 0.5 ? 0 : 30;
+    const dayLengthHrs = 6 + (srand() < 0.5 ? 0 : 0.5) + Math.floor(srand() * 2); // 6, 6.5, 7, or 7.5
+    const totalStartMin = startH * 60 + startM;
+    const totalEndMin = Math.min(16 * 60, totalStartMin + Math.round(dayLengthHrs * 60));
+    const startTime = fmtHHMM(Math.floor(totalStartMin / 60), totalStartMin % 60);
+    const endTime = fmtHHMM(Math.floor(totalEndMin / 60), totalEndMin % 60);
     for (const day of DAYS) {
       availabilityRows.push({
         staffId: provider.id,
         studentId: null,
         serviceTypeId: null,
         dayOfWeek: day,
-        startTime: "08:00",
-        endTime: "15:00",
+        startTime,
+        endTime,
         location: "School",
         blockType: "availability",
         isRecurring: true,

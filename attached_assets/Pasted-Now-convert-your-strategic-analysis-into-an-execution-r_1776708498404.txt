@@ -1,0 +1,85 @@
+Now convert your strategic analysis into an execution-ready product board, but use THIS product thesis as the source of truth:
+
+PRODUCT THESIS
+Trellis is an operating layer on top of the SIS for special education service delivery. Its core job is helping school teams check assignments, manage sessions, support school-based behavior workflows, and make sure required minutes are actually delivered.
+
+STRATEGIC RULES
+- This is NOT primarily a Medicaid product right now.
+- This is NOT primarily an IEP-builder product right now.
+- This is NOT a full ABA clinic platform right now.
+- It should feel balanced by role: admin value + staff daily usage.
+- The most important daily habit to own is checking assignments and sessions.
+- ABA is important as the backbone of school-based session/behavior workflow.
+- Medicaid depth, agency contract depth, and pricing-tier scaffolding should be frozen/de-emphasized for now.
+- We are building an operating layer on top of the SIS, not trying to replace the SIS.
+
+I want you to create the top product/engineering execution board for the next 12 months.
+
+RETURN THE FOLLOWING:
+
+1. TOP 50 TASKS IN ORDER
+Create the 50 highest-priority tasks across product, frontend, backend, data, infra, and design.
+
+For each task include:
+- title
+- why it matters
+- priority (P0 / P1 / P2)
+- difficulty
+- dependencies
+- category (product / frontend / backend / data / infra / design)
+- definition of done
+
+2. GROUP THEM INTO EPICS
+Organize the 50 tasks into clear epics. At minimum include:
+- Role-based daily workflow / My Day
+- Assignments + sessions
+- Student service-delivery view
+- Admin compliance / operations oversight
+- Behavior / ABA workflow for schools
+- SIS operating-layer integration
+- Trust / correctness / auditability
+- Product simplification / nav / module cleanup
+
+3. IDENTIFY WHAT TO FREEZE, HIDE, MERGE, OR DELETE
+Based on this product thesis, identify which current modules should be:
+- FROZEN
+- HIDDEN
+- MERGED
+- DELETED
+
+Be explicit, especially for:
+- pricing tier scaffolding
+- agency contract depth
+- Medicaid depth
+- portals
+- pilot/demo tooling
+- duplicate dashboards / duplicate “home” pages
+- IEP-related surfaces that should remain support tools, not core centerpieces
+
+4. IDENTIFY THE 10 TASKS THAT MOST IMPROVE DAILY USER VALUE
+Focus on the workflows that make staff actually use the product every day.
+
+5. IDENTIFY THE 10 TASKS THAT MOST IMPROVE ADMIN BUY-IN
+Focus on the workflows and reporting that make leaders feel operational control and trust.
+
+6. IDENTIFY THE 10 TASKS THAT MOST REDUCE LONG-TERM MAINTENANCE BURDEN
+Focus on architecture, nav simplification, shared logic, testing, tenant safety, and module sprawl.
+
+7. RECOMMEND THE 3 PRODUCT SURFACES THAT SHOULD BECOME EXCELLENT FIRST
+You must choose the three most important surfaces to make truly excellent in the next 6–12 months.
+Use the product thesis above, not generic advice.
+
+8. RECOMMEND THE IDEAL ROLE-BASED NAV
+Give the ideal nav for:
+- District admin
+- Provider / case manager / BCBA
+- Paraprofessional
+Keep each nav tight and workflow-based, not feature-list-based.
+
+IMPORTANT CONSTRAINTS
+- Do not drift back into “compliance + Medicaid” as the primary identity
+- Do not over-center the IEP builder
+- Do not treat ABA as a separate clinic product
+- Optimize for daily usage + operational control
+- Prefer narrower, deeply used workflows over broad feature sprawl
+- Be concrete, not vague

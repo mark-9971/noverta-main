@@ -1,0 +1,69 @@
+This is much closer to the right strategy, but I want you to re-sequence it around product value creation, not just cleanup and architecture.
+
+Do NOT generate implementation task packs yet.
+
+Instead, refine the roadmap and execution order using these rules:
+
+RULES
+- The first thing we must win is the daily operating loop:
+  - checking assignments
+  - viewing Today
+  - logging sessions quickly
+  - seeing required vs delivered services clearly
+- SIS matters, but it is an enabling spine, not the first product experience we should perfect.
+- ABA/behavior should support school-based session workflow, not become a separate product track.
+- Admin value matters, but staff daily usage is what creates retention.
+- Cleanup / hardening / architecture work is important, but it should support the daily loop, not replace it.
+
+I want you to do 5 things:
+
+1. RE-SEQUENCE THE TOP 50 TASKS
+Reorder the board into the best execution sequence for the next 12 months based on product value, adoption, and retention — not just architectural neatness.
+
+2. CREATE 4 WAVES
+Group the roadmap into 4 waves:
+- Wave 1 = prove the daily operating loop
+- Wave 2 = make the product trustworthy and operationally controllable
+- Wave 3 = simplify and harden the architecture
+- Wave 4 = deepen support modules and expansion layers
+
+For each wave, explain:
+- what user behavior it unlocks
+- what buyer confidence it creates
+- what risks it reduces
+
+3. IDENTIFY WHAT MUST HAPPEN BEFORE SIS DEPTH
+Tell me which product surfaces should be excellent before investing heavily in deeper SIS work.
+Be explicit about the minimum SIS needed early vs the fuller SIS roadmap later.
+
+4. IDENTIFY THE “TOO BIG / TOO EARLY” TASKS
+From your current top-50 list, identify which tasks are structurally correct but too big, too risky, or too early to tackle in their current form.
+For each one, suggest a safer v1 / incremental version.
+Especially analyze:
+- assignment model unification
+- central job runner
+- domain modules
+- migration squashing
+- field-level access policy
+- full SIS sync breadth
+
+5. RECOMMEND THE TRUE FIRST 12 TASKS
+Now that you have re-sequenced around the daily loop, give me the first 12 tasks I should actually execute.
+These should be the highest-leverage mix of:
+- user value
+- role-based workflow quality
+- operational trust
+- manageable implementation risk
+
+For each of the first 12 tasks include:
+- title
+- why now
+- dependencies
+- expected visible product improvement
+- key implementation risk
+
+IMPORTANT
+- Do not drift back into compliance/Medicaid as the center.
+- Do not let cleanup dominate the first wave.
+- Do not give me a “perfect architecture first” plan.
+- Optimize for building a product people actually want to use every day.
