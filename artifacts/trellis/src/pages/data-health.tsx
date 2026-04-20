@@ -21,6 +21,10 @@ interface HealthCheckItem {
   // editor (currently used by service_reqs_needing_review to open the
   // service requirement edit dialog on the student detail page).
   studentId?: number;
+  // Migration report row id for the `service_reqs_needing_review` check.
+  // When present, the card renders a "Mark resolved" button that POSTs
+  // to /api/data-health/migration-report/:id/resolve.
+  reportId?: number;
 }
 
 interface HealthCheck {
@@ -76,12 +80,45 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
   const [expanded, setExpanded] = useState(false);
   // null = "All" (no reason filter). Only relevant when check.reasons is set.
   const [reasonFilter, setReasonFilter] = useState<string | null>(null);
+  // Tracks reportIds that have been marked resolved in this session, so
+  // the row hides itself optimistically without a re-fetch.
+  const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const markResolved = useCallback(async (reportId: number) => {
+    setResolvingId(reportId);
+    setResolveError(null);
+    try {
+      const res = await authFetch(`/api/data-health/migration-report/${reportId}/resolve`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed (${res.status})`);
+      }
+      setResolvedIds((prev) => {
+        const next = new Set(prev);
+        next.add(reportId);
+        return next;
+      });
+    } catch (e: any) {
+      setResolveError(e?.message || "Failed to mark resolved");
+    } finally {
+      setResolvingId(null);
+    }
+  }, []);
+
   const passed = check.count === 0;
   const pct = check.total > 0 ? Math.round(((check.total - check.count) / check.total) * 100) : 100;
   const hasReasonFilter = !!check.reasons && check.reasons.length > 0;
-  const visibleItems = hasReasonFilter && reasonFilter
+  const filteredByReason = hasReasonFilter && reasonFilter
     ? check.items.filter((it) => it.reason === reasonFilter)
     : check.items;
+  // Hide rows that the admin already resolved in this session.
+  const visibleItems = filteredByReason.filter(
+    (it) => !it.reportId || !resolvedIds.has(it.reportId),
+  );
 
   return (
     <div className={`rounded-xl border transition-all ${
@@ -175,6 +212,9 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
               })}
             </div>
           )}
+          {resolveError && (
+            <p className="text-[11px] text-red-600 mt-2">{resolveError}</p>
+          )}
           <div className="max-h-[300px] overflow-y-auto mt-2 space-y-1">
             {visibleItems.length === 0 && (
               <p className="text-[11px] text-gray-400 text-center py-3">No items match the selected reason.</p>
@@ -200,6 +240,17 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
                     >
                       <ExternalLink className="w-3 h-3 text-emerald-500" />
                     </Link>
+                  )}
+                  {check.id === "service_reqs_needing_review" && item.reportId && (
+                    <button
+                      type="button"
+                      onClick={() => markResolved(item.reportId!)}
+                      disabled={resolvingId === item.reportId}
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                      title="Mark this migration_report row resolved"
+                    >
+                      {resolvingId === item.reportId ? "Resolving…" : "Mark resolved"}
+                    </button>
                   )}
                 </div>
               </div>

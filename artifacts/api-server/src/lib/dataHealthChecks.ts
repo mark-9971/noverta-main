@@ -16,6 +16,12 @@ export interface HealthCheckItem {
    * (the existing service requirement edit dialog auto-opens on mount).
    */
   studentId?: number;
+  /**
+   * Optional migration_report_service_requirements row id. When set, the
+   * front-end renders a "Mark resolved" button that POSTs to
+   * /api/data-health/migration-report/:reportId/resolve.
+   */
+  reportId?: number;
 }
 
 export interface HealthCheck {
@@ -378,6 +384,7 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
         detail: `Reason: ${row.reason}`,
         reason: row.reason,
         studentId: row.student_id,
+        reportId: row.id,
       });
     }
   }

@@ -12,7 +12,8 @@
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
     "migrate": "tsx ./run-migrations.ts",
     "check-drift": "tsx ./run-check-schema-drift.ts",
-    "sync-test-db": "node ./scripts/sync-test-db.mjs"
+    "sync-test-db": "node ./scripts/sync-test-db.mjs",
+    "report-uncoupled-overlaps": "tsx ./src/scripts/report-uncoupled-overlaps.ts"
   },
   "dependencies": {
     "@workspace/tiers": "workspace:*",
