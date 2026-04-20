@@ -393,6 +393,60 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
     reasons: Array.from(reviewReasonSet).sort(),
   });
 
+  // ── Service Requirement v1 (supersede flow): stale schedule blocks ──
+  // After a requirement is superseded, any existing schedule_blocks still
+  // implicitly point at the *old* row (schedule_blocks today does not carry
+  // a service_requirement_id FK; the link is by studentId + serviceTypeId).
+  // Surface those blocks so an admin can re-point them at the new row.
+  // Read-only — no auto-fix. When `schedule_block_participants` lands the
+  // join here swaps to that table; the card contract stays the same.
+  const staleScheduleItems: HealthCheckItem[] = [];
+  let staleScheduleCount = 0;
+  if (studentIds.length > 0) {
+    const staleRows = await db.execute<{
+      block_id: number;
+      student_id: number;
+      service_type_id: number;
+      replaced_at: string;
+      old_requirement_id: number;
+    }>(sql`
+      SELECT sb.id AS block_id,
+             sb.student_id,
+             sb.service_type_id,
+             sr.replaced_at,
+             sr.id AS old_requirement_id
+        FROM schedule_blocks sb
+        JOIN service_requirements sr
+          ON sr.student_id = sb.student_id
+         AND sr.service_type_id = sb.service_type_id
+       WHERE sb.deleted_at IS NULL
+         AND sr.replaced_at IS NOT NULL
+         AND sb.student_id IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})
+       ORDER BY sr.replaced_at DESC, sb.id DESC
+    `);
+    staleScheduleCount = staleRows.rows.length;
+    for (const row of staleRows.rows.slice(0, 25)) {
+      const studentName = studentMap.get(row.student_id) || `Student #${row.student_id}`;
+      const svc = serviceTypeMap.get(row.service_type_id) || "Service";
+      staleScheduleItems.push({
+        id: row.block_id,
+        label: `${studentName} · ${svc}`,
+        detail: `Schedule block #${row.block_id} matches superseded requirement #${row.old_requirement_id}`,
+        studentId: row.student_id,
+      });
+    }
+  }
+  checks.push({
+    id: "schedule_blocks_pointing_at_superseded_reqs",
+    category: "schedules",
+    severity: staleScheduleCount > 0 ? "warning" : "info",
+    title: "Schedule blocks pointing at superseded requirements",
+    description: "Schedule blocks whose (student, service) matches a service requirement that has been superseded. Re-point new blocks at the active requirement; this card is read-only.",
+    count: staleScheduleCount,
+    total: allScheduleBlocks.length,
+    items: staleScheduleItems,
+  });
+
   const studentsMissingDemo = allStudents.filter(s => !s.dateOfBirth || !s.grade || !s.disabilityCategory);
   checks.push({
     id: "students_incomplete_demographics",

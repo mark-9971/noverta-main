@@ -1244,6 +1244,9 @@ export const UpdateServiceRequirementBody = zod.object({
   deliveryModel: zod.string().nullish(),
   supersedesId: zod.number().nullish(),
   replacedAt: zod.string().nullish(),
+  serviceTypeId: zod.number().nullish(),
+  setting: zod.string().nullish(),
+  groupSize: zod.string().nullish(),
 });
 
 export const UpdateServiceRequirementResponse = zod.object({
@@ -1273,6 +1276,36 @@ export const UpdateServiceRequirementResponse = zod.object({
  */
 export const DeleteServiceRequirementParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * Creates a new service requirement row that points back at the existing
+one via `supersedesId`, end-dates the old row (`endDate = supersedeDate
+- 1 day`, `active = false`, `replacedAt = now()`), and writes both
+records inside a single transaction. Use this whenever
+`PATCH /service-requirements/{id}` returned a 409 with
+`code: "REQUIRES_SUPERSEDE"`.
+
+ * @summary Supersede a service requirement
+ */
+export const SupersedeServiceRequirementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SupersedeServiceRequirementBody = zod.object({
+  supersedeDate: zod.string().optional(),
+  serviceTypeId: zod.number().nullish(),
+  providerId: zod.number().nullish(),
+  deliveryType: zod.string().nullish(),
+  requiredMinutes: zod.number().nullish(),
+  intervalType: zod.string().nullish(),
+  endDate: zod.string().nullish(),
+  priority: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  active: zod.boolean().nullish(),
+  deliveryModel: zod.string().nullish(),
+  setting: zod.string().nullish(),
+  groupSize: zod.string().nullish(),
 });
 
 /**

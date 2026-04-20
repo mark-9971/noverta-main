@@ -335,6 +335,7 @@ import type {
   RecalculateComplianceEvents200,
   RequestIncidentSignature200,
   RequestIncidentSignatureBody,
+  RequiresSupersedeError,
   ResolveAlertBody,
   RiskOverview,
   RunChecksResult,
@@ -365,6 +366,8 @@ import type {
   Student,
   StudentDetail,
   StudentMinuteSummaryRow,
+  SupersedeServiceRequirementBody,
+  SupersedeServiceRequirementResponse,
   SupervisionComplianceSummary,
   SupervisionSession,
   SupervisionSessionWithNames,
@@ -4371,7 +4374,7 @@ export const updateServiceRequirement = async (
 };
 
 export const getUpdateServiceRequirementMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<RequiresSupersedeError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4413,13 +4416,14 @@ export type UpdateServiceRequirementMutationResult = NonNullable<
 >;
 export type UpdateServiceRequirementMutationBody =
   BodyType<UpdateServiceRequirementBody>;
-export type UpdateServiceRequirementMutationError = ErrorType<unknown>;
+export type UpdateServiceRequirementMutationError =
+  ErrorType<RequiresSupersedeError>;
 
 /**
  * @summary Update service requirement
  */
 export const useUpdateServiceRequirement = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<RequiresSupersedeError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4520,6 +4524,104 @@ export const useDeleteServiceRequirement = <
   TContext
 > => {
   return useMutation(getDeleteServiceRequirementMutationOptions(options));
+};
+
+/**
+ * Creates a new service requirement row that points back at the existing
+one via `supersedesId`, end-dates the old row (`endDate = supersedeDate
+- 1 day`, `active = false`, `replacedAt = now()`), and writes both
+records inside a single transaction. Use this whenever
+`PATCH /service-requirements/{id}` returned a 409 with
+`code: "REQUIRES_SUPERSEDE"`.
+
+ * @summary Supersede a service requirement
+ */
+export const getSupersedeServiceRequirementUrl = (id: number) => {
+  return `/api/service-requirements/${id}/supersede`;
+};
+
+export const supersedeServiceRequirement = async (
+  id: number,
+  supersedeServiceRequirementBody: SupersedeServiceRequirementBody,
+  options?: RequestInit,
+): Promise<SupersedeServiceRequirementResponse> => {
+  return customFetch<SupersedeServiceRequirementResponse>(
+    getSupersedeServiceRequirementUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(supersedeServiceRequirementBody),
+    },
+  );
+};
+
+export const getSupersedeServiceRequirementMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof supersedeServiceRequirement>>,
+    TError,
+    { id: number; data: BodyType<SupersedeServiceRequirementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof supersedeServiceRequirement>>,
+  TError,
+  { id: number; data: BodyType<SupersedeServiceRequirementBody> },
+  TContext
+> => {
+  const mutationKey = ["supersedeServiceRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof supersedeServiceRequirement>>,
+    { id: number; data: BodyType<SupersedeServiceRequirementBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return supersedeServiceRequirement(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SupersedeServiceRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof supersedeServiceRequirement>>
+>;
+export type SupersedeServiceRequirementMutationBody =
+  BodyType<SupersedeServiceRequirementBody>;
+export type SupersedeServiceRequirementMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Supersede a service requirement
+ */
+export const useSupersedeServiceRequirement = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof supersedeServiceRequirement>>,
+    TError,
+    { id: number; data: BodyType<SupersedeServiceRequirementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof supersedeServiceRequirement>>,
+  TError,
+  { id: number; data: BodyType<SupersedeServiceRequirementBody> },
+  TContext
+> => {
+  return useMutation(getSupersedeServiceRequirementMutationOptions(options));
 };
 
 /**

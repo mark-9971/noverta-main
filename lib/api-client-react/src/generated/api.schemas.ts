@@ -654,6 +654,52 @@ export interface UpdateServiceRequirementBody {
   supersedesId?: number | null;
   /** @nullable */
   replacedAt?: string | null;
+  /** @nullable */
+  serviceTypeId?: number | null;
+  /** @nullable */
+  setting?: string | null;
+  /** @nullable */
+  groupSize?: string | null;
+}
+
+export interface RequiresSupersedeError {
+  error: string;
+  code: string;
+  requires_supersede: boolean;
+  credited_session_count: number;
+}
+
+export interface SupersedeServiceRequirementBody {
+  supersedeDate?: string;
+  /** @nullable */
+  serviceTypeId?: number | null;
+  /** @nullable */
+  providerId?: number | null;
+  /** @nullable */
+  deliveryType?: string | null;
+  /** @nullable */
+  requiredMinutes?: number | null;
+  /** @nullable */
+  intervalType?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  active?: boolean | null;
+  /** @nullable */
+  deliveryModel?: string | null;
+  /** @nullable */
+  setting?: string | null;
+  /** @nullable */
+  groupSize?: string | null;
+}
+
+export interface SupersedeServiceRequirementResponse {
+  old: ServiceRequirement;
+  new: ServiceRequirement;
 }
 
 /**

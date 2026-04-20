@@ -1107,6 +1107,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ServiceRequirement"
+        "409":
+          description: Material edit blocked because the row has credited sessions; client must call the supersede endpoint instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequiresSupersedeError"
     delete:
       operationId: deleteServiceRequirement
       tags: [services]
@@ -1120,6 +1126,44 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /service-requirements/{id}/supersede:
+    post:
+      operationId: supersedeServiceRequirement
+      tags: [services]
+      summary: Supersede a service requirement
+      description: |
+        Creates a new service requirement row that points back at the existing
+        one via `supersedesId`, end-dates the old row (`endDate = supersedeDate
+        - 1 day`, `active = false`, `replacedAt = now()`), and writes both
+        records inside a single transaction. Use this whenever
+        `PATCH /service-requirements/{id}` returned a 409 with
+        `code: "REQUIRES_SUPERSEDE"`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupersedeServiceRequirementBody"
+      responses:
+        "201":
+          description: New requirement created and old requirement end-dated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupersedeServiceRequirementResponse"
+        "404":
+          description: Service requirement not found or not in caller's district
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ─── Session Logs ────────────────────────────────────────────────
   /sessions:
@@ -7221,6 +7265,81 @@ components:
           type: ["integer", "null"]
         replacedAt:
           type: ["string", "null"]
+        # Service Requirement v1: serviceTypeId / setting / groupSize are
+        # patchable on uncredited rows (mostly used by the import-fix flow);
+        # on credited rows the supersede guard rejects any change.
+        serviceTypeId:
+          type: ["integer", "null"]
+        setting:
+          type: ["string", "null"]
+        groupSize:
+          type: ["string", "null"]
+
+    # Returned in the 409 body when PATCH /service-requirements/:id touches a
+    # material field on a row that already has credited sessions. Clients
+    # should re-issue the same payload against
+    # POST /service-requirements/:id/supersede.
+    RequiresSupersedeError:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        requires_supersede:
+          type: boolean
+        credited_session_count:
+          type: integer
+      required: [error, code, requires_supersede, credited_session_count]
+
+    SupersedeServiceRequirementBody:
+      type: object
+      properties:
+        # The day the new row takes effect. The old row is end-dated to
+        # supersedeDate − 1 day. Required.
+        supersedeDate:
+          type: string
+        # All other fields are optional patches against the new row;
+        # anything omitted is inherited from the old row.
+        # Identity fields (studentId, schoolId) are ALWAYS inherited
+        # from the old row and cannot be overridden — supersede is for
+        # rewriting a requirement, not relocating it to another student
+        # or school. Cross-district moves require a separate flow.
+        serviceTypeId:
+          type: ["integer", "null"]
+        providerId:
+          type: ["integer", "null"]
+        deliveryType:
+          type: ["string", "null"]
+        requiredMinutes:
+          type: ["integer", "null"]
+        intervalType:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        active:
+          type: ["boolean", "null"]
+        deliveryModel:
+          type: ["string", "null"]
+        setting:
+          type: ["string", "null"]
+        groupSize:
+          type: ["string", "null"]
+      # supersedeDate is OPTIONAL on the wire — when omitted, the server
+      # defaults it to today (UTC). Clients still typically supply it.
+
+    SupersedeServiceRequirementResponse:
+      type: object
+      properties:
+        old:
+          $ref: "#/components/schemas/ServiceRequirement"
+        new:
+          $ref: "#/components/schemas/ServiceRequirement"
+      required: [old, new]
 
     # ─── Session Logs ─────────────────────────────────────────────
     SessionLog:
