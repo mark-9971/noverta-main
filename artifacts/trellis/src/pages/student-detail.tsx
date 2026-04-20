@@ -31,8 +31,6 @@ import {
   updateServiceRequirement,
   supersedeServiceRequirement,
   deleteServiceRequirement,
-  ApiError,
-  type RequiresSupersedeError,
   type UpdateServiceRequirementBody,
   type SupersedeServiceRequirementBody,
   listServiceTypes,
@@ -57,7 +55,10 @@ import StudentComplianceSection from "./student-detail/StudentComplianceSection"
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
 import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  SupersedeServiceRequirementDialog,
+  detectRequiresSupersedeError,
+} from "@/components/supersede-service-requirement-dialog";
 import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
 import StudentHandoffCard from "./student-detail/StudentHandoffCard";
 
@@ -499,17 +500,15 @@ export default function StudentDetail() {
         try {
           await updateServiceRequirement(editingSvc.id, edits);
         } catch (err) {
-          if (err instanceof ApiError && err.status === 409) {
-            const data = err.data as RequiresSupersedeError | null;
-            if (data?.code === "REQUIRES_SUPERSEDE") {
-              setSupersedeCreditedCount(data.credited_session_count ?? 0);
-              setSupersedePendingEdits(edits);
-              setSupersedeDate(edits.startDate || new Date().toISOString().split("T")[0]);
-              setSvcDialogOpen(false);
-              setSupersedeOpen(true);
-              setSvcSaving(false);
-              return;
-            }
+          const supersede = detectRequiresSupersedeError(err);
+          if (supersede) {
+            setSupersedeCreditedCount(supersede.creditedSessionCount);
+            setSupersedePendingEdits(edits);
+            setSupersedeDate(edits.startDate || new Date().toISOString().split("T")[0]);
+            setSvcDialogOpen(false);
+            setSupersedeOpen(true);
+            setSvcSaving(false);
+            return;
           }
           throw err;
         }
@@ -762,9 +761,15 @@ export default function StudentDetail() {
     const reqs: any[] | undefined = s?.serviceRequirements;
     if (!Array.isArray(reqs)) return;
     const match = reqs.find((r) => r?.id === targetId);
-    if (!match) return;
     autoOpenedReqRef.current = targetId;
-    openEditSvc(match);
+    if (!match) {
+      // Requirement no longer exists on this student (e.g. it was already
+      // superseded and the data-health row is stale). Tell the user instead
+      // of silently doing nothing on a retried deep-link click.
+      toast.error("That service requirement is no longer on this student. It may have already been replaced — check the active requirements below.");
+    } else {
+      openEditSvc(match);
+    }
     params.delete("editServiceRequirement");
     const next = params.toString();
     navigate(`/students/${studentId}${next ? `?${next}` : ""}`, { replace: true });
@@ -1573,58 +1578,23 @@ export default function StudentDetail() {
         generateShareLink={generateShareLink}
         studentId={studentId}
       />
-      <Dialog open={supersedeOpen} onOpenChange={(v) => { if (!v && !supersedeSaving) { setSupersedeOpen(false); setSupersedePendingEdits(null); } }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-gray-800">
-              This requirement has delivered minutes
-            </DialogTitle>
-            <DialogDescription className="text-[13px] text-gray-600">
-              {supersedeCreditedCount > 0
-                ? `${supersedeCreditedCount} session${supersedeCreditedCount === 1 ? " has" : "s have"} already been credited to this requirement, so it can't be edited in place. Start a new requirement that takes effect on the date below — the existing one will be end-dated automatically.`
-                : "This requirement has credited minutes, so it can't be edited in place. Start a new requirement that takes effect on the date below — the existing one will be end-dated automatically."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-1">
-            <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-600">New requirement effective date</Label>
-              <input
-                type="date"
-                value={supersedeDate}
-                onChange={(e) => setSupersedeDate(e.target.value)}
-                className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-            {supersedePendingEdits ? (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] text-gray-700 space-y-0.5">
-                <div className="font-medium text-gray-600 mb-1">Pending changes</div>
-                <div>Minutes: <span className="font-medium">{supersedePendingEdits.requiredMinutes ?? "—"}</span></div>
-                <div>Interval: <span className="font-medium">{supersedePendingEdits.intervalType ?? "—"}</span></div>
-                <div>Delivery: <span className="font-medium">{supersedePendingEdits.deliveryType ?? "—"}</span></div>
-                <div>Priority: <span className="font-medium">{supersedePendingEdits.priority ?? "—"}</span></div>
-              </div>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setSupersedeOpen(false); setSupersedePendingEdits(null); }}
-              disabled={supersedeSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleConfirmSupersede}
-              disabled={supersedeSaving || !supersedeDate}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {supersedeSaving ? "Starting…" : "Start new requirement"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SupersedeServiceRequirementDialog
+        open={supersedeOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setSupersedeOpen(false);
+            setSupersedePendingEdits(null);
+          } else {
+            setSupersedeOpen(true);
+          }
+        }}
+        creditedSessionCount={supersedeCreditedCount}
+        supersedeDate={supersedeDate}
+        setSupersedeDate={setSupersedeDate}
+        pendingEdits={supersedePendingEdits}
+        saving={supersedeSaving}
+        onConfirm={handleConfirmSupersede}
+      />
       <QuickLogSheet
         isOpen={quickLogOpen}
         onClose={() => setQuickLogOpen(false)}
