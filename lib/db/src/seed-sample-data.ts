@@ -804,45 +804,6 @@ function buildCadenceSessionRows(
   return rows;
 }
 
-function buildSessionRows(
-  spec: StudentSpec,
-  sr: { id: number; studentId: number; providerId: number | null; serviceTypeId: number },
-  dates: string[],
-  completionRate: number,
-  schoolYearId: number,
-  /** Override the number of sessions sampled from `dates`. Defaults to the
-   *  short-window range (2–5). Pass the narrative range for 180-day windows. */
-  sessionsRange: readonly [number, number] = SAMPLE_BOUNDS.sessionsPerRequirement,
-): (typeof sessionLogsTable.$inferInsert)[] {
-  const rows: (typeof sessionLogsTable.$inferInsert)[] = [];
-  const maxSessions = Math.min(sessionsRange[1], dates.length);
-  const numSessions = rand(Math.min(sessionsRange[0], maxSessions), maxSessions);
-  const chosenDates = sshuffle(dates).slice(0, numSessions);
-  for (const date of chosenDates) {
-    const completed = srand() < completionRate;
-    const startMin = Math.round(
-      rand(SAMPLE_BOUNDS.startMinuteOfDay[0], SAMPLE_BOUNDS.startMinuteOfDay[1]) / 5,
-    ) * 5;
-    rows.push({
-      studentId: spec.id,
-      staffId: sr.providerId,
-      serviceTypeId: sr.serviceTypeId,
-      serviceRequirementId: sr.id,
-      sessionDate: date,
-      startTime: minToTime(startMin),
-      endTime: minToTime(startMin + 30),
-      durationMinutes: 30,
-      status: completed ? "completed" : "missed",
-      location: "Resource Room",
-      schoolYearId,
-      notes: completed
-        ? "Sample session — student engaged and made progress on goal."
-        : "Sample session — student absent.",
-    });
-  }
-  return rows;
-}
-
 // ──────────────────────────────────────────────────────────────────
 // Main seeder
 // ──────────────────────────────────────────────────────────────────
@@ -1395,6 +1356,14 @@ export async function seedSampleDataForDistrict(
     }
   }
   if (blockRows.length > 0) {
+    // Idempotency guard: clear any pre-existing recurring blocks for the
+    // staff being seeded so re-running this function does not pile up
+    // duplicate (staff_id, day_of_week, start_time, end_time) rows.
+    // Fresh-seed runs are no-ops because newly-inserted staff have no rows.
+    const seededStaffIds = Array.from(new Set(blockRows.map(b => b.staffId).filter((v): v is number => typeof v === "number")));
+    if (seededStaffIds.length > 0) {
+      await db.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.staffId, seededStaffIds));
+    }
     await chunkedInsert(scheduleBlocksTable, blockRows);
   }
 
@@ -1803,7 +1772,7 @@ export async function seedSampleDataForDistrict(
     complianceEventRows.push({
       studentId: s.id,
       schoolYearId: schoolYear.id,
-      eventType: "annual_iep_review",
+      eventType: "annual_review",
       title: "Annual IEP Review",
       dueDate: annualReviewDate,
       status: def.scenario === "annual_review_due" ? "due_soon" : "upcoming",
@@ -1816,7 +1785,7 @@ export async function seedSampleDataForDistrict(
       complianceEventRows.push({
         studentId: s.id,
         schoolYearId: schoolYear.id,
-        eventType: "annual_iep_review",
+        eventType: "annual_review",
         title: "Annual IEP Review (Completed)",
         dueDate: iep.iepStartDate,
         completedDate,
@@ -1887,6 +1856,67 @@ export async function seedSampleDataForDistrict(
       dueDate: addDays(today, rand(10, 45)),
       status: "upcoming",
     });
+
+    // ── 3-year reevaluation (federally mandated, ~every 3rd student is due) ──
+    if (idx % 3 === 0) {
+      complianceEventRows.push({
+        studentId: s.id,
+        schoolYearId: schoolYear.id,
+        eventType: "reeval_3yr",
+        title: "Three-Year Reevaluation",
+        dueDate: addDays(today, rand(30, 270)),
+        status: idx % 9 === 0 ? "due_soon" : "upcoming",
+      });
+    }
+
+    // ── Mid-year team meeting (~half of students) ──
+    if (srand() < 0.5) {
+      complianceEventRows.push({
+        studentId: s.id,
+        schoolYearId: schoolYear.id,
+        eventType: "team_meeting",
+        title: "Mid-Year IEP Team Meeting",
+        dueDate: addDays(today, rand(-30, 60)),
+        status: "upcoming",
+      });
+    }
+
+    // ── Initial/triennial evaluation in flight (~25% of roster) ──
+    if (srand() < 0.25) {
+      const evalDue = addDays(today, rand(7, 60));
+      complianceEventRows.push({
+        studentId: s.id,
+        schoolYearId: schoolYear.id,
+        eventType: "evaluation",
+        title: "Special Education Evaluation",
+        dueDate: evalDue,
+        status: evalDue.localeCompare(addDays(today, 14)) < 0 ? "due_soon" : "upcoming",
+      });
+    }
+
+    // ── Manifestation determination for behavioral / ED scenarios ──
+    if (def.scenario === "behavior_plan" || def.scenario === "incident_history") {
+      complianceEventRows.push({
+        studentId: s.id,
+        schoolYearId: schoolYear.id,
+        eventType: "manifestation_determination",
+        title: "Manifestation Determination Review",
+        dueDate: addDays(today, rand(3, 10)),
+        status: "due_soon",
+      });
+    }
+
+    // ── Transition planning event for HS students (grade 9+) ──
+    if (s.grade && ["9", "10", "11", "12"].includes(s.grade)) {
+      complianceEventRows.push({
+        studentId: s.id,
+        schoolYearId: schoolYear.id,
+        eventType: "transition_planning",
+        title: "Transition Planning Review",
+        dueDate: addDays(today, rand(14, 120)),
+        status: "upcoming",
+      });
+    }
 
     // ── Parent communication: progress report shared (~80% of students) ──
     if (srand() < 0.8) {
@@ -1974,7 +2004,7 @@ export async function seedSampleDataForDistrict(
   // ── 15. Goal progress backfill (90 days of ABA/clinical data) ──
 
   const { backfillGoalProgressForStudents } = await import("./backfill-goal-progress");
-  await backfillGoalProgressForStudents(insertedStudents.map((s) => s.id));
+  await backfillGoalProgressForStudents(insertedStudents.map((s) => s.id), districtId);
 
   // ── 15.5. Progress reports with goal_progress JSONB (mastery rate fix) ──
   // Every student gets one finalized progress report covering the most recent

@@ -1,8 +1,28 @@
 import { sql } from "drizzle-orm";
 import { db } from "./db";
 
-function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function randf(min: number, max: number) { return min + Math.random() * (max - min); }
+// Seeded RNG (mulberry32) so backfill output is reproducible per-district.
+// `setBackfillSeed(districtId | studentIds[0])` should be called at the top
+// of every public backfill entrypoint; absent that, the stream falls back
+// to a stable default which is still deterministic across re-runs.
+let _backfillSeed = 0xa5a5a5a5 >>> 0;
+function setBackfillSeed(seedSrc: number) {
+  let x = (seedSrc | 0) || 0xa5a5a5a5;
+  x = (x ^ 0xdeadbeef) >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x85ebca6b) >>> 0;
+  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  _backfillSeed = x || 0xa5a5a5a5;
+}
+function srand(): number {
+  _backfillSeed = (_backfillSeed + 0x6d2b79f5) >>> 0;
+  let t = _backfillSeed;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function rand(min: number, max: number) { return Math.floor(srand() * (max - min + 1)) + min; }
+function randf(min: number, max: number) { return min + srand() * (max - min); }
 
 /**
  * Per-backfill-run sampled parameters. Every value below is drawn from a
@@ -1062,8 +1082,12 @@ async function staffPoolForStudents(studentIds: number[]): Promise<number[]> {
  */
 export async function backfillGoalProgressForStudents(
   studentIds: number[],
+  /** Optional deterministic seed (typically the districtId). When omitted,
+   *  uses studentIds[0] so the output remains stable across re-runs. */
+  seed?: number,
 ): Promise<BackfillStats> {
   if (studentIds.length === 0) return EMPTY_STATS();
+  setBackfillSeed(seed ?? studentIds[0] ?? 0);
   const staffPool = await staffPoolForStudents(studentIds);
   const params = sampleRunParams();
 
@@ -1096,6 +1120,7 @@ export async function backfillFullStudentData(studentId: number): Promise<Backfi
 export async function backfillGoalProgressForDistrict(
   districtId: number,
 ): Promise<BackfillStats> {
+  setBackfillSeed(districtId);
   const studentRows = await db.execute<{ id: number }>(sql`
     SELECT id FROM students
     WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})
