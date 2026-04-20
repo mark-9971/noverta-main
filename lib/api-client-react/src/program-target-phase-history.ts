@@ -12,13 +12,10 @@ export interface ProgramTargetPhaseHistoryItem {
   changedByStaffId: number | null;
 }
 
-export async function listProgramTargetPhaseHistory(
+export const listProgramTargetPhaseHistory = (
   programTargetId: number,
-): Promise<ProgramTargetPhaseHistoryItem[]> {
-  const res = await customFetch(
+): Promise<ProgramTargetPhaseHistoryItem[]> =>
+  customFetch<ProgramTargetPhaseHistoryItem[]>(
     `/api/program-targets/${programTargetId}/phase-history`,
     { method: "GET" },
   );
-  if (!res.ok) throw new Error(`Failed to fetch phase history: ${res.status}`);
-  return res.json();
-}

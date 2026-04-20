@@ -1,0 +1,57 @@
+You are acting as a senior full-stack engineer and release triage lead on a SPED compliance product. I need you to execute the highest-priority credibility and demo-readiness fixes in the correct order, with ruthless focus on what can break a buyer demo or technical diligence.
+
+Work in this sequence and do not skip ahead:
+
+PHASE 1 — RESTORE THE SECURITY PROOF GATE
+1. Find how ./generated/api.schemas is produced.
+2. Regenerate the API schemas from the current OpenAPI/spec source.
+3. Fix any codegen drift, import drift, or broken references preventing test-tenant and test-bucket-a from loading.
+4. If regeneration fails, identify the exact divergence between spec and implementation and propose the minimal fix.
+5. Report:
+   - what command(s) you ran
+   - what files changed
+   - whether test-tenant now loads
+   - whether test-bucket-a now loads
+
+PHASE 2 — FIX TYPESCRIPT ERRORS ON THE DEMO PATH
+Run the project typecheck and fix all current TS errors, prioritizing these files:
+- services.ts
+- scheduleBlocks.ts
+- staff.ts
+- demoControl.ts
+- imports/iepDocuments.ts
+
+Known likely issues include:
+- missing exports UpdateServiceTypeParams and UpdateServiceTypeBody
+- missing schedule block properties: dayOfWeek, blockLabel, recurrenceType, effectiveFrom, effectiveTo, schoolYearId
+- missing staff properties: receiveRiskAlerts, alertDigestMode
+
+Goals:
+- zero TypeScript errors
+- scheduler and services path safe for demo
+- minimal, correct fixes only; no broad refactors unless required
+
+PHASE 3 — RUN BUCKET A FOR REAL
+After phases 1 and 2:
+1. run test-bucket-a
+2. if OOM occurs, reduce runner load / concurrency and retry with the narrowest possible target
+3. capture the exact pass/fail output
+4. update SECURITY-AUDIT.md so it accurately reflects reality:
+   - passed and evidence captured
+   - or still blocked, with exact blocker and next step
+Never imply the regression ran if it did not.
+
+OUTPUT FORMAT
+Return:
+A. Executive summary (what is fixed, what is still blocked)
+B. Exact commands run
+C. Files changed
+D. Remaining blockers ranked by demo risk
+E. Copy-ready SECURITY-AUDIT.md patch text if needed
+
+IMPORTANT CONSTRAINTS
+- Be honest, not optimistic
+- Protect demo credibility first
+- Do not claim anything is production-ready unless verified
+- Prefer the smallest working fix over elegant refactors
+- If you encounter a fork in the road, choose the path that gets us to an honest, stable buyer demo fastest

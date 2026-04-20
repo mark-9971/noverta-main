@@ -449,7 +449,7 @@ router.post("/demo-control/hero-cast", async (req: Request, res: Response) => {
     // 5. Behavior-heavy — student pick(3), needs 3 alerts
     {
       const sid = pick(3);
-      const existing = (await db.execute<{ id: number }>(sql`
+      const existing = (await db.execute<{ n: number }>(sql`
         SELECT COUNT(*)::int AS n FROM alerts WHERE student_id = ${sid} AND resolved = false
           AND message LIKE ${"%" + CAST_TAG + ":behavior%"}
       `)).rows as Array<{ n: number }>;
