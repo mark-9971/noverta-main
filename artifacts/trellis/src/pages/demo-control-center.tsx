@@ -57,6 +57,9 @@ import {
 import BeforeAfterPanel from "@/components/demo-control/BeforeAfterPanel";
 import CompExposurePanel from "@/components/demo-control/CompExposurePanel";
 import CaseloadSimulatorPanel from "@/components/demo-control/CaseloadSimulatorPanel";
+import ReadinessPanel from "@/components/demo-control/ReadinessPanel";
+import RealismPanel from "@/components/demo-control/RealismPanel";
+import AlertTunerPanel from "@/components/demo-control/AlertTunerPanel";
 
 interface OverviewResponse {
   demoDistricts: Array<{
@@ -934,6 +937,7 @@ export default function DemoControlCenterPage() {
     // active demo district unmounts/remounts them — that drops any local
     // cast / reset-result state from the previous district instead of
     // leaving stale rows visible.
+    if (n === 1) return <ReadinessPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 2) return <DemoFlowLauncherPanel key={n} />;
     if (n === 3) return <HeroCastPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 4) return <BeforeAfterPanel key={`${n}-${demoDistrict.id}`} districtName={demoDistrict.name} />;
@@ -942,6 +946,8 @@ export default function DemoControlCenterPage() {
     if (n === 7) return <ImportPreviewPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 8) return <ExecPacketPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 9) return <RoleWalkthroughTogglePanel key={n} />;
+    if (n === 10) return <RealismPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
+    if (n === 11) return <AlertTunerPanel key={`${n}-${demoDistrict.id}`} districtId={demoDistrict.id} />;
     if (n === 12) return (
       <ResetDistrictPanel
         key={`${n}-${demoDistrict.id}`}
