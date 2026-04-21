@@ -8,11 +8,11 @@ import {
   evaluationReferralsTable,
   iepDocumentsTable,
   teamMeetingsTable,
-  sessionLogsTable,
   districtsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, inArray, ne } from "drizzle-orm";
 import { logger } from "./logger";
+import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import {
   ensureWeeklyDigestColumn,
   sendWeeklyRiskDigestsForAllDistricts,
@@ -153,6 +153,24 @@ async function computeDistrictRiskCounts(districtId: number): Promise<SnapshotCo
     rateMap.set(t.id, Number.isFinite(parsed) && parsed > 0 ? parsed : null);
   }
 
+  // School Calendar v0 — Slice 4B alignment.
+  //
+  // Snapshot risk counting used to do its own dayOfMonth/daysInMonth
+  // pacing math, ignoring per-school closures and early-release days.
+  // That meant the weekly cost-avoidance archive could pile up false
+  // service_shortfall risks during an all-closure stretch even though
+  // the live alert path (Slice 4A) had already stopped firing them.
+  // Now we delegate to the shared minute-progress engine so closures
+  // and early-release flow through automatically.
+  const progressResults = await computeAllActiveMinuteProgress({
+    studentIds: studentIdArray,
+    asOfDate: new Date(),
+  });
+  const progressByReqId = new Map<number, typeof progressResults[number]>();
+  for (const mp of progressResults) {
+    progressByReqId.set(mp.serviceRequirementId, mp);
+  }
+
   const requirements = await db.select({
     id: serviceRequirementsTable.id,
     studentId: serviceRequirementsTable.studentId,
@@ -164,52 +182,43 @@ async function computeDistrictRiskCounts(districtId: number): Promise<SnapshotCo
     eq(serviceRequirementsTable.active, true),
   ));
 
-  if (requirements.length > 0) {
-    const now = new Date();
-    const currentMonth = now.toISOString().slice(0, 7);
-    const monthStart = `${currentMonth}-01`;
-    const dayOfMonth = now.getDate();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const monthProgress = dayOfMonth / daysInMonth;
+  for (const req of requirements) {
+    if (req.intervalType !== "monthly") continue;
+    const mp = progressByReqId.get(req.id);
+    if (!mp) continue;
 
-    const reqStudentIds = [...new Set(requirements.map(r => r.studentId))];
-    const sessionTotals = await db.select({
-      studentId: sessionLogsTable.studentId,
-      serviceTypeId: sessionLogsTable.serviceTypeId,
-      totalMinutes: sql<number>`coalesce(sum(${sessionLogsTable.durationMinutes}), 0)::int`,
-    }).from(sessionLogsTable).where(and(
-      inArray(sessionLogsTable.studentId, reqStudentIds),
-      inArray(sessionLogsTable.status, ["completed", "makeup"]),
-      gte(sessionLogsTable.sessionDate, monthStart),
-      lte(sessionLogsTable.sessionDate, today),
-      isNull(sessionLogsTable.deletedAt),
-    )).groupBy(sessionLogsTable.studentId, sessionLogsTable.serviceTypeId);
+    const hourlyRate = rateMap.get(req.serviceTypeId) ?? null;
+    const deliveredMinutes = mp.deliveredMinutes;
+    const expectedByNow = mp.expectedMinutesByNow;
+    const projectedShortfall = Math.max(
+      0,
+      Math.round(req.requiredMinutes - mp.projectedMinutes),
+    );
+    if (projectedShortfall < 15) continue;
+    if (!(deliveredMinutes < expectedByNow * 0.85)) continue;
 
-    const sessionMap = new Map<string, number>();
-    for (const s of sessionTotals) {
-      sessionMap.set(`${s.studentId}-${s.serviceTypeId}`, s.totalMinutes);
-    }
+    const intervalEnd = new Date(mp.intervalEnd);
+    const today = new Date();
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((intervalEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+    );
 
-    for (const req of requirements) {
-      if (req.intervalType !== "monthly" && req.intervalType !== "weekly") continue;
-      const hourlyRate = rateMap.get(req.serviceTypeId) ?? null;
-      const deliveredMinutes = sessionMap.get(`${req.studentId}-${req.serviceTypeId}`) || 0;
-
-      if (req.intervalType === "monthly") {
-        const expectedByNow = Math.round(req.requiredMinutes * monthProgress);
-        const projectedDelivery = monthProgress > 0 ? Math.round(deliveredMinutes / monthProgress) : 0;
-        const projectedShortfall = req.requiredMinutes - projectedDelivery;
-        if (projectedShortfall >= 15 && deliveredMinutes < expectedByNow * 0.85) {
-          const daysLeft = daysInMonth - dayOfMonth;
-          const pctDelivered = req.requiredMinutes > 0 ? Math.round((deliveredMinutes / req.requiredMinutes) * 100) : 0;
-          const urgency: UrgencyLevel = pctDelivered < 30 && monthProgress > 0.5 ? "critical" :
-            pctDelivered < 50 && monthProgress > 0.5 ? "high" :
-            daysLeft <= 7 ? "high" : "medium";
-          const estimatedExposure = hourlyRate != null ? Math.round((projectedShortfall / 60) * hourlyRate) : null;
-          risks.push({ urgency, studentId: req.studentId, estimatedExposure });
-        }
-      }
-    }
+    const pctDelivered =
+      req.requiredMinutes > 0
+        ? Math.round((deliveredMinutes / req.requiredMinutes) * 100)
+        : 0;
+    // Period is at least half elapsed iff the engine has already
+    // accrued ≥ 50% of the full requirement as expected-by-now. Mirrors
+    // the Slice 4A alert urgency rule so snapshots and alerts agree.
+    const periodHalfPassed = expectedByNow >= req.requiredMinutes * 0.5;
+    const urgency: UrgencyLevel =
+      pctDelivered < 30 && periodHalfPassed ? "critical" :
+      pctDelivered < 50 && periodHalfPassed ? "high" :
+      daysLeft <= 7 ? "high" : "medium";
+    const estimatedExposure =
+      hourlyRate != null ? Math.round((projectedShortfall / 60) * hourlyRate) : null;
+    risks.push({ urgency, studentId: req.studentId, estimatedExposure });
   }
 
   const activeIeps = await db.select({

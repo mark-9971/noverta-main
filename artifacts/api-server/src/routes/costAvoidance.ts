@@ -9,7 +9,6 @@ import {
   evaluationReferralsTable,
   iepDocumentsTable,
   teamMeetingsTable,
-  sessionLogsTable,
   staffTable,
   alertsTable,
   costAvoidanceSnapshotsTable,
@@ -20,6 +19,7 @@ import type { AuthedRequest } from "../middlewares/auth";
 import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { generateAlertsForDistrict } from "../lib/costAvoidanceAlerts";
 import { captureSnapshotForDistrict } from "../lib/costAvoidanceSnapshots";
+import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router = Router();
 
@@ -597,68 +597,68 @@ async function getServiceShortfallRisks(
   if (requirements.length === 0) return risks;
 
   const now = new Date();
-  const currentMonth = now.toISOString().slice(0, 7);
-  const monthStart = `${currentMonth}-01`;
 
-  const currentWeekStart = getWeekStart(now);
-  const currentWeekEnd = new Date(currentWeekStart);
-  currentWeekEnd.setDate(currentWeekEnd.getDate() + 6);
-
+  // School Calendar v0 — Slice 4B alignment.
+  //
+  // The on-demand /cost-avoidance/risks route used to do its own
+  // dayOfMonth / daysInMonth math AND a separate per-week delivered
+  // query, both of which ignored per-school closures and early-release
+  // days. Now it delegates to the shared `computeAllActiveMinuteProgress`
+  // engine — the same one used by compliance, the alert generator
+  // (Slice 4A), and the snapshot archive — so closure-discounted
+  // expected/projected math flows through automatically. requiredMinutes
+  // is unchanged; only the pacing-derived consequences change.
   const reqStudentIds = [...new Set(requirements.map(r => r.studentId))];
-
-  const sessionTotals = await db.select({
-    studentId: sessionLogsTable.studentId,
-    serviceTypeId: sessionLogsTable.serviceTypeId,
-    totalMinutes: sql<number>`coalesce(sum(${sessionLogsTable.durationMinutes}), 0)::int`,
-  }).from(sessionLogsTable).where(and(
-    inArray(sessionLogsTable.studentId, reqStudentIds),
-    inArray(sessionLogsTable.status, ["completed", "makeup"]),
-    gte(sessionLogsTable.sessionDate, monthStart),
-    lte(sessionLogsTable.sessionDate, today),
-    isNull(sessionLogsTable.deletedAt),
-  )).groupBy(sessionLogsTable.studentId, sessionLogsTable.serviceTypeId);
-
-  const sessionMap = new Map<string, number>();
-  for (const s of sessionTotals) {
-    sessionMap.set(`${s.studentId}-${s.serviceTypeId}`, s.totalMinutes);
+  const progressResults = await computeAllActiveMinuteProgress({
+    studentIds: reqStudentIds,
+    asOfDate: now,
+  });
+  const progressByReqId = new Map<number, typeof progressResults[number]>();
+  for (const mp of progressResults) {
+    progressByReqId.set(mp.serviceRequirementId, mp);
   }
-
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const monthProgress = dayOfMonth / daysInMonth;
 
   for (const req of requirements) {
     const student = studentMap.get(req.studentId);
     if (!student) continue;
+    const mp = progressByReqId.get(req.id);
+    if (!mp) continue;
 
     const resolved = rateLookup.resolve(req.serviceTypeId, student.schoolId, student.programId);
     const svcName = resolved.name;
     const hourlyRate: number = resolved.hourlyRate;
     const rateSource = resolved.rateSource;
 
-    let requiredForPeriod = req.requiredMinutes;
-    let deliveredMinutes = sessionMap.get(`${req.studentId}-${req.serviceTypeId}`) || 0;
-    let expectedByNow: number;
+    const deliveredMinutes = mp.deliveredMinutes;
+    const expectedByNow = mp.expectedMinutesByNow;
+
+    const intervalEnd = new Date(mp.intervalEnd);
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((intervalEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    );
+
+    // Calendar-aware suffix for the exposure description so reviewers
+    // can see why a number is what it is. Mirrors the alert path.
+    const calendarNote =
+      mp.closureDayCount > 0 || mp.earlyReleaseDayCount > 0
+        ? ` (school calendar applied: ${
+            mp.closureDayCount > 0
+              ? `${mp.closureDayCount} closure day${mp.closureDayCount === 1 ? "" : "s"}`
+              : ""
+          }${mp.closureDayCount > 0 && mp.earlyReleaseDayCount > 0 ? ", " : ""}${
+            mp.earlyReleaseDayCount > 0
+              ? `${mp.earlyReleaseDayCount} early-release day${mp.earlyReleaseDayCount === 1 ? "" : "s"}`
+              : ""
+          })`
+        : "";
 
     if (req.intervalType === "weekly") {
-      requiredForPeriod = req.requiredMinutes;
-      expectedByNow = requiredForPeriod;
-      const weekSessionTotals = await db.select({
-        totalMinutes: sql<number>`coalesce(sum(${sessionLogsTable.durationMinutes}), 0)::int`,
-      }).from(sessionLogsTable).where(and(
-        eq(sessionLogsTable.studentId, req.studentId),
-        eq(sessionLogsTable.serviceTypeId, req.serviceTypeId),
-        inArray(sessionLogsTable.status, ["completed", "makeup"]),
-        gte(sessionLogsTable.sessionDate, currentWeekStart.toISOString().slice(0, 10)),
-        lte(sessionLogsTable.sessionDate, today),
-        isNull(sessionLogsTable.deletedAt),
-      ));
-      deliveredMinutes = weekSessionTotals[0]?.totalMinutes || 0;
-
-      const dayOfWeek = now.getDay();
-      const daysLeftInWeek = Math.max(0, 5 - dayOfWeek);
-      if (daysLeftInWeek <= 1 && deliveredMinutes < requiredForPeriod * 0.5) {
-        const shortfall = requiredForPeriod - deliveredMinutes;
+      // Anchor "days left in the week" to the engine's intervalEnd so
+      // the route, the alert generator, and the compliance UI all agree
+      // on what "this week" means (engine uses Monday → Sunday).
+      if (daysLeft <= 1 && deliveredMinutes < req.requiredMinutes * 0.5) {
+        const shortfall = req.requiredMinutes - deliveredMinutes;
         if (shortfall < 15) continue;
         const estimatedExposure = Math.round((shortfall / 60) * hourlyRate);
 
@@ -671,43 +671,58 @@ async function getServiceShortfallRisks(
           staffId: req.providerId,
           staffName: null,
           title: `${svcName}: ${shortfall} min shortfall this week`,
-          description: `${student.name} has received ${deliveredMinutes} of ${requiredForPeriod} required weekly minutes for ${svcName}. ${daysLeftInWeek === 0 ? "Week ends today." : `${daysLeftInWeek} day(s) remaining.`}`,
-          daysRemaining: daysLeftInWeek,
+          description: `${student.name} has received ${deliveredMinutes} of ${req.requiredMinutes} required weekly minutes for ${svcName}. ${daysLeft === 0 ? "Week ends today." : `${daysLeft} day(s) remaining.`}`,
+          daysRemaining: daysLeft,
           estimatedExposure,
           rateSource,
-          exposureBasis: `${shortfall} min shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})`,
+          exposureBasis: `${shortfall} min shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})${calendarNote}`,
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           serviceTypeName: svcName,
         });
       }
-    } else {
-      expectedByNow = Math.round(requiredForPeriod * monthProgress);
-      const projectedDelivery = monthProgress > 0 ? Math.round(deliveredMinutes / monthProgress) : 0;
-      const projectedShortfall = requiredForPeriod - projectedDelivery;
+    } else if (req.intervalType === "monthly") {
+      const projectedShortfall = Math.max(
+        0,
+        Math.round(req.requiredMinutes - mp.projectedMinutes),
+      );
 
       if (projectedShortfall > 0 && deliveredMinutes < expectedByNow * 0.85) {
-        const daysLeft = daysInMonth - dayOfMonth;
         if (projectedShortfall < 15) continue;
         const estimatedExposure = Math.round((projectedShortfall / 60) * hourlyRate);
 
-        const pctDelivered = requiredForPeriod > 0 ? Math.round((deliveredMinutes / requiredForPeriod) * 100) : 0;
+        const pctDelivered =
+          req.requiredMinutes > 0
+            ? Math.round((deliveredMinutes / req.requiredMinutes) * 100)
+            : 0;
+        // Same urgency rule as the alert path (Slice 4A): anchor on
+        // expected-by-now (already calendar-discounted), not on
+        // delivered minutes, so a zero-delivery student isn't capped at
+        // "medium" early in a long-shortfall month.
+        const periodHalfPassed = expectedByNow >= req.requiredMinutes * 0.5;
+        const urgency: UrgencyLevel =
+          pctDelivered < 30 && periodHalfPassed ? "critical" :
+          pctDelivered < 50 && periodHalfPassed ? "high" :
+          daysLeft <= 7 ? "high" : "medium";
+
+        const pctOfPeriod =
+          req.requiredMinutes > 0
+            ? Math.round((expectedByNow / req.requiredMinutes) * 100)
+            : 0;
 
         risks.push({
           id: `svc-${req.id}`,
           category: "service_shortfall",
-          urgency: pctDelivered < 30 && monthProgress > 0.5 ? "critical" :
-                   pctDelivered < 50 && monthProgress > 0.5 ? "high" :
-                   daysLeft <= 7 ? "high" : "medium",
+          urgency,
           studentId: req.studentId,
           studentName: student.name,
           staffId: req.providerId,
           staffName: null,
           title: `${svcName}: trending ${projectedShortfall} min short`,
-          description: `${student.name} has ${deliveredMinutes} of ${requiredForPeriod} required monthly minutes for ${svcName} (${pctDelivered}% at ${Math.round(monthProgress * 100)}% through month). Projected shortfall: ${projectedShortfall} min.`,
+          description: `${student.name} has ${deliveredMinutes} of ${req.requiredMinutes} required monthly minutes for ${svcName} (${pctDelivered}% at ${pctOfPeriod}% through month). Projected shortfall: ${projectedShortfall} min.`,
           daysRemaining: daysLeft,
           estimatedExposure,
           rateSource,
-          exposureBasis: `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})`,
+          exposureBasis: `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (${rateSourceLabel(rateSource)})${calendarNote}`,
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           serviceTypeName: svcName,
         });
@@ -812,15 +827,6 @@ async function getIepAnnualReviewRisks(
   }
 
   return risks;
-}
-
-function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
 }
 
 export default router;
