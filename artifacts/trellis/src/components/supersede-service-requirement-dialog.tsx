@@ -10,16 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   ApiError,
+  type RequiresSupersedeError,
   type UpdateServiceRequirementBody,
 } from "@workspace/api-client-react";
-
-// Mirrors `RequiresSupersedeError` in the generated schemas. Inlined locally
-// because the generated re-export currently isn't picked up by the trellis
-// typechecker config (same pre-existing miss as on student-detail.tsx).
-interface RequiresSupersedePayload {
-  code?: string;
-  credited_session_count?: number;
-}
 
 export interface DetectedSupersedeError {
   creditedSessionCount: number;
@@ -38,7 +31,7 @@ export interface DetectedSupersedeError {
 export function detectRequiresSupersedeError(err: unknown): DetectedSupersedeError | null {
   if (!(err instanceof ApiError)) return null;
   if (err.status !== 409) return null;
-  const data = err.data as RequiresSupersedePayload | null;
+  const data = err.data as RequiresSupersedeError | null;
   if (!data || data.code !== "REQUIRES_SUPERSEDE") return null;
   return { creditedSessionCount: data.credited_session_count ?? 0 };
 }
