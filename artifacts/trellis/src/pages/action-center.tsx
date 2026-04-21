@@ -504,6 +504,7 @@ function WorkItemRow({
         studentId: item.studentId,
         serviceRequirementId: item.signal?.serviceRequirementId ?? null,
         missedSessionId: item.signal?.missedSessionId ?? null,
+        sourceActionItemId: item.id,
         from: "action-center",
       }));
       return;
@@ -688,6 +689,7 @@ function WorkItemRow({
                               studentId: item.studentId,
                               serviceRequirementId: item.signal?.serviceRequirementId ?? null,
                               missedSessionId: item.signal?.missedSessionId ?? null,
+                              sourceActionItemId: item.id,
                               from: "action-center",
                             }));
                           }

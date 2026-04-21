@@ -45,7 +45,7 @@ vi.mock("@workspace/api-client-react", () => ({
 
 // Stub the heavy BlockFormDialog so we can read the form state directly
 vi.mock("@/pages/schedule/BlockFormDialog", () => ({
-  BlockFormDialog: ({ open, blockForm, onSave }: any) =>
+  BlockFormDialog: ({ open, blockForm, setBlockForm, onSave }: any) =>
     open ? (
       <div data-testid="dialog-open">
         <div data-testid="dialog-blockType">{blockForm.blockType}</div>
@@ -53,6 +53,15 @@ vi.mock("@/pages/schedule/BlockFormDialog", () => ({
         <div data-testid="dialog-serviceTypeId">{blockForm.serviceTypeId}</div>
         <div data-testid="dialog-notes">{blockForm.notes}</div>
         <div data-testid="dialog-blockLabel">{blockForm.blockLabel}</div>
+        <div data-testid="dialog-sourceActionItemId">
+          {blockForm.sourceActionItemId ?? ""}
+        </div>
+        <button
+          data-testid="dialog-set-staff"
+          onClick={() => setBlockForm((f: any) => ({ ...f, staffId: "11" }))}
+        >
+          Set Staff
+        </button>
         <button data-testid="dialog-save" onClick={onSave}>Save</button>
       </div>
     ) : null,
@@ -231,6 +240,37 @@ describe("MinutesOversightTab makeup destination flow", () => {
       ) as HTMLInputElement;
       expect(input.value).toBe("Sam Wells");
     });
+  });
+
+  it("T02: carries sourceActionItemId from URL through form state and into createScheduleBlock payload", async () => {
+    useGetSessionMock.mockReturnValue({
+      data: {
+        id: 333, studentId: 42, serviceRequirementId: 19, serviceTypeId: 7,
+        serviceTypeName: "Speech-Language", sessionDate: "2026-04-14",
+        startTime: "10:00", durationMinutes: 30, status: "missed", isMakeup: false,
+      },
+      status: "success",
+    });
+    renderWithRoute(
+      "/scheduling?tab=minutes&intent=makeup&studentId=42&serviceRequirementId=19&missedSessionId=333&sourceActionItemId=alert%3A123&from=action-center",
+    );
+    await waitFor(() => expect(screen.getByTestId("dialog-open")).toBeTruthy());
+    expect(screen.getByTestId("dialog-sourceActionItemId").textContent).toBe("alert:123");
+    fireEvent.click(screen.getByTestId("dialog-set-staff"));
+    fireEvent.click(screen.getByTestId("dialog-save"));
+    await waitFor(() => expect(createScheduleBlockMock).toHaveBeenCalledTimes(1));
+    const payload = createScheduleBlockMock.mock.calls[0][0] as any;
+    expect(payload.sourceActionItemId).toBe("alert:123");
+    expect(payload.blockType).toBe("makeup");
+    expect(payload.studentId).toBe(42);
+    expect(payload.serviceTypeId).toBe(7);
+  });
+
+  it("T02: leaves sourceActionItemId null on ordinary (non-makeup) URL", async () => {
+    renderWithRoute("/scheduling?tab=minutes");
+    // No banner, no auto-opened dialog — verifies non-makeup path is unaffected.
+    expect(screen.queryByTestId("banner-makeup-intent")).toBeNull();
+    expect(screen.queryByTestId("dialog-open")).toBeNull();
   });
 
   it("end-to-end: producer URL → auto-open dialog → save calls createScheduleBlock with blockType=makeup and missed-session note", async () => {

@@ -109,17 +109,19 @@ export default function MinutesOversightTab() {
     const sid = Number(p.get("studentId"));
     const reqId = Number(p.get("serviceRequirementId"));
     const msid = Number(p.get("missedSessionId"));
+    const sourceItem = p.get("sourceActionItemId");
     return {
       preselectedStudentId: Number.isFinite(sid) && sid > 0 ? sid : null,
       preselectedRequirementId: Number.isFinite(reqId) && reqId > 0 ? reqId : null,
       preselectedMissedSessionId: Number.isFinite(msid) && msid > 0 ? msid : null,
+      preselectedSourceActionItemId: sourceItem && sourceItem.length > 0 ? sourceItem : null,
       makeupIntent: p.get("intent") === "makeup",
       from: p.get("from") ?? null,
     };
   }, [searchStr]);
   const {
     preselectedStudentId, preselectedRequirementId, preselectedMissedSessionId,
-    makeupIntent, from,
+    preselectedSourceActionItemId, makeupIntent, from,
   } = queryFlags;
 
   // Phase 1D — auto-open guard so we don't reopen the dialog every
@@ -174,7 +176,7 @@ export default function MinutesOversightTab() {
 
   function openScheduleFor(
     row: { studentId: number; serviceTypeId: number | null; serviceTypeName?: string | null },
-    opts?: { makeup?: boolean; missedSessionId?: number | null },
+    opts?: { makeup?: boolean; missedSessionId?: number | null; sourceActionItemId?: string | null },
   ) {
     const isMakeup = !!opts?.makeup;
     const missedId = opts?.missedSessionId ?? null;
@@ -186,6 +188,11 @@ export default function MinutesOversightTab() {
       blockLabel: isMakeup ? "Makeup" : "",
       notes: isMakeup ? buildMakeupNotes(missedId, row) : "",
       isRecurring: isMakeup ? false : DEFAULT_BLOCK_FORM.isRecurring,
+      // T02 — carry the originating Action Center / Risk Report
+      // handling-row id through the form so it lands on the created
+      // schedule_block.source_action_item_id. Only meaningful for makeup
+      // launches; left null on ordinary block creation.
+      sourceActionItemId: isMakeup ? (opts?.sourceActionItemId ?? null) : null,
     });
     setScheduleDialogOpen(true);
   }
@@ -207,6 +214,11 @@ export default function MinutesOversightTab() {
         notes: blockForm.notes || null,
         isRecurring: blockForm.isRecurring,
         rotationDay: blockForm.rotationDay || null,
+        // T02 — Phase A wedge linkage. Persisted on schedule_blocks
+        // .source_action_item_id so a created makeup block can be
+        // traced back to the originating Action Center / Risk Report
+        // handling row.
+        sourceActionItemId: blockForm.sourceActionItemId ?? null,
       };
       await createScheduleBlock(payload);
       toast.success("Session scheduled");
@@ -288,10 +300,15 @@ export default function MinutesOversightTab() {
         && missedSessionStatus !== "error") return;
     if (!autoOpenTarget) return;
     autoOpenedRef.current = autoOpenKey;
-    openScheduleFor(autoOpenTarget, { makeup: true, missedSessionId: preselectedMissedSessionId });
+    openScheduleFor(autoOpenTarget, {
+      makeup: true,
+      missedSessionId: preselectedMissedSessionId,
+      sourceActionItemId: preselectedSourceActionItemId,
+    });
   }, [
     makeupIntent, canSchedule, preselectedStudentId, autoOpenTarget,
     preselectedMissedSessionId, missedSessionStatus, autoOpenKey,
+    preselectedSourceActionItemId,
   ]);
 
   // Fallback launcher used by the banner CTA when no at-risk row matches.

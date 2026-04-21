@@ -8791,6 +8791,15 @@ components:
           type: ["string", "null"]
         rotationDay:
           type: ["string", "null"]
+        sourceActionItemId:
+          type: ["string", "null"]
+          description: |
+            Phase A wedge linkage. When the block is created from a
+            Schedule Makeup deep-link, this carries the originating
+            Action Center / Risk Report handling-row id (e.g.
+            "alert:123", "risk:42:19", "service-gap:42:19") so the
+            block can be traced back to the at-risk item that
+            produced it. Null for ordinary block creation.
       required: [staffId, dayOfWeek, startTime, endTime, blockType, isRecurring]
 
     UpdateScheduleBlockBody:
@@ -8816,6 +8825,11 @@ components:
           type: ["string", "null"]
         effectiveTo:
           type: ["string", "null"]
+        sourceActionItemId:
+          type: ["string", "null"]
+          description: |
+            Optional carrier-id of the producer action item this block resolves.
+            See CreateScheduleBlockBody.sourceActionItemId for details (T02).
 
     ScheduleConflict:
       type: object

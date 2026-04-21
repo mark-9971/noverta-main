@@ -27,6 +27,27 @@ describe("buildScheduleMakeupHref", () => {
     expect(href).toContain("missedSessionId=333");
   });
 
+  it("appends sourceActionItemId when provided (T02)", () => {
+    const href = buildScheduleMakeupHref({
+      studentId: 42,
+      serviceRequirementId: 19,
+      sourceActionItemId: "risk:42:19",
+      from: "compliance",
+    });
+    expect(href).toBe(
+      "/scheduling?tab=minutes&intent=makeup&studentId=42&serviceRequirementId=19&sourceActionItemId=risk%3A42%3A19&from=compliance",
+    );
+  });
+
+  it("omits null sourceActionItemId (T02)", () => {
+    const href = buildScheduleMakeupHref({
+      studentId: 1,
+      sourceActionItemId: null,
+      from: "action-center",
+    });
+    expect(href).toBe("/scheduling?tab=minutes&intent=makeup&studentId=1&from=action-center");
+  });
+
   it("omits null serviceRequirementId / missedSessionId", () => {
     const href = buildScheduleMakeupHref({
       studentId: 1,

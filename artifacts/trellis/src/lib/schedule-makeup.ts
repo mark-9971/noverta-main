@@ -33,6 +33,13 @@ export interface ScheduleMakeupContext {
   missedSessionId?: number | null;
   /** Producer surface — used by the destination to render a back link. */
   from: ScheduleMakeupOrigin;
+  /** Phase A — T02: originating Action Center / Risk Report handling-row
+   *  id (e.g. "alert:123", "risk:42:19", "service-gap:42:19"). When
+   *  present, the destination scheduling form carries this through to
+   *  the created schedule_block via `source_action_item_id`, closing
+   *  the loop between an at-risk wedge item and the makeup it
+   *  produced. */
+  sourceActionItemId?: string | null;
 }
 
 /**
@@ -51,6 +58,9 @@ export function buildScheduleMakeupHref(ctx: ScheduleMakeupContext): string {
   }
   if (ctx.missedSessionId != null) {
     params.set("missedSessionId", String(ctx.missedSessionId));
+  }
+  if (ctx.sourceActionItemId) {
+    params.set("sourceActionItemId", ctx.sourceActionItemId);
   }
   params.set("from", ctx.from);
   return `/scheduling?${params.toString()}`;

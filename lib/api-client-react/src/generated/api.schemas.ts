@@ -1425,6 +1425,17 @@ export interface CreateScheduleBlockBody {
   weekOf?: string | null;
   /** @nullable */
   rotationDay?: string | null;
+  /**
+   * Phase A wedge linkage. When the block is created from a
+Schedule Makeup deep-link, this carries the originating
+Action Center / Risk Report handling-row id (e.g.
+"alert:123", "risk:42:19", "service-gap:42:19") so the
+block can be traced back to the at-risk item that
+produced it. Null for ordinary block creation.
+
+   * @nullable
+   */
+  sourceActionItemId?: string | null;
 }
 
 export interface UpdateScheduleBlockBody {
@@ -1448,6 +1459,13 @@ export interface UpdateScheduleBlockBody {
   effectiveFrom?: string | null;
   /** @nullable */
   effectiveTo?: string | null;
+  /**
+   * Optional carrier-id of the producer action item this block resolves.
+See CreateScheduleBlockBody.sourceActionItemId for details (T02).
+
+   * @nullable
+   */
+  sourceActionItemId?: string | null;
 }
 
 export type ScheduleConflictConflictingBlocksItem = {

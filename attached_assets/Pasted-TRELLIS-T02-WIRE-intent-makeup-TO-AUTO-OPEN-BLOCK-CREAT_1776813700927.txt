@@ -1,0 +1,167 @@
+TRELLIS — T02: WIRE intent=makeup TO AUTO-OPEN BLOCK CREATE WITH sourceActionItemId
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- The canonical browser wedge gate is now GREEN.
+- We are resuming the normalized Phase A chain:
+  T01 -> T02 -> T03 -> T04 -> T05
+- T01 is already complete:
+  schedule_blocks.source_action_item_id exists
+  session_logs.source_action_item_id exists
+- Do not broaden into T03/T04/T05 behavior.
+- Do not redesign scheduling.
+- This task is specifically about making the existing Schedule Makeup launch path land in a real prefilled block-create action instead of a generic scheduling context.
+
+Objective
+Make the existing Schedule Makeup deep-link consume its current intent params and auto-open the existing block-create dialog with:
+- isMakeup=true
+- correct student context
+- correct service requirement context
+- sourceActionItemId carried through form state and persisted on the created schedule block
+
+Why now
+This is the first real user-visible step after the T01 schema foundation.
+Without this, Schedule Makeup is still mostly a context-preserving navigation path rather than a real operational action.
+
+User-visible success state
+When a user clicks Schedule Makeup from a wedge surface:
+1. they land on the scheduling page in the correct minutes/makeup context
+2. the existing block-create dialog opens automatically
+3. student / service requirement / makeup context is meaningfully prefilled
+4. saving the block persists sourceActionItemId on the created schedule block
+5. no parallel scheduling/create surface is introduced
+
+In scope
+- Read and consume the existing Schedule Makeup URL contract / intent params
+- Reuse the existing scheduling page and existing block-create dialog
+- Auto-open the dialog when the URL indicates a makeup intent
+- Prefill the dialog from URL context using existing canonical fields/helpers
+- Carry sourceActionItemId through form state and POST it to the existing create-block flow
+- Ensure the created schedule block persists sourceActionItemId
+- Preserve backward compatibility for normal non-makeup block creation
+- Add the minimum verification needed to prove round-trip behavior
+
+Out of scope
+- No new scheduling tab
+- No new scheduling engine
+- No candidate-slot proposal logic
+- No delivered vs scheduled-pending math changes
+- No auto-resolve logic
+- No new wedge pill states
+- No notifications
+- No compensatory lifecycle work
+- No broad scheduling page cleanup
+- No parallel “quick create” or alternate create-block surface
+
+Architecture / canonical anchors to reuse
+You must reuse and extend the existing canonical paths rather than duplicating logic:
+- artifacts/trellis/src/lib/schedule-makeup.ts
+  - canonical Schedule Makeup URL builder / contract
+- existing scheduling page / minutes oversight flow
+- existing BlockFormDialog or equivalent current block-create dialog
+- existing create-block request shape / route
+- existing wedge item identity model already established by T01
+- current browser wedge gate / existing proof path if useful for validation
+
+Do not:
+- hardcode a second interpretation of the Schedule Makeup URL contract
+- create a second ad hoc makeup-launch path
+- invent a new source-id model
+- duplicate block-create form logic outside the existing dialog flow if the current flow can be extended
+
+Likely files
+These are likely, not mandatory if the codebase proves otherwise:
+- artifacts/trellis/src/pages/scheduling.tsx
+- current minutes scheduling surface / MinutesOversightTab equivalent
+- current BlockFormDialog or equivalent
+- artifacts/trellis/src/lib/schedule-makeup.ts
+- relevant create-block client helper
+- relevant schedule-block create backend route only if needed for request plumbing
+
+Implementation expectations
+- Prefer the smallest bounded implementation that makes the current deep-link truly actionable
+- If the dialog can be opened from URL-derived state, do that
+- If the current create-block payload lacks sourceActionItemId, add it cleanly and minimally
+- Preserve existing behavior for non-makeup block creation
+- Preserve existing query-param behavior if the scheduling page already handles some query state
+- If there is ambiguity between item_id and handling-row id, use the canonical wedge item identity model already established for T01
+
+Testing / verification requirements
+Required verification:
+1. prove the dialog auto-opens from a Schedule Makeup URL
+2. prove the student and service requirement context are prefilled correctly
+3. prove isMakeup=true is carried into the created block flow
+4. prove sourceActionItemId is persisted on the created schedule block
+5. prove non-makeup scheduling still behaves normally
+
+Preferred proof:
+- targeted automated coverage if there is already a good test pattern in this area
+- otherwise explicit manual verification with exact path and observed persisted result
+
+If automated coverage is too expensive for this step alone, be honest and provide:
+- exact manual verification steps run
+- exact database/API verification for sourceActionItemId persistence
+- any follow-up test work that should land in T07 rather than here
+
+Required final output
+1. EXECUTIVE VERDICT
+   - COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT CHANGES MADE
+   - exact file paths
+   - exact component/page/helper/route changes
+3. USER-VISIBLE IMPACT
+   - what the user now sees when clicking Schedule Makeup
+4. ARCHITECTURE / MODEL IMPACT
+   - what canonical anchors were reused
+   - whether any new canonical field/path was established
+5. TEST / BUILD STATUS
+   - exact tests run
+   - pass/fail
+   - manual verification if used
+   - unrelated pre-existing failures clearly separated
+6. REMAINING GAPS
+   - only real gaps
+   - especially what still prevents a full closed loop after T02
+7. EXACT NEXT TASKS
+   - should point to T03 if COMPLETE
+8. FINAL ARTIFACT
+   - plain-text block easy to paste into project docs
+
+Additional required sections
+Also include:
+- EXECUTION PATH
+  - launch source(s)
+  - params consumed
+  - destination behavior
+- STORAGE / LINKAGE MODEL
+  - what exact identifier is carried in the URL
+  - what exact identifier is stored on schedule_blocks
+  - whether session_logs are touched in this task or left for later
+- BEFORE / AFTER WORKFLOW IMPACT
+  - what changed from the user’s perspective
+- HONEST ACCEPTANCE CALL
+  - Can planning treat Schedule Makeup as a real actionable launch path now? yes/no
+
+Acceptance bar
+COMPLETE only if:
+- Schedule Makeup deep-link auto-opens the existing block-create dialog
+- the dialog is meaningfully prefilled from the existing URL contract
+- sourceActionItemId round-trips into the created schedule block
+- non-makeup behavior is not broken
+- no parallel scheduling surface was introduced
+
+PARTIAL if:
+- the dialog opens but key fields are not reliably prefilled
+- or sourceActionItemId is not actually persisted
+- or the implementation works only through a fragile/special-case path
+
+INCORRECTLY IMPLEMENTED if:
+- a second scheduling/create surface is introduced
+- the URL contract is duplicated inconsistently
+- the work broadens into T03/T04/T05
+- or completion is claimed without real persisted sourceActionItemId linkage
+
+If COMPLETE, the exact next task should be:
+T03 — split minute math into delivered / scheduled-pending / still-at-risk

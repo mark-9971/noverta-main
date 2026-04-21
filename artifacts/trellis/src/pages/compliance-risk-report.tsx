@@ -319,6 +319,7 @@ function RiskAttentionRow({
     navigate(buildScheduleMakeupHref({
       studentId: r.studentId,
       serviceRequirementId: r.serviceRequirementId,
+      sourceActionItemId: itemId,
       from: "compliance",
     }));
   }

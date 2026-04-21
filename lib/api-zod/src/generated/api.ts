@@ -2003,6 +2003,12 @@ export const CreateScheduleBlockBody = zod.object({
   effectiveTo: zod.string().nullish(),
   weekOf: zod.string().nullish(),
   rotationDay: zod.string().nullish(),
+  sourceActionItemId: zod
+    .string()
+    .nullish()
+    .describe(
+      'Phase A wedge linkage. When the block is created from a\nSchedule Makeup deep-link, this carries the originating\nAction Center \/ Risk Report handling-row id (e.g.\n\"alert:123\", \"risk:42:19\", \"service-gap:42:19\") so the\nblock can be traced back to the at-risk item that\nproduced it. Null for ordinary block creation.\n',
+    ),
 });
 
 /**
@@ -2023,6 +2029,12 @@ export const UpdateScheduleBlockBody = zod.object({
   recurrenceType: zod.string().nullish(),
   effectiveFrom: zod.string().nullish(),
   effectiveTo: zod.string().nullish(),
+  sourceActionItemId: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional carrier-id of the producer action item this block resolves.\nSee CreateScheduleBlockBody.sourceActionItemId for details (T02).\n",
+    ),
 });
 
 export const UpdateScheduleBlockResponse = zod.object({

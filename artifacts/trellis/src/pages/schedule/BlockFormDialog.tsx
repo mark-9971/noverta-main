@@ -11,6 +11,12 @@ export type BlockForm = {
   location: string; blockLabel?: string; notes: string;
   blockType: string; isRecurring: boolean; rotationDay: string;
   recurrenceType?: string; effectiveFrom?: string; effectiveTo?: string;
+  /** T02 — non-user-editable carrier for the originating Action
+   *  Center / Risk Report handling-row id when this form was opened
+   *  from a Schedule Makeup deep-link. Persisted on
+   *  schedule_blocks.source_action_item_id when the block is
+   *  created. Null for ordinary block creation. */
+  sourceActionItemId?: string | null;
 };
 
 interface Props {

@@ -103,6 +103,7 @@ export default function RecommendedNextStepCard({
       navigate(buildScheduleMakeupHref({
         studentId,
         serviceRequirementId: serviceRequirementId ?? null,
+        sourceActionItemId: itemId,
         from: scheduleMakeupOrigin,
       }));
       return;
