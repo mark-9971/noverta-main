@@ -1,17 +1,13 @@
 import { useParams, useSearch, useLocation } from "wouter";
 import { useGetStudent, useGetStudentMinuteProgress, useGetStudentSessions } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, FileText, Activity, Target, Gift, Share2, Plus, Archive, ArchiveRestore, CalendarDays, Bell, AlertTriangle, Clock, ClipboardList, CalendarPlus } from "lucide-react";
+import { ArrowLeft, FileText, Share2, Plus, Archive, ArchiveRestore, CalendarDays, ClipboardList, CalendarPlus } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
-import StudentSnapshot from "@/components/student-snapshot";
 import { useRole } from "@/lib/role-context";
 import { getStudentWorkspaceConfig } from "@/pages/student-detail/role-config";
-import { IoaSummary } from "@/components/aba-graph";
 import {
   getStudentPhaseChanges,
   listBehaviorTargets,
@@ -29,21 +25,16 @@ import {
 } from "@workspace/api-client-react";
 
 import { QuickLogSheet } from "@/components/quick-log-sheet";
-import StudentGoalSection from "./student-detail/StudentGoalSection";
-import StudentServiceSection from "./student-detail/StudentServiceSection";
-import StudentBehaviorSection from "./student-detail/StudentBehaviorSection";
-import PreferenceAssessmentCard from "@/components/preference-assessment/PreferenceAssessmentCard";
-import ReinforcerInventoryPanel from "@/components/preference-assessment/ReinforcerInventoryPanel";
-import SupportIntensityCard from "@/components/support-intensity/SupportIntensityCard";
-import StudentSessionHistory from "./student-detail/StudentSessionHistory";
-import StudentComplianceSection from "./student-detail/StudentComplianceSection";
-import StudentContactsMedical from "./student-detail/StudentContactsMedical";
-import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
 import SupersedeDialog from "./student-detail/SupersedeDialog";
-import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
-import StudentHandoffCard from "./student-detail/StudentHandoffCard";
-import StudentMedicaidField from "./student-detail/StudentMedicaidField";
+import TabSummary from "./student-detail/tabs/TabSummary";
+import TabIep from "./student-detail/tabs/TabIep";
+import TabBehavior from "./student-detail/tabs/TabBehavior";
+import TabSessions from "./student-detail/tabs/TabSessions";
+import TabReports from "./student-detail/tabs/TabReports";
+import TabContacts from "./student-detail/tabs/TabContacts";
+import TabJourney from "./student-detail/tabs/TabJourney";
+import TabHandoff from "./student-detail/tabs/TabHandoff";
 import { useEmergencyContacts } from "./student-detail/hooks/useEmergencyContacts";
 import { useMedicalAlerts } from "./student-detail/hooks/useMedicalAlerts";
 import { useEnrollmentEvents } from "./student-detail/hooks/useEnrollmentEvents";
@@ -539,69 +530,13 @@ export default function StudentDetail() {
       )}
 
       {/* ── SUMMARY ───────────────────────────────────────────────────── */}
-      <div className={activeTab === "summary" ? "space-y-5" : "hidden"}>
-
-      {reEvalStatus?.hasEligibility && reEvalStatus.reEvalStatus && (reEvalStatus.reEvalStatus.urgency === "overdue" || reEvalStatus.reEvalStatus.urgency === "upcoming") && (
-        <Card className={reEvalStatus.reEvalStatus.urgency === "overdue" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
-          <CardContent className="py-3 px-5 flex items-center gap-3">
-            {reEvalStatus.reEvalStatus.urgency === "overdue" ? <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" /> : <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <p className={`text-[13px] font-semibold ${reEvalStatus.reEvalStatus.urgency === "overdue" ? "text-red-700" : "text-amber-700"}`}>
-                {reEvalStatus.reEvalStatus.urgency === "overdue" ? "Re-Evaluation Overdue" : "Re-Evaluation Coming Up"}
-              </p>
-              <p className="text-[11px] text-gray-500">
-                {reEvalStatus.reEvalStatus.primaryDisability ? `${reEvalStatus.reEvalStatus.primaryDisability} · ` : ""}
-                Next re-eval due: {reEvalStatus.reEvalStatus.nextReEvalDate ?? "—"}
-                {reEvalStatus.reEvalStatus.daysUntilReEval !== null && (
-                  reEvalStatus.reEvalStatus.daysUntilReEval < 0
-                    ? ` (${Math.abs(reEvalStatus.reEvalStatus.daysUntilReEval)} days overdue)`
-                    : ` (${reEvalStatus.reEvalStatus.daysUntilReEval} days remaining)`
-                )}
-                {` · ${reEvalStatus.reEvalStatus.reEvalCycleMonths}-month cycle`}
-              </p>
-            </div>
-            <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-              View Evaluations →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {atRiskServices.length > 0 && (
-        <Card className={worstRisk === "out_of_compliance" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
-          <CardContent className="py-3 px-5">
-            <div className="flex items-center gap-3 mb-2">
-              <Bell className={`w-5 h-5 flex-shrink-0 ${worstRisk === "out_of_compliance" ? "text-red-500" : "text-amber-500"}`} />
-              <p className={`text-[13px] font-semibold ${worstRisk === "out_of_compliance" ? "text-red-700" : "text-amber-700"}`}>
-                {worstRisk === "out_of_compliance" ? "Service Minutes — Compliance Alert" : "Service Minutes — Approaching Shortfall"}
-              </p>
-            </div>
-            <div className="space-y-1 ml-8">
-              {atRiskServices.map((p: any) => {
-                const pct = p.requiredMinutes > 0 ? Math.round((p.deliveredMinutes / p.requiredMinutes) * 100) : 0;
-                const deficit = (p.requiredMinutes ?? 0) - (p.deliveredMinutes ?? 0);
-                const statusLabel = p.riskStatus === "out_of_compliance" ? "Out of Compliance" : p.riskStatus === "at_risk" ? "At Risk" : "Slightly Behind";
-                const statusColor = p.riskStatus === "out_of_compliance" ? "text-red-600" : p.riskStatus === "at_risk" ? "text-amber-600" : "text-yellow-600";
-                return (
-                  <div key={p.serviceRequirementId} className="flex items-center gap-2 text-[11px]">
-                    <span className={`font-semibold ${statusColor}`}>{statusLabel}</span>
-                    <span className="text-gray-400">·</span>
-                    <span className="text-gray-600">{p.serviceTypeName}</span>
-                    <span className="text-gray-400">·</span>
-                    <span className="text-gray-500">{p.deliveredMinutes}/{p.requiredMinutes} min ({pct}%)</span>
-                    <span className="text-gray-400">·</span>
-                    <span className="text-gray-500">{deficit} min remaining</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-        <StudentSnapshot studentId={studentId} />
-
-        <StudentGoalSection
+      <div className={activeTab === "summary" ? "" : "hidden"}>
+        <TabSummary
+          studentId={studentId}
+          s={s}
+          reEvalStatus={reEvalStatus}
+          atRiskServices={atRiskServices}
+          worstRisk={worstRisk}
           goalProgress={goalProgress}
           dataLoading={dataLoading}
           behaviorTargets={behaviorTargets}
@@ -611,68 +546,26 @@ export default function StudentDetail() {
           goalAbaView={goalAbaView}
           setGoalAbaView={setGoalAbaView}
           loadPhaseChanges={loadPhaseChanges}
-          student={s}
           annotationsByGoal={annotationsByGoal}
           onAddAnnotation={handleAddAnnotation}
           onRemoveAnnotation={handleRemoveAnnotation}
+          overallPct={overallPct}
+          riskCfg={riskCfg}
+          totalDelivered={totalDelivered}
+          totalRequired={totalRequired}
+          completedSessions={completedSessions}
+          missedSessions={missedSessions}
+          caps={caps}
+          refetchStudent={refetchStudent}
         />
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <Card>
-            <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">
-              <ProgressRing value={overallPct} size={56} strokeWidth={6} color={riskCfg.ringColor} />
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{overallPct}%</p>
-                <p className="text-[11px] text-gray-400">Overall Progress</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center" aria-hidden="true">
-                <TrendingUp className="w-5 h-5 text-emerald-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{totalDelivered}<span className="text-sm text-gray-400 font-normal"> / {totalRequired}</span></p>
-                <p className="text-[11px] text-gray-400">Minutes Delivered</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center" aria-hidden="true">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{completedSessions}</p>
-                <p className="text-[11px] text-gray-400">Completed Sessions</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center" aria-hidden="true">
-                <XCircle className="w-5 h-5 text-red-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{missedSessions}</p>
-                <p className="text-[11px] text-gray-400">Missed Sessions</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {caps.editMedicaidId && s && (
-          <StudentMedicaidField student={s} onSave={() => refetchStudent()} />
-        )}
-
-      </div>{/* end Summary tab */}
+      </div>
 
       {/* ── IEP & GOALS ───────────────────────────────────────────────── */}
-      <div className={activeTab === "iep" ? "space-y-5" : "hidden"}>
-        {mountedTabs.has("iep") && (
-          <>
-            <StudentGoalSection
+      <div className={activeTab === "iep" ? "" : "hidden"}>
+          {mountedTabs.has("iep") && (
+            <TabIep
+              studentId={studentId}
+              s={s}
               goalProgress={goalProgress}
               dataLoading={dataLoading}
               behaviorTargets={behaviorTargets}
@@ -682,12 +575,9 @@ export default function StudentDetail() {
               goalAbaView={goalAbaView}
               setGoalAbaView={setGoalAbaView}
               loadPhaseChanges={loadPhaseChanges}
-              student={s}
               annotationsByGoal={annotationsByGoal}
               onAddAnnotation={handleAddAnnotation}
               onRemoveAnnotation={handleRemoveAnnotation}
-            />
-            <StudentServiceSection
               chartData={chartData}
               minutesExpanded={minutesExpanded}
               setMinutesExpanded={setMinutesExpanded}
@@ -696,114 +586,20 @@ export default function StudentDetail() {
               setMinutesPhaseLines={setMinutesPhaseLines}
               progressList={progressList}
               isEditable={isEditable}
-              student={s}
-              openAddSvc={services.openAddSvc}
-              openEditSvc={services.openEditSvc}
-              setDeletingSvc={services.setDeletingSvc}
-              openAssignDialog={assignments.openAssignDialog}
-              handleRemoveAssignment={assignments.handleRemoveAssignment}
-            />
-            {compSummary && compSummary.counts?.total > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                      <Gift className="w-4 h-4 text-emerald-600" />
-                      Compensatory Services
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Link href="/compensatory?view=finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                        Financial View
-                      </Link>
-                      <Link href={`/compensatory?studentId=${studentId}`} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                        View All →
-                      </Link>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-2">
-                  {compSummary.totalRemaining > 0 && (
-                    <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-amber-800">Financial Exposure</p>
-                        {compFinancial ? (
-                          <p className="text-sm font-bold text-amber-900">
-                            ${compFinancial.exposure.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </p>
-                        ) : (
-                          <p className="text-xs font-semibold text-amber-900">Rate not configured</p>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-amber-600 mt-0.5">
-                        {compFinancial ? (
-                          "Based on configured district rates"
-                        ) : (
-                          <>
-                            {compSummary.totalRemaining} min owed.{" "}
-                            <Link href="/compensatory?view=finance&tab=rates" className="underline font-medium">
-                              Set hourly rates
-                            </Link>{" "}
-                            to compute dollar exposure.
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-lg font-bold text-gray-800">{compSummary.totalRemaining}</p>
-                      <p className="text-[10px] text-gray-400">Min Remaining</p>
-                    </div>
-                    <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                      <p className="text-lg font-bold text-emerald-700">{compSummary.totalDelivered}</p>
-                      <p className="text-[10px] text-gray-400">Min Delivered</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-lg font-bold text-gray-800">{compSummary.counts.pending + compSummary.counts.inProgress}</p>
-                      <p className="text-[10px] text-gray-400">Active</p>
-                    </div>
-                  </div>
-                  {compSummary.obligations?.length > 0 && (
-                    <div className="space-y-1.5">
-                      {compSummary.obligations.slice(0, 5).map((ob: any) => {
-                        const pct = ob.minutesOwed > 0 ? Math.round((ob.minutesDelivered / ob.minutesOwed) * 100) : 0;
-                        return (
-                          <div key={ob.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50/50">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-700">{ob.serviceTypeName || "Service"}</p>
-                              <p className="text-[10px] text-gray-400">
-                                {ob.minutesRemaining} min remaining · {ob.status.replace(/_/g, " ")}
-                              </p>
-                            </div>
-                            <div className="w-16">
-                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pct)}%` }} />
-                              </div>
-                              <p className="text-[9px] text-gray-400 text-right mt-0.5">{pct}%</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            <StudentComplianceSection
-              section="transition"
-              studentId={studentId}
+              services={services}
+              assignments={assignments}
+              compSummary={compSummary}
+              compFinancial={compFinancial}
               transitionData={transitionData}
             />
-          </>
-        )}
-      </div>{/* end IEP & Goals tab */}
+          )}
+        </div>
 
-      {/* ── BEHAVIOR / ABA ────────────────────────────────────────────── */}
-      <div className={activeTab === "behavior" ? "space-y-5" : "hidden"}>
-        {mountedTabs.has("behavior") && (
-          <>
-            <SupportIntensityCard studentId={studentId} />
-            <StudentBehaviorSection
+        {/* ── BEHAVIOR / ABA ────────────────────────────────────────────── */}
+        <div className={activeTab === "behavior" ? "" : "hidden"}>
+          {mountedTabs.has("behavior") && (
+            <TabBehavior
+              studentId={studentId}
               hasNonIepData={hasNonIepData}
               dataLoading={dataLoading}
               nonIepBehaviorTargets={nonIepBehaviorTargets}
@@ -821,38 +617,17 @@ export default function StudentDetail() {
               getBehaviorTrendData={getBehaviorTrendData}
               getProgramTrendData={getProgramTrendData}
               getTrendDirection={getTrendDirection}
-            />
-            {behaviorTargets.length > 0 && !dataLoading && (
-              <Card className="border-gray-100">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-gray-400" />
-                    Inter-Observer Agreement (IOA)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-2">
-                  <IoaSummary studentId={studentId} />
-                </CardContent>
-              </Card>
-            )}
-            <PreferenceAssessmentCard studentId={studentId} />
-            <ReinforcerInventoryPanel studentId={studentId} />
-            <StudentComplianceSection
-              section="protective"
-              studentId={studentId}
+              behaviorTargets={behaviorTargets}
               protectiveData={protectiveData}
               formatDate={formatDate}
             />
-          </>
-        )}
-      </div>{/* end Behavior / ABA tab */}
+          )}
+        </div>
 
-      {/* ── SESSIONS ──────────────────────────────────────────────────── */}
-      <div className={activeTab === "sessions" ? "space-y-5" : "hidden"}>
-        {mountedTabs.has("sessions") && (
-          <>
-            <StudentSessionHistory
-              section="data"
+        {/* ── SESSIONS ──────────────────────────────────────────────────── */}
+        <div className={activeTab === "sessions" ? "" : "hidden"}>
+          {mountedTabs.has("sessions") && (
+            <TabSessions
               dataSessions={dataSessions}
               dataLoading={dataLoading}
               expandedDataSessionId={expandedDataSessionId}
@@ -867,91 +642,45 @@ export default function StudentDetail() {
               formatDate={formatDate}
               formatTime={formatTime}
             />
-            <StudentSessionHistory
-              section="service"
-              dataSessions={dataSessions}
-              dataLoading={dataLoading}
-              expandedDataSessionId={expandedDataSessionId}
-              expandedDataDetail={expandedDataDetail}
-              expandedDataLoading={expandedDataLoading}
-              toggleDataSession={toggleDataSession}
-              recentSessions={recentSessions}
-              expandedServiceSessionId={expandedServiceSessionId}
-              expandedServiceDetail={expandedServiceDetail}
-              expandedServiceLoading={expandedServiceLoading}
-              toggleServiceSession={toggleServiceSession}
-              formatDate={formatDate}
-              formatTime={formatTime}
-            />
-          </>
-        )}
-      </div>{/* end Sessions tab */}
+          )}
+        </div>
 
-      {/* ── PROGRESS REPORTS ──────────────────────────────────────────── */}
-      <div className={activeTab === "reports" ? "space-y-5" : "hidden"}>
-        <StudentProgressReports
-          studentId={studentId}
-          enabled={progressReportsFetched || activeTab === "reports"}
-          isEditable={isEditable}
-        />
-      </div>{/* end Progress Reports tab */}
+        {/* ── PROGRESS REPORTS ──────────────────────────────────────────── */}
+        <div className={activeTab === "reports" ? "" : "hidden"}>
+          <TabReports
+            studentId={studentId}
+            enabled={progressReportsFetched || activeTab === "reports"}
+            isEditable={isEditable}
+          />
+        </div>
 
-      {/* ── DOCUMENTS & CONTACTS ──────────────────────────────────────── */}
-      <div className={activeTab === "contacts" ? "space-y-5" : "hidden"}>
-        {mountedTabs.has("contacts") && (
-          <>
-            <StudentContactsMedical
-              section="contactsAndMedical"
-              isEditable={isEditable}
-              emergencyContacts={contacts.emergencyContacts}
-              emergencyContactsLoading={contacts.emergencyContactsLoading}
-              openAddEc={contacts.openAddEc}
-              openEditEc={contacts.openEditEc}
-              setDeletingEc={contacts.setDeletingEc}
-              medicalAlerts={alerts.medicalAlerts}
-              medicalAlertsLoading={alerts.medicalAlertsLoading}
-              openAddMa={alerts.openAddMa}
-              openEditMa={alerts.openEditMa}
-              setDeletingMa={alerts.setDeletingMa}
-            />
-            <StudentComplianceSection
-              section="afterTransition"
+        {/* ── DOCUMENTS & CONTACTS ──────────────────────────────────────── */}
+        <div className={activeTab === "contacts" ? "" : "hidden"}>
+          {mountedTabs.has("contacts") && (
+            <TabContacts
               studentId={studentId}
+              isEditable={isEditable}
               bipReadOnly={bipReadOnly}
-              isEditable={isEditable}
-            />
-            <StudentComplianceSection
-              section="messagesAccommodations"
-              studentId={studentId}
               studentName={studentName}
+              role={role}
+              contacts={contacts}
+              alerts={alerts}
+              enrollment={enrollment}
               messageGuardians={messageGuardians}
             />
-            <StudentContactsMedical
-              section="enrollment"
-              enrollmentHistory={enrollment.enrollmentHistory}
-              enrollmentLoading={enrollment.enrollmentLoading}
-              role={role}
-              openAddEvent={enrollment.openAddEvent}
-              openEditEvent={enrollment.openEditEvent}
-              setDeletingEvent={enrollment.setDeletingEvent}
-            />
-          </>
-        )}
-      </div>{/* end Documents & Contacts tab */}
+          )}
+        </div>
 
-      {/* ── JOURNEY ───────────────────────────────────────────────────── */}
-      <div className={activeTab === "journey" ? "space-y-5" : "hidden"}>
-        {mountedTabs.has("journey") && (
-          <StudentJourneyTimeline studentId={studentId} />
-        )}
-      </div>{/* end Journey tab */}
+        {/* ── JOURNEY ───────────────────────────────────────────────────── */}
+        <div className={activeTab === "journey" ? "" : "hidden"}>
+          {mountedTabs.has("journey") && <TabJourney studentId={studentId} />}
+        </div>
 
-      {/* ── STAFF GUIDE (handoff) ─────────────────────────────────────── */}
-      <div className={activeTab === "handoff" ? "space-y-2" : "hidden"}>
-        {mountedTabs.has("handoff") && (
-          <StudentHandoffCard studentId={studentId} />
-        )}
-      </div>{/* end Staff Guide tab */}
+        {/* ── STAFF GUIDE (handoff) ─────────────────────────────────────── */}
+        <div className={activeTab === "handoff" ? "" : "hidden"}>
+          {mountedTabs.has("handoff") && <TabHandoff studentId={studentId} />}
+        </div>
+  
 
       {/* Dialogs — always rendered so modals work from any tab */}
       <StudentDialogs
