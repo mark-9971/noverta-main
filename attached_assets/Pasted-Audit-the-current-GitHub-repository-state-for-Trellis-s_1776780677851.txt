@@ -1,0 +1,166 @@
+Audit the current GitHub/repository state for Trellis so we can decide whether GitHub is reliable enough to use as the code/source-of-truth backbone for project planning.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Produce a blunt, concrete repository-state audit that answers whether GitHub is current, clean, and trustworthy enough to serve as the source of truth for planning, project docs, and future cross-chat/lane coordination.
+
+This is not a general code audit.
+It is specifically a repository / sync / cleanliness audit.
+
+Important:
+Be honest and skeptical.
+Do not assume GitHub is up to date just because it is connected.
+If there are local changes, generated artifacts out of sync, branch confusion, or anything else that makes GitHub an unreliable source of truth, say so clearly.
+
+==================================================
+A. WHAT I NEED TO KNOW
+==================================================
+
+I need to know:
+
+1. What branch/worktree state the repo is currently in
+2. Whether recent merged work is actually committed
+3. Whether there are uncommitted or untracked local changes
+4. Whether generated/codegen artifacts are in sync
+5. Whether GitHub can safely be treated as the source of truth for planning
+6. Whether there are any reasons I should NOT yet rely on GitHub for the project docs / project chat setup
+7. Whether there are any repo hygiene issues that will create confusion across multiple agents/chats
+
+==================================================
+B. REQUIRED OUTPUT STRUCTURE
+==================================================
+
+Return your answer in this exact structure.
+
+1. EXECUTIVE VERDICT
+Classify GitHub/repo state as exactly one of:
+- READY AS SOURCE OF TRUTH
+- MOSTLY READY WITH CAVEATS
+- NOT READY YET
+
+Then give one paragraph explaining why.
+
+2. CURRENT REPO / BRANCH STATE
+State exactly:
+- current branch
+- whether the working tree is clean
+- whether there are local commits not pushed
+- whether there are remote commits not pulled
+- whether there are merge/rebase/cherry-pick states in progress
+- whether multiple branches/worktrees appear relevant
+
+If anything is ambiguous, say so.
+
+3. UNCOMMITTED / UNTRACKED CHANGES
+List exactly:
+- modified files
+- untracked files
+- deleted files not committed
+- generated files that appear changed
+- whether any of these changes are important enough to make GitHub stale as a source of truth
+
+Group them into:
+- SAFE / IGNORABLE
+- IMPORTANT
+- BLOCKING
+
+Be explicit.
+
+4. GENERATED / CODEGEN / BUILD ARTIFACT STATUS
+Audit whether generated artifacts are in sync enough that GitHub reflects the real current state.
+
+At minimum check:
+- API spec / codegen outputs
+- any generated client files
+- any seed/build artifacts that are expected to be committed
+- any docs or buyer-pack outputs that matter to planning
+
+State clearly:
+- IN SYNC
+- PARTIALLY OUT OF SYNC
+- OUT OF SYNC
+
+And explain why.
+
+5. RECENT IMPORTANT MERGED WORK
+Identify the major recent work that appears to be present in the repo.
+At minimum check whether the codebase includes the currently important work tracks we believe landed, such as:
+- shared handling state backend/frontend
+- demo readiness / handling-state seeding
+- schedule-makeup path hardening
+- recommendation model / wedge primitives
+- school-calendar math work
+- actionability improvements
+
+For each:
+- PRESENT IN REPO
+- PARTIAL / UNCLEAR
+- MISSING
+
+Do not assume — verify against code.
+
+6. GITHUB RELIABILITY FOR PROJECT SETUP
+Answer directly:
+- Can GitHub be used right now as the backbone for the new ChatGPT Project?
+- Would a project doc created from the current repo likely match the true current product state?
+- What caveats should be written down before relying on it?
+
+If GitHub is not fully ready, state exactly what must happen first.
+
+7. REPO HYGIENE RISKS
+List the highest-value repository-state problems that could create confusion in a multi-lane workflow.
+
+Examples:
+- stale generated artifacts
+- docs not matching code
+- replit.md overstating maturity
+- uncommitted local work
+- branch ambiguity
+- demo seeder changes not in committed state
+- ignored files that actually matter
+
+For each:
+- why it matters
+- severity:
+  - HIGH
+  - MEDIUM
+  - LOW
+
+8. EXACT NEXT STEPS
+Give the exact next 3–10 steps required to make GitHub a clean and reliable source of truth if it is not already.
+
+If it is already ready, say the next steps for using it operationally (for example: connect project to repo, treat branch X as canonical, ignore files Y, etc.).
+
+9. COPY-PASTEABLE FINAL ARTIFACT
+At the end, include a clean plain-text block labeled:
+
+GITHUB SOURCE-OF-TRUTH STATUS
+
+This block should be easy to paste into a project doc and should summarize:
+- readiness verdict
+- current branch / cleanliness
+- key caveats
+- whether GitHub is safe to use as planning source of truth
+- exact immediate next steps
+
+==================================================
+C. HOW TO DO THIS AUDIT
+==================================================
+
+Audit the actual repository/worktree state.
+Use the real repo state, not assumptions from prior chat summaries.
+Be explicit if something cannot be confirmed.
+
+==================================================
+D. OUTPUT QUALITY STANDARD
+==================================================
+
+- Be skeptical
+- Be concrete
+- Name exact files when relevant
+- Do not hide uncommitted or stale state
+- Do not say “ready” if there are real caveats
+- Make the final result easy to copy into project docs
+
+At the end, include the requested plain-text “GITHUB SOURCE-OF-TRUTH STATUS” block.
