@@ -6,8 +6,8 @@
 // `lib/domain-service-delivery` per the migration plan in
 // docs/architecture/active-requirements.md (target: Batch 2).
 import { db } from "@workspace/db";
-import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable, schoolsTable } from "@workspace/db";
-import { eq, and, gte, lte, sql, inArray, isNull } from "drizzle-orm";
+import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable, schoolsTable, scheduleBlocksTable } from "@workspace/db";
+import { eq, and, gte, lte, sql, inArray, isNull, isNotNull } from "drizzle-orm";
 import {
   getSchoolDayException,
   getSchoolDayExceptionsForRange,
@@ -115,6 +115,32 @@ export type MinuteProgressResult = {
   missedSessionsCount: number;
   makeupSessionsCount: number;
   /**
+   * T03 (Phase A — closed-loop makeup): minutes represented by makeup
+   * schedule blocks that are linked to an originating action item via
+   * `schedule_blocks.source_action_item_id` (T02) and have NOT yet been
+   * delivered (i.e. no session_log carries the same source_action_item_id
+   * within the interval window). These minutes are *intent*, not delivery
+   * — the wedge no longer treats "scheduled" as "delivered".
+   * Defaults to 0 when no pending-makeup context is supplied (legacy
+   * call sites / tests).
+   */
+  scheduledPendingMinutes: number;
+  /**
+   * T03 — number of pending makeup schedule blocks contributing to
+   * `scheduledPendingMinutes` for this requirement. Surfaces a "1
+   * makeup scheduled" affordance without a second query.
+   */
+  pendingMakeupBlocksCount: number;
+  /**
+   * T03 — required gap remaining after subtracting both delivered and
+   * scheduled-pending minutes from the requirement, never below zero.
+   * This is the honest "still needs intervention" bucket and replaces
+   * the implicit "remainingMinutes minus pending" math the UI used to
+   * do client-side. T05 will expose this as the canonical at-risk
+   * delta across wedge surfaces.
+   */
+  stillAtRiskMinutes: number;
+  /**
    * School Calendar v0 — Slice 2. Number of full-closure days for the
    * student's school that fall inside the elapsed slice of the current
    * interval. Surfaces the discount applied to expectedMinutesByNow so
@@ -129,6 +155,207 @@ export type MinuteProgressResult = {
    */
   earlyReleaseDayCount: number;
 };
+
+// ---------------------------------------------------------------------------
+// T03 — Phase A pending-makeup math helpers.
+//
+// "scheduledPending" minutes represent makeup intent — minutes the district
+// has *committed to deliver* (a coordinator scheduled a makeup block from a
+// risk/alert via the T02 deep link) but has not yet logged. The wedge used
+// to silently treat a scheduled makeup as if the minutes were already in the
+// bank, which made the at-risk math optimistic and broke the closed loop.
+//
+// Honesty rules baked in here:
+//  1. Only blocks with `block_type = 'makeup'` AND a non-null
+//     `source_action_item_id` (T02 linkage) count. Hand-entered makeups and
+//     ordinary recurring service blocks never contribute to pending — they
+//     either don't represent recovery intent or aren't traceable to a gap.
+//  2. A block stops contributing the moment a session_log is written
+//     carrying the same `source_action_item_id` (T04 will guarantee this
+//     happens at session-create time). Until then, manually-logged makeups
+//     can briefly cause a single deep-link block to count as both delivered
+//     (via the session_log path, status=makeup) and pending (via this
+//     helper). That tiny seam closes when T04 ships and is documented in
+//     the architect note for this task.
+//  3. Soft-deleted blocks (`deleted_at IS NOT NULL`) are excluded.
+//  4. Block duration is computed from `start_time`/`end_time` parsed as
+//     "HH:MM"; a single block contributes its single-instance duration —
+//     recurring weekly makeup blocks are not multiplied across the interval
+//     because Phase A makeup blocks created via the deep link are
+//     one-shot (`isRecurring = false`, `weekOf` set).
+//  5. `stillAtRiskMinutes = max(0, requiredMinutes - delivered - pending)`.
+// ---------------------------------------------------------------------------
+
+function parseHHMMtoMinutes(t: string | null | undefined): number {
+  if (!t) return 0;
+  const parts = t.split(":");
+  const h = parseInt(parts[0] ?? "0", 10);
+  const m = parseInt(parts[1] ?? "0", 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+  return h * 60 + m;
+}
+
+export function blockDurationMinutes(startTime: string, endTime: string): number {
+  return Math.max(0, parseHHMMtoMinutes(endTime) - parseHHMMtoMinutes(startTime));
+}
+
+/**
+ * Pure (no-DB) reducer used by both the live math path and the unit tests.
+ * Given the candidate makeup blocks for a (studentId, serviceTypeId) pair
+ * and the set of action-item ids that have already been delivered against,
+ * return how many minutes are pending and how many distinct blocks they
+ * came from.
+ */
+export type PendingMakeupBlock = {
+  studentId: number | null;
+  serviceTypeId: number | null;
+  sourceActionItemId: string | null;
+  startTime: string;
+  endTime: string;
+  // T03 architect fix — interval bounds. A Phase A deep-link makeup is
+  // one-shot and carries `weekOf` (a YYYY-MM-DD anchor for that single
+  // instance). Recurring blocks (rare for makeups) carry a date range
+  // instead. Both shapes are tolerated so the reducer can decide block
+  // eligibility per requirement-interval without re-querying.
+  weekOf: string | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+};
+
+/**
+ * Returns true iff the block's eligibility window overlaps the
+ * requirement's [intervalStartStr, intervalEndStr] window. Encodes the
+ * Phase A rule: prefer `weekOf` for one-shot makeups; fall back to the
+ * `effective_from`/`effective_to` envelope otherwise. Blocks with no
+ * date anchor at all are NOT counted (the wedge does not credit
+ * untimed intent toward a specific reporting interval).
+ */
+export function blockOverlapsInterval(
+  b: Pick<PendingMakeupBlock, "weekOf" | "effectiveFrom" | "effectiveTo">,
+  intervalStartStr: string,
+  intervalEndStr: string,
+): boolean {
+  if (b.weekOf) {
+    return b.weekOf >= intervalStartStr && b.weekOf <= intervalEndStr;
+  }
+  if (b.effectiveFrom || b.effectiveTo) {
+    const from = b.effectiveFrom ?? "0000-01-01";
+    const to = b.effectiveTo ?? "9999-12-31";
+    return from <= intervalEndStr && to >= intervalStartStr;
+  }
+  return false;
+}
+
+/**
+ * Pure (no-DB) reducer used by both the live math path and the unit tests.
+ * Given the candidate makeup blocks for a (studentId, serviceTypeId) pair,
+ * the per-requirement interval window, and the set of action-item ids that
+ * have already been delivered against, return how many minutes are pending
+ * and how many distinct blocks they came from.
+ *
+ * Architect fix (T03): interval bounds are enforced *here*, not at the
+ * SQL layer, because the bulk path loads candidate blocks once across a
+ * global window and then dispatches per requirement (which each have
+ * their own interval). Without this filter, a block from Jan would
+ * incorrectly reappear as pending in Feb's interval result.
+ */
+export function reducePendingMakeupMinutes(
+  blocks: ReadonlyArray<PendingMakeupBlock>,
+  deliveredActionItemIds: ReadonlySet<string>,
+  reqStudentId: number,
+  reqServiceTypeId: number,
+  intervalStartStr: string,
+  intervalEndStr: string,
+): { minutes: number; count: number } {
+  let minutes = 0;
+  let count = 0;
+  for (const b of blocks) {
+    if (!b.sourceActionItemId) continue;
+    if (deliveredActionItemIds.has(b.sourceActionItemId)) continue;
+    if (b.studentId !== reqStudentId) continue;
+    if (b.serviceTypeId !== reqServiceTypeId) continue;
+    if (!blockOverlapsInterval(b, intervalStartStr, intervalEndStr)) continue;
+    const mins = blockDurationMinutes(b.startTime, b.endTime);
+    if (mins <= 0) continue;
+    minutes += mins;
+    count += 1;
+  }
+  return { minutes, count };
+}
+
+type PendingMakeupContext = {
+  blocks: PendingMakeupBlock[];
+  deliveredActionItemIds: Set<string>;
+};
+
+const EMPTY_PENDING_CONTEXT: PendingMakeupContext = {
+  blocks: [],
+  deliveredActionItemIds: new Set<string>(),
+};
+
+/**
+ * Load the pending-makeup context for a set of (studentId, serviceTypeId,
+ * intervalRange) tuples. Two queries:
+ *   - all candidate makeup schedule blocks for the involved students that
+ *     carry a source_action_item_id and aren't soft-deleted;
+ *   - all session_log source_action_item_ids in the same student window so
+ *     the reducer can subtract delivered intent without a per-req join.
+ */
+async function loadPendingMakeupContext(
+  studentIds: ReadonlyArray<number>,
+  intervalEarliestStr: string,
+  intervalLatestStr: string,
+): Promise<PendingMakeupContext> {
+  if (studentIds.length === 0) return EMPTY_PENDING_CONTEXT;
+
+  const blocks = await db
+    .select({
+      studentId: scheduleBlocksTable.studentId,
+      serviceTypeId: scheduleBlocksTable.serviceTypeId,
+      sourceActionItemId: scheduleBlocksTable.sourceActionItemId,
+      startTime: scheduleBlocksTable.startTime,
+      endTime: scheduleBlocksTable.endTime,
+      weekOf: scheduleBlocksTable.weekOf,
+      effectiveFrom: scheduleBlocksTable.effectiveFrom,
+      effectiveTo: scheduleBlocksTable.effectiveTo,
+    })
+    .from(scheduleBlocksTable)
+    .where(and(
+      inArray(scheduleBlocksTable.studentId, studentIds as number[]),
+      eq(scheduleBlocksTable.blockType, "makeup"),
+      isNotNull(scheduleBlocksTable.sourceActionItemId),
+      isNull(scheduleBlocksTable.deletedAt),
+      // Coarse SQL-side window prefilter: keep candidates that *could*
+      // overlap the global session-window. The per-requirement reducer
+      // applies the precise per-interval check (blockOverlapsInterval).
+      sql`(
+        (${scheduleBlocksTable.weekOf} IS NOT NULL
+          AND ${scheduleBlocksTable.weekOf} >= ${intervalEarliestStr}
+          AND ${scheduleBlocksTable.weekOf} <= ${intervalLatestStr})
+        OR (${scheduleBlocksTable.weekOf} IS NULL
+          AND COALESCE(${scheduleBlocksTable.effectiveFrom}::text, '0000-01-01') <= ${intervalLatestStr}
+          AND COALESCE(${scheduleBlocksTable.effectiveTo}::text, '9999-12-31') >= ${intervalEarliestStr})
+      )`,
+    ));
+
+  const deliveredRows = await db
+    .select({ sourceActionItemId: sessionLogsTable.sourceActionItemId })
+    .from(sessionLogsTable)
+    .where(and(
+      inArray(sessionLogsTable.studentId, studentIds as number[]),
+      isNotNull(sessionLogsTable.sourceActionItemId),
+      gte(sessionLogsTable.sessionDate, intervalEarliestStr),
+      lte(sessionLogsTable.sessionDate, intervalLatestStr),
+      isNull(sessionLogsTable.deletedAt),
+    ));
+
+  const deliveredActionItemIds = new Set<string>();
+  for (const r of deliveredRows) {
+    if (r.sourceActionItemId) deliveredActionItemIds.add(r.sourceActionItemId);
+  }
+
+  return { blocks, deliveredActionItemIds };
+}
 
 export async function computeMinuteProgress(
   serviceRequirementId: number,
@@ -205,10 +432,16 @@ export async function computeMinuteProgress(
       })
     : new Map<string, SchoolDayException>();
 
+  const pendingCtx = await loadPendingMakeupContext(
+    [req.studentId],
+    intervalStartStr,
+    intervalEndStr,
+  );
+
   return buildProgressFromSessions(req, sessions, intervalStart, intervalEnd, intervalStartStr, intervalEndStr, asOfDate, {
     schoolId: req.schoolId,
     exceptions,
-  });
+  }, pendingCtx);
 }
 
 function buildProgressFromSessions(
@@ -244,6 +477,13 @@ function buildProgressFromSessions(
     schoolId: number | null;
     exceptions: Map<string, SchoolDayException>;
   },
+  /**
+   * T03 — pending-makeup context. When supplied, the result will report
+   * `scheduledPendingMinutes`, `pendingMakeupBlocksCount`, and
+   * `stillAtRiskMinutes`. When omitted, those fields default to 0 /
+   * `remainingMinutes` so legacy callers and tests remain valid.
+   */
+  pendingMakeupCtx?: PendingMakeupContext,
 ): MinuteProgressResult {
   const completedSessions = sessions.filter(s => s.status === "completed" || s.status === "makeup");
   const missedSessions = sessions.filter(s => s.status === "missed");
@@ -302,6 +542,24 @@ function buildProgressFromSessions(
 
   const riskStatus = computeRiskStatus(req.requiredMinutes, deliveredMinutes, expectedByNow, projectedMinutes);
 
+  // T03 — bucket the recovery picture into delivered / scheduledPending /
+  // stillAtRisk so the wedge stops conflating intent with delivery. When no
+  // pending context was supplied (legacy callers / unit tests), pending is
+  // 0 and stillAtRisk degrades to the existing remainingMinutes.
+  const pending = pendingMakeupCtx
+    ? reducePendingMakeupMinutes(
+        pendingMakeupCtx.blocks,
+        pendingMakeupCtx.deliveredActionItemIds,
+        req.studentId,
+        req.serviceTypeId,
+        intervalStartStr,
+        intervalEndStr,
+      )
+    : { minutes: 0, count: 0 };
+  const scheduledPendingMinutes = pending.minutes;
+  const pendingMakeupBlocksCount = pending.count;
+  const stillAtRiskMinutes = Math.max(0, remainingMinutes - scheduledPendingMinutes);
+
   return {
     serviceRequirementId: req.id,
     studentId: req.studentId,
@@ -322,6 +580,9 @@ function buildProgressFromSessions(
     intervalEnd: intervalEndStr,
     missedSessionsCount: missedSessions.length,
     makeupSessionsCount: makeupSessions.length,
+    scheduledPendingMinutes,
+    pendingMakeupBlocksCount,
+    stillAtRiskMinutes,
     closureDayCount,
     earlyReleaseDayCount,
   };
@@ -438,6 +699,15 @@ export async function computeAllActiveMinuteProgress(filters?: {
     }
   }
 
+  // T03 — load pending-makeup context once for all involved students,
+  // bounded by the global window we're already scanning sessions over.
+  const allStudentIds = Array.from(new Set(reqs.map(r => r.studentId)));
+  const pendingCtx = await loadPendingMakeupContext(
+    allStudentIds,
+    sessionStartStr,
+    sessionEndStr,
+  );
+
   const allSessions = await db
     .select({
       serviceRequirementId: sessionLogsTable.serviceRequirementId,
@@ -490,6 +760,7 @@ export async function computeAllActiveMinuteProgress(filters?: {
       iv.endStr,
       filters?.asOfDate,
       { schoolId: req.schoolId, exceptions: perSchoolExceptions },
+      pendingCtx,
     ));
   }
 

@@ -1,0 +1,195 @@
+TRELLIS — T03: SPLIT MINUTE MATH INTO delivered / scheduledPending / stillAtRisk
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- The canonical browser wedge gate is GREEN.
+- T01 is complete.
+- T02 is complete: sourceActionItemId now persists end-to-end from producer surfaces into schedule_blocks.
+- We are now on T03 in the normalized Phase A chain:
+  T01 -> T02 -> T03 -> T04 -> T05
+- Do not broaden into T04 auto-resolve logic.
+- Do not broaden into T05 badge/state rollout beyond the minimum surface exposure needed to prove T03 is real.
+- Do not redesign the compliance/risk product.
+- This task is about fixing the honesty of the wedge math:
+  stop conflating “makeup scheduled” with “minutes delivered.”
+
+Objective
+Extend the minute-math core so the product can distinguish:
+- delivered minutes
+- scheduledPending minutes
+- stillAtRisk minutes
+
+using the T02 linkage now available on schedule_blocks via sourceActionItemId.
+
+Why now
+Right now the wedge can persist the originating action-item link onto makeup schedule blocks, but the core math still does not distinguish:
+- minutes actually delivered
+from
+- minutes only scheduled/pending
+
+This is the biggest honesty fix inside the wedge math and is required before T04/T05 can close and present the loop correctly.
+
+User-visible success state
+After T03:
+1. the backend minute math can compute separate buckets for:
+   - delivered
+   - scheduled pending
+   - still at risk
+2. at least the primary consumers needed to prove the new math are updated enough to expose these buckets
+3. the product no longer treats a scheduled makeup as if it were already delivered
+4. the returned numbers are consistent and non-double-counted
+
+In scope
+- Extend the canonical minute math path to compute separate delivered / scheduledPending / stillAtRisk buckets
+- Use the existing T02 linkage on schedule_blocks/source_action_item_id where appropriate
+- Determine the correct pending-minute source from the real codebase:
+  - associated schedule blocks
+  - linked service requirement
+  - block duration / scheduled_minutes model
+  - any existing helper already used for block minute interpretation
+- Update the minimum consuming route/model layer needed so the new buckets are actually available to the product
+- Update the minimum primary surfaces needed to prove the behavior is real
+- Add unit/integration coverage for the new math and its no-double-counting behavior
+
+Out of scope
+- No T04 server-side auto-resolve
+- No T05 broad badge rollout across all wedge surfaces
+- No notifications
+- No comp lifecycle
+- No scheduling redesign
+- No fake pending math hardcoded in the client
+- No duplicate trust math outside minuteCalc.ts / canonical server path
+- No “scheduled = delivered” shortcuts anywhere
+
+Architecture / canonical anchors to reuse
+You must reuse and extend the existing canonical trust/math path:
+- artifacts/api-server/src/lib/minuteCalc.ts
+- artifacts/api-server/src/lib/schoolCalendar.ts
+- any current routes/selectors that already consume minuteCalc outputs
+- existing schedule_blocks linkage from T02
+- existing wedge item identity model / sourceActionItemId model
+- existing compliance/risk data pipeline
+
+You must not:
+- create a parallel pending-math implementation in a route or page
+- duplicate trust math in the client
+- invent a second interpretation of required minutes outside the canonical math core
+
+Expected core behavior
+The final model should distinguish:
+- delivered:
+  minutes from actual logged sessions
+- scheduledPending:
+  minutes represented by scheduled makeup blocks that are linked to an originating action item / risk and not yet delivered
+- stillAtRisk:
+  required gap remaining after accounting for delivered and scheduledPending, without going below zero
+
+Key honesty requirement
+Do not double count the same recovery effort as both scheduledPending and delivered.
+Once a session is actually logged, delivered math must remain authoritative.
+T04 will later use the same linkage for auto-resolve; T03 should prepare for that, not implement it.
+
+Likely files
+These are likely, not mandatory if the codebase proves otherwise:
+- artifacts/api-server/src/lib/minuteCalc.ts
+- artifacts/api-server/src/lib/schoolCalendar.ts
+- routes that return compliance/risk/minute summaries
+- any shared types/schemas carrying minute summary payloads
+- minimal surface files required to expose the three buckets for proof
+- related tests for minute math / compliance summaries
+
+Implementation expectations
+- Prefer the smallest bounded implementation that makes the math truthful
+- Keep all real bucket logic in the canonical server-side trust path
+- If pending minutes require deriving from schedule blocks, do that cleanly and centrally
+- Be explicit about assumptions:
+  - whether pending is tied only to makeup blocks
+  - whether only linked sourceActionItemId blocks count
+  - whether canceled/deleted/completed blocks are excluded
+  - whether date windows or service requirement matching constrain eligibility
+- If the codebase reveals an existing block-duration ambiguity, resolve it narrowly and document it honestly
+
+Testing / verification requirements
+Required verification:
+1. unit tests for delivered / scheduledPending / stillAtRisk bucket math
+2. explicit no-double-counting coverage
+3. at least one real scenario showing:
+   - no makeup scheduled
+   - makeup scheduled but not delivered
+   - makeup delivered
+4. proof that primary consumer output now exposes the three buckets
+5. proof that existing non-makeup paths are not broken
+
+Preferred proof:
+- unit tests around minuteCalc
+- targeted route/integration tests if there is already a pattern
+- manual verification only if a specific layer lacks automated coverage, with exact scenario and output shown
+
+If surface exposure is minimal in T03, be honest:
+- say exactly which surface(s) now expose the new buckets
+- say what broader rollout is intentionally deferred to T05
+
+Required final output
+1. EXECUTIVE VERDICT
+   - COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT CHANGES MADE
+   - exact file paths
+   - exact math/model/route/surface changes
+3. USER-VISIBLE IMPACT
+   - what is now more truthful in the product
+   - which surfaces actually reflect the new buckets
+4. ARCHITECTURE / MODEL IMPACT
+   - what canonical anchors were reused
+   - what exact bucket model now exists
+   - whether any new canonical server payload shape was introduced
+5. TEST / BUILD STATUS
+   - exact tests run
+   - pass/fail
+   - manual verification if used
+   - unrelated pre-existing failures clearly separated
+6. REMAINING GAPS
+   - only real gaps
+   - especially what still prevents a full closed loop after T03
+7. EXACT NEXT TASKS
+   - should point to T04 if COMPLETE
+8. FINAL ARTIFACT
+   - plain-text block easy to paste into project docs
+
+Additional required sections
+Also include:
+- MATH MODEL
+  - exact definitions of delivered, scheduledPending, stillAtRisk
+  - exact source tables/fields used for each
+- NO-DOUBLE-COUNTING RULE
+  - how the implementation prevents the same recovery effort from being counted twice
+- EXECUTION PATH
+  - which routes/summaries now consume the new math
+  - which surfaces actually expose it after T03
+- BEFORE / AFTER WORKFLOW IMPACT
+  - what changed in the product’s honesty/model, even if T05 is not fully rolled out yet
+- HONEST ACCEPTANCE CALL
+  - Can planning now say the backend minute math distinguishes scheduled from delivered? yes/no
+
+Acceptance bar
+COMPLETE only if:
+- the canonical server-side math now computes delivered / scheduledPending / stillAtRisk
+- the buckets are non-double-counted
+- at least the primary consumer path(s) expose the new values
+- existing behavior is not broken
+- the implementation stays inside the canonical math path
+
+PARTIAL if:
+- the math exists but is not actually exposed anywhere meaningful
+- or bucket logic is incomplete/fragile
+- or pending math is implemented outside the canonical trust path
+
+INCORRECTLY IMPLEMENTED if:
+- scheduledPending is hardcoded in the client
+- math is duplicated outside minuteCalc / canonical server path
+- scheduled minutes are treated as delivered
+- the change broadens into T04/T05 behavior and still leaves bucket truth unclear
+
+If COMPLETE, the exact next task should be:
+T04 — server-side auto-resolve when a linked makeup session is logged
