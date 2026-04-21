@@ -22,6 +22,24 @@ Trellis dev environment.
   Back button, and verifies the step-5 summary review and signature
   fields render. Suppresses `SampleDataTour` via an init script so the
   wizard isn't redirected mid-flow.
+- `tests/shared-handling-state.spec.ts` — proves the server-side
+  `action_item_handling` state is shared across users in the SAME
+  district and isolated from a SECOND district, in the rendered UI.
+  Uses three fixture users provisioned by `tests/global-setup.ts`:
+  - **Admin A** (`E2E_ADMIN_EMAIL`, primary district, default
+    `trellis-e2e-admin+clerk_test@example.com`) — performs writes via
+    the Action Center handling pill.
+  - **Admin B** (`E2E_ADMIN_B_EMAIL`, primary district, default
+    `trellis-e2e-admin-b+clerk_test@example.com`) — reads on Action
+    Center AND on the Compliance Risk Report (cross-surface assertion).
+  - **Admin C** (`E2E_ADMIN_C_EMAIL`, secondary district named
+    "E2E Secondary District", default
+    `trellis-e2e-admin-c+clerk_test@example.com`) — reads and must NOT
+    see Admin A's handling rows (district isolation).
+  All three Clerk users must exist in the configured Clerk instance
+  (the `+clerk_test` suffix bypasses email verification). The new
+  `districtSlot: "primary" | "secondary"` parameter on `POST /api/e2e/setup`
+  is what pins Admin C into the secondary district.
 - `tests/incident-lifecycle.spec.ts` — full 14-test suite covering the
   Massachusetts 603 CMR 46.00 protective-measures incident lifecycle:
   draft creation, status transitions (`draft → open → under_review →

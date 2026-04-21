@@ -299,9 +299,10 @@ if (process.env.NODE_ENV !== "production") {
       return;
     }
 
-    const { email, role: requestedRole } = req.body as {
+    const { email, role: requestedRole, districtSlot: requestedSlot } = req.body as {
       email?: string;
       role?: string;
+      districtSlot?: string;
     };
     if (!email || typeof email !== "string") {
       res.status(400).json({ error: "email is required" });
@@ -317,6 +318,13 @@ if (process.env.NODE_ENV !== "production") {
     )
       ? ((requestedRole ?? "admin") as AllowedRole)
       : "admin";
+    // districtSlot lets the cross-district E2E spec pin Admin C into a
+    // dedicated second district while Admin A/B share the existing primary.
+    // Backwards-compatible: when omitted we default to "primary" and the
+    // resolution rules match the original (single-district) behaviour.
+    const SECONDARY_DISTRICT_NAME = "E2E Secondary District";
+    const districtSlot: "primary" | "secondary" =
+      requestedSlot === "secondary" ? "secondary" : "primary";
     try {
       const { data: users } = await clerkClient.users.getUserList({
         emailAddress: [email],
@@ -330,11 +338,63 @@ if (process.env.NODE_ENV !== "production") {
       const user = users[0];
       const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
 
-      // If staffId is already set, the DB record still exists, and the role
-      // matches the requested one, return early. A role mismatch (e.g. an
-      // admin user being re-provisioned as a teacher) falls through so we
-      // overwrite Clerk metadata with the new role.
-      if (typeof meta.staffId === "number" && meta.role === role) {
+      // Resolve or discover the district for this user up front, because the
+      // alreadyProvisioned short-circuit must verify the existing scope still
+      // matches the requested districtSlot (otherwise re-provisioning Admin C
+      // into "secondary" after a stale Clerk metadata stamp could silently
+      // leave them in the primary district).
+      let districtId: number | null = null;
+      if (districtSlot === "secondary") {
+        const [existing] = await db
+          .select({ id: districtsTable.id })
+          .from(districtsTable)
+          .where(eq(districtsTable.name, SECONDARY_DISTRICT_NAME))
+          .limit(1);
+        if (existing) {
+          districtId = existing.id;
+        } else {
+          const [created] = await db
+            .insert(districtsTable)
+            .values({ name: SECONDARY_DISTRICT_NAME })
+            .returning({ id: districtsTable.id });
+          districtId = created.id;
+        }
+      } else {
+        // Primary slot — prefer existing Clerk metadata when it points at a
+        // district that is NOT the secondary one, otherwise pick the first
+        // non-secondary district in the table.
+        if (typeof meta.districtId === "number") {
+          const [d] = await db
+            .select({ id: districtsTable.id, name: districtsTable.name })
+            .from(districtsTable)
+            .where(eq(districtsTable.id, meta.districtId as number))
+            .limit(1);
+          if (d && d.name !== SECONDARY_DISTRICT_NAME) districtId = d.id;
+        }
+        if (!districtId) {
+          const all = await db
+            .select({ id: districtsTable.id, name: districtsTable.name })
+            .from(districtsTable);
+          const primary = all.find((d) => d.name !== SECONDARY_DISTRICT_NAME);
+          if (!primary) {
+            res.status(422).json({
+              error:
+                "No district found in the database. Complete onboarding first.",
+            });
+            return;
+          }
+          districtId = primary.id;
+        }
+      }
+
+      // If staffId is already set, the DB record still exists, the role
+      // matches the requested one, AND the existing district matches the
+      // resolved one for the requested slot, return early.
+      if (
+        typeof meta.staffId === "number" &&
+        meta.role === role &&
+        meta.districtId === districtId
+      ) {
         const [existing] = await db
           .select({ id: staffTable.id })
           .from(staffTable)
@@ -347,24 +407,6 @@ if (process.env.NODE_ENV !== "production") {
           });
           return;
         }
-      }
-
-      // Resolve or discover the district for this user.
-      let districtId =
-        typeof meta.districtId === "number" ? (meta.districtId as number) : null;
-      if (!districtId) {
-        const [d] = await db
-          .select({ id: districtsTable.id })
-          .from(districtsTable)
-          .limit(1);
-        if (!d) {
-          res.status(422).json({
-            error:
-              "No district found in the database. Complete onboarding first.",
-          });
-          return;
-        }
-        districtId = d.id;
       }
 
       // Resolve or create a school in that district.
