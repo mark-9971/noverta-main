@@ -1,0 +1,394 @@
+Read the current Trellis codebase and product surfaces as if you are seeing the product for the first time and have no commitment to prior plans, assumptions, or roadmap decisions.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Produce a brutally honest, codebase-grounded product + architecture audit that can serve as the true source of truth for future planning.
+
+This audit must be:
+- unbiased
+- skeptical
+- willing to contradict prior assumptions
+- grounded in the actual code and current product behavior
+- explicit about what is real, what is partial, what is fake-complete, and what is still mostly promise
+
+Important:
+Do NOT try to validate a prior roadmap.
+Do NOT assume the current direction is correct.
+Do NOT try to be polite at the expense of truth.
+If the current product is weaker or stronger than prior summaries suggest, say so clearly.
+
+Treat this as if you were:
+- a staff engineer
+- a product architect
+- a skeptical buyer
+- a district admin evaluating whether this is actually useful
+all at once.
+
+==================================================
+A. CORE INSTRUCTION
+==================================================
+
+Audit the actual current codebase and, where possible, the actual current product behavior.
+
+Ignore previous chat summaries unless they are clearly supported by the code.
+If there is a mismatch between prior recaps and the codebase, prefer the codebase and call out the mismatch explicitly.
+
+Do not optimize your answer for agreement.
+Optimize for truth.
+
+==================================================
+B. WHAT I WANT TO KNOW
+==================================================
+
+I need a source-of-truth report that answers, as honestly as possible:
+
+1. What Trellis actually is today
+2. What category it honestly belongs in today
+3. What the strongest real wedge is
+4. What parts are truly usable
+5. What parts are shallow / decorative / not yet operational
+6. What parts are production-grade vs demo-grade vs local-only
+7. What the product’s biggest strengths are
+8. What the product’s biggest weaknesses are
+9. What the real next phases should be
+10. What work should NOT be done yet
+11. What can safely be parallelized and what should not be
+
+==================================================
+C. REQUIRED OUTPUT STRUCTURE
+==================================================
+
+Return your answer in this exact structure.
+
+1. EXECUTIVE PRODUCT VERDICT
+Give a blunt product verdict in plain English.
+
+Answer:
+- What is Trellis, honestly, today?
+- Is it more of:
+  - a compliance/reporting tool
+  - an operational workflow tool
+  - a case-management platform
+  - a scheduling/recovery tool
+  - a hybrid
+- What is the strongest current value proposition?
+- What would a skeptical district admin likely think after 10 minutes of use?
+- What would a skeptical strategic buyer likely think after code review + demo?
+
+Be concise but direct.
+
+2. WHAT IS ACTUALLY GOOD
+List the strongest things in the current product/codebase.
+
+For each:
+- explain what is actually strong
+- why it matters
+- whether it is user-visible, architectural, or both
+- whether it is differentiated or just table stakes
+
+Do not inflate.
+Only include things that are genuinely good.
+
+3. WHAT IS ACTUALLY WEAK
+List the weakest / least-convincing / most incomplete parts.
+
+For each:
+- explain what is weak
+- why it matters
+- whether it is a usability problem, architectural problem, demo problem, or business-positioning problem
+- how severe it is:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+  - LOW
+
+Be especially alert for:
+- fake-complete work
+- decorative UX with weak underlying workflow
+- local-only state posing as shared truth
+- pages that still feel passive
+- flows that still dead-end
+- places where recommendations don’t lead to real execution
+- complexity that does not create value
+
+4. PRODUCT CAPABILITIES MAP
+List the major functional areas that exist today.
+For each area, classify:
+- STRONG
+- USABLE BUT THIN
+- PARTIAL / FRAGILE
+- MOSTLY NOT REAL YET
+
+Areas to cover at minimum:
+- Dashboard / pilot home
+- Action Center
+- Compliance / risk surfaces
+- Student detail
+- Session logging / Quick Log
+- Scheduling visibility
+- Makeup / recovery flow
+- School calendar handling
+- Shared handling state / ownership
+- Audit/history/proof layer
+- Demo/sample-data/reset flow
+- Provider-specific workflow
+- Case-manager workflow
+- Admin/coordinator workflow
+- Reporting / exports
+- Staffing / coverage / provider operations
+- Incident/protective-measures workflows
+- Data-health / migration-review workflows
+- API/client typing health
+- Seeder / demo reliability
+- Cross-user coordination
+
+For each area:
+- say what is truly there
+- say what the biggest gap is
+- say whether it feels operational or still mostly informational
+- mention key files/surfaces if they are important
+
+5. PHASE/ROADMAP REALITY CHECK
+Evaluate the major work tracks based on the actual codebase.
+
+At minimum assess:
+
+School Calendar track:
+- CRUD/settings surface
+- read-path math integration
+- trust/explanation layer
+- downstream consequence alignment
+- exact timing-aware early-release proration
+- weekday-aware baseline
+
+Pilot wedge track:
+- Action Center workflow
+- recommendation model
+- student detail next-step surface
+- risk-row actionability
+- return-to-queue
+- shared handling state
+- demo visibility/readiness
+
+For each, classify:
+- REAL AND STRONG
+- REAL BUT INCOMPLETE
+- PARTIAL / OVERSTATED
+- NOT REALLY THERE
+
+Then explain why.
+
+If earlier summaries overstated or understated progress, say so explicitly.
+
+6. ARCHITECTURAL ANCHORS
+Identify the files/helpers/components/routes that are now true architectural anchors and must be treated as canonical.
+
+For each anchor:
+- exact file path(s)
+- what it controls
+- why it matters
+- what future work must reuse it
+- what would be dangerous to duplicate around it
+
+Also identify any places that look like they are pretending to be canonical but really are not.
+
+7. LOCAL-ONLY / DEMO-GRADE / NON-DURABLE TRUTH
+Identify all meaningful behavior that is still:
+- local-only
+- demo-grade
+- per-browser only
+- not truly shared
+- not durable enough for a real multi-user workflow
+
+For each:
+- exact file(s)
+- what the user sees
+- why it matters
+- severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+  - LOW
+- whether it should be fixed soon or can wait
+
+Do not include trivial UI preferences unless they materially affect operations or trust.
+
+8. DEMO / SEEDED DATA AUDIT
+Evaluate the actual demo/reset experience with skepticism.
+
+I want to know:
+- whether a fresh reset truly creates a strong demo
+- whether key scenarios are immediately visible
+- whether the demo is believable
+- whether there are still awkward manual steps
+- whether the demo is stronger than the product, weaker than the product, or a fair representation
+
+At minimum evaluate visibility for:
+- documentation lag
+- likely missed service
+- ambiguous / review-needed
+- recurring/programmatic issue
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+- schedule-makeup flow
+
+For each:
+- visible on first login? yes/no
+- on which surface(s)
+- if determinable, what seeded student/item represents it
+- whether the scenario is easy enough for a demoer to find
+
+Then answer:
+- Is the current demo genuinely good?
+- Or is it still fragile / too dependent on insider knowledge?
+
+9. PARALLEL-WORK OVERLAP MAP
+Identify where future parallel work is likely to collide.
+
+Group files/surfaces/helpers into:
+- HIGH CONFLICT
+- MEDIUM CONFLICT
+- LOW CONFLICT
+
+For each hotspot:
+- exact file path(s)
+- why it is risky
+- what kinds of tasks should stay on main agent
+- what kinds of tasks are safe for background lanes
+
+Be practical.
+Assume multiple agents may work in parallel.
+
+10. REAL TECHNICAL DEBT THAT MATTERS
+List the technical debt that has real product or velocity impact.
+
+Not generic cleanup wishes.
+Real debt only.
+
+Examples:
+- duplicated logic with workflow consequences
+- dead shims
+- stale type/codegen drift blocking clean builds
+- shared-state edge cases
+- seed/reset fragility
+- inconsistent UI primitives across wedge surfaces
+- hidden coupling that makes parallel work risky
+
+For each:
+- exact files
+- why it matters
+- severity
+- whether it blocks a near-term roadmap phase
+
+11. WHAT SHOULD HAPPEN NEXT
+Based on the actual current codebase, recommend the next major phases in order.
+
+I want:
+- the next immediate phase
+- the next 3–5 phases after that
+- why this is the correct order
+- what each phase should include
+- what each phase should exclude
+
+Be willing to revise prior roadmap ideas.
+If a previously planned phase is the wrong next move, say so.
+
+At minimum consider:
+- finishing Phase 1/demo/shared-state polish
+- a targeted stabilization/consolidation phase
+- scheduling / makeup orchestration
+- audit/proof layer
+- role-based workflow polish
+- durable compliance-grade state issues
+- demo/sales hardening
+- executive/financial intelligence
+- broader provider/staffing operations
+
+12. WHAT SHOULD NOT BE DONE YET
+List the most tempting but currently wrong / premature / low-ROI tasks.
+
+Examples might include:
+- giant backend task engine
+- broad refactor
+- more calendar nuance with weak payoff
+- broad visual redesign
+- random low-value localStorage cleanup
+- full platform expansion
+- heavy analytics before operational basics are airtight
+
+Be blunt.
+Say why they should wait.
+
+13. 10 BEST NEXT TASKS
+Give the 10 highest-value next tasks in priority order.
+
+For each task include:
+- title
+- objective
+- why now
+- likely files/surfaces touched
+- scope:
+  - small
+  - medium
+  - large
+- whether it belongs on:
+  - main agent
+  - background lane
+- overlap/conflict risk
+- whether it is more product work, reliability work, or polish
+
+These should be concrete enough that they can later become agent prompts.
+
+14. HOW TO RUN THE TEAM BETTER
+Given the current codebase and current likely overlap zones, tell me how work should be organized going forward.
+
+Answer:
+- what should stay on main agent
+- what is safe for background lanes
+- how many simultaneous coding lanes is actually sane right now
+- what should be documented centrally
+- what should be updated after every merged task
+- what kind of work should be bundled instead of split apart
+
+Be operationally practical, not theoretical.
+
+15. COPY-PASTEABLE FINAL ARTIFACT
+At the end of your response, produce a clean, copy-pasteable text block titled:
+
+SOURCE OF TRUTH SNAPSHOT
+
+This block should be formatted as plain text, easy to copy into a project doc, and should summarize:
+- current product category/wedge
+- what is truly strong
+- biggest gaps
+- next major phases
+- what should not be done yet
+- top 5 next tasks
+
+Make it compact but high-signal.
+
+==================================================
+D. IMPORTANT AUDIT RULES
+==================================================
+
+- Be skeptical
+- Be specific
+- Name exact files when possible
+- Distinguish real completion from decorative/partial work
+- Distinguish shared/prod-grade from local/demo-grade
+- If the product is better than expected, say so
+- If the product is weaker than previous summaries implied, say so
+- Do not protect prior decisions from criticism
+- Do not optimize for agreement
+
+==================================================
+E. OUTPUT FORMAT REQUIREMENT
+==================================================
+
+Make the final response easy to copy.
+Prefer clean headings and plain text over fancy formatting.
+Do not assume I want to scrape the chat visually.
+At the very end, include the requested plain-text “SOURCE OF TRUTH SNAPSHOT” block.
