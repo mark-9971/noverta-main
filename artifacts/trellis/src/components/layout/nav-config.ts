@@ -223,14 +223,16 @@ export const focusedAdminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+      // Pilot wedge Phase 1: scheduling sub-nav was 4 children (Weekly /
+      // Coverage / Minutes at Risk / Staff Calendar). Coverage, Minutes at
+      // Risk, and Staff Calendar are still reachable as in-page tabs on
+      // /scheduling — pulling them out of the sidebar removes a four-row
+      // distraction and reinforces /scheduling as a single destination.
+      // The pending-change-request badge stays on the parent link so
+      // admins still see swap-request pressure at a glance.
       {
-        href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true,
-        children: [
-          { href: "/scheduling", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
-          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
-          { href: "/scheduling?tab=calendar", label: "Staff Calendar", icon: CalendarDays },
-        ],
+        href: "/scheduling", label: "Schedule", icon: CalendarDays,
+        pendingChangeRequestBadge: true,
       },
     ],
   },

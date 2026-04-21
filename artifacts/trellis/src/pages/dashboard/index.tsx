@@ -20,6 +20,8 @@ import { NeedsAttentionPanel } from "./AlertBanners";
 import { DashboardTabs } from "./DashboardTabs";
 import RecentWins from "@/components/dashboard/RecentWins";
 import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAlertsWidget";
+import { Link } from "wouter";
+import { ListChecks, ArrowRight } from "lucide-react";
 
 export default function Dashboard() {
   const { role } = useRole();
@@ -196,6 +198,33 @@ function DashboardFull() {
           they are not surfaced on the dashboard. */}
       {isAdmin && <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />}
       <NeedsAttentionPanel />
+
+      {/* Pilot wedge Phase 1: surface the Action Center funnel for non-admin
+          dashboards too. PilotAdminHome already has its own "Go to Action
+          Center" banner; the legacy DashboardFull (provider/case-manager
+          view) was missing that single canonical "what do I do next?"
+          jump-off point and instead leaned on the NeedsAttentionPanel
+          chips, which scatter into four different pages. This banner
+          collapses that ambiguity into one obvious next click. */}
+      {!isAdmin && (
+        <Link href="/action-center">
+          <div
+            className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-white p-4 hover:shadow-sm transition-shadow cursor-pointer flex items-center gap-3 group"
+            data-testid="banner-action-center-non-admin"
+          >
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
+              <ListChecks className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-gray-900">Open Action Center</div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                Your prioritized to-do list — urgent items, missed sessions, and upcoming deadlines.
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {!isAdmin && <RecentWins days={30} />}
 

@@ -453,8 +453,19 @@ function WorkItemRow({
 }) {
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
-  const showLogSessionLink = !!item.logSession && !!item.studentId;
-  const showLogBtn = !showLogSessionLink && !!onLogSession && !!item.studentId && (item.category === "compliance" || item.category === "session");
+  // Pilot wedge Phase 1: unified Log Session affordance.
+  // Previously shortfall-type items (`item.logSession === true`) rendered a
+  // Link to `/sessions?studentId=…&quicklog=true` while non-shortfall
+  // compliance/session items rendered an inline button that opened
+  // QuickLogSheet right inside the Action Center. The split was confusing
+  // and broke flow — clicking "Log Session" on one row navigated away,
+  // clicking it on another stayed put. Now ALL eligible rows open the
+  // inline sheet so the work queue stays in view and users keep their
+  // place after logging.
+  const canLog =
+    !!onLogSession &&
+    !!item.studentId &&
+    (item.logSession || item.category === "compliance" || item.category === "session");
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const snoozeRef = useRef<HTMLDivElement>(null);
 
@@ -493,22 +504,14 @@ function WorkItemRow({
         <div className="text-[11px] text-gray-400 mt-0.5 leading-snug">{item.detail}</div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-        {showLogSessionLink && (
-          <Link
-            href={`/sessions?studentId=${item.studentId}&quicklog=true`}
-            className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
-            title="Open quick-log for this student"
-          >
-            <ClipboardEdit className="w-3 h-3" /> Log Session
-          </Link>
-        )}
-        {showLogBtn && (
+        {canLog && (
           <button
             onClick={() => onLogSession!(item.studentId!, item.studentName ?? "")}
             className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
-            title="Log a session for this student"
+            title="Log a session for this student without leaving the work queue"
+            data-testid={`button-log-session-${item.id}`}
           >
-            <ClipboardEdit className="w-3 h-3" /> Log
+            <ClipboardEdit className="w-3 h-3" /> Log Session
           </button>
         )}
         <Link
