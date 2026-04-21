@@ -111,7 +111,10 @@ export default function RecommendedNextStepCard({
   const contextLink = (() => {
     if (signal.category === "evaluation") return "/evaluations";
     if (signal.category === "iep" || signal.category === "meeting") return "/iep-meetings";
-    if (signal.category === "schedule") return `/scheduling?studentId=${studentId}`;
+    // Land on the Minutes-at-Risk tab with the student preselected so
+    // the user can immediately see scheduling context for this row,
+    // not the generic week grid.
+    if (signal.category === "schedule") return `/scheduling?tab=minutes&studentId=${studentId}`;
     if (signal.category === "session") return `/sessions?studentId=${studentId}`;
     return `/compliance?tab=minutes`;
   })();

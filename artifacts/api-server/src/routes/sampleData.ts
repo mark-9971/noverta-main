@@ -23,6 +23,7 @@ import {
   seedDemoComplianceVariety,
   seedDemoModules,
   seedDemoDistrict,
+  seedDemoHandlingState,
   type SeedSampleOptions,
   type Intensity,
   type DemoEmphasis,
@@ -151,6 +152,12 @@ router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coord
  *   3. `seedDemoComplianceVariety()` — additive compliance-alert variety
  *      that lands the demo at ~80% compliance with a representative mix
  *      of alert types.
+ *   4. `seedDemoHandlingState()` — pre-populates a believable spread of
+ *      shared handling states (`awaiting_confirmation`,
+ *      `recovery_scheduled`, `under_review`, `handed_off`) on
+ *      canonical-id rows so the Action Center, Risk Report, dashboard,
+ *      and student detail show the in-flight pills the very first time
+ *      a demo admin loads the app — without any manual seeder run.
  *
  * SAFETY: `seedDemoDistrict()` runs a global TRUNCATE across districts,
  * schools, staff, students, etc. Its built-in guard refuses to do so
@@ -189,13 +196,26 @@ router.post("/sample-data/reset-demo", requirePlatformAdmin, async (_req, res): 
     const modules = await seedDemoModules();
     logger.info("demo reset: module sweep complete, running compliance variety");
     const variety = await seedDemoComplianceVariety();
-    return { modules, variety };
+    logger.info("demo reset: compliance variety complete, seeding handling state");
+    // Phase 1E demo-readiness — must run AFTER the canonical reseed
+    // (which TRUNCATEs action_item_handling) and AFTER service
+    // requirements + alerts exist, so the seeder can pick real
+    // at-risk requirements for the four in-flight handling pills.
+    //
+    // We treat a failure here as fatal for the reset: the whole point
+    // of the demo-readiness pass is that a fresh reset deterministically
+    // shows the awaiting_confirmation / recovery_scheduled / under_review
+    // / handed_off pills. Letting the route 200 without those rows
+    // means a demoer can think the reset succeeded when the wedge
+    // surfaces are actually missing the in-flight states.
+    const handling = await seedDemoHandlingState();
+    return { modules, variety, handling };
   })();
   demoResetInFlight = work;
   try {
-    const { modules, variety } = await work;
+    const { modules, variety, handling } = await work;
     const elapsedMs = Date.now() - startedAt;
-    logger.info({ elapsedMs, ...variety }, "demo reset: complete");
+    logger.info({ elapsedMs, ...variety, handlingInserted: handling?.inserted ?? 0 }, "demo reset: complete");
     res.json({
       ok: true,
       elapsedMs,
@@ -209,6 +229,7 @@ router.post("/sample-data/reset-demo", requirePlatformAdmin, async (_req, res): 
         compliancePct: variety.compliancePct,
       },
       modules: { districtId: modules.districtId },
+      handling: { inserted: handling.inserted, considered: handling.considered },
     });
   } catch (err) {
     logger.error({ err }, "demo reset failed");

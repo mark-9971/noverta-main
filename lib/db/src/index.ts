@@ -8,6 +8,8 @@ export { seedDemoComplianceVariety } from "./seed-demo-compliance-variety";
 export type { DemoComplianceVarietyResult } from "./seed-demo-compliance-variety";
 export { seedDemoModules } from "./seed-demo-modules";
 export { seedDemoDistrict } from "./seed-demo-district";
+export { seedDemoHandlingState, buildDemoHandlingRows } from "./seed-demo-handling-state";
+export type { SeedDemoHandlingStateResult } from "./seed-demo-handling-state";
 export {
   DEMO_IDENTITIES,
   isDemoIdentityEmail,

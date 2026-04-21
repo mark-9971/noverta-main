@@ -1,0 +1,262 @@
+Implement Demo Readiness Closure — make the new operational action model visible and believable on first login for the main demo user.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Ensure the demo/reset flow reliably produces a strong showcase of the action-model and shared-handling features on first login, without manual developer intervention.
+
+Primary product objective:
+A fresh demo reset should immediately show a believable spread of at-risk students/issues and in-flight handling states across the main wedge surfaces, so the product demonstrates:
+- likely cause
+- recommended owner
+- recommended next action
+- shared handling state
+- realistic in-progress statuses
+- actionable makeup path
+
+Context:
+Pilot Wedge work is now strong:
+- Action Center uses a centralized cause-aware / owner-aware recommendation model
+- student detail shows a Recommended Next Step surface
+- compliance Risk Report shows recommendation language / CTA treatment
+- server-side shared handling state is implemented
+- district-scoped handling API exists
+- canonical item ids exist
+
+Current gap:
+The demo handling-state seeder exists, but it is not wired into the normal demo reset flow. A fresh showcase district therefore does not reliably show the new handling-state scenarios. Also, recovery_scheduled is missing from seeded examples, and the schedule-makeup destination still needs better hydration from its query params.
+
+==================================================
+A. REQUIRED DELIVERABLES
+==================================================
+
+There are five required deliverables in this pass:
+
+1. Wire handling-state demo seeding into the normal demo reset flow
+2. Ensure all key handling-state scenarios are seeded for the main demo user
+3. Ensure all key action-model scenario types are visible on first login on the main wedge surfaces
+4. Hydrate the schedule-makeup destination from the query params already being passed
+5. Verify/demo-proof the resulting experience with focused tests and/or explicit verification
+
+If fewer than 4 of these 5 are completed meaningfully, verdict should be PARTIAL.
+
+==================================================
+B. DEMO RESET FLOW — REQUIRED OUTCOME
+==================================================
+
+The current orphan handling-state seeder must be wired into the normal demo path.
+
+Required behavior:
+- the normal demo reset flow (the one used by the app / sample-data reset) must invoke the handling-state seeding
+- a freshly reset showcase/demo district must show the handling-state pills and action states without a developer manually running a separate script
+- do not rely on undocumented manual steps
+
+Be explicit about:
+- where the reset path is
+- how the handling-state seeder is now called
+- whether the seeding lives in the main district demo seeding flow or in the reset endpoint orchestration
+
+==================================================
+C. REQUIRED DEMO SCENARIO COVERAGE
+==================================================
+
+The demo user/main wedge surfaces should reliably show examples of the most important scenarios.
+
+At minimum, ensure first-login demo coverage for:
+1. documentation lag
+2. likely missed service
+3. ambiguous / review-needed
+4. recurring/programmatic case
+5. awaiting_confirmation
+6. recovery_scheduled
+7. handed_off
+8. under_review
+
+Important:
+- prefer realistic, believable scenario distribution
+- do not create noisy or absurd demo clutter
+- add only enough seeded examples to clearly exercise the model
+- the examples should appear where a demo user will actually see them:
+  - Action Center
+  - dashboard / main wedge if relevant
+  - student detail when drilling in
+  - compliance/risk surface where relevant
+
+If one scenario can be represented cleanly on only one surface, that is fine — just be explicit.
+
+==================================================
+D. SCHEDULE-MAKEUP DESTINATION HYDRATION — REQUIRED OUTCOME
+==================================================
+
+The “Schedule makeup” launch path should not just pass params — the destination should meaningfully consume them.
+
+Required behavior:
+- the /scheduling surface should read the current query params being passed for makeup intent
+- at minimum consume:
+  - studentId
+  - serviceRequirementId
+  - missedSessionId if available
+  - intent=makeup
+- use those params to pre-orient the UI into a useful makeup workflow
+- do not build a giant scheduler rewrite
+- the user should clearly land in a makeup-specific context, not a generic scheduler page with hidden params
+
+A bounded implementation is fine, for example:
+- open the correct tab
+- preselect/highlight the student/service
+- prefill the relevant drawer/form state
+- show a “Scheduling makeup for X” context banner
+as long as it is genuinely useful
+
+==================================================
+E. DEMO UX / BELIEVABILITY REQUIREMENTS
+==================================================
+
+The resulting demo should feel believable to a district admin.
+
+That means:
+- handling-state pills should appear where expected
+- at least one item should visibly be in awaiting_confirmation
+- at least one item should visibly be in handed_off
+- at least one item should visibly be in under_review
+- at least one item should visibly be in recovery_scheduled
+- at least one route into the scheduling makeup flow should work end-to-end enough to be demoed credibly
+
+Do not bury all the interesting states in obscure surfaces.
+Do not make the demo user click through five random pages to discover them.
+
+==================================================
+F. WHAT NOT TO DO
+==================================================
+
+Do NOT:
+- build a giant new seeding framework
+- redesign the whole scheduler
+- add random demo clutter unrelated to the wedge
+- fake scenarios that do not correspond to real recommendation/handling logic
+- broaden into a new product phase
+
+This is a demo-readiness closure pass, not a platform rewrite.
+
+==================================================
+G. EXECUTION STRATEGY
+==================================================
+
+1. Audit the current reset-demo / showcase seeding flow
+2. Wire in the handling-state seeder properly
+3. Add any missing scenario rows (especially recovery_scheduled)
+4. Audit which scenarios the demo user actually sees on first login
+5. Hydrate the scheduling destination from existing makeup-intent params
+6. Verify the resulting first-login experience with focused tests and/or explicit inspection
+
+Keep this pass tight and practical.
+
+==================================================
+H. WHAT I CARE ABOUT MOST
+==================================================
+
+- fresh demo reset should actually showcase the new wedge behavior
+- no manual post-reset scripts should be required
+- the important action-model scenarios should be visibly represented
+- recovery_scheduled must be present
+- schedule-makeup flow should be demonstrably useful
+- the resulting experience should feel credible in a sales/demo context
+
+==================================================
+I. CONSTRAINTS
+==================================================
+
+- Use the main agent
+- No broad redesign
+- No unrelated refactors
+- Keep seeded data believable
+- If you have to choose, prioritize:
+  1. reset-flow wiring
+  2. missing scenario coverage
+  3. schedule-makeup hydration
+  4. demo polish
+over extra cleanup
+
+==================================================
+J. STATUS UPDATES REQUIRED DURING EXECUTION
+==================================================
+
+Give concise progress updates as you work.
+Each update should include:
+- which demo gap you are fixing
+- whether it is reset-flow wiring, seed coverage, or scheduler hydration
+- whether the scenario is now visible on first login
+- current test/build status when relevant
+
+==================================================
+K. TESTING REQUIREMENTS
+==================================================
+
+Add/modify focused tests where practical.
+
+At minimum, cover:
+- reset/demo flow now invokes handling-state seeding or equivalent seeded setup
+- the missing recovery_scheduled scenario is present
+- schedule-makeup destination consumes the intent/query params in a meaningful way
+- no regression in existing handling-state / action-model behavior
+
+If some demo verification is not practical through automated tests, include explicit manual verification details in the final output.
+
+==================================================
+L. REQUIRED FINAL OUTPUT FORMAT
+==================================================
+
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph on whether the demo is now meaningfully more showcase-ready on first login
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact components/pages/routes/seeders/helpers/tests changed
+- exact reason for the change
+- whether it is reset-flow wiring, seed coverage, scheduling hydration, or tests
+
+3. DEMO SCENARIO COVERAGE
+State exactly which student/item now represents each of:
+- documentation lag
+- likely missed service
+- ambiguous / review-needed
+- recurring/programmatic case
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+
+Also state on which main surface(s) each is visible.
+
+4. RESET FLOW STATUS
+State exactly:
+- where the handling-state seeder is now invoked
+- whether the main demo reset path is now sufficient by itself
+- whether any manual steps remain
+
+5. SCHEDULE-MAKEUP EXECUTION PATH
+State exactly:
+- where “Schedule makeup” now launches
+- what params are passed
+- how the destination consumes them
+- what still remains before it is fully ideal, if anything
+
+6. TEST / BUILD STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- any typecheck/build results
+- any unrelated pre-existing failures clearly separated from regressions
+
+7. REMAINING GAPS
+List only the highest-value remaining gaps after this demo-readiness pass.
+
+8. EXACT NEXT TASKS
+List the next 3–10 highest-value follow-up tasks in priority order.
+
+Important:
+- Include exact changes made, not just a recap
+- Be honest if any demo scenario is still missing or hard to see
+- Do not claim “demo ready” if a fresh reset still fails to show the important states
