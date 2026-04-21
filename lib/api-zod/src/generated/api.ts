@@ -549,6 +549,16 @@ export const GetStudentResponse = zod.object({
           zod.literal(null),
         ])
         .nullish(),
+      lastReviewedAt: zod.string().nullish(),
+      lastReviewedByName: zod.string().nullish(),
+      reviewHistory: zod
+        .array(
+          zod.object({
+            resolvedAt: zod.string(),
+            resolvedByName: zod.string(),
+          }),
+        )
+        .optional(),
       createdAt: zod.string(),
     }),
   ),
@@ -1222,6 +1232,16 @@ export const ListServiceRequirementsResponseItem = zod.object({
       zod.literal(null),
     ])
     .nullish(),
+  lastReviewedAt: zod.string().nullish(),
+  lastReviewedByName: zod.string().nullish(),
+  reviewHistory: zod
+    .array(
+      zod.object({
+        resolvedAt: zod.string(),
+        resolvedByName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string(),
 });
 export const ListServiceRequirementsResponse = zod.array(
@@ -1282,6 +1302,16 @@ export const GetServiceRequirementResponse = zod.object({
       zod.literal(null),
     ])
     .nullish(),
+  lastReviewedAt: zod.string().nullish(),
+  lastReviewedByName: zod.string().nullish(),
+  reviewHistory: zod
+    .array(
+      zod.object({
+        resolvedAt: zod.string(),
+        resolvedByName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string(),
 });
 
@@ -1337,6 +1367,16 @@ export const UpdateServiceRequirementResponse = zod.object({
       zod.literal(null),
     ])
     .nullish(),
+  lastReviewedAt: zod.string().nullish(),
+  lastReviewedByName: zod.string().nullish(),
+  reviewHistory: zod
+    .array(
+      zod.object({
+        resolvedAt: zod.string(),
+        resolvedByName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string(),
 });
 
@@ -1421,6 +1461,16 @@ export const GetServiceRequirementChainResponse = zod.object({
             zod.literal(null),
           ])
           .nullish(),
+        lastReviewedAt: zod.string().nullish(),
+        lastReviewedByName: zod.string().nullish(),
+        reviewHistory: zod
+          .array(
+            zod.object({
+              resolvedAt: zod.string(),
+              resolvedByName: zod.string(),
+            }),
+          )
+          .optional(),
         createdAt: zod.string(),
       }),
       supersedeCorrelationId: zod.string().nullish(),

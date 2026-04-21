@@ -439,6 +439,11 @@ export const ServiceRequirementSource = {
   superseded: "superseded",
 } as const;
 
+export type ServiceRequirementReviewHistoryItem = {
+  resolvedAt: string;
+  resolvedByName: string;
+};
+
 export interface ServiceRequirement {
   id: number;
   studentId: number;
@@ -470,6 +475,11 @@ export interface ServiceRequirement {
   replacedAt?: string | null;
   /** @nullable */
   source?: ServiceRequirementSource;
+  /** @nullable */
+  lastReviewedAt?: string | null;
+  /** @nullable */
+  lastReviewedByName?: string | null;
+  reviewHistory?: ServiceRequirementReviewHistoryItem[];
   createdAt: string;
 }
 

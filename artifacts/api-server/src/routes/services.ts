@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { serviceTypesTable, serviceRequirementsTable, staffTable, studentsTable, auditLogsTable } from "@workspace/db";
+import { serviceTypesTable, serviceRequirementsTable, staffTable, studentsTable, auditLogsTable, migrationReportServiceRequirementsTable } from "@workspace/db";
 import {
   CreateServiceTypeBody,
   UpdateServiceTypeParams,
@@ -416,6 +416,45 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
     .limit(1);
   const source: "active" | "superseded" =
     r.active && successor.length === 0 ? "active" : "superseded";
+
+  // Migration-report audit trail (task 938): surface "last reviewed by"
+  // history from migration_report_service_requirements so the editor can
+  // show prior fixes without bouncing back to /data-health. Most-recent
+  // resolved row is featured; remaining resolved rows are returned for a
+  // tooltip listing.
+  // Use the typed Drizzle query builder so `resolved_at` comes back as a
+  // proper Date (the raw db.execute path returns the unconverted pg
+  // string for timestamptz columns and would force runtime parsing).
+  const reviewRows = await db
+    .select({
+      resolvedAt: migrationReportServiceRequirementsTable.resolvedAt,
+      resolverFirst: staffTable.firstName,
+      resolverLast: staffTable.lastName,
+    })
+    .from(migrationReportServiceRequirementsTable)
+    .leftJoin(staffTable, eq(staffTable.id, migrationReportServiceRequirementsTable.resolvedBy))
+    .where(
+      and(
+        eq(migrationReportServiceRequirementsTable.requirementId, r.id),
+        sql`${migrationReportServiceRequirementsTable.resolvedAt} IS NOT NULL`,
+      ),
+    )
+    .orderBy(
+      sql`${migrationReportServiceRequirementsTable.resolvedAt} DESC`,
+      sql`${migrationReportServiceRequirementsTable.id} DESC`,
+    );
+  const reviewHistory = reviewRows.flatMap(row => {
+    if (!row.resolvedAt) return [];
+    const name = (row.resolverFirst || row.resolverLast)
+      ? `${row.resolverFirst ?? ""} ${row.resolverLast ?? ""}`.trim()
+      : "Unknown";
+    return [{
+      resolvedAt: row.resolvedAt.toISOString(),
+      resolvedByName: name,
+    }];
+  });
+  const lastReview = reviewHistory[0] ?? null;
+
   res.json({
     ...r,
     serviceTypeName: r.serviceTypeName,
@@ -423,6 +462,9 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
     replacedAt: r.replacedAt ? r.replacedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
     source,
+    lastReviewedAt: lastReview?.resolvedAt ?? null,
+    lastReviewedByName: lastReview?.resolvedByName ?? null,
+    reviewHistory,
   });
 });
 

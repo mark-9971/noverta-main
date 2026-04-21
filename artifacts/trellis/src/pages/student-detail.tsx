@@ -730,6 +730,7 @@ export default function StudentDetail() {
         svcDialogOpen={services.svcDialogOpen}
         setSvcDialogOpen={services.setSvcDialogOpen}
         editingSvc={services.editingSvc}
+        editingSvcAudit={services.editingSvcAudit}
         svcForm={services.svcForm}
         setSvcForm={services.setSvcForm}
         svcSaving={services.svcSaving}

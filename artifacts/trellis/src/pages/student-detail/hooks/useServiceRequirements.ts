@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   createServiceRequirement,
   updateServiceRequirement,
   supersedeServiceRequirement,
   deleteServiceRequirement,
+  getServiceRequirement,
   type UpdateServiceRequirementBody,
 } from "@workspace/api-client-react";
 import { useSupersedeFlow } from "../supersede-flow";
@@ -40,6 +41,15 @@ export function useServiceRequirements(
 ) {
   const [svcDialogOpen, setSvcDialogOpen] = useState(false);
   const [editingSvc, setEditingSvc] = useState<any>(null);
+  const [editingSvcAudit, setEditingSvcAudit] = useState<{
+    lastReviewedAt: string | null;
+    lastReviewedByName: string | null;
+    reviewHistory: { resolvedAt: string; resolvedByName: string }[];
+  } | null>(null);
+  // Tracks which requirement id the in-flight audit fetch was kicked off
+  // for. Used to drop stale responses when the user opens the editor for
+  // a different requirement before the previous fetch resolves.
+  const editingSvcRequestRef = useRef<number | null>(null);
   const [deletingSvc, setDeletingSvc] = useState<any>(null);
   const [svcSaving, setSvcSaving] = useState(false);
   const [svcForm, setSvcForm] = useState<SvcForm>(EMPTY_FORM);
@@ -70,6 +80,7 @@ export function useServiceRequirements(
 
   function openEditSvc(req: any) {
     setEditingSvc(req);
+    setEditingSvcAudit(null);
     setSvcForm({
       serviceTypeId: String(req.serviceTypeId),
       providerId: req.providerId ? String(req.providerId) : "",
@@ -82,6 +93,26 @@ export function useServiceRequirements(
       notes: req.notes || "",
     });
     setSvcDialogOpen(true);
+    // Fire-and-forget fetch of the migration-report audit trail (task 938).
+    // Failure is silent — the editor still works without the "last reviewed
+    // by" line if the request errors out. Capture the requested id so a
+    // slow response from a previous open call cannot overwrite the audit
+    // for whichever requirement is now open.
+    const requestedId = req.id;
+    editingSvcRequestRef.current = requestedId;
+    void getServiceRequirement(requestedId)
+      .then(full => {
+        if (requestedId !== editingSvcRequestRef.current) return;
+        setEditingSvcAudit({
+          lastReviewedAt: full.lastReviewedAt ?? null,
+          lastReviewedByName: full.lastReviewedByName ?? null,
+          reviewHistory: full.reviewHistory ?? [],
+        });
+      })
+      .catch(() => {
+        if (requestedId !== editingSvcRequestRef.current) return;
+        setEditingSvcAudit(null);
+      });
   }
 
   async function handleSaveSvc() {
@@ -164,6 +195,7 @@ export function useServiceRequirements(
     setSvcDialogOpen,
     editingSvc,
     setEditingSvc,
+    editingSvcAudit,
     deletingSvc,
     setDeletingSvc,
     svcSaving,

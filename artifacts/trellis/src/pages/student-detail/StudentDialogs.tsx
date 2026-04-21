@@ -248,6 +248,11 @@ interface StudentDialogsProps {
   svcDialogOpen: boolean;
   setSvcDialogOpen: (v: boolean) => void;
   editingSvc: any;
+  editingSvcAudit?: {
+    lastReviewedAt: string | null;
+    lastReviewedByName: string | null;
+    reviewHistory: { resolvedAt: string; resolvedByName: string }[];
+  } | null;
   svcForm: SvcForm;
   setSvcForm: React.Dispatch<React.SetStateAction<SvcForm>>;
   svcSaving: boolean;
@@ -287,7 +292,7 @@ export default function StudentDialogs(props: StudentDialogsProps) {
     deletingMa, setDeletingMa, handleDeleteMa,
     archiveDialogOpen, setArchiveDialogOpen, archiveReason, setArchiveReason, archiveSaving, handleArchive,
     reactivateDialogOpen, setReactivateDialogOpen, reactivateSaving, handleReactivate,
-    svcDialogOpen, setSvcDialogOpen, editingSvc, svcForm, setSvcForm, svcSaving, handleSaveSvc,
+    svcDialogOpen, setSvcDialogOpen, editingSvc, editingSvcAudit, svcForm, setSvcForm, svcSaving, handleSaveSvc,
     serviceTypesList, staffList, deletingSvc, handleDeleteSvc,
     assignDialogOpen, setAssignDialogOpen, assignForm, setAssignForm, assignSaving, handleAddAssignment,
     showShareModal, setShowShareModal, shareDays, setShareDays, shareLoading, shareSummary, shareLink,
@@ -590,6 +595,29 @@ export default function StudentDialogs(props: StudentDialogsProps) {
               {editingSvc ? "Edit Service Requirement" : "Add Service Requirement"}
             </DialogTitle>
           </DialogHeader>
+          {editingSvc && editingSvcAudit?.lastReviewedAt && editingSvcAudit?.lastReviewedByName && (
+            <div
+              className="text-[11px] text-gray-500 -mt-1 mb-1"
+              title={
+                editingSvcAudit.reviewHistory.length > 1
+                  ? "Earlier reviews:\n" +
+                    editingSvcAudit.reviewHistory
+                      .slice(1)
+                      .map(r => `${r.resolvedByName} on ${new Date(r.resolvedAt).toLocaleDateString()}`)
+                      .join("\n")
+                  : undefined
+              }
+            >
+              Last reviewed by{" "}
+              <span className="font-medium text-gray-700">{editingSvcAudit.lastReviewedByName}</span>{" "}
+              on {new Date(editingSvcAudit.lastReviewedAt).toLocaleDateString()}
+              {editingSvcAudit.reviewHistory.length > 1 && (
+                <span className="ml-1 text-gray-400">
+                  (+{editingSvcAudit.reviewHistory.length - 1} earlier)
+                </span>
+              )}
+            </div>
+          )}
           <div className="space-y-4 py-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

@@ -7800,6 +7800,27 @@ components:
         source:
           type: ["string", "null"]
           enum: ["active", "superseded", null]
+        # Service Requirement v1 — migration-report audit trail (task 938).
+        # Populated by GET /service-requirements/{id} only. `lastReviewedAt`
+        # / `lastReviewedByName` describe the most recent resolved row in
+        # migration_report_service_requirements for this requirement;
+        # `reviewHistory` lists every resolved row (newest first) so the
+        # editor can render a tooltip with prior fixes. All three fields
+        # are absent on list endpoints to keep payloads small.
+        lastReviewedAt:
+          type: ["string", "null"]
+        lastReviewedByName:
+          type: ["string", "null"]
+        reviewHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              resolvedAt:
+                type: string
+              resolvedByName:
+                type: string
+            required: [resolvedAt, resolvedByName]
         createdAt:
           type: string
       required: [id, studentId, serviceTypeId, deliveryType, requiredMinutes, intervalType, startDate, active, createdAt]
