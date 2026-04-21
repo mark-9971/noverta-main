@@ -19,6 +19,24 @@ interface BipManagementProps {
   readOnly?: boolean;
 }
 
+function isStringNumberRecord(v: unknown): v is Record<string, number> {
+  if (!v || typeof v !== "object") return false;
+  return Object.values(v as Record<string, unknown>).every(n => typeof n === "number");
+}
+
+function parseObsSummary(raw: unknown): ObsSummary | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    totalObservations: typeof r.totalObservations === "number" ? r.totalObservations : 0,
+    functionCounts: isStringNumberRecord(r.functionCounts) ? r.functionCounts : {},
+    antecedentCounts: isStringNumberRecord(r.antecedentCounts) ? r.antecedentCounts : {},
+    consequenceCounts: isStringNumberRecord(r.consequenceCounts) ? r.consequenceCounts : {},
+    scatterData: isStringNumberRecord(r.scatterData) ? r.scatterData : {},
+    suggestedFunction: typeof r.suggestedFunction === "string" ? r.suggestedFunction : null,
+  };
+}
+
 export default function BipManagement({ studentId, readOnly = false }: BipManagementProps) {
   const [bips, setBips] = useState<Bip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +99,8 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function loadFbaInsights(fba: FbaRecord) {
     let summary: ObsSummary | null = null;
     try {
-      summary = (await getFbaObservationsSummary(fba.id)) as ObsSummary;
+      const raw = await getFbaObservationsSummary(fba.id);
+      summary = parseObsSummary(raw);
     } catch { /* obs summary is optional — silently ignore */ }
     setFbaInsights({ fba, summary });
   }

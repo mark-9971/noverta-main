@@ -125,8 +125,9 @@ export default function IepSuggestions() {
           behaviors: [...selected.behaviors].map(name => ({ name })),
           programs: [...selected.programs].map(name => ({ name })),
         });
-      const total = (result.behaviorsCreated ?? 0) + (result.programsCreated ?? 0);
-      const msg = `Created ${result.behaviorsCreated} behavior targets and ${result.programsCreated} programs`;
+      const r = result as { behaviorsCreated?: number; programsCreated?: number };
+      const total = (r.behaviorsCreated ?? 0) + (r.programsCreated ?? 0);
+      const msg = `Created ${r.behaviorsCreated ?? 0} behavior targets and ${r.programsCreated ?? 0} programs`;
       if (total > 0) {
         toast.success(msg);
       } else {

@@ -219,9 +219,9 @@ function DashboardFull() {
         riskPieData={riskPieData}
         trendData={trendData}
         serviceData={serviceData}
-        transitionDash={transitionDash}
-        meetingDash={meetingDash}
-        accommodationCompliance={accommodationCompliance}
+        transitionDash={transitionDash ?? null}
+        meetingDash={meetingDash ?? null}
+        accommodationCompliance={accommodationCompliance ?? null}
         deadlines={deadlines}
         goalMasteryRate={goalMasteryData?.masteryRate ?? null}
         goalMasterySubtitle={

@@ -48,7 +48,8 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
       listStudents(),
       listProgramTemplates(),
     ]).then(([data, tmpl]) => {
-      const withData = (data as any[]).filter((s: any) => s.status === "active");
+      const list = data?.data ?? [];
+      const withData = list.filter((s) => s.status === "active");
       setStudents(withData);
       setTemplates(tmpl as any[]);
       if (withData.length > 0 && externalStudentId == null) setSelectedStudent(withData[0].id);

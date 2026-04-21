@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { AlertTriangle, ArrowRight, ShieldCheck } from "lucide-react";
 import { useListAlerts } from "@workspace/api-client-react";
-import type { Alert, ListAlertsParams, PaginatedResult } from "@workspace/api-client-react";
+import type { Alert, ListAlertsParams } from "@workspace/api-client-react";
 import { useSchoolContext } from "@/lib/school-context";
 
 interface ParsedRow {
@@ -70,7 +70,7 @@ export default function ComplianceRiskAlertsWidget({ limit = 5 }: { limit?: numb
     ...(typedFilter.districtId !== undefined ? { districtId: typedFilter.districtId } : {}),
   };
 
-  const { data, isLoading, isError } = useListAlerts<PaginatedResult<Alert>>(params);
+  const { data, isLoading, isError } = useListAlerts(params);
 
   const alerts: Alert[] = data?.data ?? [];
 

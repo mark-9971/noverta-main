@@ -21,7 +21,7 @@ export function AbsencesTab({ schoolId }: { schoolId?: number | null }) {
   const [form, setForm] = useState({ absenceDate: today(), absenceType: "sick", notes: "" });
   const [saving, setSaving] = useState(false);
 
-  const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId: String(schoolId) } : {}) });
+  const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId } : {}) });
   const staffList = (staffData as any[]) ?? [];
 
   const loadAbsences = useCallback(async () => {

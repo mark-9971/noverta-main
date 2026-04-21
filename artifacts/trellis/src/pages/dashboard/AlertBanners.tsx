@@ -103,14 +103,14 @@ export function LifeThreateningAlertsBanner() {
     if (existing) {
       existing.alerts.push(row);
     } else {
-      byStudent.set(row.studentId, { firstName: row.firstName, lastName: row.lastName, grade: row.grade, studentId: row.studentId, alerts: [row] });
+      byStudent.set(row.studentId, { firstName: row.firstName ?? "Unknown", lastName: row.lastName ?? "", grade: (row.grade ?? "") as string, studentId: row.studentId, alerts: [row] });
     }
   }
   const students = Array.from(byStudent.values());
 
   function handleDismiss() {
     try {
-      localStorage.setItem(dismissKey(sessionId), "1");
+      if (sessionId) localStorage.setItem(dismissKey(sessionId), "1");
     } catch {}
     setDismissed(true);
   }

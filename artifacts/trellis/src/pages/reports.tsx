@@ -24,11 +24,11 @@ function resolveTab(search: string): TabKey {
 }
 
 export default function Reports() {
-  const { user } = useRole();
+  const { role } = useRole();
   const search = useSearch();
   const [, navigate] = useLocation();
-  const canExport = EXPORT_ROLES.includes(user.role as UserRole);
-  const isAdmin = user.role === "admin";
+  const canExport = EXPORT_ROLES.includes(role as UserRole);
+  const isAdmin = role === "admin";
 
   const [activeTab, setTabState] = useState<TabKey>(() => resolveTab(search));
 

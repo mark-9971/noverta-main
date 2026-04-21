@@ -1089,7 +1089,7 @@ function DistrictEmailsTab({ report }: { report: DistrictEmailReport | null }) {
                   <td className="px-3 py-2 text-xs">{e.toEmail ?? "—"}</td>
                   <td className="px-3 py-2 text-xs">{e.studentName}</td>
                   <td className="px-3 py-2 text-xs">
-                    <StatusPill status={e.status} />
+                    <DeliveryStatusPill status={e.status} />
                   </td>
                   <td className="px-3 py-2 text-xs text-red-700">{e.failedReason ?? ""}</td>
                 </tr>
@@ -1102,7 +1102,7 @@ function DistrictEmailsTab({ report }: { report: DistrictEmailReport | null }) {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function DeliveryStatusPill({ status }: { status: string }) {
   const cls = status === "delivered" ? "bg-emerald-50 text-emerald-700"
     : status === "sent" ? "bg-sky-50 text-sky-700"
     : status === "failed" ? "bg-red-50 text-red-700"

@@ -935,7 +935,7 @@ export default function ActionCenter() {
       agg.push({ icon: ArrowRight, priority: "urgent", title: `${transitionDash.missingPlan} student${transitionDash.missingPlan !== 1 ? "s" : ""} missing transition plan`, detail: "Required for students 14+ under IDEA", href: "/transitions", actionLabel: "Transitions →" });
     }
     if (transitionDash?.overdueFollowups > 0) {
-      agg.push({ icon: ArrowRight, priority: "urgent", title: `${transitionDash.overdueFollowups} overdue transition follow-up${transitionDash.overdueFollowups !== 1 ? "s" : ""}`, href: "/transitions", actionLabel: "Transitions →", priority: "urgent" } as any);
+      agg.push({ icon: ArrowRight, priority: "urgent", title: `${transitionDash.overdueFollowups} overdue transition follow-up${transitionDash.overdueFollowups !== 1 ? "s" : ""}`, href: "/transitions", actionLabel: "Transitions →" } as any);
     }
     if (meetingDash?.thisWeekCount > 0) {
       agg.push({ icon: CalendarDays, priority: "thisweek", title: `${meetingDash.thisWeekCount} IEP meeting${meetingDash.thisWeekCount !== 1 ? "s" : ""} this week`, detail: "Coming up — ensure rooms, consent, and staff are set", href: "/iep-meetings", actionLabel: "IEP Meetings →" });

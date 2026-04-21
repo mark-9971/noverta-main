@@ -23,6 +23,7 @@ export interface CollectedBehaviorData {
   value: number;
   intervalCount: number | null;
   intervalsWith: number | null;
+  intervalScores?: boolean[];
   hourBlock: string | null;
   notes: string;
   eventTimestamps: number[];

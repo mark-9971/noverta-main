@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  X, Save, Database, FileCheck, Loader2, CheckCircle2, Edit2,
+  X, Save, Database, FileCheck, Loader2, CheckCircle2, Edit2, Printer,
   TrendingUp, TrendingDown, Clock, AlertTriangle, Minus as MinusIcon, BarChart3
 } from "lucide-react";
 import { generateProgressReport, updateProgressReport } from "@workspace/api-client-react";

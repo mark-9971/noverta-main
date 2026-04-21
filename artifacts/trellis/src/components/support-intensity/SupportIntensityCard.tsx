@@ -138,7 +138,6 @@ function ContributorRow({ c, levelStyle }: { c: ScoreContributor; levelStyle: ty
 }
 
 export function SupportIntensityCard({ studentId }: { studentId: number }) {
-  const authFetch = useAuthFetch();
   const [data, setData] = useState<SupportIntensityResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

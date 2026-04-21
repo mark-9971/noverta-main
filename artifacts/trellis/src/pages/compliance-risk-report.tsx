@@ -128,7 +128,7 @@ function buildPrintHtml(data: ReportData): string {
       <td style="text-align:right">${r.deliveredMinutes}</td>
       <td style="text-align:right;font-weight:600;color:#b91c1c">${r.shortfallMinutes}</td>
       <td>${riskBadgeHtml(r.riskStatus, r.riskLabel)}</td>
-      <td style="text-align:right">${r.estimatedExposure > 0 ? "$" + r.estimatedExposure.toLocaleString() : "—"}</td>
+      <td style="text-align:right">${(r.estimatedExposure ?? 0) > 0 ? "$" + (r.estimatedExposure ?? 0).toLocaleString() : "—"}</td>
       <td>${esc(r.providerName)}</td>
     </tr>`).join("");
 
@@ -143,7 +143,7 @@ function buildPrintHtml(data: ReportData): string {
       <td style="text-align:right">${r.shortfallMinutes > 0 ? r.shortfallMinutes : "—"}</td>
       <td>${pctBarHtml(r.percentComplete)}</td>
       <td>${riskBadgeHtml(r.riskStatus, r.riskLabel)}</td>
-      <td style="text-align:right">${r.estimatedExposure > 0 ? "$" + r.estimatedExposure.toLocaleString() : "—"}</td>
+      <td style="text-align:right">${(r.estimatedExposure ?? 0) > 0 ? "$" + (r.estimatedExposure ?? 0).toLocaleString() : "—"}</td>
       <td>${esc(r.providerName)}</td>
     </tr>`).join("");
 

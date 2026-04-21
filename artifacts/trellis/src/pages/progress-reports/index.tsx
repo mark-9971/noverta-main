@@ -73,7 +73,12 @@ export default function ProgressReportsPage() {
       const res = await authFetch("/api/students");
       if (res.ok) {
         const data: unknown = await res.json();
-        setStudents(Array.isArray(data) ? (data as StudentOption[]).filter(s => (s as Record<string, unknown>).status !== "archived") : []);
+        if (Array.isArray(data)) {
+          const list = data as Array<StudentOption & { status?: string }>;
+          setStudents(list.filter(s => s.status !== "archived"));
+        } else {
+          setStudents([]);
+        }
       }
     } catch { /* ignore */ }
   }, []);

@@ -20,6 +20,11 @@ export interface GoalProgressEntry {
   benchmarks?: string | null;
   measurementMethod?: string | null;
   serviceArea?: string | null;
+  behaviorTargetName?: string | null;
+  behaviorMeasurementType?: string | null;
+  behaviorTargetDirection?: string | null;
+  behaviorSessionCount?: number | null;
+  behaviorVariability?: number | null;
 }
 
 export interface ServiceBreakdown {

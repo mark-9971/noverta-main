@@ -446,11 +446,11 @@ function RoiPanel({ roi }: { roi: PilotDecisionStatus["roi"] }) {
 
 function labelDelta(
   baseline: number | null,
-  current: number,
+  current: number | null,
   lowerIsBetter: boolean,
   unit: "%" | "$" | "",
 ): { deltaText: string | null; tone: "good" | "bad" | "neutral" | null } {
-  if (baseline == null) return { deltaText: null, tone: null };
+  if (baseline == null || current == null) return { deltaText: null, tone: null };
   const diff = current - baseline;
   if (diff === 0) return { deltaText: "no change", tone: "neutral" };
   const sign = diff > 0 ? "+" : "";
@@ -629,7 +629,7 @@ function OutcomePanel({
               tone: "border-red-300 hover:border-red-500",
               selected: "border-red-600 bg-red-50",
             },
-          ] as Array<{ key: Outcome; label: string; detail: string; icon: JSX.Element; tone: string; selected: string }>
+          ] as Array<{ key: Outcome; label: string; detail: string; icon: React.ReactElement; tone: string; selected: string }>
         ).map((opt) => {
           const isSelected = choice === opt.key;
           return (

@@ -98,7 +98,7 @@ export function SisStep(p: SisStepProps) {
               >
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-gray-900">{provider.name}</p>
-                  {provider.inPilot && (
+                  {provider.tier === "early_pilot" && (
                     <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">Pilot</span>
                   )}
                 </div>

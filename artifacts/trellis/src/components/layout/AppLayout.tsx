@@ -180,7 +180,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
   const { hasAccess, getFeatureInfo, loading: tierLoading } = useTier();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
-  const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
+  const openAlerts = alertsSummary?.total ?? 0;
   const isReviewer = role === "admin" || role === "coordinator" || role === "case_manager";
   const [pendingChangeRequests, setPendingChangeRequests] = useState(0);
   useEffect(() => {

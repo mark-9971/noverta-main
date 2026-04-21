@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useTheme, THEMES, type ThemeId } from "@/lib/theme-context";
 
 const SWATCH_COLORS: Record<ThemeId, string> = {
+  "warm-edu": "bg-amber-50 border-amber-300",
   "open-air": "bg-white border-gray-200",
   "classic": "bg-white border-gray-400",
   "high-contrast": "bg-black border-black",

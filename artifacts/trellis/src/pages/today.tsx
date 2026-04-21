@@ -9,6 +9,12 @@ import {
   useListServiceRequirements,
   useListStudents,
   useListStaff,
+  getListAlertsQueryKey,
+  getListScheduleBlocksQueryKey,
+  getListSessionsQueryKey,
+  getListServiceRequirementsQueryKey,
+  getListStudentsQueryKey,
+  getListStaffQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -144,7 +150,8 @@ export default function TodayPage() {
   const today = useMemo(() => todayInfo(), []);
   const weekStart = useMemo(() => weekStartIso(), []);
 
-  const { data: allStaff } = useListStaff({} as any, { enabled: isSupervisor });
+  const allStaffParams = {} as any;
+  const { data: allStaff } = useListStaff(allStaffParams, { query: { enabled: isSupervisor, queryKey: getListStaffQueryKey(allStaffParams) } });
   const staffList = (allStaff as any[]) ?? [];
   const viewedStaff = staffList.find(s => s.id === viewedStaffId) ?? null;
 
@@ -152,25 +159,30 @@ export default function TodayPage() {
   const staffIdStr = viewedStaffId ? String(viewedStaffId) : "";
 
   // All hooks fetch only when we have a staff id
+  const blocksParams = (enabled ? { staffId: staffIdStr, dayOfWeek: today.dayName } : {}) as any;
   const { data: blocksData, isLoading: blocksLoading } = useListScheduleBlocks(
-    enabled ? { staffId: staffIdStr, dayOfWeek: today.dayName } as any : ({} as any),
-    { enabled }
+    blocksParams,
+    { query: { enabled, queryKey: getListScheduleBlocksQueryKey(blocksParams) } }
   );
+  const sessionsParams = (enabled
+    ? { staffId: staffIdStr, dateFrom: weekStart, dateTo: today.date, limit: "500" }
+    : {}) as any;
   const { data: sessionsData, isLoading: sessionsLoading } = useListSessions(
-    enabled
-      ? ({ staffId: staffIdStr, dateFrom: weekStart, dateTo: today.date, limit: "500" } as any)
-      : ({} as any),
-    { enabled }
+    sessionsParams,
+    { query: { enabled, queryKey: getListSessionsQueryKey(sessionsParams) } }
   );
+  const reqsParams = (enabled ? { providerId: staffIdStr, active: "true" } : {}) as any;
   const { data: reqsData, isLoading: reqsLoading } = useListServiceRequirements(
-    enabled ? { providerId: staffIdStr, active: "true" } as any : ({} as any),
-    { enabled }
+    reqsParams,
+    { query: { enabled, queryKey: getListServiceRequirementsQueryKey(reqsParams) } }
   );
+  const alertsParams = (enabled ? { staffId: staffIdStr, resolved: "false", snoozed: "false" } : {}) as any;
   const { data: alertsData, isLoading: alertsLoading } = useListAlerts(
-    enabled ? { staffId: staffIdStr, resolved: "false", snoozed: "false" } as any : ({} as any),
-    { enabled }
+    alertsParams,
+    { query: { enabled, queryKey: getListAlertsQueryKey(alertsParams) } }
   );
-  const { data: studentsData } = useListStudents({} as any, { enabled });
+  const studentsParams = {} as any;
+  const { data: studentsData } = useListStudents(studentsParams, { query: { enabled, queryKey: getListStudentsQueryKey(studentsParams) } });
 
   const blocks = (blocksData as any[]) ?? [];
   const sessions = ((sessionsData as any)?.data ?? (Array.isArray(sessionsData) ? sessionsData : [])) as any[];
@@ -331,7 +343,7 @@ export default function TodayPage() {
           <p className="text-xs md:text-sm text-gray-400 mt-1">
             {viewedStaff
               ? <>Viewing <span className="font-medium text-gray-600">{viewedStaff.firstName} {viewedStaff.lastName}</span>{viewedStaff.role ? ` · ${viewedStaff.role.replace(/_/g, " ")}` : ""}</>
-              : (user?.firstName ? `${user.firstName}'s day` : "Your day")}
+              : (user?.name ? `${user.name.split(" ")[0]}'s day` : "Your day")}
             {isSupervisor && viewedStaffId !== teacherId && (
               <span className="ml-2 text-[11px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">Supervisor view</span>
             )}
@@ -350,7 +362,7 @@ export default function TodayPage() {
               </SelectTrigger>
               <SelectContent>
                 {teacherId && (
-                  <SelectItem value={String(teacherId)}>Me ({user?.firstName ?? "self"})</SelectItem>
+                  <SelectItem value={String(teacherId)}>Me ({user?.name?.split(" ")[0] ?? "self"})</SelectItem>
                 )}
                 {staffList
                   .filter((s: any) => s.id !== teacherId)

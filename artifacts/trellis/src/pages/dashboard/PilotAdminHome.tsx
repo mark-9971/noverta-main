@@ -225,6 +225,7 @@ export default function PilotAdminHome() {
   const { data: goalMasteryData } = useQuery<{
     totalActiveGoals: number;
     ratedGoals: number;
+    onTrackOrMasteredGoals: number;
     masteryRate: number | null;
     byServiceArea?: ServiceAreaMastery[];
   }>({

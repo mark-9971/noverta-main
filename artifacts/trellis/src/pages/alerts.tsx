@@ -102,7 +102,10 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
   useEffect(() => { setAlertPage(1); }, [typeFilter, JSON.stringify(typedFilter)]);
 
   const queryParams = useMemo(() => {
-    const base: Record<string, string> = { ...typedFilter };
+    const base: Record<string, string> = {};
+    for (const [k, v] of Object.entries(typedFilter)) {
+      if (v != null) base[k] = String(v);
+    }
     if (tab === "open") {
       base.resolved = "false";
       base.snoozed = "false";

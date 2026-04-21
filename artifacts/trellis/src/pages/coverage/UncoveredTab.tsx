@@ -94,7 +94,7 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
     message: string;
   }>>({});
 
-  const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId: String(schoolId) } : {}) });
+  const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId } : {}) });
   const staffList = (staffData as any[]) ?? [];
 
   const loadSessions = useCallback(async () => {

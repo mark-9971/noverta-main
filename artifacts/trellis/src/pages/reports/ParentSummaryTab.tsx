@@ -63,8 +63,9 @@ export function ParentSummaryTab() {
 
   useEffect(() => {
     listStudents().then(s => {
-      setStudents(s as any[]);
-      if ((s as any[]).length > 0 && !selectedStudentId) setSelectedStudentId((s as any[])[0].id);
+      const list = s?.data ?? [];
+      setStudents(list);
+      if (list.length > 0 && !selectedStudentId) setSelectedStudentId(list[0].id);
     }).catch(() => {});
   }, []);
 

@@ -115,6 +115,7 @@ interface ImportResult {
   rowsUpdated?: number;
   rowsSkipped?: number;
   errors?: string[];
+  errorSummary?: string;
   createdAt: string;
 }
 

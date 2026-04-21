@@ -330,28 +330,6 @@ function BillingPageInner() {
         </div>
       )}
 
-      {billingMode?.mode === "demo" && (
-        <div className="rounded-lg bg-violet-50 border border-violet-200 p-4 flex items-start gap-3">
-          <Sparkles className="h-5 w-5 text-violet-600 mt-0.5" />
-          <div className="text-sm text-violet-900">
-            <p className="font-medium">Demo district</p>
-            <p className="text-violet-800 mt-0.5">
-              You're viewing a demonstration district with sample data. Billing is disabled and all features are unlocked for evaluation.
-            </p>
-          </div>
-        </div>
-      )}
-      {billingMode?.mode === "pilot" && (
-        <div className="rounded-lg bg-sky-50 border border-sky-200 p-4 flex items-start gap-3">
-          <FlaskConical className="h-5 w-5 text-sky-600 mt-0.5" />
-          <div className="text-sm text-sky-900">
-            <p className="font-medium">Pilot program</p>
-            <p className="text-sky-800 mt-0.5">
-              Your district is enrolled in the Trellis pilot. All features are included at no cost during the pilot period. Reach out to your Trellis contact when you're ready to convert to a paid plan.
-            </p>
-          </div>
-        </div>
-      )}
       {billingMode?.mode === "unconfigured" && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />

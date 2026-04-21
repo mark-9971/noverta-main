@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useListStaff, useListSpedStudents, listServiceTypes, createScheduleBlock,
+  getListStaffQueryKey, getListSpedStudentsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   Staff, ServiceType, CreateScheduleBlockBody,
@@ -113,8 +114,12 @@ export default function MinutesOversightTab() {
   const [blockSaving, setBlockSaving] = useState(false);
   const [serviceTypesList, setServiceTypesList] = useState<ServiceType[]>([]);
 
-  const { data: staffData } = useListStaff(filterParams, { query: { enabled: canSchedule } });
-  const { data: studentsData } = useListSpedStudents(filterParams, { query: { enabled: canSchedule } });
+  const { data: staffData } = useListStaff(filterParams, {
+    query: { enabled: canSchedule, queryKey: getListStaffQueryKey(filterParams) },
+  });
+  const { data: studentsData } = useListSpedStudents(filterParams, {
+    query: { enabled: canSchedule, queryKey: getListSpedStudentsQueryKey(filterParams) },
+  });
   const staffList: Staff[] = Array.isArray(staffData) ? staffData : [];
   const studentList: StudentListItem[] = Array.isArray(studentsData)
     ? (studentsData as StudentListItem[])

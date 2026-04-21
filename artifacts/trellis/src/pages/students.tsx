@@ -458,7 +458,7 @@ export default function Students() {
                       <StudentQuickView
                         studentId={s.id}
                         studentName={`${s.firstName} ${s.lastName}`}
-                        grade={s.grade}
+                        grade={s.grade ?? null}
                         trigger={
                           <span className="p-1 rounded hover:bg-gray-100 transition-colors" title="Quick view: emergency contacts &amp; alerts">
                             <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
-import { useListServiceRequirements, useListStudents, useListSessions, useListStaff } from "@workspace/api-client-react";
+import { useListServiceRequirements, useListStudents, useListSessions, useListStaff, getListServiceRequirementsQueryKey, getListSessionsQueryKey } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,12 +53,14 @@ function ComplianceDot({ status }: { status: "ok" | "warn" | "missing" }) {
 export default function MyCaseloadPage() {
   const { teacherId, role } = useRole();
 
+  const reqsParams = (teacherId ? { providerId: teacherId, active: "true" } : {}) as any;
   const { data: allReqs, isLoading: reqsLoading } = useListServiceRequirements(
-    teacherId ? { providerId: teacherId, active: "true" } as any : ({} as any),
-    { enabled: !!teacherId }
+    reqsParams,
+    { query: { enabled: !!teacherId, queryKey: getListServiceRequirementsQueryKey(reqsParams) } }
   );
   const { data: allStudents, isLoading: studentsLoading } = useListStudents({} as any);
-  const { data: recentSessions } = useListSessions({ staffId: teacherId } as any, { enabled: !!teacherId });
+  const sessionsParams = { staffId: teacherId } as any;
+  const { data: recentSessions } = useListSessions(sessionsParams, { query: { enabled: !!teacherId, queryKey: getListSessionsQueryKey(sessionsParams) } });
   const { data: allStaff } = useListStaff({} as any);
 
   const { data: assignedBipsData } = useQuery<AssignedBip[]>({

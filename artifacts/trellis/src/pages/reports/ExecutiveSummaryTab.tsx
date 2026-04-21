@@ -45,7 +45,7 @@ export function ExecutiveSummaryTab() {
   if (loading) return <div className="space-y-4"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>;
   if (isError || !data) return <ErrorBanner message="Failed to load executive summary." />;
 
-  if (data.serviceDelivery.totalRequired === 0 && data.riskCounts.onTrack === 0 && data.riskCounts.atRisk === 0 && data.riskCounts.outOfCompliance === 0) {
+  if (data.serviceDelivery.totalRequiredMinutes === 0 && data.riskCounts.onTrack === 0 && data.riskCounts.atRisk === 0 && data.riskCounts.outOfCompliance === 0) {
     return (
       <EmptyState
         icon={BarChart3}
