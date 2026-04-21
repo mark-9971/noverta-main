@@ -30,6 +30,11 @@ import {
   sessionLogsTable,
 } from "@workspace/db";
 import { and, eq, gte, lte, isNull, inArray, sql } from "drizzle-orm";
+import {
+  adjustExpectedMinutesForSchoolException,
+  getSchoolDayExceptionsForRange,
+  type SchoolDayException,
+} from "./schoolCalendar";
 
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -242,6 +247,7 @@ export async function computeServiceForecast(opts: ComputeOpts): Promise<Service
       endDate: serviceRequirementsTable.endDate,
       studentFirstName: studentsTable.firstName,
       studentLastName: studentsTable.lastName,
+      studentSchoolId: studentsTable.schoolId,
       serviceTypeName: serviceTypesTable.name,
       providerFirstName: staffTable.firstName,
       providerLastName: staffTable.lastName,
@@ -263,6 +269,11 @@ export async function computeServiceForecast(opts: ComputeOpts): Promise<Service
 
   const reqIds = reqs.map(r => r.id);
   const studentIds = Array.from(new Set(reqs.map(r => r.studentId)));
+  const studentSchoolIdById = new Map<number, number | null>();
+  for (const r of reqs) studentSchoolIdById.set(r.studentId, r.studentSchoolId ?? null);
+  const schoolIds = Array.from(new Set(
+    Array.from(studentSchoolIdById.values()).filter((x): x is number => x != null),
+  ));
 
   // Earliest interval start across all requirements (for delivered-minutes query).
   let earliestIntervalStart = today;
@@ -389,6 +400,20 @@ export async function computeServiceForecast(opts: ComputeOpts): Promise<Service
     coverageByBlockDate.set(`${c.scheduleBlockId}|${c.absenceDate}`, c);
   }
 
+  // School-calendar exceptions for the planning horizon. The forecast is
+  // timing-aware (each block carries startTime/endTime + a concrete
+  // occurrence date), so we route through the shared helper to apply
+  // exact early-release proration on straddler blocks and zero out
+  // closure days entirely. Tenant-scoped via the helper.
+  const schoolExceptions: Map<string, SchoolDayException> = schoolIds.length > 0
+    ? await getSchoolDayExceptionsForRange({
+        districtId: opts.districtId,
+        schoolIds,
+        startDate: horizonStartStr,
+        endDate: horizonEndStr,
+      })
+    : new Map();
+
   // Build per-requirement forecast.
   const rows: ServiceForecastRow[] = [];
   const staffImpact = new Map<number, { staffName: string | null; lostMinutes: number; students: Set<number> }>();
@@ -412,29 +437,51 @@ export async function computeServiceForecast(opts: ComputeOpts): Promise<Service
     let plannedLostMinutes = 0;
     const impacts: AbsenceImpact[] = [];
 
+    const reqSchoolId = studentSchoolIdById.get(req.studentId) ?? null;
+
     for (const block of matchingBlocks) {
       const mins = blockMinutes(block.startTime, block.endTime);
       if (mins === 0) continue;
+      const blockStartHHMM = (block.startTime ?? "00:00").substring(0, 5);
+      const blockEndHHMM = (block.endTime ?? "00:00").substring(0, 5);
       const occurrences = expandBlockOccurrences(block, planFrom, planTo);
       for (const date of occurrences) {
+        // Apply school-calendar exception (closure / early-release) first.
+        // The forecast has real per-occurrence timing, so we pass the
+        // block's HH:MM window and let the shared helper do exact
+        // proration on straddler blocks. Closures collapse to 0 — the
+        // block can't happen, so it contributes neither remaining nor
+        // lost minutes and we don't emit an absence impact for it.
+        const exception = reqSchoolId != null
+          ? schoolExceptions.get(`${reqSchoolId}:${date}`) ?? null
+          : null;
+        const effectiveMinsRaw = adjustExpectedMinutesForSchoolException({
+          expectedMinutes: mins,
+          exception,
+          serviceWindowStart: blockStartHHMM,
+          serviceWindowEnd: blockEndHHMM,
+        });
+        const effectiveMins = Math.round(effectiveMinsRaw);
+        if (effectiveMins === 0) continue;
+
         const absence = absenceByStaffDate.get(`${block.staffId}|${date}`);
         if (!absence) {
-          plannedRemainingMinutes += mins;
+          plannedRemainingMinutes += effectiveMins;
           continue;
         }
         const cov = coverageByBlockDate.get(`${block.id}|${date}`);
         const covered = !!(cov && cov.isCovered && cov.substituteStaffId);
         if (covered) {
-          plannedRemainingMinutes += mins;
+          plannedRemainingMinutes += effectiveMins;
         } else {
-          plannedLostMinutes += mins;
+          plannedLostMinutes += effectiveMins;
         }
         impacts.push({
           date,
           staffId: block.staffId,
           staffName: block.staffFirstName ? `${block.staffFirstName} ${block.staffLastName}` : null,
           blockId: block.id,
-          blockMinutes: mins,
+          blockMinutes: effectiveMins,
           absenceType: absence.absenceType,
           isCovered: covered,
           substituteStaffId: cov?.substituteStaffId ?? null,
@@ -442,7 +489,7 @@ export async function computeServiceForecast(opts: ComputeOpts): Promise<Service
         });
         if (!covered) {
           const cur = staffImpact.get(block.staffId) ?? { staffName: block.staffFirstName ? `${block.staffFirstName} ${block.staffLastName}` : null, lostMinutes: 0, students: new Set<number>() };
-          cur.lostMinutes += mins;
+          cur.lostMinutes += effectiveMins;
           cur.students.add(req.studentId);
           staffImpact.set(block.staffId, cur);
         }

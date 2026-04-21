@@ -25,6 +25,7 @@ import {
   scheduleBlocksTable,
   staffAbsencesTable,
   coverageInstancesTable,
+  schoolCalendarExceptionsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -112,6 +113,7 @@ describe("service forecast", () => {
   });
 
   afterAll(async () => {
+    await db.delete(schoolCalendarExceptionsTable).where(eq(schoolCalendarExceptionsTable.schoolId, schoolA));
     await db.delete(coverageInstancesTable).where(eq(coverageInstancesTable.scheduleBlockId, blockA));
     await db.delete(staffAbsencesTable).where(eq(staffAbsencesTable.staffId, staffA));
     await db.delete(scheduleBlocksTable).where(eq(scheduleBlocksTable.id, blockA));
@@ -198,6 +200,108 @@ describe("service forecast", () => {
       expect(impact.isCovered).toBe(true);
       expect(impact.substituteStaffId).toBe(sub.id);
     }
+  });
+
+  it("zeroes out a planned block when the school is closed that day", async () => {
+    const todayDow = todayLocal().getDay();
+    if (todayDow === 0 && blockDow === 1) return;
+
+    // Reset absences/coverage so the block would otherwise be a clean
+    // 60 planned-remaining minutes.
+    await db.delete(coverageInstancesTable).where(eq(coverageInstancesTable.scheduleBlockId, blockA));
+    await db.delete(staffAbsencesTable).where(eq(staffAbsencesTable.staffId, staffA));
+    await db.delete(schoolCalendarExceptionsTable).where(eq(schoolCalendarExceptionsTable.schoolId, schoolA));
+
+    const occurrence = nextDow(blockDow);
+    await db.insert(schoolCalendarExceptionsTable).values({
+      schoolId: schoolA,
+      exceptionDate: ymd(occurrence),
+      type: "closure",
+      reason: "Snow day",
+    });
+
+    const admin = asUser({ userId: "admin-A", role: "admin", districtId: districtA });
+    const res = await admin.get("/api/service-forecast?horizonWeeks=1");
+    expect(res.status).toBe(200);
+    const row = res.body.rows.find((r: any) => r.serviceRequirementId === reqA);
+    expect(row).toBeDefined();
+    // Closure → block does not contribute to remaining or lost minutes,
+    // and no absence-impact row is generated for the closed day.
+    expect(row.plannedRemainingMinutes).toBe(0);
+    expect(row.plannedLostMinutes).toBe(0);
+    expect(row.absenceImpacts.find((i: any) => i.date === ymd(occurrence))).toBeUndefined();
+    // Required minutes (the contractual obligation) are unchanged.
+    expect(row.requiredMinutes).toBe(60);
+  });
+
+  it("prorates a straddler block exactly at the early-release dismissal time", async () => {
+    const todayDow = todayLocal().getDay();
+    if (todayDow === 0 && blockDow === 1) return;
+
+    await db.delete(coverageInstancesTable).where(eq(coverageInstancesTable.scheduleBlockId, blockA));
+    await db.delete(staffAbsencesTable).where(eq(staffAbsencesTable.staffId, staffA));
+    await db.delete(schoolCalendarExceptionsTable).where(eq(schoolCalendarExceptionsTable.schoolId, schoolA));
+
+    const occurrence = nextDow(blockDow);
+    // Block is 10:00-11:00 (60 min). Dismissal at 10:30 → exact pre-cut
+    // portion is 30 min, NOT the 0.5 day-weight fallback (which would
+    // also be 30 here — pick a non-symmetric dismissal so the fallback
+    // and exact paths diverge).
+    // Move dismissal to 10:45 → exact pre-cut = 45 min, fallback = 30.
+    await db.insert(schoolCalendarExceptionsTable).values({
+      schoolId: schoolA,
+      exceptionDate: ymd(occurrence),
+      type: "early_release",
+      dismissalTime: "10:45",
+      reason: "Professional development",
+    });
+
+    const admin = asUser({ userId: "admin-A", role: "admin", districtId: districtA });
+    const res = await admin.get("/api/service-forecast?horizonWeeks=1");
+    expect(res.status).toBe(200);
+    const row = res.body.rows.find((r: any) => r.serviceRequirementId === reqA);
+    expect(row).toBeDefined();
+    // Exact proration: 45 minutes — proves the forecast went through the
+    // shared helper's time-of-day branch (the day-weight fallback would
+    // be 30 minutes for a 60-min block).
+    expect(row.plannedRemainingMinutes).toBe(45);
+    expect(row.plannedRemainingMinutes).not.toBe(30);
+    expect(row.plannedLostMinutes).toBe(0);
+  });
+
+  it("counts only the prorated minutes as lost when the staff is also absent on an early-release day", async () => {
+    const todayDow = todayLocal().getDay();
+    if (todayDow === 0 && blockDow === 1) return;
+
+    await db.delete(coverageInstancesTable).where(eq(coverageInstancesTable.scheduleBlockId, blockA));
+    await db.delete(staffAbsencesTable).where(eq(staffAbsencesTable.staffId, staffA));
+    await db.delete(schoolCalendarExceptionsTable).where(eq(schoolCalendarExceptionsTable.schoolId, schoolA));
+
+    const occurrence = nextDow(blockDow);
+    // Early release at 10:45 → 45 min effective. Provider absent and
+    // uncovered → those 45 are lost (NOT 60).
+    await db.insert(schoolCalendarExceptionsTable).values({
+      schoolId: schoolA,
+      exceptionDate: ymd(occurrence),
+      type: "early_release",
+      dismissalTime: "10:45",
+      reason: "Half day",
+    });
+    await db.insert(staffAbsencesTable).values({
+      staffId: staffA,
+      absenceDate: ymd(occurrence),
+      absenceType: "sick",
+    });
+
+    const admin = asUser({ userId: "admin-A", role: "admin", districtId: districtA });
+    const res = await admin.get("/api/service-forecast?horizonWeeks=1");
+    const row = res.body.rows.find((r: any) => r.serviceRequirementId === reqA);
+    expect(row.plannedLostMinutes).toBe(45);
+    expect(row.plannedRemainingMinutes).toBe(0);
+    const impact = row.absenceImpacts.find((i: any) => i.date === ymd(occurrence));
+    expect(impact).toBeDefined();
+    expect(impact.blockMinutes).toBe(45);
+    expect(impact.isCovered).toBe(false);
   });
 
   it("does not leak forecast rows across districts", async () => {
