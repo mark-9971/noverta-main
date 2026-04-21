@@ -68,7 +68,12 @@ export default function RecommendedNextStepCard({
     () => recommendAction(signal, { currentUserRole }),
     [signal, currentUserRole],
   );
-  const { getState, setState } = useHandlingState(userKey);
+  // Phase 1E: pass `[itemId]` so the hook batch-fetches just this row.
+  // `userKey` is retained in the prop signature for backward compat
+  // but is no longer used for namespacing (district scoping is enforced
+  // server-side).
+  void userKey;
+  const { getState, setState } = useHandlingState([itemId]);
   const handlingState = getState(itemId);
   const handlingBadge = HANDLING_BADGE[handlingState];
   const confidencePip = CONFIDENCE_PIP[recommendation.confidence];
@@ -196,7 +201,7 @@ export default function RecommendedNextStepCard({
                     </button>
                   ))}
                   <p className="px-2.5 py-1 text-[10px] text-gray-400 border-t mt-1">
-                    Saved on this device only — no message is sent.
+                    Shared with your district team — no message is sent.
                   </p>
                 </div>
               )}

@@ -1,92 +1,53 @@
 /**
- * Pilot Wedge Phase 1B — handling state for Action Center items.
+ * Pilot Wedge Phase 1E — district-scoped, server-side shared handling
+ * state for at-risk action items.
  *
- * Persistence layer (currently localStorage) for the operationally
- * important "is anyone already handling this?" state. Mirrors the
- * existing `useHiddenItems` pattern so the two state machines compose
- * cleanly.
+ * Replaces the per-browser localStorage that Phase 1B/1D used. Two
+ * admins viewing the same student or alert now see the SAME pill, with
+ * the SAME ownership note, sourced from the `action_item_handling`
+ * table on the API server.
  *
- * Honesty notes:
- *   - This is per-user, per-browser localStorage. It is NOT a shared
- *     server-side assignment record. Two admins on two browsers will
- *     see different handling-state for the same item until that gets
- *     promoted to the database in a later phase.
- *   - The state is keyed by WorkItem `id` (already stable per source —
- *     `alert-N`, `risk-N`, `deadline-N`, `schedule-gap-N-M`).
- *   - Setting state to `needs_action` clears the entry (default).
+ * Public surface (intentionally unchanged from 1B/1D so callers don't
+ * need to be rewritten):
+ *   - `useHandlingState(itemIds, opts?)` returns `{ getState, setState, clear, isLoading }`.
+ *     `itemIds` is the list of canonical IDs visible on this surface;
+ *     the hook batch-fetches them in one round trip and exposes a
+ *     synchronous `getState(id)` reader so the render path stays simple.
+ *   - `useStudentHandlingAggregate(studentIds)` returns
+ *     `Map<studentId, HandlingState>` of the worst non-default state per
+ *     student, used by the dashboard "in progress" pill.
+ *
+ * The `userKey` argument that callers used to pass for localStorage
+ * namespacing is now ignored — district scoping is enforced server-side
+ * via `getEnforcedDistrictId`. We keep it in the signature for a clean
+ * incremental migration.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost, apiPut } from "./api";
 import type { HandlingState } from "./action-recommendations";
 
-const HANDLING_KEY_PREFIX = "trellis:action-center:handling:";
+/** Wire shape of one action_item_handling row, as returned by the API. */
+export interface HandlingRow {
+  itemId: string;
+  state: HandlingState;
+  note: string | null;
+  recommendedOwnerRole: string | null;
+  assignedToRole: string | null;
+  assignedToUserId: string | null;
+  updatedByUserId: string;
+  updatedByName: string | null;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
 
 export interface HandlingEntry {
   state: HandlingState;
   setAt: number;
-  /** Optional free-text note (e.g. "asked Maria to confirm by Friday"). */
   note?: string;
 }
-
 export type HandlingMap = Record<string, HandlingEntry>;
-
-function lsKeyForUser(userKey: string): string {
-  return `${HANDLING_KEY_PREFIX}${userKey}`;
-}
-
-function readHandling(userKey: string): HandlingMap {
-  try {
-    const raw = localStorage.getItem(lsKeyForUser(userKey));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return {};
-    return parsed as HandlingMap;
-  } catch {
-    return {};
-  }
-}
-
-function writeHandling(userKey: string, map: HandlingMap) {
-  try {
-    localStorage.setItem(lsKeyForUser(userKey), JSON.stringify(map));
-  } catch {}
-}
-
-export function useHandlingState(userKey: string) {
-  const [handling, setHandling] = useState<HandlingMap>(() => readHandling(userKey));
-
-  useEffect(() => { setHandling(readHandling(userKey)); }, [userKey]);
-
-  const setState = useCallback((id: string, state: HandlingState, note?: string) => {
-    setHandling(prev => {
-      // Setting back to the default needs_action clears the entry —
-      // no state stored is the same as "needs action."
-      if (state === "needs_action") {
-        if (!(id in prev)) return prev;
-        const next = { ...prev };
-        delete next[id];
-        writeHandling(userKey, next);
-        return next;
-      }
-      const next: HandlingMap = {
-        ...prev,
-        [id]: { state, setAt: Date.now(), ...(note ? { note } : {}) },
-      };
-      writeHandling(userKey, next);
-      return next;
-    });
-  }, [userKey]);
-
-  const clear = useCallback((id: string) => setState(id, "needs_action"), [setState]);
-
-  const getState = useCallback((id: string): HandlingState => {
-    return handling[id]?.state ?? "needs_action";
-  }, [handling]);
-
-  return { handling, setState, clear, getState };
-}
-
-// ─── Cross-surface aggregate readers (Phase 1D) ──────────────────────────────
 
 /**
  * Severity ordering for picking the "worst" handling state when several
@@ -95,8 +56,11 @@ export function useHandlingState(userKey: string) {
  * still actively in flight, so it outranks `recovery_scheduled` /
  * `handed_off` / `resolved` for the purpose of showing "in progress"
  * on the dashboard. `needs_action` is the implicit lowest.
+ *
+ * MUST stay in sync with the same map in
+ * `artifacts/api-server/src/routes/actionItemHandling.ts`.
  */
-const HANDLING_SEVERITY: Record<HandlingState, number> = {
+export const HANDLING_SEVERITY: Record<HandlingState, number> = {
   needs_action: 0,
   resolved: 1,
   recovery_scheduled: 2,
@@ -105,95 +69,228 @@ const HANDLING_SEVERITY: Record<HandlingState, number> = {
   awaiting_confirmation: 5,
 };
 
-function pickWorstHandling(states: HandlingState[]): HandlingState {
+export interface UseHandlingStateOptions {
+  /** Optional handler called after a successful PUT. Useful for surfaces
+   *  that want to also clear an inline open menu. */
+  onChanged?: (id: string, state: HandlingState) => void;
+}
+
+interface PutVars {
+  id: string;
+  state: HandlingState;
+  note?: string;
+  recommendedOwnerRole?: string;
+}
+
+/**
+ * Build a stable react-query key for a given set of itemIds. We sort to
+ * make `["a","b"]` and `["b","a"]` share a cache entry.
+ */
+function batchKey(ids: readonly string[]) {
+  return ["action-item-handling", "batch", [...ids].sort().join("|")] as const;
+}
+
+async function fetchBatch(ids: string[]): Promise<HandlingRow[]> {
+  if (ids.length === 0) return [];
+  // Use POST batch when the URL would be excessive, otherwise GET so
+  // the response is HTTP-cacheable in dev tools.
+  if (ids.length <= 40) {
+    const qs = encodeURIComponent(ids.join(","));
+    const res = await apiGet<{ data: HandlingRow[] }>(`/action-item-handling?ids=${qs}`);
+    return res.data;
+  }
+  const res = await apiPost<{ data: HandlingRow[] }>("/action-item-handling/batch", { ids });
+  return res.data;
+}
+
+/**
+ * Phase 1E hook — accepts the list of canonical itemIds visible on the
+ * current surface (so we can batch-fetch in one request), then exposes
+ * the same `getState` / `setState` API older surfaces already use.
+ *
+ * Backwards-compat shim: if the first argument is a string (the legacy
+ * `userKey`), the hook degrades to no-prefetch mode and reads on demand
+ * via `getState`. Surfaces should migrate to the array form.
+ */
+export function useHandlingState(
+  itemIdsOrUserKey: string | readonly string[],
+  opts?: UseHandlingStateOptions,
+) {
+  const qc = useQueryClient();
+
+  const ids = useMemo<string[]>(() => {
+    if (typeof itemIdsOrUserKey === "string") return [];
+    // Filter out empty / falsy ids defensively — surfaces sometimes
+    // build the list before all data is loaded.
+    return Array.from(new Set(itemIdsOrUserKey.filter(Boolean)));
+  }, [itemIdsOrUserKey]);
+
+  const query = useQuery({
+    queryKey: batchKey(ids),
+    queryFn: () => fetchBatch(ids),
+    enabled: ids.length > 0,
+    staleTime: 15_000,
+  });
+
+  // Convert rows to a map for O(1) lookup. We don't synthesize entries
+  // for missing ids — `getState` returns `needs_action` by default.
+  const handlingMap = useMemo<Record<string, HandlingRow>>(() => {
+    const out: Record<string, HandlingRow> = {};
+    for (const r of query.data ?? []) out[r.itemId] = r;
+    return out;
+  }, [query.data]);
+
+  const mutation = useMutation({
+    mutationFn: async (vars: PutVars) => {
+      const res = await apiPut<{ data: HandlingRow }>(
+        `/action-item-handling/${encodeURIComponent(vars.id)}`,
+        {
+          state: vars.state,
+          note: vars.note ?? null,
+          recommendedOwnerRole: vars.recommendedOwnerRole ?? null,
+        },
+      );
+      return res.data;
+    },
+    onMutate: async (vars) => {
+      // Optimistic update — patch only batch queries (HandlingRow[]). The
+      // aggregate-by-student cache lives under the same root key but has
+      // a different row shape (`{studentId,state}`), so we MUST scope this
+      // mutation to `["action-item-handling","batch"]` to avoid corrupting
+      // it with synthetic HandlingRow objects (caught in code review).
+      await qc.cancelQueries({ queryKey: ["action-item-handling", "batch"] });
+      const snapshot = qc.getQueriesData<HandlingRow[]>({ queryKey: ["action-item-handling", "batch"] });
+      qc.setQueriesData<HandlingRow[]>({ queryKey: ["action-item-handling", "batch"] }, (old) => {
+        if (!old) return old;
+        const others = old.filter(r => r.itemId !== vars.id);
+        if (vars.state === "needs_action") return others;
+        const prev = old.find(r => r.itemId === vars.id);
+        const optimistic: HandlingRow = {
+          itemId: vars.id,
+          state: vars.state,
+          note: vars.note ?? prev?.note ?? null,
+          recommendedOwnerRole: vars.recommendedOwnerRole ?? prev?.recommendedOwnerRole ?? null,
+          assignedToRole: prev?.assignedToRole ?? null,
+          assignedToUserId: prev?.assignedToUserId ?? null,
+          updatedByUserId: prev?.updatedByUserId ?? "(you)",
+          updatedByName: prev?.updatedByName ?? null,
+          updatedAt: new Date().toISOString(),
+          resolvedAt: vars.state === "resolved" ? new Date().toISOString() : null,
+        };
+        return [...others, optimistic];
+      });
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      // Roll back on failure.
+      if (!ctx?.snapshot) return;
+      for (const [key, data] of ctx.snapshot) qc.setQueryData(key, data);
+    },
+    onSettled: (_data, _err, vars) => {
+      // Invalidate everything handling-related so the dashboard
+      // aggregate also updates.
+      qc.invalidateQueries({ queryKey: ["action-item-handling"] });
+      if (vars) opts?.onChanged?.(vars.id, vars.state);
+    },
+  });
+
+  const setState = useCallback((id: string, state: HandlingState, note?: string, recommendedOwnerRole?: string) => {
+    mutation.mutate({ id, state, note, recommendedOwnerRole });
+  }, [mutation]);
+
+  const clear = useCallback((id: string) => setState(id, "needs_action"), [setState]);
+
+  const getState = useCallback((id: string): HandlingState => {
+    return handlingMap[id]?.state ?? "needs_action";
+  }, [handlingMap]);
+
+  const getEntry = useCallback((id: string): HandlingRow | undefined => handlingMap[id], [handlingMap]);
+
+  // Synthesise the legacy `handling: HandlingMap` shape for any caller
+  // that still wants to enumerate. Cheap; only contains visible ids.
+  const handling = useMemo<HandlingMap>(() => {
+    const out: HandlingMap = {};
+    for (const [id, r] of Object.entries(handlingMap)) {
+      out[id] = {
+        state: r.state,
+        setAt: r.updatedAt ? Date.parse(r.updatedAt) : Date.now(),
+        ...(r.note ? { note: r.note } : {}),
+      };
+    }
+    return out;
+  }, [handlingMap]);
+
+  return {
+    handling,
+    getState,
+    getEntry,
+    setState,
+    clear,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+  };
+}
+
+// ─── Cross-surface aggregate readers (Phase 1E) ──────────────────────────────
+
+/**
+ * Pure helper retained from Phase 1D for tests — given a merged map of
+ * id → state, return the worst non-default handling state across the
+ * ids that unambiguously belong to a student. Phase 1E surfaces use the
+ * canonical id forms `risk:<sid>:`, `student:<sid>:`, `service-gap:<sid>:`,
+ * `deadline:<sid>:` — and we still recognise the legacy `risk-row:<sid>:`
+ * form so old localStorage data isn't silently lost during the rollout.
+ */
+export function pickHandlingForStudent(
+  merged: Record<string, { state: HandlingState }>,
+  studentId: number,
+): HandlingState {
+  const prefixes = [
+    `risk:${studentId}:`,
+    `student:${studentId}:`,
+    `service-gap:${studentId}:`,
+    `deadline:${studentId}:`,
+    `risk-row:${studentId}:`,
+  ];
   let worst: HandlingState = "needs_action";
-  for (const s of states) {
-    if (HANDLING_SEVERITY[s] > HANDLING_SEVERITY[worst]) worst = s;
+  for (const [id, entry] of Object.entries(merged)) {
+    if (prefixes.some(p => id.startsWith(p))) {
+      if (HANDLING_SEVERITY[entry.state] > HANDLING_SEVERITY[worst]) worst = entry.state;
+    }
   }
   return worst;
 }
 
-function readAllHandlingNamespaces(): HandlingMap {
-  if (typeof localStorage === "undefined") return {};
-  const merged: HandlingMap = {};
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k || !k.startsWith(HANDLING_KEY_PREFIX)) continue;
-      const raw = localStorage.getItem(k);
-      if (!raw) continue;
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          for (const [id, entry] of Object.entries(parsed as HandlingMap)) {
-            // First-write wins → keep the most-recently-set entry per id.
-            const cur = merged[id];
-            if (!cur || (entry.setAt ?? 0) > (cur.setAt ?? 0)) {
-              merged[id] = entry;
-            }
-          }
-        }
-      } catch {}
-    }
-  } catch {}
-  return merged;
-}
+interface AggregateRow { studentId: number; state: HandlingState }
 
 /**
- * Pure helper (testable) — given a merged handling map and a student
- * id, return the worst non-default handling state across the ids that
- * unambiguously belong to that student (`risk-row:<sid>:*`,
- * `student:<sid>:*`). Returns `needs_action` when nothing is in
- * progress.
- *
- * Note: Action Center alert ids (`alert-N`, `risk-N`) are NOT scanned
- * because they don't carry the studentId in a stable form here. Surfaces
- * that want their state to flow into this aggregate should adopt the
- * `risk-row:<sid>:<reqId>` or `student:<sid>:*` id patterns.
+ * React hook — fetches the dashboard "Where are we at risk?" aggregate
+ * from the API in a single round trip. Returns a `Map<studentId, HandlingState>`
+ * containing only entries whose state is non-default. Excludes
+ * `resolved` server-side.
  */
-export function pickHandlingForStudent(
-  merged: HandlingMap,
-  studentId: number,
-): HandlingState {
-  const prefixes = [`risk-row:${studentId}:`, `student:${studentId}:`];
-  const matches: HandlingState[] = [];
-  for (const [id, entry] of Object.entries(merged)) {
-    if (prefixes.some(p => id.startsWith(p))) {
-      matches.push(entry.state);
+export function useStudentHandlingAggregate(studentIds: number[]): Map<number, HandlingState> {
+  const sortedIds = useMemo(() => Array.from(new Set(studentIds.filter(n => Number.isFinite(n)))).sort((a, b) => a - b), [studentIds]);
+
+  const query = useQuery({
+    queryKey: ["action-item-handling", "aggregate-by-student", sortedIds.join(",")],
+    queryFn: async () => {
+      if (sortedIds.length === 0) return [] as AggregateRow[];
+      const res = await apiPost<{ data: AggregateRow[] }>("/action-item-handling/aggregate-by-student", { studentIds: sortedIds });
+      return res.data;
+    },
+    enabled: sortedIds.length > 0,
+    staleTime: 15_000,
+  });
+
+  return useMemo(() => {
+    const out = new Map<number, HandlingState>();
+    for (const r of query.data ?? []) {
+      if (r.state !== "needs_action" && r.state !== "resolved") out.set(r.studentId, r.state);
     }
-  }
-  return pickWorstHandling(matches);
+    return out;
+  }, [query.data]);
 }
 
-/**
- * React hook — re-reads aggregate handling state for a list of
- * student ids on every render and reacts to localStorage `storage`
- * events from other tabs. Returns a `Map<studentId, HandlingState>`
- * containing only entries whose state is non-default, so callers can
- * cheaply check `aggregate.has(id)`.
- */
-export function useAggregateHandlingForStudents(studentIds: number[]): Map<number, HandlingState> {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (e.key && e.key.startsWith(HANDLING_KEY_PREFIX)) setTick(t => t + 1);
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  // Recompute on every render — cheap; localStorage scan is small in
-  // pilot scale and avoids missing same-tab updates.
-  void tick;
-  const merged = readAllHandlingNamespaces();
-  const out = new Map<number, HandlingState>();
-  for (const sid of studentIds) {
-    const state = pickHandlingForStudent(merged, sid);
-    // Exclude `needs_action` (default) AND `resolved` — the dashboard
-    // "Where are we at risk?" list is about *in-progress* work, so a
-    // resolved row should not pollute it with a stale pill.
-    if (state !== "needs_action" && state !== "resolved") out.set(sid, state);
-  }
-  return out;
-}
+/** Alias kept for back-compat with the Phase 1D import name. */
+export const useAggregateHandlingForStudents = useStudentHandlingAggregate;

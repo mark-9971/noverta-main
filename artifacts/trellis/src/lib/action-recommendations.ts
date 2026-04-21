@@ -151,6 +151,58 @@ export interface ActionRecommendation {
   secondaryActions: { type: RecommendedActionType; label: string }[];
 }
 
+// ─── Canonical item identity (Phase 1E) ──────────────────────────────────────
+
+/**
+ * Phase 1E — canonical, stable item identity for the shared handling
+ * state. Every surface that wants its handling pill to round-trip
+ * through the server must use these helpers to produce the `itemId`
+ * stored in `action_item_handling`.
+ *
+ * Format choices:
+ *   - `alert:<id>`                        — alerts table row (server pk).
+ *   - `risk:<sid>:<reqId>`                — compliance risk-report row,
+ *                                            keyed by the at-risk
+ *                                            requirement so the same row
+ *                                            survives across reseeds.
+ *   - `deadline:<sid>:<eventType>`        — IEP/eval deadline row.
+ *   - `service-gap:<sid>:<reqId>`         — schedule-gap signal.
+ *   - `student:<sid>:<kind>[:<reqId>]`    — student-detail "next step"
+ *                                            card; `kind` is short
+ *                                            (e.g. "next-step").
+ *
+ * Surfaces should NOT inline these strings; using the helpers keeps the
+ * format singular and grep-discoverable.
+ */
+export function itemIdForAlert(alertId: number | string): string {
+  return `alert:${alertId}`;
+}
+
+export function itemIdForRisk(studentId: number, requirementId: number | null | undefined): string {
+  return `risk:${studentId}:${requirementId ?? "none"}`;
+}
+
+export function itemIdForDeadline(studentId: number, eventType: string): string {
+  // Slugify the event type so it survives copy-paste and DB constraints.
+  const slug = String(eventType).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `deadline:${studentId}:${slug}`;
+}
+
+export function itemIdForServiceGap(studentId: number, requirementId: number | null | undefined): string {
+  return `service-gap:${studentId}:${requirementId ?? "none"}`;
+}
+
+export function itemIdForStudent(studentId: number, kind: string, requirementId?: number | null): string {
+  const slug = String(kind).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return requirementId != null ? `student:${studentId}:${slug}:${requirementId}` : `student:${studentId}:${slug}`;
+}
+
+/** Extract the studentId from a canonical itemId, when one is encoded. */
+export function studentIdFromItemId(itemId: string): number | null {
+  const m = itemId.match(/^(?:risk|deadline|service-gap|student):(\d+)(?::|$)/);
+  return m ? Number(m[1]) : null;
+}
+
 // ─── Decision logic ──────────────────────────────────────────────────────────
 
 function chronicShortfall(s: RecommendationSignal): boolean {

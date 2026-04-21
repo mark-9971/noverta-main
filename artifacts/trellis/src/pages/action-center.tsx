@@ -30,6 +30,9 @@ import {
   type ActionRecommendation,
 } from "@/lib/action-recommendations";
 import { useHandlingState } from "@/lib/use-handling-state";
+import {
+  itemIdForAlert, itemIdForRisk, itemIdForDeadline, itemIdForServiceGap,
+} from "@/lib/action-recommendations";
 import { buildScheduleMakeupHref } from "@/lib/schedule-makeup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -100,8 +103,15 @@ function scheduleGapToWorkItem(
     ? `No sessions scheduled · ${mp.remainingMinutes} min still needed · ${mp.serviceTypeName}`
     : `${weeklyScheduledMinutes} min/wk scheduled · needs +${projectedShortfallPerWeek} min/wk more · ${mp.serviceTypeName}`;
 
+  // Use serviceRequirementId when available; otherwise fall back to
+  // serviceTypeId so each gap row gets a unique handling id (the
+  // producer below builds gaps keyed by `studentId:serviceTypeId`).
+  // Without this discriminator every gap for one student collapses to
+  // `service-gap:<sid>:none` and they all share state.
+  const gapDiscriminator =
+    (mp as any).serviceRequirementId ?? mp.serviceTypeId ?? null;
   return {
-    id: `schedule-gap-${mp.studentId}-${mp.serviceTypeId}`,
+    id: itemIdForServiceGap(mp.studentId, gapDiscriminator),
     priority,
     category: "schedule",
     icon: CalendarX2,
@@ -169,7 +179,7 @@ function alertToWorkItem(a: any, index: number): WorkItem {
     a.type === "missed_sessions";
 
   return {
-    id: `alert-${a.id ?? index}`,
+    id: itemIdForAlert(a.id ?? `idx-${index}`),
     priority,
     category: alertCategory(a.type ?? ""),
     icon,
@@ -197,7 +207,7 @@ function riskToWorkItem(r: any): WorkItem {
     : r.riskStatus === "at_risk" ? "urgent"
     : "thisweek";
   return {
-    id: `risk-${r.studentId}`,
+    id: itemIdForRisk(r.studentId, r.serviceRequirementId ?? null),
     priority,
     category: "compliance",
     icon: Shield,
@@ -233,7 +243,7 @@ function deadlineToWorkItem(d: any, index: number): WorkItem | null {
   const typeLabel = (d.eventType ?? "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 
   return {
-    id: `deadline-${index}`,
+    id: itemIdForDeadline(d.studentId ?? 0, d.eventType ?? `idx-${index}`),
     priority,
     category: "iep",
     icon: CalendarDays,
@@ -1187,10 +1197,15 @@ export default function ActionCenter() {
   // exposes a stable user id, swap that in here.
   const userKey = `${role ?? "unknown"}::${user?.name?.trim() || "anonymous"}`;
   const { hidden, hide, restore, restoreAll } = useHiddenItems(userKey);
-  // Phase 1B: per-user, per-browser handling state (recovery_scheduled,
-  // handed_off, awaiting_confirmation, …). Local-only by design — see
-  // use-handling-state.ts for the persistence honesty notes.
-  const { getState: getHandlingState, setState: setHandlingState } = useHandlingState(userKey);
+  // Phase 1E: district-scoped, server-side shared handling state.
+  // Pre-fetch the canonical itemIds for every visible work item in one
+  // batch so the per-row pill renders synchronously. `userKey` is no
+  // longer used for namespacing — district scoping is enforced server-side.
+  void userKey;
+  // Aggregate (count-level) items don't carry a stable WorkItem id and
+  // are intentionally excluded from the handling-state pill machinery.
+  const visibleHandlingIds = useMemo(() => allItems.map(i => i.id), [allItems]);
+  const { getState: getHandlingState, setState: setHandlingState } = useHandlingState(visibleHandlingIds);
 
   const handleDismiss = useCallback((item: WorkItem) => {
     hide(

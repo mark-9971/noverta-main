@@ -281,8 +281,14 @@ function RiskAttentionRow({
   fmtDollars: (n: number) => string;
 }) {
   const { role } = useRole();
-  const { getState, setState } = useHandlingState(`${role}::risk-report`);
   const itemId = riskRowItemId(r.studentId, r.serviceRequirementId);
+  // Phase 1E: hook is now district-scoped server-side. Pass `[itemId]`
+  // so this row's state is included in the page's batched fetch. The
+  // parent compliance-risk-report effectively pre-warms the cache by
+  // fetching the same ids in `RiskAttentionPills` below; react-query
+  // dedupes the request.
+  const { getState, setState } = useHandlingState([itemId]);
+  void role;
   const handlingState = getState(itemId);
   const handlingActive = handlingState !== "needs_action";
   const handlingBadge = HANDLING_BADGE[handlingState];

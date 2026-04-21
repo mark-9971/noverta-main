@@ -361,10 +361,12 @@ export default function PilotAdminHome() {
       .slice(0, 6);
   }, [risk?.needsAttention]);
 
-  // Phase 1D — overlay aggregate handling state for the top-students list.
-  // Reads from every `trellis:action-center:handling:*` namespace so a
-  // case manager who marked "recovery scheduled" on the risk report
-  // shows up here as in-progress instead of looking like a fresh alert.
+  // Phase 1E — overlay aggregate handling state for the top-students list.
+  // Hits the server-side `/action-item-handling/aggregate-by-student`
+  // endpoint so every admin in the district sees the same in-progress
+  // pills. Replaces the Phase 1D localStorage scan. A case manager who
+  // marked "recovery scheduled" on the risk report shows up here as
+  // in-progress instead of looking like a fresh alert.
   const aggregateHandling = useAggregateHandlingForStudents(
     useMemo(() => topStudents.map(s => s.studentId), [topStudents])
   );

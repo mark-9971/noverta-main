@@ -41,8 +41,12 @@ describe("buildScheduleMakeupHref", () => {
 });
 
 describe("riskRowItemId", () => {
-  it("uses the risk-row:<sid>:<rid> shape", () => {
-    expect(riskRowItemId(123, 456)).toBe("risk-row:123:456");
+  it("uses the canonical risk:<sid>:<rid> shape (Phase 1E unified)", () => {
+    // Phase 1E unified the id format across surfaces — `riskRowItemId`
+    // is now a thin alias of `itemIdForRisk` so the Risk Report pill
+    // shares state with the Action Center pill via the same row in
+    // `action_item_handling`.
+    expect(riskRowItemId(123, 456)).toBe("risk:123:456");
   });
 
   it("is stable for the same inputs", () => {

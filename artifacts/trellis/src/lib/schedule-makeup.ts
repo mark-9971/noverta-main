@@ -56,7 +56,15 @@ export function buildScheduleMakeupHref(ctx: ScheduleMakeupContext): string {
   return `/scheduling?${params.toString()}`;
 }
 
-/** Stable item id for compliance Risk Report row handling state. */
+/**
+ * Stable item id for compliance Risk Report row handling state.
+ *
+ * Phase 1E — delegates to the canonical `itemIdForRisk` helper so the
+ * id used here is the SAME id the Action Center / student-detail card
+ * use, and so a `setState` from any surface lands on the same shared
+ * row in `action_item_handling`. Kept as a thin alias so existing
+ * imports don't need to be rewritten.
+ */
 export function riskRowItemId(studentId: number, serviceRequirementId: number): string {
-  return `risk-row:${studentId}:${serviceRequirementId}`;
+  return `risk:${studentId}:${serviceRequirementId}`;
 }

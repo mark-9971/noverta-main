@@ -15,6 +15,7 @@ export * from "./scheduleBlocks";
 export * from "./coverageInstances";
 export * from "./staffAssignments";
 export * from "./alerts";
+export * from "./actionItemHandling";
 export * from "./imports";
 export * from "./behaviorTargets";
 export * from "./programTargets";
