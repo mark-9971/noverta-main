@@ -14,7 +14,7 @@ import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
 import { recommendAction } from "@/lib/action-recommendations";
 import { HandlingStatePill } from "@/components/wedge-primitives";
 import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
-import { HandlingHistoryPopover } from "@/components/handling-history-popover";
+import HandlingHistoryPopover from "@/components/handling-history-popover";
 import { useRole } from "@/lib/role-context";
 import { buildScheduleMakeupHref, riskRowItemId } from "@/lib/schedule-makeup";
 
