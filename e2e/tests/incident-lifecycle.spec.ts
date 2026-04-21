@@ -902,15 +902,24 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
   // -------------------------------------------------------------------------
 
   test.afterAll(async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
+    // When this spec is run in isolation (e.g. `--grep` selecting a single
+    // test), Playwright proactively tears down the worker browser before
+    // afterAll fires, which makes `browser.newContext()` throw "Target page,
+    // context or browser has been closed" and report a fake post-test
+    // failure. Skip cleanup gracefully in that case — the per-test afterEach
+    // hooks already remove any incidents created during the run, and the
+    // sample-data fixture is intentionally durable across runs.
+    if (!browser.isConnected()) return;
+    let ctx;
     try {
+      ctx = await browser.newContext();
+      const page = await ctx.newPage();
       await signIn(page);
       await teardownSampleData(page);
     } catch {
       // best-effort
     } finally {
-      await ctx.close();
+      if (ctx) await ctx.close().catch(() => {});
     }
   });
 });

@@ -45,28 +45,22 @@ export async function signIn(page: Page): Promise<void> {
     };
   });
 
-  // Strip our Trellis-only auth headers from any cross-origin request before
-  // they leave the browser. Without this, Clerk's own browser-side API calls
-  // (e.g. star-skunk-*.clerk.accounts.dev) receive our `Authorization: Bearer`
-  // header AND the browser-set `Origin` header, which Clerk rejects with HTTP
-  // 400 ("only one of 'Origin' and 'Authorization' headers should be
-  // provided"). That 400 silently breaks Clerk session restoration on
-  // subsequent page navigations, so AppLayout never finishes rendering and the
-  // test hangs on element-visibility waits.
-  await page.context().route(
-    /clerk\.(com|accounts\.dev|dev)/,
-    async (route) => {
-      const headers = { ...route.request().headers() };
-      delete headers["authorization"];
-      delete headers["x-test-user-id"];
-      delete headers["x-test-role"];
-      delete headers["x-test-district-id"];
-      delete headers["x-test-staff-id"];
-      await route.continue({ headers });
-    },
-  );
-
-  // Authenticate page.request.* via dev-bypass headers.
+  // Authenticate page.request.* via dev-bypass headers. These are custom
+  // x-test-* headers that the api-server's requireAuth middleware accepts when
+  // NODE_ENV=test || DEV_AUTH_BYPASS=1. Clerk's frontend API ignores unknown
+  // custom headers, so it is safe for these to ride along on every request
+  // (including cross-origin requests to clerk.accounts.dev).
+  //
+  // We deliberately do NOT use setExtraHTTPHeaders to set `Authorization`
+  // globally. Doing so caused Clerk's own browser-side API calls to
+  // star-skunk-*.clerk.accounts.dev to fail with HTTP 400 ("only one of the
+  // 'Origin' and 'Authorization' headers should be provided") because the
+  // browser auto-sets the `Origin` header on cross-origin fetches. Those 400s
+  // silently broke Clerk session restoration on subsequent page navigations,
+  // so AppLayout never finished rendering /protective-measures and the test
+  // hung on element-visibility waits with a blank page. Authorization is
+  // instead injected per-request via page.context().route('**/api/**', ...)
+  // after the JWT is obtained — see below.
   await page.context().setExtraHTTPHeaders({ ...DEV_BYPASS_HEADERS });
 
   await setupClerkTestingToken({ page });
@@ -105,8 +99,21 @@ export async function signIn(page: Page): Promise<void> {
     { timeout: 30_000 },
   );
   const sessionJwt = (await token.jsonValue()) as string;
-  await page.context().setExtraHTTPHeaders({
-    Authorization: `Bearer ${sessionJwt}`,
+
+  // Inject the Bearer token ONLY on same-origin requests to /api/**. Doing
+  // this via page.context().route — instead of setExtraHTTPHeaders — keeps
+  // the Authorization header off cross-origin requests (notably Clerk's own
+  // browser-side fetches to clerk.accounts.dev), which preserves Clerk
+  // session restoration on subsequent page navigations. The api-server's
+  // requireAuth middleware prefers the Clerk Bearer over dev-bypass when
+  // both are present, so terminal-transition routes that need a real
+  // staffId from the JWT continue to work.
+  await page.context().route(/\/api\//, async (route) => {
+    const headers = {
+      ...route.request().headers(),
+      authorization: `Bearer ${sessionJwt}`,
+    };
+    await route.continue({ headers });
   });
 
   // Accept all required legal documents (idempotent) so /api/* requests aren't
