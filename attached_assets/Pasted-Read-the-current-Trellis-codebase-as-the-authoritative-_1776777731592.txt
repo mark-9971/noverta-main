@@ -1,0 +1,351 @@
+Read the current Trellis codebase as the authoritative source of truth and produce a full program-state audit for planning, sequencing, and task assignment.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Generate a comprehensive, current-state source-of-truth report for Trellis that is accurate enough to drive:
+- roadmap decisions
+- prompt writing
+- parallel task assignment
+- overlap/conflict avoidance
+- demo readiness decisions
+- acquisition/pilot packaging
+- future cleanup/stabilization planning
+
+This is not a casual summary.
+This is a codebase-grounded program-state audit.
+
+Important:
+Treat the actual current codebase as the source of truth, not older task recaps or assumptions.
+If prior summaries conflict with the codebase, prefer the codebase and say so explicitly.
+
+==================================================
+A. WHAT I NEED FROM THIS AUDIT
+==================================================
+
+I need a single report that tells me, as concretely as possible:
+
+1. What Trellis currently is
+2. What the product’s true wedge is right now
+3. What major systems are already complete
+4. What major systems are partially complete
+5. What is still missing
+6. What is only local/demo-grade vs truly production-grade
+7. Which files/surfaces/helpers are now central and should be treated as architectural anchors
+8. Which active areas are likely to conflict if multiple agents work in parallel
+9. What the most important next phases should be
+10. What should explicitly NOT be worked on yet
+
+==================================================
+B. REQUIRED SECTIONS
+==================================================
+
+Return your answer in this exact structure.
+
+1. EXECUTIVE PRODUCT VERDICT
+Give a concise but concrete statement of:
+- what Trellis is today
+- what category it most honestly fits right now
+- what the strongest current product wedge is
+- whether it currently feels more like:
+  - a reporting/compliance tool
+  - an operational workflow tool
+  - a case-management platform
+  - a hybrid
+- what its most differentiated value appears to be right now
+
+2. CURRENT PRODUCT CAPABILITIES MAP
+List the major functional areas that actually exist today.
+For each area, classify:
+- COMPLETE
+- PARTIAL
+- EARLY / THIN
+- NOT REAL YET
+
+Areas to cover at minimum:
+- Dashboard / pilot home
+- Action Center
+- Compliance / risk surfaces
+- Student detail
+- Session logging / Quick Log
+- Scheduling visibility
+- Makeup / recovery flow
+- School calendar handling
+- Shared handling state / ownership
+- Audit/history/proof layer
+- Demo/sample-data/reset flow
+- Provider-specific workflow
+- Case-manager workflow
+- Admin/coordinator workflow
+- Reporting / exports
+- Staffing / coverage / provider ops
+- Incident/protective-measures workflows
+- Data-health / migration-review workflows
+- API/client typing health
+- Seeder / demo reliability
+- Cross-user coordination
+
+For each area:
+- explain what is truly present
+- explain the biggest missing piece(s)
+- mention the key files/surfaces if they are central
+
+3. ROADMAP STATE — WHAT IS ACTUALLY DONE
+Based on the current codebase, state what phases/slices appear truly complete.
+At minimum evaluate:
+
+School Calendar track:
+- CRUD / settings surface
+- shared read-path math
+- trust/explanation layer
+- downstream consequence alignment
+- exact timing-aware early-release proration
+- weekday-aware baseline pacing
+
+Pilot wedge track:
+- Action Center quick action loop
+- centralized recommendation model
+- student detail next-step surface
+- risk-row actionability
+- return-to-queue flow
+- shared handling state
+- demo visibility/readiness
+
+For each one:
+- COMPLETE / PARTIAL / NOT DONE
+- one paragraph explaining why based on codebase evidence
+
+4. ARCHITECTURAL ANCHORS
+Identify the current key architectural anchors that future work should treat as canonical.
+These should include central helpers/models/hooks/routes/components that multiple future tasks must respect.
+
+Examples of likely anchors:
+- recommendation/action model
+- handling state hook/model
+- canonical item-id helpers
+- school-calendar helpers
+- shared minute-progress engine
+- shared UI primitives if any now exist
+- key wedge pages/components
+
+For each anchor:
+- exact file path(s)
+- what it controls
+- why it is important
+- what kinds of future work must reuse it instead of reinventing it
+
+5. LOCAL-ONLY VS SHARED/PRODUCTION-GRADE STATE
+Identify all meaningful stateful behavior that is still:
+- local-only
+- demo-only
+- per-browser only
+- not truly shared
+- not durable enough for a real multi-user workflow
+
+This should include but not be limited to:
+- handling state if any part remains local
+- snooze/dismiss
+- draft state
+- timers
+- offline queues
+- user preferences that matter operationally
+- demo flags if they influence key surfaces
+- anything else you judge materially important
+
+For each item:
+- exact file(s)
+- what is stored
+- why it matters
+- severity:
+  - CRITICAL
+  - IMPORTANT
+  - NICE TO HAVE
+- recommended future fix
+
+6. DEMO / SEEDED-DATA TRUTH
+Evaluate the current actual demo/reset experience.
+
+I need to know:
+- whether a fresh reset reliably shows the key action-model scenarios
+- whether the demo user/main wedge surfaces are actually good
+- which scenarios are present and where
+- which scenarios are still weak/missing
+- whether seeded handling state is truly wired into reset flow
+- whether there are still demo-only or manual steps required
+
+At minimum evaluate visibility for:
+- documentation lag
+- likely missed service
+- ambiguous / review-needed
+- recurring/programmatic issue
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+- schedule-makeup flow that is actually demoable
+
+For each:
+- say whether it is visible on first login
+- on which surface(s)
+- what student/item represents it if determinable
+- whether the scenario is believable
+
+7. PARALLEL-WORK OVERLAP MAP
+This is very important.
+
+Identify the files/surfaces/helpers that are now “hot spots” and likely to cause overlap/conflicts if multiple agents work in parallel.
+
+Group them into:
+- HIGH CONFLICT
+- MEDIUM CONFLICT
+- LOW CONFLICT
+
+Examples of high-conflict candidates might be:
+- Action Center
+- action-recommendations
+- handling state hook/model
+- student detail summary
+- compliance risk report
+- demo seed/reset flow
+
+For each hotspot:
+- exact file path(s)
+- why parallel work there is risky
+- what kinds of tasks can/cannot safely run in parallel
+
+8. CURRENT TECHNICAL DEBT WITH REAL PRODUCT IMPACT
+List technical debt that has real product/velocity impact, not just generic cleanup wishes.
+
+Examples:
+- duplicated logic
+- stale type/codegen issues
+- dead shims
+- per-surface inconsistencies
+- missing shared primitives
+- seed/reset fragility
+- missing tests in critical flows
+- local-only state that undermines multi-user trust
+
+For each debt item:
+- exact file path(s)
+- what the user/business impact is
+- whether it blocks future roadmap work
+- severity:
+  - BLOCKING
+  - HIGH
+  - MEDIUM
+  - LOW
+
+9. WHAT SHOULD BE THE NEXT PHASES
+Give your best codebase-grounded recommendation for the next major phases in priority order.
+
+I want:
+- the next immediate phase
+- the next 3–5 phases after that
+- why each one should come in that order
+- what each phase should include
+- what each phase should explicitly exclude
+
+Be critical.
+Do not just continue prior plans if the codebase now suggests a better sequence.
+
+At minimum consider:
+- Phase 1 remainder / demo/shared-state polish
+- Phase 1.5 stabilization/consolidation
+- Scheduling / makeup orchestration
+- Audit/proof layer
+- Role-based workflow polish
+- Durable compliance-grade local state issues
+- Demo/sales hardening
+- Executive/financial intelligence
+- Broader provider/staffing operations
+
+10. WHAT SHOULD NOT BE DONE YET
+List the highest-risk or lowest-ROI things that should explicitly NOT be worked on right now, even if they sound attractive.
+
+Examples might include:
+- giant task engine
+- broad refactor
+- more calendar nuance with weak ROI
+- broad styling overhaul
+- low-value localStorage cleanup
+- huge scheduler rewrite
+- broad platform expansion
+
+Be explicit and opinionated.
+
+11. 10 BEST NEXT TASKS
+Give the 10 highest-value next tasks, in order.
+For each task include:
+- title
+- objective
+- why now
+- likely files/surfaces touched
+- estimated scope:
+  - small
+  - medium
+  - large
+- whether it is safe for a background lane or should stay on main agent
+- key overlap/conflict risks
+
+These should be concrete enough that I can later turn them into agent prompts.
+
+12. PROMPT-WRITING / ASSIGNMENT GUIDANCE
+Based on the current codebase, tell me how to split future work across:
+- main agent
+- background lanes
+
+I want:
+- what kinds of tasks should stay on main agent
+- what kinds are safe for background agents
+- which surfaces/helpers should not be edited in parallel
+- how many simultaneous coding lanes is actually sane right now
+
+13. KNOWN PRE-EXISTING FAILURES / ENVIRONMENT NOISE
+List:
+- pre-existing typecheck failures
+- flaky tests
+- environment/setup bugs
+- seed/reset fragility
+- any known noise that could confuse future tasks
+
+Separate clearly:
+- true product issues
+- tooling/env noise
+- test harness issues
+
+14. EXACT FILES MOST IMPORTANT TO READ FIRST
+Give a prioritized list of the exact files a new engineer/agent should read first to understand the product’s core wedge and current architecture.
+This should be a practical onboarding list.
+
+==================================================
+C. HOW TO DO THIS AUDIT
+==================================================
+
+Audit the real codebase.
+Read enough code to support the conclusions.
+Do not rely on prior chat summaries unless they match the code.
+If there are uncertainties, say so explicitly.
+
+Prefer concrete evidence over aspirational wording.
+
+==================================================
+D. OUTPUT QUALITY STANDARD
+==================================================
+
+This report will become the planning source of truth.
+
+So:
+- be thorough
+- be concrete
+- be honest
+- name exact files
+- distinguish done vs partial vs not real
+- distinguish shared/prod-grade vs local/demo-grade
+- give future-roadmap guidance grounded in the actual code
+
+Do not give me a vague executive summary.
+Do not skip the hard parts.
+Do not hide uncertainty.
+
+If you think some prior roadmap assumptions should change, say so clearly.
