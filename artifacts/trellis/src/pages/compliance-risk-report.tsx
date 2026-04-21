@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
 import { recommendAction, HANDLING_LABELS, HANDLING_BADGE } from "@/lib/action-recommendations";
-import { useHandlingState } from "@/lib/use-handling-state";
+import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
 import { useRole } from "@/lib/role-context";
 import { buildScheduleMakeupHref, riskRowItemId } from "@/lib/schedule-makeup";
 
@@ -287,11 +287,14 @@ function RiskAttentionRow({
   // parent compliance-risk-report effectively pre-warms the cache by
   // fetching the same ids in `RiskAttentionPills` below; react-query
   // dedupes the request.
-  const { getState, setState } = useHandlingState([itemId]);
+  const { getState, setState, getEntry } = useHandlingState([itemId]);
   void role;
   const handlingState = getState(itemId);
+  const handlingEntry = getEntry(itemId);
   const handlingActive = handlingState !== "needs_action";
   const handlingBadge = HANDLING_BADGE[handlingState];
+  const handlingOwner = resolveOwnerDisplay(handlingEntry);
+  const handlingUpdatedRel = formatRelativeTime(handlingEntry?.updatedAt);
   const [, navigate] = useLocation();
 
   const rec = recommendAction({
@@ -345,13 +348,37 @@ function RiskAttentionRow({
             </button>
           )}
           {handlingActive && (
-            <span
-              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring}`}
-              data-testid={`handling-state-${itemId}`}
-              title="Marked from this surface — derived UI state, not a server-side assignment"
-            >
-              {HANDLING_LABELS[handlingState]}
-            </span>
+            <>
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring}`}
+                data-testid={`handling-state-${itemId}`}
+                title="Shared handling state — district-scoped"
+              >
+                {HANDLING_LABELS[handlingState]}
+              </span>
+              {handlingOwner.label && (
+                <span
+                  className="text-[10px] text-gray-500"
+                  data-testid={`handling-owner-${itemId}`}
+                  title={
+                    handlingOwner.source === "recommended_role" ? `Recommended: ${handlingOwner.label}` :
+                    `Owned by: ${handlingOwner.label}`
+                  }
+                >
+                  {handlingOwner.source === "recommended_role" ? "rec." : "owner:"}{" "}
+                  <span className="font-medium text-gray-600">{handlingOwner.label}</span>
+                </span>
+              )}
+              {handlingUpdatedRel && (
+                <span
+                  className="text-[10px] text-gray-400"
+                  data-testid={`handling-updated-${itemId}`}
+                  title={handlingEntry?.updatedAt ?? undefined}
+                >
+                  {handlingUpdatedRel}
+                </span>
+              )}
+            </>
           )}
         </div>
       </td>

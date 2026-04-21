@@ -26,7 +26,7 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPut } from "./api";
-import type { HandlingState } from "./action-recommendations";
+import { HANDLING_LABELS, OWNER_LABELS, type HandlingState, type RecommendedOwner } from "./action-recommendations";
 
 /** Wire shape of one action_item_handling row, as returned by the API. */
 export interface HandlingRow {
@@ -294,3 +294,125 @@ export function useStudentHandlingAggregate(studentIds: number[]): Map<number, H
 
 /** Alias kept for back-compat with the Phase 1D import name. */
 export const useAggregateHandlingForStudents = useStudentHandlingAggregate;
+
+// ─── UI display helpers ──────────────────────────────────────────────────────
+
+/**
+ * Map a stored role string (recommendedOwnerRole / assignedToRole — these
+ * are free-form on the server but in practice come from the recommendation
+ * engine's owner enum) to a human label. Unknown roles are humanised by
+ * replacing underscores rather than dropped, so a server-added role still
+ * renders something legible.
+ */
+function roleToLabel(role: string | null | undefined): string | null {
+  if (!role) return null;
+  if (role in OWNER_LABELS) return OWNER_LABELS[role as RecommendedOwner];
+  return role
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ");
+}
+
+export interface OwnerDisplay {
+  /** Final user-facing label (e.g. "Maria Chen", "Scheduler"), or null when
+   *  the row has no ownership signal at all. Never returns a placeholder. */
+  label: string | null;
+  /** Short qualifier explaining where the label came from — useful for
+   *  rendering "Owned by …" vs "Recommended …" subtext. */
+  source: "person" | "assigned_role" | "recommended_role" | null;
+}
+
+/**
+ * Resolve the owner label for a handling row, following the task's
+ * stated precedence:
+ *   1. `updatedByName` / assigned person's name — the most concrete
+ *      ownership signal we have.
+ *   2. `assignedToRole` — explicit role handoff.
+ *   3. `recommendedOwnerRole` — engine recommendation, surfaced as a
+ *      fallback so the row still says *something* useful.
+ * Returns `{ label: null }` when nothing is known, so the caller can
+ * hide the field entirely instead of rendering a placeholder.
+ */
+export function resolveOwnerDisplay(row: HandlingRow | undefined | null): OwnerDisplay {
+  if (!row) return { label: null, source: null };
+  if (row.updatedByName) return { label: row.updatedByName, source: "person" };
+  const assignedRole = roleToLabel(row.assignedToRole);
+  if (assignedRole) return { label: assignedRole, source: "assigned_role" };
+  const recommended = roleToLabel(row.recommendedOwnerRole);
+  if (recommended) return { label: recommended, source: "recommended_role" };
+  return { label: null, source: null };
+}
+
+/**
+ * Compact relative-time string (e.g. "2h ago", "just now", "3d ago").
+ * Returns null when the input is missing/invalid so callers don't render
+ * "Updated Invalid Date".
+ */
+export function formatRelativeTime(iso: string | null | undefined, now: number = Date.now()): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  const diffMs = now - t;
+  // Future timestamps (clock skew) — treat as "just now" rather than "in 5s".
+  if (diffMs < 0) return "just now";
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 45) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 14) return `${day}d ago`;
+  const wk = Math.floor(day / 7);
+  if (wk < 6) return `${wk}w ago`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  const yr = Math.floor(day / 365);
+  return `${yr}y ago`;
+}
+
+// ─── History fetch hook ──────────────────────────────────────────────────────
+
+export interface HandlingHistoryEvent {
+  id: number;
+  itemId: string;
+  fromState: HandlingState | null;
+  toState: HandlingState;
+  note: string | null;
+  changedByUserId: string;
+  changedByName: string | null;
+  changedAt: string;
+}
+
+/**
+ * Lazy fetch of the recent transition history for a single handling item.
+ * Pass `enabled: false` (the default) until the popover/drawer opens so we
+ * never make the request on initial render. Reuses the same react-query
+ * cache root key (`action-item-handling`) so a state change anywhere in
+ * the app invalidates this list and refetches it next time it's opened.
+ */
+export function useHandlingHistory(itemId: string | null | undefined, opts?: { enabled?: boolean; limit?: number }) {
+  const limit = opts?.limit ?? 25;
+  const enabled = (opts?.enabled ?? false) && !!itemId;
+  return useQuery<HandlingHistoryEvent[]>({
+    queryKey: ["action-item-handling", "history", itemId ?? "", limit],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const res = await apiGet<{ data: HandlingHistoryEvent[] }>(
+        `/action-item-handling/${encodeURIComponent(itemId)}/history?limit=${limit}`,
+      );
+      return res.data;
+    },
+    enabled,
+    staleTime: 10_000,
+  });
+}
+
+/** Helper used by the history popover to render `from → to` cleanly. */
+export function formatTransitionLabel(from: HandlingState | null, to: HandlingState): string {
+  const toLabel = HANDLING_LABELS[to] ?? to;
+  if (!from) return `Set to ${toLabel}`;
+  const fromLabel = HANDLING_LABELS[from] ?? from;
+  return `${fromLabel} → ${toLabel}`;
+}

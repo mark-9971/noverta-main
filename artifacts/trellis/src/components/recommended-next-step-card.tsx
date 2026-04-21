@@ -30,7 +30,8 @@ import {
   type RecommendationSignal,
   type RecommendedActionType,
 } from "@/lib/action-recommendations";
-import { useHandlingState } from "@/lib/use-handling-state";
+import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
+import HandlingHistoryPopover from "@/components/handling-history-popover";
 import { buildScheduleMakeupHref, type ScheduleMakeupOrigin } from "@/lib/schedule-makeup";
 
 const CONFIDENCE_PIP: Record<"high" | "medium" | "low", { dot: string; label: string }> = {
@@ -73,9 +74,13 @@ export default function RecommendedNextStepCard({
   // but is no longer used for namespacing (district scoping is enforced
   // server-side).
   void userKey;
-  const { getState, setState } = useHandlingState([itemId]);
+  const { getState, setState, getEntry } = useHandlingState([itemId]);
   const handlingState = getState(itemId);
+  const handlingEntry = getEntry(itemId);
   const handlingBadge = HANDLING_BADGE[handlingState];
+  const handlingActive = handlingState !== "needs_action";
+  const ownerDisplay = resolveOwnerDisplay(handlingEntry);
+  const updatedRel = formatRelativeTime(handlingEntry?.updatedAt);
   const confidencePip = CONFIDENCE_PIP[recommendation.confidence];
   const [, navigate] = useLocation();
 
@@ -151,6 +156,29 @@ export default function RecommendedNextStepCard({
             <span className="font-semibold text-gray-600">Why:</span> {whySummary}
           </p>
 
+          {handlingActive && (ownerDisplay.label || updatedRel) && (
+            <p
+              className="text-[11px] text-gray-500 mt-1.5 leading-snug flex items-center gap-1.5 flex-wrap"
+              data-testid="text-handling-meta"
+            >
+              {ownerDisplay.label && (
+                <span data-testid="text-handling-owner">
+                  <span className="font-semibold text-gray-600">
+                    {ownerDisplay.source === "recommended_role" ? "Recommended:" :
+                     "Owned by:"}
+                  </span>{" "}
+                  {ownerDisplay.label}
+                </span>
+              )}
+              {ownerDisplay.label && updatedRel && <span className="text-gray-300">·</span>}
+              {updatedRel && (
+                <span data-testid="text-handling-updated" title={handlingEntry?.updatedAt ?? undefined}>
+                  Updated {updatedRel}
+                </span>
+              )}
+            </p>
+          )}
+
           {additionalIssueCount > 0 && (
             <p className="text-[11px] text-gray-400 mt-1.5">
               + {additionalIssueCount} other issue{additionalIssueCount === 1 ? "" : "s"} on this student — see at-risk and re-eval cards below.
@@ -175,7 +203,7 @@ export default function RecommendedNextStepCard({
             </Link>
 
             {/* Handling-state pill / changer */}
-            <div className="relative">
+            <div className="relative inline-flex items-center gap-1.5">
               <button
                 onClick={() => { setStateMenuOpen(o => !o); setMenuOpen(false); }}
                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring} text-[11px] font-semibold transition-colors hover:opacity-90`}
@@ -184,6 +212,12 @@ export default function RecommendedNextStepCard({
               >
                 {HANDLING_LABELS[handlingState]} <ChevronDown className="w-3 h-3" />
               </button>
+              {handlingActive && (
+                <HandlingHistoryPopover
+                  itemId={itemId}
+                  triggerTestId="button-handling-history"
+                />
+              )}
               {stateMenuOpen && (
                 <div
                   className="absolute z-30 left-0 mt-1 w-64 rounded-lg border border-gray-200 bg-white shadow-lg py-1"

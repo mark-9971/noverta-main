@@ -29,7 +29,8 @@ import {
   type HandlingState,
   type ActionRecommendation,
 } from "@/lib/action-recommendations";
-import { useHandlingState } from "@/lib/use-handling-state";
+import { useHandlingState, resolveOwnerDisplay, formatRelativeTime, type HandlingRow } from "@/lib/use-handling-state";
+import HandlingHistoryPopover from "@/components/handling-history-popover";
 import {
   itemIdForAlert, itemIdForRisk, itemIdForDeadline, itemIdForServiceGap,
 } from "@/lib/action-recommendations";
@@ -505,7 +506,7 @@ const QUICK_LOG_ACTIONS: ReadonlySet<RecommendedActionType> = new Set([
 
 function WorkItemRow({
   item, onLogSession, onDismiss, onSnooze,
-  recommendation, handlingState, onSetHandling,
+  recommendation, handlingState, handlingEntry, onSetHandling,
 }: {
   item: WorkItem;
   onLogSession?: (studentId: number, studentName: string) => void;
@@ -513,6 +514,7 @@ function WorkItemRow({
   onSnooze?: (item: WorkItem, durationMs: number, label: string) => void;
   recommendation: ActionRecommendation;
   handlingState: HandlingState;
+  handlingEntry?: HandlingRow;
   onSetHandling: (id: string, state: HandlingState) => void;
 }) {
   const [, navigate] = useLocation();
@@ -634,18 +636,49 @@ function WorkItemRow({
               {recommendation.recommendedOwner === "you" ? "You" : recommendation.ownerLabel}
             </span>
           </span>
-          {handlingActive && (
-            <>
-              <span className="text-gray-300">·</span>
-              <span
-                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring}`}
-                data-testid={`handling-state-${item.id}`}
-                title="You marked this — derived UI state, not a server-side assignment"
-              >
-                {HANDLING_LABELS[handlingState]}
-              </span>
-            </>
-          )}
+          {handlingActive && (() => {
+            const owner = resolveOwnerDisplay(handlingEntry);
+            const rel = formatRelativeTime(handlingEntry?.updatedAt);
+            const ownerPrefix =
+              owner.source === "recommended_role" ? "Recommended" :
+              "Owned by";
+            return (
+              <>
+                <span className="text-gray-300">·</span>
+                <HandlingHistoryPopover
+                  itemId={item.id}
+                  triggerTestId={`button-handling-history-${item.id}`}
+                >
+                  <button
+                    type="button"
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring} hover:opacity-90 transition-opacity`}
+                    data-testid={`handling-state-${item.id}`}
+                    title="Shared handling state — click to see history"
+                  >
+                    {HANDLING_LABELS[handlingState]}
+                  </button>
+                </HandlingHistoryPopover>
+                {owner.label && (
+                  <span
+                    className="inline-flex items-center text-gray-500"
+                    data-testid={`handling-owner-${item.id}`}
+                    title={`${ownerPrefix}: ${owner.label}`}
+                  >
+                    {ownerPrefix} <span className="font-medium text-gray-600 ml-0.5">{owner.label}</span>
+                  </span>
+                )}
+                {rel && (
+                  <span
+                    className="text-gray-400"
+                    data-testid={`handling-updated-${item.id}`}
+                    title={handlingEntry?.updatedAt ?? undefined}
+                  >
+                    Updated {rel}
+                  </span>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
@@ -1205,7 +1238,7 @@ export default function ActionCenter() {
   // Aggregate (count-level) items don't carry a stable WorkItem id and
   // are intentionally excluded from the handling-state pill machinery.
   const visibleHandlingIds = useMemo(() => allItems.map(i => i.id), [allItems]);
-  const { getState: getHandlingState, setState: setHandlingState } = useHandlingState(visibleHandlingIds);
+  const { getState: getHandlingState, setState: setHandlingState, getEntry: getHandlingEntry } = useHandlingState(visibleHandlingIds);
 
   const handleDismiss = useCallback((item: WorkItem) => {
     hide(
@@ -1431,6 +1464,7 @@ export default function ActionCenter() {
                       onSnooze={handleSnooze}
                       recommendation={recommendation}
                       handlingState={getHandlingState(item.id)}
+                      handlingEntry={getHandlingEntry(item.id)}
                       onSetHandling={setHandlingState}
                     />
                   );
