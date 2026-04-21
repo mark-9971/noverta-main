@@ -122,6 +122,54 @@ describe("lib/schoolCalendar pure helpers", () => {
       });
       expect(result).toBe(15);
     });
+    it("falls back to the day-weight rule when dismissalTime is null even with timing inputs", () => {
+      // Defensive — schema should prevent this, but if a row slips through
+      // we must NOT silently treat it as zero or full; it should hit the
+      // documented 0.5 fallback.
+      const result = adjustExpectedMinutesForSchoolException({
+        expectedMinutes: 40,
+        exception: ex("2026-01-06", "early_release", null),
+        serviceWindowStart: "10:00",
+        serviceWindowEnd: "10:40",
+      });
+      expect(result).toBe(20);
+    });
+    it("mixed-windows realistic interval diverges from the 0.5 fallback at the totals level", () => {
+      // Realistic shape: a provider has three 30-min back-to-back sessions
+      // on an early-release day with dismissal at 12:00. We deliberately
+      // pick windows so the exact total differs from the naive 0.5 total
+      // (otherwise the test would not actually prove the helper is doing
+      // exact proration vs accidentally averaging out).
+      //   09:00-09:30 (before)   → exact 30, fallback 15
+      //   11:30-12:30 (straddle) → exact 30 (50/50), fallback 30
+      //   12:30-13:00 (after)    → exact 0,  fallback 15
+      // exact total    = 30 + 30 + 0  = 60
+      // fallback total = 15 + 30 + 15 = 60
+      // Tied — replace the straddler with an asymmetric one.
+      //   11:30-13:30 (straddle 30 min before / 90 min after, 120 min)
+      //                          → exact 30, fallback 60
+      // exact total    = 30 + 30 + 0  = 60
+      // fallback total = 15 + 60 + 15 = 90
+      const exception = ex("2026-01-06", "early_release", "12:00");
+      const blocks = [
+        { start: "09:00", end: "09:30", minutes: 30 },
+        { start: "11:30", end: "13:30", minutes: 120 },
+        { start: "12:30", end: "13:00", minutes: 30 },
+      ];
+      const exactTotal = blocks.reduce((sum, b) => sum + adjustExpectedMinutesForSchoolException({
+        expectedMinutes: b.minutes,
+        exception,
+        serviceWindowStart: b.start,
+        serviceWindowEnd: b.end,
+      }), 0);
+      const fallbackTotal = blocks.reduce((sum, b) => sum + adjustExpectedMinutesForSchoolException({
+        expectedMinutes: b.minutes,
+        exception,
+      }), 0);
+      expect(exactTotal).toBe(60);
+      expect(fallbackTotal).toBe(90);
+      expect(exactTotal).toBeLessThan(fallbackTotal);
+    });
   });
 
   describe("summarizeSchoolDayWeights", () => {

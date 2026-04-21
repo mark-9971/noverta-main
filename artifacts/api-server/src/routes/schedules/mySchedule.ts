@@ -11,7 +11,7 @@ import { requireAuth, requireRoles } from "../../middlewares/auth";
 import { blockToJson } from "./shared";
 import { isBlockActiveOnDate } from "../../lib/scheduleUtils";
 import { sendAdminEmail, getAppBaseUrl } from "../../lib/email";
-import { getSchoolDayException } from "../../lib/schoolCalendar";
+import { adjustExpectedMinutesForSchoolException, getSchoolDayException } from "../../lib/schoolCalendar";
 
 const router: IRouter = Router();
 
@@ -282,7 +282,37 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
       // it falls on the wall clock or whether a session was logged.
       status = "closed";
       effectiveDurationMinutes = 0;
+    } else if (todayException?.type === "early_release" && !todayException.dismissalTime) {
+      // Defensive: an early_release row without a dismissalTime is
+      // malformed (the schema should prevent it). We still want a
+      // consistent answer rather than silently treating the day as
+      // normal — defer to the helper, which applies the documented
+      // 0.5 day-weight fallback. Status remains driven by wall-clock
+      // since we don't know where dismissal sits.
+      const proratedMinutes = adjustExpectedMinutesForSchoolException({
+        expectedMinutes: durationMinutes,
+        exception: todayException,
+      });
+      effectiveDurationMinutes = Math.round(proratedMinutes);
+      if (matched) status = "logged";
+      else status = "early_release";
     } else if (todayException?.type === "early_release" && todayException.dismissalTime) {
+      // Defer the time-of-day proration to the shared helper so this
+      // route and the minute-progress aggregator follow exactly one
+      // rule (Slice 5). The helper accepts the block's service window
+      // (startTime/endTime as HH:MM) and returns the prorated portion
+      // of the block that falls before dismissal:
+      //   - block ends ≤ dismissal → unchanged
+      //   - block starts ≥ dismissal → 0
+      //   - block straddles dismissal → linear proration to pre-cut chunk
+      const blockStartHHMM = (b.start_time ?? "00:00").substring(0, 5);
+      const blockEndHHMM = (b.end_time ?? "00:00").substring(0, 5);
+      const proratedMinutes = adjustExpectedMinutesForSchoolException({
+        expectedMinutes: durationMinutes,
+        exception: todayException,
+        serviceWindowStart: blockStartHHMM,
+        serviceWindowEnd: blockEndHHMM,
+      });
       const [dh = 0, dm = 0] = todayException.dismissalTime.split(":").map(Number);
       const dismissMin = dh * 60 + dm;
       if (matched) {
@@ -294,9 +324,10 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
       } else if (endMin > dismissMin) {
         // Block straddles dismissal — keep it visible but flagged so the
         // user knows the back half is cut off. Reduce expected minutes
-        // proportionally to the part before dismissal.
+        // proportionally to the part before dismissal (helper-computed,
+        // so both reads agree to the minute).
         status = "early_release";
-        effectiveDurationMinutes = Math.max(0, dismissMin - startMin);
+        effectiveDurationMinutes = Math.round(proratedMinutes);
       } else {
         // Block ends before dismissal: nothing changes for this block.
         if (nowMinutes >= startMin && nowMinutes < endMin) status = "in_progress";

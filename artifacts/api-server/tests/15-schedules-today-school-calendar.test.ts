@@ -159,13 +159,45 @@ describe("GET /schedules/today honors school calendar exceptions", () => {
     expect(["logged", "in_progress", "missed", "upcoming"]).toContain(byId[morningBlockId].status);
     expect(byId[morningBlockId].durationMinutes).toBe(60);
 
-    // Straddler (11:00–12:30) → early_release with the pre-dismissal
-    // chunk only: 12:00 - 11:00 = 60 minutes.
+    // Straddler (11:00–12:30, 90 min total) → early_release with the
+    // pre-dismissal chunk only.
+    //   exact proration: 90 * (12:00 - 11:00) / (12:30 - 11:00) = 60 min
+    //   old 0.5 fallback: 90 * 0.5                              = 45 min
+    // Asserting the exact value AND that it is NOT the fallback proves
+    // the route is consuming the time-of-day branch of the shared
+    // helper, not the day-weight fallback (Slice 5 contract).
     expect(byId[straddleBlockId].status).toBe("early_release");
     expect(byId[straddleBlockId].durationMinutes).toBe(60);
+    expect(byId[straddleBlockId].durationMinutes).not.toBe(45);
 
     // Afternoon (14:00–15:00) starts after dismissal → closed, 0 minutes.
     expect(byId[afternoonBlockId].status).toBe("closed");
     expect(byId[afternoonBlockId].durationMinutes).toBe(0);
+  });
+
+  it("malformed early-release row (null dismissalTime) → helper-based 0.5 fallback, not silent full minutes", async () => {
+    // Defense-in-depth: schema invariants should prevent this row, but
+    // if it slips in we want a consistent answer (helper fallback) and
+    // not silently full-credit minutes for the day.
+    await db.delete(schoolCalendarExceptionsTable)
+      .where(eq(schoolCalendarExceptionsTable.schoolId, schoolId));
+    await db.insert(schoolCalendarExceptionsTable).values({
+      schoolId, exceptionDate: todayStr, type: "early_release",
+      reason: "PD half day (missing dismissal)", dismissalTime: null,
+    });
+
+    const res = await req();
+    expect(res.status).toBe(200);
+    const byId: Record<number, { status: string; durationMinutes: number }> = {};
+    for (const b of res.body) byId[b.id] = { status: b.status, durationMinutes: b.durationMinutes };
+
+    // Each block falls back to half its native length and is flagged
+    // as early_release (or logged, if a session matched — none here).
+    expect(byId[morningBlockId].status).toBe("early_release");
+    expect(byId[morningBlockId].durationMinutes).toBe(30);   // 60 * 0.5
+    expect(byId[straddleBlockId].status).toBe("early_release");
+    expect(byId[straddleBlockId].durationMinutes).toBe(45);  // 90 * 0.5
+    expect(byId[afternoonBlockId].status).toBe("early_release");
+    expect(byId[afternoonBlockId].durationMinutes).toBe(30); // 60 * 0.5
   });
 });
