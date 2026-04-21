@@ -1,0 +1,85 @@
+Create a new TASK, not an agent.
+
+Task title:
+Implement School Calendar v0 — Slice 5: exact time-of-day proration for early-release days
+
+Task objective:
+Replace the current blunt early-release fallback (0.5 day weight) with exact time-of-day proration wherever the codebase already has enough schedule/service timing information to do so safely, while preserving the existing fallback for paths that still lack timing precision.
+
+Context:
+School Calendar v0 is complete through Slice 4B:
+- Slice 1: per-school school_calendar_exceptions CRUD
+- Slice 2: shared minute-progress read-path integration
+- Slice 3: trust / explanation layer
+- Slice 4A: alerting-path consequence alignment
+- Slice 4B: cost/exposure consequence alignment
+
+Current limitation:
+Early-release days still use a constant fallback:
+- EARLY_RELEASE_DAY_WEIGHT = 0.5
+
+That rule is intentionally conservative, but it is now the biggest remaining correctness gap.
+
+Task scope:
+Implement exact time-of-day proration for early-release days wherever the existing data model already provides enough timing information, without creating a second inconsistent rule.
+
+Required behavior:
+1. If a service window is fully before dismissal time:
+- count the expected obligation fully
+
+2. If a service window straddles dismissal time:
+- prorate the expected obligation to the pre-dismissal portion only
+
+3. If a service window starts after dismissal time:
+- expected obligation for that window is 0
+
+4. If a path does NOT have enough time-of-day precision:
+- preserve the current deterministic fallback behavior
+- do not fake precision
+
+Implementation guidance:
+- Start from the existing centralized helper(s) in the shared school-calendar logic
+- Reuse and extend adjustExpectedMinutesForSchoolException(serviceWindowStart, serviceWindowEnd, …) if that is already the intended seam
+- Do NOT duplicate proration logic across routes or UI
+- Prefer updating the shared calculation path(s) so downstream consumers inherit the change automatically
+- Audit where schedule_blocks or equivalent service timing data is actually available and thread it into the shared helper only where safe
+
+Constraints:
+- This is a TASK, not an agent
+- No new admin UI
+- No schema changes or migrations unless absolutely unavoidable
+- No broad redesign
+- No unrelated refactors
+- Do not break existing fallback behavior for consumers that still lack timing precision
+
+Acceptance criteria:
+- early-release days use exact time-based proration where timing data exists
+- fully pre-dismissal services count fully
+- straddling services are prorated
+- fully post-dismissal services count as 0 expected obligation
+- paths without precise timing continue using the current fallback safely
+- no second competing early-release rule is introduced
+- shared logic remains centralized
+- targeted tests prove the new behavior
+- existing Slice 1–4B behavior remains intact
+
+Testing requirements:
+- add focused tests for:
+  - fully before dismissal
+  - straddling dismissal
+  - fully after dismissal
+  - fallback path when timing data is unavailable
+  - mixed windows in a realistic interval
+- add at least one integration-level test showing a downstream consumer now reflects exact early-release proration rather than the blunt 0.5 fallback where timing data is available
+- rerun the relevant school-calendar suites and note any pre-existing flaky or timeout behavior separately
+
+Required output format from the task:
+1. COMPLETION STATUS
+2. EXACT CHANGES MADE
+3. PRORATION COVERAGE
+4. BUSINESS RULE CONSISTENCY
+5. TEST STATUS
+6. REMAINING LIMITATIONS
+
+Important:
+Include a summary of exact changes made, not just a high-level recap.
