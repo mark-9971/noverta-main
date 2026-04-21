@@ -1,0 +1,102 @@
+name: Batch 2 Deploy Gate
+
+# Gates the Batch 2 (minute-calc migration) deploy on the
+# `overlapping_chain_uncoupled` migration-report queue being empty in a
+# production-clone database. Background and resolution playbook:
+# docs/runbooks/uncoupled-overlap-resolution.md
+#
+# Trigger this workflow as a required check before promoting Batch 2 to
+# production. It runs `report-uncoupled-overlaps -- --json` against the
+# production-clone DB pointed at by `BATCH2_PROD_CLONE_DATABASE_URL` and
+# fails the deploy when `totalUnresolvedRows > 0`.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "artifacts/api-server/src/lib/domain-service-delivery/**"
+      - "lib/db/src/scripts/report-uncoupled-overlaps.ts"
+      - ".github/workflows/batch-2-deploy-gate.yml"
+
+concurrency:
+  group: batch-2-deploy-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  uncoupled-overlap-gate:
+    name: Uncoupled overlap gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # Connection string for a production-clone Postgres provisioned for
+      # this gate. Must be a read-capable role; the report script is
+      # read-only.
+      DATABASE_URL: ${{ secrets.BATCH2_PROD_CLONE_DATABASE_URL }}
+      PGSSLMODE: require
+      NODE_ENV: production
+      LOG_LEVEL: warn
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify production-clone DB secret is present
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::BATCH2_PROD_CLONE_DATABASE_URL secret is not set."
+            echo "::error::See docs/runbooks/uncoupled-overlap-resolution.md."
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Report uncoupled overlaps (JSON)
+        id: report
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/batch2-gate
+          pnpm --filter @workspace/db run --silent report-uncoupled-overlaps -- --json \
+            > /tmp/batch2-gate/report.json
+          echo "--- report.json ---"
+          cat /tmp/batch2-gate/report.json
+
+      - name: Fail deploy when unresolved rows exist
+        run: |
+          set -euo pipefail
+          total=$(node -e "process.stdout.write(String(require('/tmp/batch2-gate/report.json').totalUnresolvedRows ?? ''))")
+          if [ -z "$total" ]; then
+            echo "::error::Could not read totalUnresolvedRows from report JSON."
+            exit 1
+          fi
+          echo "totalUnresolvedRows=$total"
+          if [ "$total" -gt 0 ]; then
+            echo "::error::Batch 2 deploy blocked: $total unresolved overlapping_chain_uncoupled row(s) in the production-clone DB."
+            echo "::error::Resolve every row before re-running this job."
+            echo "::error::Runbook: docs/runbooks/uncoupled-overlap-resolution.md"
+            exit 1
+          fi
+          echo "No unresolved overlapping_chain_uncoupled rows. Batch 2 deploy gate PASS."
+
+      - name: Upload report JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uncoupled-overlap-report
+          path: /tmp/batch2-gate/report.json
+          retention-days: 30
+          if-no-files-found: ignore

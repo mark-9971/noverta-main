@@ -100,6 +100,17 @@ The Batch 2 minute-calc migration consumes
 `getActiveRequirements` directly, so any uncoupled overlap will
 double-count required minutes after the cutover. Resolve every
 unresolved `overlapping_chain_uncoupled` row in production before
-deploying Batch 2. The CI check that gates the Batch 2 release reads
-the report script's JSON output and fails the deploy if the count is
-non-zero.
+deploying Batch 2.
+
+The CI check that gates the Batch 2 release is the
+**`Batch 2 Deploy Gate / Uncoupled overlap gate`** job, defined in
+`.github/workflows/batch-2-deploy-gate.yml`. It runs
+`pnpm --filter @workspace/db run report-uncoupled-overlaps -- --json`
+against the production-clone database pointed at by the
+`BATCH2_PROD_CLONE_DATABASE_URL` repo secret, parses
+`totalUnresolvedRows` from the JSON, and fails the deploy when the
+count is non-zero. The full report JSON is uploaded as the
+`uncoupled-overlap-report` workflow artifact for triage.
+
+Re-run the job (via "Re-run jobs" or `workflow_dispatch`) after
+resolving the offending rows to unblock the Batch 2 deploy.
