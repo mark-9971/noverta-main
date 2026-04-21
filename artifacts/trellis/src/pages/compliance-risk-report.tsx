@@ -11,8 +11,10 @@ import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
-import { recommendAction, HANDLING_LABELS, HANDLING_BADGE } from "@/lib/action-recommendations";
+import { recommendAction } from "@/lib/action-recommendations";
+import { HandlingStatePill } from "@/components/wedge-primitives";
 import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
+import { HandlingHistoryPopover } from "@/components/handling-history-popover";
 import { useRole } from "@/lib/role-context";
 import { buildScheduleMakeupHref, riskRowItemId } from "@/lib/schedule-makeup";
 
@@ -292,7 +294,6 @@ function RiskAttentionRow({
   const handlingState = getState(itemId);
   const handlingEntry = getEntry(itemId);
   const handlingActive = handlingState !== "needs_action";
-  const handlingBadge = HANDLING_BADGE[handlingState];
   const handlingOwner = resolveOwnerDisplay(handlingEntry);
   const handlingUpdatedRel = formatRelativeTime(handlingEntry?.updatedAt);
   const [, navigate] = useLocation();
@@ -349,13 +350,14 @@ function RiskAttentionRow({
           )}
           {handlingActive && (
             <>
-              <span
-                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring}`}
-                data-testid={`handling-state-${itemId}`}
-                title="Shared handling state — district-scoped"
-              >
-                {HANDLING_LABELS[handlingState]}
-              </span>
+              <HandlingHistoryPopover itemId={itemId} align="start">
+                <HandlingStatePill
+                  state={handlingState}
+                  size="xs"
+                  testId={`handling-state-${itemId}`}
+                  title="Shared handling state — district-scoped"
+                />
+              </HandlingHistoryPopover>
               {handlingOwner.label && (
                 <span
                   className="text-[10px] text-gray-500"

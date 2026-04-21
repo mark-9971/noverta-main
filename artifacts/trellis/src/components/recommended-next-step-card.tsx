@@ -21,11 +21,9 @@
 
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, MoreHorizontal, Sparkles, ArrowRight } from "lucide-react";
+import { MoreHorizontal, Sparkles, ArrowRight } from "lucide-react";
 import {
   recommendAction,
-  HANDLING_LABELS,
-  HANDLING_BADGE,
   HANDLING_TRANSITIONS,
   type RecommendationSignal,
   type RecommendedActionType,
@@ -33,6 +31,7 @@ import {
 import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
 import HandlingHistoryPopover from "@/components/handling-history-popover";
 import { buildScheduleMakeupHref, type ScheduleMakeupOrigin } from "@/lib/schedule-makeup";
+import { HandlingStatePill } from "@/components/wedge-primitives";
 
 const CONFIDENCE_PIP: Record<"high" | "medium" | "low", { dot: string; label: string }> = {
   high: { dot: "bg-emerald-500", label: "high confidence" },
@@ -77,7 +76,6 @@ export default function RecommendedNextStepCard({
   const { getState, setState, getEntry } = useHandlingState([itemId]);
   const handlingState = getState(itemId);
   const handlingEntry = getEntry(itemId);
-  const handlingBadge = HANDLING_BADGE[handlingState];
   const handlingActive = handlingState !== "needs_action";
   const ownerDisplay = resolveOwnerDisplay(handlingEntry);
   const updatedRel = formatRelativeTime(handlingEntry?.updatedAt);
@@ -204,14 +202,14 @@ export default function RecommendedNextStepCard({
 
             {/* Handling-state pill / changer */}
             <div className="relative inline-flex items-center gap-1.5">
-              <button
+              <HandlingStatePill
+                state={handlingState}
+                size="md"
                 onClick={() => { setStateMenuOpen(o => !o); setMenuOpen(false); }}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring} text-[11px] font-semibold transition-colors hover:opacity-90`}
-                data-testid="button-handling-state"
+                withChevron
+                testId="button-handling-state"
                 title="Mark how this is being handled — no message is sent"
-              >
-                {HANDLING_LABELS[handlingState]} <ChevronDown className="w-3 h-3" />
-              </button>
+              />
               {handlingActive && (
                 <HandlingHistoryPopover
                   itemId={itemId}

@@ -21,8 +21,6 @@ import {
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 import {
   recommendAction,
-  HANDLING_LABELS,
-  HANDLING_BADGE,
   HANDLING_TRANSITIONS,
   type RecommendationSignal,
   type RecommendedActionType,
@@ -35,6 +33,7 @@ import {
   itemIdForAlert, itemIdForRisk, itemIdForDeadline, itemIdForServiceGap,
 } from "@/lib/action-recommendations";
 import { buildScheduleMakeupHref } from "@/lib/schedule-makeup";
+import { HandlingStatePill } from "@/components/wedge-primitives";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -551,7 +550,6 @@ function WorkItemRow({
 
   // Visual styling for the handling-state pill (when not in default state).
   const handlingActive = handlingState !== "needs_action";
-  const handlingBadge = HANDLING_BADGE[handlingState];
 
   function handlePrimary() {
     if (canQuickLog) {
@@ -649,14 +647,12 @@ function WorkItemRow({
                   itemId={item.id}
                   triggerTestId={`button-handling-history-${item.id}`}
                 >
-                  <button
-                    type="button"
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring} hover:opacity-90 transition-opacity`}
-                    data-testid={`handling-state-${item.id}`}
+                  <HandlingStatePill
+                    state={handlingState}
+                    size="sm"
+                    testId={`handling-state-${item.id}`}
                     title="Shared handling state — click to see history"
-                  >
-                    {HANDLING_LABELS[handlingState]}
-                  </button>
+                  />
                 </HandlingHistoryPopover>
                 {owner.label && (
                   <span
