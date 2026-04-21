@@ -5,7 +5,7 @@ import {
   alertsTable, sessionLogsTable, serviceRequirementsTable,
   districtSubscriptionsTable
 } from "@workspace/db";
-import { eq, and, count, sql, inArray } from "drizzle-orm";
+import { eq, and, count, sql, inArray, isNull } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -34,9 +34,12 @@ router.get("/districts", async (req, res): Promise<void> => {
     })
     .from(districtsTable);
 
+  // Hide soft-deleted districts (test scaffolding, retired pilots, etc.) from
+  // the picker. Platform admins viewing their own district are still allowed
+  // through so a tenant whose district is mid-deletion can finish wrap-up work.
   const districts = (!meta.platformAdmin && meta.districtId != null)
     ? await baseSelect.where(eq(districtsTable.id, meta.districtId)).orderBy(districtsTable.name)
-    : await baseSelect.orderBy(districtsTable.name);
+    : await baseSelect.where(isNull(districtsTable.deleteInitiatedAt)).orderBy(districtsTable.name);
 
   const schoolCounts = await db
     .select({
