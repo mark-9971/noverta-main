@@ -1,0 +1,107 @@
+Read this as a staff engineer + product architect + release gatekeeper.
+
+I need a strict combined status audit across these three efforts:
+
+1. Pilot Wedge Phase 1D — quick operational closures
+2. Demo data / seeded-data coverage check for the action model
+3. Pilot Wedge Phase 1E — server-side shared handling state
+
+Do NOT give me a vague summary. I need a concrete status report of what is truly done, what is partial, and what is still missing.
+
+Return your answer in this exact structure:
+
+1. EXECUTIVE STATUS
+For each of the three efforts, mark exactly one:
+- COMPLETE
+- PARTIAL
+- NOT STARTED
+- INCORRECTLY IMPLEMENTED
+
+Then give one paragraph summarizing the overall state of the wedge after all three efforts.
+
+2. QUICK FIXES STATUS (PHASE 1D)
+State exactly whether each of these was completed:
+- real Schedule makeup launch path
+- Risk Report inline primary CTA + handling pill
+- owner-aware “you” substitution expansion
+- dashboard / NeedsAttention handling-state visibility
+- HANDLING_TRANSITIONS hoisted to one shared source
+
+For each item, say:
+- COMPLETE / PARTIAL / NOT DONE
+- exact files changed
+- exact user-visible result
+- whether any remaining gap still exists
+
+3. DEMO DATA COVERAGE STATUS
+State exactly:
+- whether the default demo/main user now has a strong sample of action-model scenarios on the main wedge surfaces
+- whether the seeded/demo data already covered them before changes
+- which scenarios were missing, if any
+- whether you updated the seeder or added manual demo-safe data
+- exactly which students/items now represent each of these scenarios:
+  - documentation lag
+  - likely missed service
+  - ambiguous / review-needed
+  - recurring/programmatic case
+  - awaiting_confirmation
+  - recovery_scheduled
+  - handed_off
+  - under_review
+- whether the scenarios are visible on Action Center / dashboard / student detail / risk surface as appropriate
+
+4. SERVER-SIDE HANDLING STATUS (PHASE 1E)
+State exactly:
+- whether handling state is now truly server-side/shared
+- whether localStorage is still used at all
+- if yes, whether it is fallback/cache only or still source of truth anywhere
+- exact schema/model added
+- exact fields persisted
+- exact endpoints/routes added
+- exact stable item-id model used
+- whether Action Center reads/writes shared state
+- whether student detail reads/writes shared state
+- whether compliance/risk surface reads/writes shared state
+- whether district scoping is enforced
+- whether assignment/owner fields are persisted
+- whether history/audit was implemented
+- whether cross-user/shared behavior is truly working
+
+5. EXACT CHANGES MADE
+List every file changed across all three efforts.
+For each file, give:
+- exact file path
+- exact component/page/hook/helper/schema/route/test changed
+- exact reason for the change
+- which effort it belongs to:
+  - quick fixes
+  - demo data
+  - server-side handling
+
+6. TEST / BUILD STATUS
+Give:
+- exact tests added/modified for each of the three efforts
+- exact pass/fail counts
+- typecheck/build results
+- any unrelated pre-existing failures clearly separated from regressions
+
+7. WHAT IS STILL MISSING
+List only the real remaining gaps after these three efforts.
+Be concrete.
+Examples:
+- Schedule makeup still launches but is not fully prefilled
+- Risk Report still lacks inline CTA in some row states
+- demo user still missing one scenario
+- handling state exists but no transition history
+- localStorage still leaks into one surface
+Do not hand-wave.
+
+8. EXACT NEXT TASKS
+List the next 5–10 highest-value tasks in priority order based on the current real state of the product.
+
+Important:
+- Include exact changes made, not just a recap
+- Be honest about partial work
+- Do not say “done” if the user-visible behavior is still incomplete
+- If server-side/shared handling is not truly implemented, say so clearly
+- If demo coverage is weak or incomplete, say so clearly
