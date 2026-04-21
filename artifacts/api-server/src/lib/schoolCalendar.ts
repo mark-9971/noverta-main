@@ -234,11 +234,36 @@ export type SchoolDayWeightSummary = {
   closureDays: number;
   /** Number of early-release days inside the elapsed window. */
   earlyReleaseDays: number;
+  /**
+   * School Calendar v0 — Slice 6A. Number of weekend days (Sat/Sun)
+   * inside the elapsed slice that contributed 0 weight by virtue of
+   * being a non-instructional day. Surfaced for diagnostics so the
+   * trust layer can explain "we didn't count 2 weekend days" without
+   * a second pass over the range.
+   */
+  weekendDaysElapsed: number;
   /** Raw calendar-day count of the full range (inclusive). */
   totalCalendarDays: number;
   /** Raw calendar-day count of the elapsed slice (inclusive). */
   elapsedCalendarDays: number;
 };
+
+/**
+ * School Calendar v0 — Slice 6A. Weekday awareness in the baseline
+ * pacing model. A normal Saturday or Sunday is treated as a
+ * non-instructional day (weight 0), the same way a closure is, so the
+ * expected-minute denominator only counts instructional weekdays.
+ *
+ * An explicit school_calendar_exceptions row still wins — if the
+ * school marks a weekend day as early_release for some reason, that
+ * data-driven row overrides the default. This keeps Slices 1–5
+ * behavior fully intact: closures stay 0, early-release stays 0.5
+ * (or exact when timing data exists), requiredMinutes is unchanged.
+ */
+function isWeekend(d: Date): boolean {
+  const dow = d.getDay();
+  return dow === 0 || dow === 6;
+}
 
 /**
  * Walk a date range one day at a time and produce weighted day counts
@@ -269,6 +294,7 @@ export function summarizeSchoolDayWeights(args: {
   let elapsedWeight = 0;
   let closureDays = 0;
   let earlyReleaseDays = 0;
+  let weekendDaysElapsed = 0;
   let totalCalendarDays = 0;
   let elapsedCalendarDays = 0;
 
@@ -276,7 +302,15 @@ export function summarizeSchoolDayWeights(args: {
     const d = new Date(t);
     const dateStr = isoDate(d);
     const ex = schoolId != null ? exceptions.get(`${schoolId}:${dateStr}`) ?? null : null;
-    const w = dayWeightForException(ex);
+    // Slice 6A — weekday-aware baseline: weekends contribute 0 weight
+    // by default. An explicit exception row still wins (a school that
+    // chooses to schedule something on a weekend can do so via the
+    // school_calendar_exceptions table). When schoolId is null we have
+    // no school context to apply the weekday rule against, so we fall
+    // back to the legacy "every day weighs 1" behavior.
+    const w = ex
+      ? dayWeightForException(ex)
+      : (schoolId != null && isWeekend(d) ? 0 : 1);
     totalWeight += w;
     totalCalendarDays += 1;
 
@@ -287,6 +321,7 @@ export function summarizeSchoolDayWeights(args: {
       elapsedCalendarDays += 1;
       if (ex?.type === "closure") closureDays += 1;
       else if (ex?.type === "early_release") earlyReleaseDays += 1;
+      else if (schoolId != null && isWeekend(d)) weekendDaysElapsed += 1;
     } else if (asOfMs > t) {
       // day in progress — count fractional weight
       const frac = (asOfMs - t) / ONE_DAY;
@@ -294,6 +329,7 @@ export function summarizeSchoolDayWeights(args: {
       elapsedCalendarDays += frac;
       if (ex?.type === "closure") closureDays += 1;
       else if (ex?.type === "early_release") earlyReleaseDays += 1;
+      else if (schoolId != null && isWeekend(d)) weekendDaysElapsed += 1;
     }
   }
 
@@ -302,6 +338,7 @@ export function summarizeSchoolDayWeights(args: {
     elapsedWeight,
     closureDays,
     earlyReleaseDays,
+    weekendDaysElapsed,
     totalCalendarDays,
     elapsedCalendarDays,
   };

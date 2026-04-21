@@ -235,6 +235,45 @@ describe("lib/schoolCalendar pure helpers", () => {
       expect(summary.closureDays).toBe(1);   // closure counted once it has begun
     });
 
+    it("Slice 6A — weekend days contribute 0 weight by default when schoolId is set", () => {
+      // Mon Jan 5 → Sun Jan 11, 2026: Mon..Fri weekdays + Sat..Sun.
+      // No exceptions. asOf = Sunday 23:00 → entire week elapsed.
+      // weekday-aware totals: 5 instructional weekdays, 2 weekend days
+      // collapsed to 0 weight. Closure/early-release counters stay 0.
+      const start = new Date(2026, 0, 5);          // Mon
+      const end = new Date(2026, 0, 11);           // Sun
+      const asOf = new Date(2026, 0, 11, 23, 59, 59, 999);
+      const summary = summarizeSchoolDayWeights({
+        schoolId: 1, exceptions: new Map(), startDate: start, endDate: end, asOf,
+      });
+      expect(summary.totalCalendarDays).toBe(7);
+      expect(summary.totalWeight).toBe(5);          // weekdays only
+      expect(summary.elapsedWeight).toBeCloseTo(5, 4);
+      expect(summary.weekendDaysElapsed).toBe(2);
+      expect(summary.closureDays).toBe(0);
+      expect(summary.earlyReleaseDays).toBe(0);
+    });
+
+    it("Slice 6A — explicit weekend exception still wins over the weekday-aware default", () => {
+      // Sat Jan 10, 2026 marked as early_release in data. The weekday
+      // default would give 0, but the data-driven exception takes
+      // precedence and contributes 0.5 weight.
+      const start = new Date(2026, 0, 10);          // Sat
+      const end = new Date(2026, 0, 11);            // Sun
+      const asOf = new Date(2026, 0, 11, 23, 59, 59, 999);
+      const map = new Map<string, SchoolDayException>();
+      map.set(`1:${isoDate(new Date(2026, 0, 10))}`, ex(isoDate(new Date(2026, 0, 10)), "early_release", "12:00"));
+      const summary = summarizeSchoolDayWeights({
+        schoolId: 1, exceptions: map, startDate: start, endDate: end, asOf,
+      });
+      // Sat = 0.5 (exception override), Sun = 0 (weekend default).
+      expect(summary.totalWeight).toBe(0.5);
+      expect(summary.elapsedWeight).toBeCloseTo(0.5, 4);
+      expect(summary.earlyReleaseDays).toBe(1);
+      // Sun was a default weekend (no exception), so it's counted.
+      expect(summary.weekendDaysElapsed).toBe(1);
+    });
+
     it("ignores exceptions when schoolId is null", () => {
       const start = new Date(2026, 0, 5);
       const end = new Date(2026, 0, 6);
@@ -342,12 +381,14 @@ describe("computeAllActiveMinuteProgress with school calendar exceptions", () =>
 
   it("early-release counts as 0.5 of a normal day in the expected-minute denominator", async () => {
     // Mon normal, Tue closure, Wed early-release, Thu normal, Fri normal.
-    // Weekly interval Mon..Sun:
-    //   weights = [1, 0, 0.5, 1, 1, 1, 1]
+    // Slice 6A — weekly interval Mon..Sun, weekend days now contribute
+    // 0 weight (instructional-day baseline), so Sat+Sun no longer dilute
+    // the denominator.
+    //   weights (Mon..Sun) = [1, 0, 0.5, 1, 1, 0, 0]
     //   asOf = Fri 23:00 → Mon..Thu fully past + Fri at 23/24 fraction
     //   elapsedWeight = 1 + 0 + 0.5 + 1 + (1 * 23/24) ≈ 3.458
-    //   totalWeight (Mon..Sun) = 5.5
-    //   expectedByNow ≈ 100 * 3.458 / 5.5 ≈ 62.9
+    //   totalWeight (Mon..Sun) = 3.5
+    //   expectedByNow ≈ 100 * 3.458 / 3.5 ≈ 98.8
     await db.insert(schoolCalendarExceptionsTable).values([
       { schoolId, exceptionDate: "2026-01-06", type: "closure", reason: "x", dismissalTime: null },
       { schoolId, exceptionDate: "2026-01-07", type: "early_release", reason: "y", dismissalTime: "12:00" },
@@ -367,15 +408,50 @@ describe("computeAllActiveMinuteProgress with school calendar exceptions", () =>
       expect(result).toBeDefined();
       expect(result!.closureDayCount).toBe(1);
       expect(result!.earlyReleaseDayCount).toBe(1);
-      // Allow 0.2 tolerance for rounding; baseline (no exceptions) for
-      // the same elapsed slice would have been 100 * 5/7 ≈ 71.4 — must
-      // be lower with the discount applied.
-      expect(result!.expectedMinutesByNow).toBeCloseTo(62.9, 0);
-      expect(result!.expectedMinutesByNow).toBeLessThan(70.8);
+      // Slice 6A: with weekend days no longer counted, expectedByNow
+      // is bound by the weekday-only denominator.
+      expect(result!.expectedMinutesByNow).toBeCloseTo(98.8, 0);
+      expect(result!.expectedMinutesByNow).toBeGreaterThan(95);
+      expect(result!.expectedMinutesByNow).toBeLessThanOrEqual(100);
       expect(result!.requiredMinutes).toBe(100);
     } finally {
       await db.delete(serviceRequirementsTable).where(eq(serviceRequirementsTable.id, req.id));
       await db.delete(schoolCalendarExceptionsTable).where(eq(schoolCalendarExceptionsTable.schoolId, schoolId));
+    }
+  });
+
+  it("Slice 6A — a normal week with no exceptions still excludes weekends from the denominator", async () => {
+    // No school_calendar_exceptions rows. The student IS assigned to a
+    // school (the test scope's `schoolId`), so the new weekday-aware
+    // baseline must apply: Mon..Fri = weight 1 each, Sat..Sun = 0.
+    //   asOf = Fri 23:00 → Mon..Thu fully past + Fri at 23/24 fraction
+    //   elapsedWeight = 4 + 23/24 ≈ 4.958
+    //   totalWeight (Mon..Sun, weekends excluded) = 5
+    //   expectedByNow ≈ 100 * 4.958 / 5 ≈ 99.2
+    // The legacy linear math (100 * 4.958/7 ≈ 70.8) would understate
+    // expected progress by treating Sat+Sun as instructional days.
+    const [req] = await db.insert(serviceRequirementsTable).values({
+      studentId, serviceTypeId, providerId: staffId,
+      requiredMinutes: 100, intervalType: "weekly",
+      startDate: "2025-09-01", endDate: null, active: true,
+    }).returning();
+
+    try {
+      const results = await computeAllActiveMinuteProgress({
+        studentId, asOfDate: asOfFriday,
+      });
+      const result = results.find(r => r.serviceRequirementId === req.id);
+      expect(result).toBeDefined();
+      expect(result!.closureDayCount).toBe(0);
+      expect(result!.earlyReleaseDayCount).toBe(0);
+      // Weekday-aware baseline puts us near 100% expected by Fri EOD.
+      expect(result!.expectedMinutesByNow).toBeCloseTo(99.2, 0);
+      // Crucially, must be materially higher than the legacy linear
+      // value of ~70.8 — proves weekends are no longer in the denom.
+      expect(result!.expectedMinutesByNow).toBeGreaterThan(90);
+      expect(result!.requiredMinutes).toBe(100);
+    } finally {
+      await db.delete(serviceRequirementsTable).where(eq(serviceRequirementsTable.id, req.id));
     }
   });
 

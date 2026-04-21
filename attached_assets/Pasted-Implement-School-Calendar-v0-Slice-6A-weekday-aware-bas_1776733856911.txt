@@ -1,0 +1,131 @@
+Implement School Calendar v0 — Slice 6A: weekday-aware baseline pacing.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Improve the shared minute-progress baseline pacing model so weekends no longer count like normal instructional days when computing expected progress, while preserving all existing School Calendar behavior from Slices 1–5.
+
+Context:
+School Calendar v0 status:
+- Slice 1 complete: per-school school_calendar_exceptions CRUD
+- Slice 2 complete: shared minute-progress read-path integration
+- Slice 3 complete: trust / explanation layer
+- Slice 4A complete: alerting-path consequence alignment
+- Slice 4B complete: cost/exposure consequence alignment
+- Slice 5 complete: exact time-of-day early-release proration wherever service-window timing exists
+
+Largest remaining known limitation:
+lib/minuteCalc still uses a baseline pacing model that treats every elapsed day as equivalent expected-load contribution. This means weekends still affect expected progress in a way that is not school-realistic.
+
+Primary objective:
+Make the baseline pacing model weekday-aware in the centralized shared logic so downstream consumers inherit the change automatically.
+
+Business rules:
+1. Weekend days should not contribute normal expected-load weight in the baseline pacing model
+2. Closure-day behavior must remain intact
+3. Early-release behavior must remain intact
+4. Exact timing-aware proration from Slice 5 must remain intact
+5. requiredMinutes must remain unchanged
+6. Do not fake full instructional-calendar logic if the codebase does not support it cleanly
+
+Important boundary:
+This is Slice 6A, not full instructional-calendar modeling.
+Do NOT broaden into:
+- school-break detection
+- holiday inference
+- school-year calendars
+- district-specific instructional-day policy engines
+unless there is already a canonical existing source in the codebase that can be reused safely with minimal scope.
+
+Implementation guidance:
+- Start in lib/minuteCalc.ts and the shared day-weight/progress helpers it depends on
+- Prefer updating the centralized progressFraction / day-weight logic so all downstream consumers inherit the change automatically
+- Preserve the current distinction between:
+  - timing-aware exact proration paths
+  - date-bucketed fallback paths
+- Keep logic deterministic and testable with asOfDate/referenceDate
+- Audit any existing tests whose expectations relied on the old weekend-counting behavior and update only where the new weekday-aware model intentionally changes the result
+
+What I want audited:
+- lib/minuteCalc.ts
+- any shared helper in schoolCalendar.ts or related day-weight logic
+- downstream consumers only as needed to confirm inheritance, not to patch around the core logic
+
+Constraints:
+- Use the main agent
+- No schema changes or migrations unless absolutely unavoidable
+- No new admin UI
+- No broad redesign
+- No unrelated refactors
+- No fake instructional-day modeling beyond weekday awareness
+- Do not break Slice 1–5 behavior
+
+Execution style:
+- Work efficiently and keep moving
+- Fix the core shared logic first
+- Do not patch leaf routes unless required for compatibility
+- Be explicit about whether any consumer needed direct changes versus inheriting automatically
+
+Status updates required during execution:
+Give concise progress updates as you work.
+I want updates that include:
+- which shared logic path you are auditing/changing
+- whether the change is core logic or just test adjustment
+- any important decision about weekday weighting vs existing exception handling
+- current test status when relevant
+
+Required final output format:
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact functions/helpers/tests changed
+- exact reason for the change
+- whether it is shared business logic, test adjustment, route compatibility, or codegen
+
+3. BASELINE PACING COVERAGE
+List the major consumers and state whether they inherited the new weekday-aware baseline automatically or needed direct changes.
+Call out at minimum:
+- computeMinuteProgress
+- computeAllActiveMinuteProgress
+- compliance/risk consumers
+- cost/exposure consumers
+- forecast/timing-aware paths
+- Today/schedule-facing paths
+
+4. BUSINESS RULE CONSISTENCY
+State explicitly:
+- what weekend days now do
+- what closure days still do
+- what early-release days still do
+- whether exact timing-aware proration is preserved
+- whether requiredMinutes remains unchanged
+
+5. TEST STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- what old expectations changed because weekends no longer count
+- any known flaky or unrelated infra issues clearly separated from regressions
+
+6. REMAINING LIMITATIONS
+Only list real remaining follow-ups after this slice, such as:
+- full instructional-day-aware baseline
+- school-break / holiday modeling if supported later
+- bulk calendar tooling
+- action/recommendation alignment
+Do not broaden beyond real follow-ups discovered in the work.
+
+7. EXACT REMAINING TASKS
+If verdict is PARTIAL, list the exact remaining task or tasks needed to truly close Slice 6A.
+
+Definition of done:
+- weekend days no longer distort expected progress as though they were instructional days
+- closure and early-release logic still work correctly
+- shared logic remains centralized
+- downstream consumers inherit the change through the core engine
+- targeted tests prove the new weekday-aware behavior
+- output includes exact changes made, not just a summary

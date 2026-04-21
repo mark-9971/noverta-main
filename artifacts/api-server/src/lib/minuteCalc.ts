@@ -257,16 +257,21 @@ function buildProgressFromSessions(
 
   // Slice 2 — weight the day count by school-calendar exceptions so a
   // closure pulls expectedByNow toward zero for that day and an early
-  // release counts as half a day. If no exception input is supplied, or
-  // the school has no exceptions in this window, this collapses to the
-  // legacy linear elapsedCalendarDays / totalCalendarDays.
-  const haveExceptions =
-    schoolCalendarInput != null && schoolCalendarInput.exceptions.size > 0;
+  // release counts as half a day.
+  // Slice 6A — also weight by weekday so weekends contribute 0 weight
+  // even when no exception is present. We therefore go through the
+  // weekday-aware summarizer whenever we have a real school context
+  // (schoolId is non-null), regardless of whether any exceptions exist
+  // in the window. The legacy linear path is preserved only for
+  // requirements with no school assignment, where we can't honestly
+  // say which days are instructional.
+  const haveSchoolContext =
+    schoolCalendarInput != null && schoolCalendarInput.schoolId != null;
   let progressFraction: number;
   let closureDayCount = 0;
   let earlyReleaseDayCount = 0;
 
-  if (haveExceptions) {
+  if (haveSchoolContext) {
     const summary = summarizeSchoolDayWeights({
       schoolId: schoolCalendarInput!.schoolId,
       exceptions: schoolCalendarInput!.exceptions,
