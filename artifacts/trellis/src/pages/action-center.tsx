@@ -19,6 +19,16 @@ import {
   Bell,
 } from "lucide-react";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
+import {
+  recommendAction,
+  HANDLING_LABELS,
+  HANDLING_BADGE,
+  type RecommendationSignal,
+  type RecommendedActionType,
+  type HandlingState,
+  type ActionRecommendation,
+} from "@/lib/action-recommendations";
+import { useHandlingState } from "@/lib/use-handling-state";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +46,9 @@ interface WorkItem {
   href: string;
   actionLabel: string;
   logSession?: boolean;
+  /** Phase 1B: signal feed for the centralized action recommendation engine.
+   *  When omitted, the row uses fallback ambiguous-cause behavior. */
+  signal?: RecommendationSignal;
 }
 
 // ─── Schedule-gap helpers ─────────────────────────────────────────────────────
@@ -96,6 +109,11 @@ function scheduleGapToWorkItem(
     studentName: mp.studentName,
     href: "/scheduling?tab=schedule",
     actionLabel: "Fix Schedule →",
+    signal: {
+      category: "schedule",
+      source: "schedule_gap",
+      shortfallMinutes: mp.remainingMinutes,
+    },
   };
 }
 
@@ -159,6 +177,11 @@ function alertToWorkItem(a: any, index: number): WorkItem {
     href,
     actionLabel: "View →",
     logSession: isShortfallType && !!a.studentId,
+    signal: {
+      category: alertCategory(a.type ?? ""),
+      alertType: a.type,
+      source: "alert",
+    },
   };
 }
 
@@ -180,6 +203,13 @@ function riskToWorkItem(r: any): WorkItem {
     href: `/compliance?tab=minutes`,
     actionLabel: "Review minutes →",
     logSession: !!r.studentId,
+    signal: {
+      category: "compliance",
+      source: "risk_report",
+      riskStatus: r.riskStatus,
+      shortfallMinutes: r.shortfallMinutes,
+      requiredMinutes: r.requiredMinutes,
+    },
   };
 }
 
@@ -209,6 +239,11 @@ function deadlineToWorkItem(d: any, index: number): WorkItem | null {
     studentName: name,
     href: `/compliance?tab=timeline`,
     actionLabel: "IEP Timeline →",
+    signal: {
+      category: d.eventType?.includes("eval") ? "evaluation" : "iep",
+      alertType: d.eventType,
+      source: "deadline",
+    },
   };
 }
 
@@ -443,40 +478,92 @@ const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
   { label: "7 days", ms: 7 * 24 * 60 * 60 * 1000 },
 ];
 
+// Phase 1B: which actions can be served by the inline QuickLogSheet?
+// Right now QuickLog handles "log a session" cleanly; the other action
+// types are tracked via the handling-state pill (handed_off / awaiting /
+// recovery_scheduled / under_review) since we deliberately did NOT build a
+// new task system this phase. Be honest in tooltips about what is real.
+const QUICK_LOG_ACTIONS: ReadonlySet<RecommendedActionType> = new Set([
+  "confirm_and_log_session",
+]);
+
+const HANDLING_TRANSITIONS: { state: HandlingState; label: string; help: string }[] = [
+  { state: "needs_action",          label: "Mark as needs action",     help: "Clear handling state" },
+  { state: "awaiting_confirmation", label: "Awaiting confirmation",    help: "I asked someone — waiting on a reply" },
+  { state: "recovery_scheduled",    label: "Recovery scheduled",       help: "A makeup or follow-up session is on the calendar" },
+  { state: "handed_off",            label: "Handed off",               help: "Passed to the right owner" },
+  { state: "under_review",          label: "Under review",             help: "Looking into the underlying requirement / data" },
+  { state: "resolved",              label: "Resolved",                 help: "Done — hide on next refresh" },
+];
+
 function WorkItemRow({
   item, onLogSession, onDismiss, onSnooze,
+  recommendation, handlingState, onSetHandling,
 }: {
   item: WorkItem;
   onLogSession?: (studentId: number, studentName: string) => void;
   onDismiss?: (item: WorkItem) => void;
   onSnooze?: (item: WorkItem, durationMs: number, label: string) => void;
+  recommendation: ActionRecommendation;
+  handlingState: HandlingState;
+  onSetHandling: (id: string, state: HandlingState) => void;
 }) {
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
-  // Pilot wedge Phase 1: unified Log Session affordance.
-  // Previously shortfall-type items (`item.logSession === true`) rendered a
-  // Link to `/sessions?studentId=…&quicklog=true` while non-shortfall
-  // compliance/session items rendered an inline button that opened
-  // QuickLogSheet right inside the Action Center. The split was confusing
-  // and broke flow — clicking "Log Session" on one row navigated away,
-  // clicking it on another stayed put. Now ALL eligible rows open the
-  // inline sheet so the work queue stays in view and users keep their
-  // place after logging.
-  const canLog =
+  // Phase 1B: cause-aware primary CTA.
+  //
+  // The button label and behavior come from the centralized recommendation
+  // engine — NOT from a hardcoded "Log Session" assumption. For example,
+  // a `missed_sessions` alert recommends "Schedule makeup" (handled via
+  // handling-state since we don't have a scheduler API in scope), while
+  // an `overdue_session_log` alert recommends "Confirm & log session"
+  // and opens the inline QuickLogSheet to keep the user in the queue.
+  const primaryAction = recommendation.recommendedAction;
+  const canQuickLog =
+    QUICK_LOG_ACTIONS.has(primaryAction) &&
     !!onLogSession &&
-    !!item.studentId &&
-    (item.logSession || item.category === "compliance" || item.category === "session");
+    !!item.studentId;
+
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const snoozeRef = useRef<HTMLDivElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!snoozeOpen) return;
+    if (!snoozeOpen && !moreOpen) return;
     function onClick(e: MouseEvent) {
       if (snoozeRef.current && !snoozeRef.current.contains(e.target as Node)) setSnoozeOpen(false);
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, [snoozeOpen]);
+  }, [snoozeOpen, moreOpen]);
+
+  // Visual styling for the handling-state pill (when not in default state).
+  const handlingActive = handlingState !== "needs_action";
+  const handlingBadge = HANDLING_BADGE[handlingState];
+
+  function handlePrimary() {
+    if (canQuickLog) {
+      onLogSession!(item.studentId!, item.studentName ?? "");
+      return;
+    }
+    // For non-QuickLog primary actions we record the matching handling
+    // state so the user can hand off / mark as scheduled without losing
+    // the row. They can still use the in-context links (e.g. Fix Schedule)
+    // via the secondary "Open" link below.
+    if (primaryAction === "schedule_makeup") onSetHandling(item.id, "recovery_scheduled");
+    else if (primaryAction === "follow_up_with_provider") onSetHandling(item.id, "awaiting_confirmation");
+    else if (primaryAction === "review_with_case_manager" || primaryAction === "review_requirement_data") onSetHandling(item.id, "under_review");
+    else if (primaryAction === "escalate_coverage_issue") onSetHandling(item.id, "handed_off");
+  }
+
+  // Confidence pip — low confidence should be visible so the user
+  // doesn't trust the recommendation more than it deserves.
+  const confidencePip =
+    recommendation.confidence === "high" ? "bg-emerald-400" :
+    recommendation.confidence === "medium" ? "bg-amber-400" :
+    "bg-gray-300";
 
   return (
     <div
@@ -502,24 +589,132 @@ function WorkItemRow({
           )}
         </div>
         <div className="text-[11px] text-gray-400 mt-0.5 leading-snug">{item.detail}</div>
+        {/* Phase 1B: cause + owner subline. Low-noise, single line. */}
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[10px]">
+          <span
+            className="inline-flex items-center gap-1 text-gray-500"
+            title={recommendation.explanation}
+            data-testid={`recommendation-cause-${item.id}`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${confidencePip}`} aria-hidden />
+            <span className="font-medium">{recommendation.causeLabel}</span>
+          </span>
+          <span className="text-gray-300">·</span>
+          <span
+            className="inline-flex items-center gap-0.5 text-gray-500"
+            title="Recommended owner — who should make the next move"
+            data-testid={`recommendation-owner-${item.id}`}
+          >
+            <UserCheck className="w-2.5 h-2.5" />
+            <span>
+              {recommendation.recommendedOwner === "you" ? "You" : recommendation.ownerLabel}
+            </span>
+          </span>
+          {handlingActive && (
+            <>
+              <span className="text-gray-300">·</span>
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring}`}
+                data-testid={`handling-state-${item.id}`}
+                title="You marked this — derived UI state, not a server-side assignment"
+              >
+                {HANDLING_LABELS[handlingState]}
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-        {canLog && (
-          <button
-            onClick={() => onLogSession!(item.studentId!, item.studentName ?? "")}
-            className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
-            title="Log a session for this student without leaving the work queue"
-            data-testid={`button-log-session-${item.id}`}
-          >
-            <ClipboardEdit className="w-3 h-3" /> Log Session
-          </button>
-        )}
+        {/* Phase 1B: primary CTA driven by recommendation, not by category. */}
+        <button
+          onClick={handlePrimary}
+          className={`flex items-center gap-1 text-[11px] font-semibold whitespace-nowrap px-2 py-1 rounded-md ${
+            canQuickLog
+              ? "text-blue-700 bg-blue-50 hover:bg-blue-100"
+              : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+          }`}
+          title={canQuickLog
+            ? "Open the inline session log without leaving the queue"
+            : "Mark how this is being handled — no message is sent (see Remaining gaps)"}
+          data-testid={`button-primary-${item.id}`}
+        >
+          {canQuickLog && <ClipboardEdit className="w-3 h-3" />}
+          {recommendation.primaryActionLabel}
+        </button>
+        {/* Secondary: keep the original "go to context page" link */}
         <Link
           href={item.href}
-          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap flex items-center gap-0.5"
+          className="text-[11px] font-semibold text-gray-500 hover:text-gray-800 whitespace-nowrap flex items-center gap-0.5"
+          data-testid={`link-context-${item.id}`}
+          title="Open the page where this item lives — your queue is preserved when you come back"
         >
           {item.actionLabel}
         </Link>
+        {/* Secondary actions + handling state menu */}
+        <div ref={moreRef} className="relative">
+          <button
+            onClick={() => setMoreOpen(o => !o)}
+            className="flex items-center text-gray-300 hover:text-gray-700 transition-colors p-0.5"
+            title="Other actions / mark how this is being handled"
+            aria-label="Other actions"
+            data-testid={`button-more-${item.id}`}
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+          {moreOpen && (
+            <div className="absolute right-0 top-full mt-1 z-30 w-60 rounded-md border border-gray-200 bg-white shadow-lg py-1.5">
+              {recommendation.secondaryActions.length > 0 && (
+                <>
+                  <div className="px-2.5 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Other actions
+                  </div>
+                  {recommendation.secondaryActions.map(sa => (
+                    <button
+                      key={sa.type}
+                      onClick={() => {
+                        setMoreOpen(false);
+                        if (sa.type === "confirm_and_log_session" && onLogSession && item.studentId) {
+                          onLogSession(item.studentId, item.studentName ?? "");
+                          return;
+                        }
+                        if (sa.type === "schedule_makeup") onSetHandling(item.id, "recovery_scheduled");
+                        else if (sa.type === "follow_up_with_provider") onSetHandling(item.id, "awaiting_confirmation");
+                        else if (sa.type === "review_with_case_manager" || sa.type === "review_requirement_data") onSetHandling(item.id, "under_review");
+                        else if (sa.type === "escalate_coverage_issue") onSetHandling(item.id, "handed_off");
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 text-[12px] text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                      data-testid={`button-secondary-${item.id}-${sa.type}`}
+                    >
+                      {sa.label}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-gray-100" />
+                </>
+              )}
+              <div className="px-2.5 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Handling
+              </div>
+              {HANDLING_TRANSITIONS.map(t => {
+                const isCurrent = t.state === handlingState;
+                return (
+                  <button
+                    key={t.state}
+                    onClick={() => { onSetHandling(item.id, t.state); setMoreOpen(false); }}
+                    className={`w-full text-left px-2.5 py-1.5 text-[12px] transition-colors ${
+                      isCurrent
+                        ? "bg-emerald-50 text-emerald-800 font-semibold"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                    title={t.help}
+                    data-testid={`button-handling-${item.id}-${t.state}`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         {onSnooze && (
           <div ref={snoozeRef} className="relative">
             <button
@@ -968,6 +1163,10 @@ export default function ActionCenter() {
   // exposes a stable user id, swap that in here.
   const userKey = `${role ?? "unknown"}::${user?.name?.trim() || "anonymous"}`;
   const { hidden, hide, restore, restoreAll } = useHiddenItems(userKey);
+  // Phase 1B: per-user, per-browser handling state (recovery_scheduled,
+  // handed_off, awaiting_confirmation, …). Local-only by design — see
+  // use-handling-state.ts for the persistence honesty notes.
+  const { getState: getHandlingState, setState: setHandlingState } = useHandlingState(userKey);
 
   const handleDismiss = useCallback((item: WorkItem) => {
     hide(
@@ -1179,15 +1378,24 @@ export default function ActionCenter() {
                   <AggregateRow key={`agg-${i}`} {...agg} />
                 ))}
                 {/* Per-student/per-alert items */}
-                {visibleItems.map(item => (
-                  <WorkItemRow
-                    key={item.id}
-                    item={item}
-                    onLogSession={openQuickLog}
-                    onDismiss={handleDismiss}
-                    onSnooze={handleSnooze}
-                  />
-                ))}
+                {visibleItems.map(item => {
+                  const recommendation = recommendAction(
+                    item.signal ?? { category: item.category },
+                    { currentUserRole: role ?? undefined },
+                  );
+                  return (
+                    <WorkItemRow
+                      key={item.id}
+                      item={item}
+                      onLogSession={openQuickLog}
+                      onDismiss={handleDismiss}
+                      onSnooze={handleSnooze}
+                      recommendation={recommendation}
+                      handlingState={getHandlingState(item.id)}
+                      onSetHandling={setHandlingState}
+                    />
+                  );
+                })}
               </div>
             )}
 

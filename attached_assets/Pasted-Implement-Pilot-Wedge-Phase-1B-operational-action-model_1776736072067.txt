@@ -1,0 +1,383 @@
+Implement Pilot Wedge Phase 1B — operational action model for at-risk students/services.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Make Trellis behave more like a real school operations tool by replacing generic “Log Session” behavior with a realistic, cause-aware, owner-aware, status-aware action model on the highest-value pilot wedge surfaces.
+
+Primary product objective:
+When a district admin / coordinator sees a student or service is behind, the product should help answer:
+
+1. What is the likely issue?
+2. How confident are we?
+3. Who should own the next move?
+4. What is the single recommended next action?
+5. Is this already being handled?
+6. What are the other available actions if the recommendation is not correct?
+
+This is a pilot-wedge hardening phase, not a broad product redesign.
+
+Context:
+Pilot Wedge Phase 1A is complete:
+- Action Center now opens Quick Log inline instead of navigating away
+- dashboards have a clearer funnel into Action Center
+- pilot/focused scheduling nav was simplified
+
+Calendar work is strong enough:
+- closures
+- early release
+- consequence alignment
+- forecast alignment
+- weekday-aware pacing
+
+So the biggest remaining weakness is operational realism:
+the product can identify risk better than it helps users resolve it.
+
+Critical product critique:
+“Log Session” is only the correct default in a narrow documentation-lag scenario.
+A real public-school admin, case manager, or coordinator often needs a different next step:
+- confirm whether a session happened
+- follow up with provider
+- schedule makeup
+- review with case manager / SPED teacher
+- escalate coverage / staffing issue
+- review data / requirement issue
+- note that a makeup is already scheduled
+- mark that confirmation is pending
+
+Your job:
+Implement a lightweight but real action model that improves the pilot-critical loop on the highest-value surfaces without building a giant workflow engine or messaging platform.
+
+==================================================
+A. DEFINE ONE CANONICAL ACTION-RECOMMENDATION MODEL
+==================================================
+
+Create one small shared model/helper/view-model layer that can be reused across the key pilot surfaces.
+
+It should derive, at minimum, for an at-risk item:
+- likelyCause
+- confidence or review-needed state
+- recommendedOwner
+- recommendedAction
+- status / handlingState
+- secondary available actions
+- short “why this recommendation” explanation
+
+Do NOT duplicate this decision logic separately in multiple pages.
+
+The model does not need to be globally perfect, but it must be explicit, reusable, and grounded in real existing signals.
+
+==================================================
+B. ACTION TYPES / STATES TO SUPPORT
+==================================================
+
+Use a realistic operational taxonomy. You may rename to fit the codebase, but preserve the meaning.
+
+Recommended next-action types should cover at least:
+- confirm_and_log_session
+- schedule_makeup
+- follow_up_with_provider
+- review_with_case_manager
+- escalate_coverage_issue
+- review_requirement_data
+- monitor_only
+
+Handling/status states should cover at least:
+- needs_action
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+- resolved
+
+If some of these cannot be fully persisted without schema changes, implement the strongest bounded version possible using existing patterns, and be explicit about what is real state vs derived recommendation.
+
+==================================================
+C. LIKELY CAUSE BUCKETS TO SUPPORT
+==================================================
+
+Use existing signals to infer a likely cause where possible. At minimum support cause buckets like:
+- documentation_lag
+- likely_missed_service
+- provider_absence_or_staffing_issue
+- student_absence_or_conflict
+- schedule_mismatch
+- requirement_or_data_issue
+- ambiguous_review_needed
+
+Important:
+Do not overclaim.
+If the product cannot distinguish confidently, explicitly use ambiguous_review_needed or equivalent.
+Better to be honest than fake precision.
+
+==================================================
+D. OWNER MODEL TO SUPPORT
+==================================================
+
+Recommended owner should be explicit and realistic, using roles already present in the product where possible:
+- admin / coordinator
+- service provider
+- scheduler
+- case manager / SPED teacher
+- para
+- ABA tutor
+
+Do not make owner decorative text only.
+It should influence:
+- the recommended action wording
+- which quick actions are shown first
+- whether a handoff path is offered
+
+==================================================
+E. DECISION RULES — WHAT SHOULD THE PRODUCT RECOMMEND?
+==================================================
+
+Use concrete heuristics grounded in current available data.
+
+At minimum, implement logic roughly like this where signals support it:
+
+1. Documentation lag
+If there is good reason to believe the service likely occurred but was not documented:
+- recommendedAction = confirm_and_log_session
+- recommendedOwner = service provider or legitimate recorder
+- explanation should say why
+
+2. Likely missed service
+If a service appears truly missed and no evidence suggests it happened:
+- recommendedAction = schedule_makeup
+- recommendedOwner = scheduler, provider, or admin depending on current codebase role patterns
+
+3. Ambiguous provider-side issue
+If it is unclear whether service happened:
+- recommendedAction = follow_up_with_provider
+- recommendedOwner = provider or admin depending on workflow
+
+4. Recurring or programmatic issue
+If the gap is chronic, cross-cutting, or suggests the plan/workflow may be wrong:
+- recommendedAction = review_with_case_manager
+- recommendedOwner = case manager / SPED teacher / admin
+
+5. Staffing/coverage failure
+If the signal points to provider absence, no assignment, or coverage breakdown:
+- recommendedAction = escalate_coverage_issue
+- recommendedOwner = admin / scheduler / lead
+
+6. Data/requirement inconsistency
+If the issue likely reflects a requirement, supersede, schedule, or mapping problem:
+- recommendedAction = review_requirement_data
+- recommendedOwner = admin / compliance lead / case manager
+
+If a recommendation is weak or uncertain, make that explicit in the explanation.
+
+==================================================
+F. SURFACES TO APPLY FIRST
+==================================================
+
+Do not spread thinly across the whole product.
+Implement this on the highest-value pilot-critical surfaces first.
+
+Priority order:
+1. Action Center
+2. Student detail summary / top card / most important summary surface
+3. The most central compliance/risk list or report row surface
+4. Return-to-context flow if needed to keep the action loop intact
+
+Choose the specific exact surfaces based on actual usage/value in the codebase, but explain your choices.
+
+==================================================
+G. UI / UX REQUIREMENTS
+==================================================
+
+For each at-risk item on the chosen surfaces, the UI should clearly distinguish:
+
+1. Recommended next action
+- one primary recommendation only
+
+2. Available actions
+- secondary buttons/links if the user wants a different path
+
+3. Recommended owner
+- explicit and understandable
+
+4. Likely cause
+- short and plain-language
+
+5. Status / handling state
+- if already being handled, show that clearly
+
+6. Why this recommendation
+- one sentence max, operationally useful
+
+Do NOT make the UI noisy or overly clever.
+Do NOT add giant card stacks or dense workflows.
+High signal, low clutter.
+
+==================================================
+H. HANDOFF / ASSIGNMENT BEHAVIOR
+==================================================
+
+This is important.
+
+If the current user is not the right owner, the product should support a lightweight handoff or assignment pattern using existing infrastructure if possible.
+
+Examples of acceptable bounded implementations:
+- create or update an Action Center item state
+- assign owner / role in an existing task-like object
+- mark as awaiting confirmation
+- mark recovery scheduled
+- mark handed off to provider / scheduler / case manager
+- add a lightweight note/status change if there is an existing safe place for it
+
+Examples explicitly out of scope:
+- a brand-new chat or messaging system
+- a giant notification engine from scratch
+- new database tables unless absolutely unavoidable and clearly justified
+
+Important:
+If you cannot persist full handoff state safely without schema changes, then:
+- persist what you can using existing patterns
+- make clear what is derived vs persisted
+- prioritize useful visible workflow state over fake completeness
+
+==================================================
+I. CLOSED-LOOP OPERATIONAL BEHAVIOR
+==================================================
+
+Avoid duplicate chasing.
+
+The product should meaningfully distinguish:
+- needs action
+- handed off
+- awaiting confirmation
+- recovery scheduled
+- resolved
+
+Users should be able to tell whether they need to act, or whether someone already is.
+
+This matters as much as the recommendation itself.
+
+==================================================
+J. WHAT NOT TO DO
+==================================================
+
+Do NOT:
+- make everything “needs review”
+- make “Log Session” the universal default
+- add decorative status text with no workflow effect
+- build a giant workflow engine
+- build a full scheduling system
+- redesign every page
+- invent fake certainty
+- create broad new infrastructure unless clearly necessary
+- drift into unrelated product areas
+
+==================================================
+K. ARCHITECTURE / IMPLEMENTATION EXPECTATIONS
+==================================================
+
+- Centralize the recommendation logic
+- Reuse existing components/patterns where possible
+- Keep logic deterministic and testable
+- If a small shared helper/view-model is the right seam, use it
+- If there is already an Action Center task/status model, extend or reuse it rather than bypassing it
+- Preserve existing correctness and trust in risk calculations
+- Avoid broad refactors unless they directly pay off for this phase
+
+==================================================
+L. TESTING REQUIREMENTS
+==================================================
+
+Add focused tests for the new action model and the touched surfaces.
+
+At minimum, cover:
+- likely documentation-lag case → confirm_and_log_session
+- likely true missed-service case → schedule_makeup
+- ambiguous case → follow_up_with_provider or review-needed state
+- recurring/programmatic case → review_with_case_manager
+- already-being-handled state (e.g. recovery_scheduled or awaiting_confirmation) is surfaced correctly
+- owner changes the wording/path appropriately where applicable
+- recommended action is distinct from available actions
+- no regression in existing quick-log behavior on touched surfaces
+
+If you choose not to persist some states, test the derived behavior honestly.
+
+==================================================
+M. STATUS UPDATES REQUIRED DURING EXECUTION
+==================================================
+
+Give concise progress updates as you work.
+In those updates, include:
+- which surface you are auditing/changing
+- what user problem you are solving
+- whether the change is recommendation logic, owner/handoff, status modeling, or UI composition
+- important judgment calls about ambiguity vs confidence
+- current test/build status when relevant
+
+==================================================
+N. REQUIRED FINAL OUTPUT FORMAT
+==================================================
+
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph on whether the wedge now feels more operationally realistic
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact components/pages/hooks/routes/helpers changed
+- exact reason for the change
+- whether it is recommendation logic, owner/handoff, status modeling, UI composition, navigation, or tests
+
+3. ACTION MODEL IMPLEMENTED
+State exactly:
+- the action types/states implemented
+- the likely causes implemented
+- the owner roles implemented
+- which parts are persisted vs derived
+- where the model is surfaced in the product
+
+4. DECISION RULES IMPLEMENTED
+Spell out the actual heuristics you implemented for:
+- documentation lag
+- likely missed service
+- ambiguity / review-needed
+- case-manager review
+- staffing escalation
+- data/requirement review
+
+5. PILOT WEDGE IMPROVEMENTS
+State exactly what improved for:
+- Action Center
+- student detail
+- compliance / risk surfaces
+- Quick Log / session logging
+- owner handoff / tracking
+- return-to-context flow if touched
+
+6. BEFORE/AFTER WORKFLOW IMPACT
+Explain concretely how the flow improved for a district admin trying to:
+- identify risk
+- understand likely cause
+- choose the right next action
+- hand off to the right person
+- avoid duplicate chasing
+- verify what is already in progress
+
+7. TEST / BUILD STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- any typecheck/build results
+- any unrelated pre-existing failures clearly separated from regressions
+
+8. REMAINING PILOT-WEDGE GAPS
+List only the highest-value remaining wedge gaps after this phase.
+
+9. EXACT NEXT TASKS
+List the next 3–10 highest-value follow-up tasks in priority order.
+
+Important:
+- Include a summary of exact changes made, not just a high-level recap
+- Favor realistic school-operations flow over shiny UI
+- Be honest about what is actually persisted versus what is only recommended or derived
+- If you have to choose, prioritize cause-aware recommendation + owner-aware handoff + already-being-handled state over cosmetic polish
