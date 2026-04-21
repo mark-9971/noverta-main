@@ -28,7 +28,9 @@ import {
   type RecommendationSignal,
   type RecommendedActionType,
 } from "@/lib/action-recommendations";
-import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
+import { useHandlingState, resolveOwnerDisplay, formatRelativeTime, handOffToCaseManager, cmReviewHref } from "@/lib/use-handling-state";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import HandlingHistoryPopover from "@/components/handling-history-popover";
 import { buildScheduleMakeupHref, type ScheduleMakeupOrigin } from "@/lib/schedule-makeup";
 import { HandlingStatePill } from "@/components/wedge-primitives";
@@ -73,6 +75,7 @@ export default function RecommendedNextStepCard({
   // but is no longer used for namespacing (district scoping is enforced
   // server-side).
   void userKey;
+  const qc = useQueryClient();
   const { getState, setState, getEntry } = useHandlingState([itemId]);
   const handlingState = getState(itemId);
   const handlingEntry = getEntry(itemId);
@@ -105,7 +108,40 @@ export default function RecommendedNextStepCard({
       return;
     }
     if (action === "follow_up_with_provider") return setState(itemId, "awaiting_confirmation");
-    if (action === "review_with_case_manager" || action === "review_requirement_data") return setState(itemId, "under_review");
+    if (action === "review_with_case_manager") {
+      // Phase 1F — real handoff: route the item to the student's
+      // assigned case manager with structured context. Falls back to
+      // marking under_review (the prior behavior) if no CM is assigned
+      // or the call fails.
+      handOffToCaseManager({
+        itemId,
+        studentId,
+        recommendation: {
+          causeLabel: recommendation.causeLabel,
+          primaryActionLabel: recommendation.primaryActionLabel,
+          explanation: recommendation.explanation,
+          confidence: recommendation.confidence,
+        },
+        signal: {
+          shortfallMinutes: signal.shortfallMinutes ?? null,
+          requiredMinutes: signal.requiredMinutes ?? null,
+          serviceRequirementId: signal.serviceRequirementId ?? null,
+        },
+      }).then((result) => {
+        qc.invalidateQueries({ queryKey: ["action-item-handling"] });
+        const cmName = result.caseManager?.name ?? "the case manager";
+        toast.success(`Routed to ${cmName} for review`, {
+          description: "They'll see this in their Action Center with the requirement, schedule, and recent sessions to review together.",
+          action: { label: "Open review", onClick: () => navigate(cmReviewHref(itemId)) },
+        });
+      }).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Could not hand off — marked under review instead.";
+        setState(itemId, "under_review");
+        toast.error("Handoff failed", { description: msg });
+      });
+      return;
+    }
+    if (action === "review_requirement_data") return setState(itemId, "under_review");
     if (action === "escalate_coverage_issue" || action === "review_iep_timeline") return setState(itemId, "handed_off");
     // monitor_only — no state change.
   }

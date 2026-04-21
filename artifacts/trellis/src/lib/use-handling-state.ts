@@ -409,6 +409,48 @@ export function useHandlingHistory(itemId: string | null | undefined, opts?: { e
   });
 }
 
+// ─── Real CM hand-off (Phase 1F) ─────────────────────────────────────────────
+
+/**
+ * Phase 1F — invoke the server-side "hand off to case manager" action.
+ * Looks up the student's case manager, attaches a structured note built
+ * from the recommendation context, and routes the item into the CM's
+ * Action Center queue. Used by the "Review with case manager" CTA on
+ * Action Center and the student-detail Recommended Next Step card —
+ * replaces the prior just-flip-to-under_review behavior.
+ *
+ * Returns `{ caseManager, student }` so the caller can show a toast or
+ * navigate to the new CM Review surface.
+ */
+export interface HandOffToCaseManagerResult {
+  data: HandlingRow;
+  caseManager: { id: number; name: string | null; email: string | null } | null;
+  student: { id: number; name: string };
+}
+
+export async function handOffToCaseManager(opts: {
+  itemId: string;
+  studentId: number;
+  recommendation?: { causeLabel?: string; primaryActionLabel?: string; explanation?: string; confidence?: string };
+  signal?: { shortfallMinutes?: number | null; requiredMinutes?: number | null; deliveredMinutes?: number | null; serviceRequirementId?: number | null };
+  extraNote?: string;
+}): Promise<HandOffToCaseManagerResult> {
+  return await apiPost<HandOffToCaseManagerResult>(
+    `/action-item-handling/${encodeURIComponent(opts.itemId)}/hand-off-to-case-manager`,
+    {
+      studentId: opts.studentId,
+      recommendation: opts.recommendation,
+      signal: opts.signal,
+      extraNote: opts.extraNote,
+    },
+  );
+}
+
+/** Build the deep-link to the focused CM review surface for a given item. */
+export function cmReviewHref(itemId: string): string {
+  return `/cm-review/${encodeURIComponent(itemId)}`;
+}
+
 /** Helper used by the history popover to render `from → to` cleanly. */
 export function formatTransitionLabel(from: HandlingState | null, to: HandlingState): string {
   const toLabel = HANDLING_LABELS[to] ?? to;

@@ -22,6 +22,8 @@ import { db } from "@workspace/db";
 import {
   actionItemHandlingTable,
   actionItemHandlingEventsTable,
+  studentsTable,
+  staffTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -212,6 +214,188 @@ router.put("/action-item-handling/:itemId", requireHandlingStateAccess, async (r
   }
 
   res.json({ data: resultRow ? rowToJson(resultRow) : { itemId, state: "needs_action" } });
+});
+
+/**
+ * Phase 1F — Real "Review with case manager" handoff. Looks up the
+ * student's case manager, attaches a structured note built from the
+ * recommendation context, and assigns the item to that CM. The CM's
+ * Action Center will then show the row in their queue.
+ *
+ * Body:
+ *   - studentId: number (required)
+ *   - recommendation: { causeLabel, primaryActionLabel, explanation, confidence } (optional)
+ *   - signal: { shortfallMinutes?, requiredMinutes?, deliveredMinutes?, serviceRequirementId? } (optional)
+ *   - extraNote: string (optional, free-form prefix)
+ */
+const HandOffBodySchema = z.object({
+  studentId: z.number().int().positive(),
+  recommendation: z.object({
+    causeLabel: z.string().max(120).optional(),
+    primaryActionLabel: z.string().max(120).optional(),
+    explanation: z.string().max(800).optional(),
+    confidence: z.string().max(32).optional(),
+  }).optional(),
+  signal: z.object({
+    shortfallMinutes: z.number().optional().nullable(),
+    requiredMinutes: z.number().optional().nullable(),
+    deliveredMinutes: z.number().optional().nullable(),
+    serviceRequirementId: z.number().int().nullable().optional(),
+  }).optional(),
+  extraNote: z.string().max(800).optional(),
+});
+
+function buildHandoffNote(opts: {
+  routedByName: string | null;
+  studentName: string | null;
+  recommendation?: { causeLabel?: string; explanation?: string; primaryActionLabel?: string; confidence?: string };
+  signal?: { shortfallMinutes?: number | null; requiredMinutes?: number | null; deliveredMinutes?: number | null };
+  extraNote?: string;
+}): string {
+  const lines: string[] = [];
+  const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const by = opts.routedByName ?? "a teammate";
+  const who = opts.studentName ? ` for ${opts.studentName}` : "";
+  lines.push(`Routed for case-manager review${who} on ${date} by ${by}.`);
+  if (opts.recommendation?.primaryActionLabel) {
+    const conf = opts.recommendation.confidence ? ` (${opts.recommendation.confidence} confidence)` : "";
+    lines.push(`Recommendation: ${opts.recommendation.primaryActionLabel}${conf}.`);
+  }
+  if (opts.recommendation?.causeLabel) {
+    lines.push(`Likely cause: ${opts.recommendation.causeLabel}.`);
+  }
+  if (opts.recommendation?.explanation) {
+    lines.push(`Why: ${opts.recommendation.explanation}`);
+  }
+  const sig = opts.signal;
+  if (sig && (sig.requiredMinutes || sig.shortfallMinutes || sig.deliveredMinutes)) {
+    const parts: string[] = [];
+    if (sig.requiredMinutes != null) parts.push(`Required: ${sig.requiredMinutes.toLocaleString()} min`);
+    if (sig.deliveredMinutes != null) parts.push(`Delivered: ${sig.deliveredMinutes.toLocaleString()} min`);
+    if (sig.shortfallMinutes != null) {
+      const pct = sig.requiredMinutes ? ` (${Math.round((sig.shortfallMinutes / sig.requiredMinutes) * 100)}%)` : "";
+      parts.push(`Shortfall: ${sig.shortfallMinutes.toLocaleString()} min${pct}`);
+    }
+    if (parts.length) lines.push(parts.join(" · "));
+  }
+  if (opts.extraNote) lines.push(opts.extraNote);
+  lines.push("Open this item in your queue to review IEP requirement, schedule blocks, and recent sessions together.");
+  return lines.join("\n");
+}
+
+router.post("/action-item-handling/:itemId/hand-off-to-case-manager", requireHandlingStateAccess, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const districtId = getEnforcedDistrictId(authed);
+  if (districtId == null) { res.status(403).json({ error: "no district scope" }); return; }
+
+  const idCheck = ItemIdSchema.safeParse(req.params.itemId);
+  if (!idCheck.success) { res.status(400).json({ error: "invalid item id" }); return; }
+  const itemId = idCheck.data;
+
+  const bodyCheck = HandOffBodySchema.safeParse(req.body);
+  if (!bodyCheck.success) { res.status(400).json({ error: bodyCheck.error.message }); return; }
+  const body = bodyCheck.data;
+
+  // Look up the student in the caller's district to enforce scope.
+  const [student] = await db
+    .select({
+      id: studentsTable.id,
+      firstName: studentsTable.firstName,
+      lastName: studentsTable.lastName,
+      caseManagerId: studentsTable.caseManagerId,
+    })
+    .from(studentsTable)
+    .where(and(eq(studentsTable.id, body.studentId), eq(studentsTable.districtId, districtId)))
+    .limit(1);
+  if (!student) { res.status(404).json({ error: "student not found in your district" }); return; }
+  if (!student.caseManagerId) {
+    res.status(409).json({ error: "no_case_manager_assigned", message: "This student has no case manager assigned. Assign one on the student's record first." });
+    return;
+  }
+
+  const [cm] = await db
+    .select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName, email: staffTable.email })
+    .from(staffTable)
+    .where(eq(staffTable.id, student.caseManagerId))
+    .limit(1);
+  const caseManagerName = cm ? `${cm.firstName ?? ""} ${cm.lastName ?? ""}`.trim() : null;
+
+  const studentName = `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim();
+  const note = buildHandoffNote({
+    routedByName: authed.displayName ?? null,
+    studentName,
+    recommendation: body.recommendation,
+    signal: body.signal,
+    extraNote: body.extraNote,
+  });
+
+  // Upsert the handling row with assignment + structured note.
+  const existingRows = await db
+    .select()
+    .from(actionItemHandlingTable)
+    .where(and(
+      eq(actionItemHandlingTable.districtId, districtId),
+      eq(actionItemHandlingTable.itemId, itemId),
+    ))
+    .limit(1);
+  const existing = existingRows[0];
+  const fromState = existing?.state ?? null;
+
+  let row: typeof actionItemHandlingTable.$inferSelect;
+  if (existing) {
+    const [upd] = await db
+      .update(actionItemHandlingTable)
+      .set({
+        state: "handed_off",
+        note,
+        recommendedOwnerRole: "case_manager",
+        assignedToRole: "case_manager",
+        assignedToUserId: String(student.caseManagerId),
+        updatedByUserId: authed.userId,
+        updatedByName: authed.displayName ?? null,
+        resolvedAt: null,
+      })
+      .where(and(
+        eq(actionItemHandlingTable.districtId, districtId),
+        eq(actionItemHandlingTable.itemId, itemId),
+      ))
+      .returning();
+    row = upd;
+  } else {
+    const [ins] = await db
+      .insert(actionItemHandlingTable)
+      .values({
+        districtId,
+        itemId,
+        state: "handed_off",
+        note,
+        recommendedOwnerRole: "case_manager",
+        assignedToRole: "case_manager",
+        assignedToUserId: String(student.caseManagerId),
+        updatedByUserId: authed.userId,
+        updatedByName: authed.displayName ?? null,
+      })
+      .returning();
+    row = ins;
+  }
+
+  if (fromState !== "handed_off") {
+    await db.insert(actionItemHandlingEventsTable).values({
+      districtId,
+      itemId,
+      fromState,
+      toState: "handed_off",
+      note: `Handed off to case manager${caseManagerName ? ` ${caseManagerName}` : ""}.`,
+      changedByUserId: authed.userId,
+      changedByName: authed.displayName ?? null,
+    });
+  }
+
+  res.json({
+    data: rowToJson(row),
+    caseManager: cm ? { id: cm.id, name: caseManagerName, email: cm.email } : null,
+    student: { id: student.id, name: studentName },
+  });
 });
 
 router.get("/action-item-handling/:itemId/history", requireHandlingStateAccess, async (req, res): Promise<void> => {

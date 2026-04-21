@@ -1,0 +1,158 @@
+Read this as the new working arrangement for Trellis development going forward.
+
+Use the current codebase as source of truth, and assume the product/project planning docs have been updated to reflect the latest full audits.
+
+This is not a coding task.
+This is an operating model alignment task.
+
+Goal:
+Adopt a cleaner, lower-overlap development workflow for Trellis so future work is:
+- more accurate
+- more parallel only where safe
+- less repetitive
+- less chaotic
+- more honest about completion
+- more grounded in the actual wedge
+
+==================================================
+1. PRODUCT TRUTH TO ASSUME
+==================================================
+
+Trellis is strongest today as:
+- an operational workflow tool with a compliance reporting backbone
+
+The real wedge is:
+- Action Center
+- Today / executive wedge surfaces
+- Compliance Risk Report
+- Quick Log
+- Student Detail “Recommended Next Step”
+- shared handling state
+- school-calendar-aware minute math
+
+The biggest current risks are:
+1. one critical workflow loop is still not closed (Schedule Makeup)
+2. the surrounding surface area overstates maturity and creates confusion
+
+==================================================
+2. LANE MODEL
+==================================================
+
+Use this default lane model:
+
+Main agent:
+- high-conflict wedge work
+- anything changing workflow shape
+- anything touching canonical wedge primitives, recommendation logic, shared handling hooks/routes, minute math, nav truth, replit.md truth, demo reset orchestration, or closed-loop scheduling
+
+Background lane:
+- isolated reliability work
+- isolated e2e
+- isolated seeder cleanup
+- isolated persistence work
+- buyer pack/docs
+- low-conflict module work
+
+Default coding lane count:
+- 2 total most of the time
+- 3 max only when the third is clearly low-conflict
+
+Do not encourage many simultaneous coding lanes against wedge files.
+
+==================================================
+3. HOT FILES / HIGH-CONFLICT AREAS
+==================================================
+
+Treat these as high-conflict:
+- artifacts/trellis/src/components/wedge-primitives.tsx
+- artifacts/trellis/src/lib/action-recommendations.ts
+- artifacts/trellis/src/lib/use-handling-state.ts
+- artifacts/trellis/src/lib/use-dismissal-state.ts
+- artifacts/trellis/src/pages/action-center.tsx
+- artifacts/trellis/src/pages/compliance-risk-report.tsx
+- artifacts/trellis/src/components/dashboard/*
+- artifacts/api-server/src/routes/actionItemHandling.ts
+- artifacts/api-server/src/routes/actionItemDismissals.ts
+- artifacts/api-server/src/lib/minuteCalc.ts
+- artifacts/api-server/src/lib/schoolCalendar.ts
+- artifacts/trellis/src/lib/nav-config.ts
+- replit.md
+- demo reset/seeding files
+- scheduling orchestration files
+
+If a proposed task touches these, call out overlap risk explicitly.
+
+==================================================
+4. PROMPT / OUTPUT EXPECTATIONS
+==================================================
+
+For substantial tasks:
+- do the work, not just a plan
+- reuse canonical helpers/models/components/routes
+- do not duplicate logic
+- do not broaden scope casually
+- be explicit about what is persisted vs derived vs local-only vs shared
+- if prior summaries conflict with code, prefer the code
+
+All substantial task outputs should return:
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. ARCHITECTURE / MODEL IMPACT
+5. TEST / BUILD STATUS
+6. REMAINING GAPS
+7. EXACT NEXT TASKS
+
+And include a clean plain-text FINAL ARTIFACT block.
+
+Verdicts must be honest:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+==================================================
+5. ROADMAP ORDER TO ASSUME
+==================================================
+
+Current best order:
+1. surface honesty / maturity clarity where needed
+2. closed-loop scheduling / makeup orchestration
+3. durable case-manager persistence
+4. audit-grade proof
+5. selective demo/sales polish
+
+Do not assume “more breadth” is the right next move.
+
+Do not prioritize yet:
+- giant backend task engine
+- broad visual redesign
+- more clinical scaffolding
+- more executive dashboards
+- generic localStorage cleanup sweeps
+- more top-level nav breadth
+
+==================================================
+6. WHAT I WANT FROM YOU NOW
+==================================================
+
+Acknowledge this working arrangement and return:
+
+1. OPERATING MODEL ACCEPTANCE
+- short paragraph summarizing the new model in your own words
+
+2. MAIN-AGENT TASK TYPES
+- what should stay on main agent
+
+3. BACKGROUND-SAFE TASK TYPES
+- what is actually safe to split out
+
+4. HIGH-RISK OVERLAP WARNINGS
+- top 5 overlap risks you will watch for
+
+5. RECOMMENDED DEFAULT TEAM SHAPE
+- how many lanes you think is sane right now
+
+6. ANY CORRECTIONS
+- if the current arrangement should be adjusted based on the codebase, say so clearly
+
+At the end, include a copy-pasteable FINAL ARTIFACT block.

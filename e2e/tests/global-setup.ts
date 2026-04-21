@@ -1,7 +1,10 @@
 import { clerkSetup } from "@clerk/testing/playwright";
 import type { FullConfig } from "@playwright/test";
 import { writeFileSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const ADMIN_EMAIL =
   process.env.E2E_ADMIN_EMAIL ?? "trellis-e2e-admin+clerk_test@example.com";

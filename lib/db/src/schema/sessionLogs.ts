@@ -25,6 +25,16 @@ export const sessionLogsTable = pgTable("session_logs", {
   missedReasonId: integer("missed_reason_id").references(() => missedReasonsTable.id),
   isMakeup: boolean("is_makeup").notNull().default(false),
   makeupForId: integer("makeup_for_id").references((): AnyPgColumn => sessionLogsTable.id),
+  // T01 (Phase A — closed-loop makeup): when this session was logged against
+  // a schedule_block whose source_action_item_id was set (i.e. the block was
+  // created from an Action Center "Schedule Makeup" deep link), the canonical
+  // string id of the originating action item is mirrored here so T04 can
+  // auto-resolve the matching action_item_handling row without re-joining
+  // through schedule_blocks. Soft reference (text), not a FK — same reasoning
+  // as on schedule_blocks. May be NULL for non-makeup sessions and for
+  // makeup sessions that were not created via the deep-link flow (e.g.
+  // hand-entered makeups, seeder rows).
+  sourceActionItemId: text("source_action_item_id"),
   isCompensatory: boolean("is_compensatory").notNull().default(false),
   compensatoryObligationId: integer("compensatory_obligation_id").references(() => compensatoryObligationsTable.id),
   notes: text("notes"),

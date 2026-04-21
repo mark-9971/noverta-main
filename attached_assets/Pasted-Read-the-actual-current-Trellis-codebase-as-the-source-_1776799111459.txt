@@ -1,0 +1,148 @@
+Read the actual current Trellis codebase as the source of truth and produce a brutally honest roadmap, then narrow it to the exact next tasks.
+
+Context:
+Trellis is not being judged by route count or broad feature breadth. Judge it by what is actually operational, coherent, and high-value right now.
+Current planning belief is that Trellis is strongest as a SPED operational workflow tool with a compliance reporting backbone.
+The real wedge is:
+- Action Center
+- Today / executive wedge surfaces
+- Compliance Risk Report
+- Quick Log
+- Student Detail “Recommended Next Step”
+- shared handling state
+- school-calendar-aware minute math
+
+Important risks already identified:
+1. one critical workflow loop is still not closed: Schedule Makeup / recovery orchestration
+2. the surrounding surface area may overstate maturity and create confusion
+3. some workflows may exist as routes but not as deep, repeatable product behavior
+
+Your job:
+Do not just summarize features.
+Do not give a generic brainstorm.
+Do a product-architect + operator + skeptical buyer read of the codebase and produce:
+1. a large roadmap
+2. then the exact next tasks in priority order
+
+Required approach:
+- Use the actual current codebase as the source of truth.
+- Contradict prior assumptions if the codebase says they are wrong.
+- Distinguish what is:
+  - real and strong
+  - usable but thin
+  - partial / fragile
+  - mostly scaffolding / placeholder
+- Do not confuse “route exists” with “feature is mature.”
+- Focus on pilot value, operational coherence, workflow closure, and buyer trust.
+- Be especially skeptical about scheduling, case-manager durability, overlapping home surfaces, broad nav breadth, clinical/ABA breadth, and any maturity claims that are more marketing than reality.
+
+What I want in the roadmap:
+Build a roadmap with phases, where each phase has:
+- phase name
+- objective
+- why it matters now
+- what belongs in the phase
+- what explicitly does NOT belong in the phase
+- expected user-visible outcome
+- architectural areas / file groups likely involved
+- risk / overlap level
+- whether it should be main-agent work or a low-conflict background lane
+
+I want a real roadmap, not a flat task list.
+The roadmap should cover at least:
+- truth / maturity clarity
+- closed-loop scheduling / makeup orchestration
+- durable case-manager persistence
+- audit-grade proof
+- demo / sales polish
+- any critical trust/explanation gaps
+- any repo / CI / reliability work that actually matters
+
+Then narrow to exact next tasks:
+After the roadmap, give me the exact next tasks in priority order.
+These should be concrete, bounded, implementation-ready tasks — not vague themes.
+For each next task include:
+- title
+- exact objective
+- why now
+- what user-visible behavior changes
+- scope
+- non-goals
+- architectural anchors / canonical files/helpers that must be reused
+- likely files/surfaces touched
+- conflict risk
+- recommended lane
+- required proof to accept it
+- what would make it COMPLETE vs PARTIAL vs INCORRECTLY IMPLEMENTED
+
+Important architectural discipline:
+Call out canonical anchors that future work should reuse rather than duplicating logic.
+Especially look for whether these kinds of things exist and should remain canonical:
+- wedge UI primitives
+- recommendation / action taxonomy
+- shared handling-state hooks
+- shared handling-state backend
+- minute math / school calendar logic
+- Quick Log flow
+- handling history UI
+- auth / tenant boundary
+- demo reset / seeding path
+- e2e proof around shared handling state
+
+Important prioritization discipline:
+Bias toward:
+- honest maturity
+- wedge closure
+- overlap avoidance
+- buyer trust
+- workflows that actually get repeated by real users
+
+Do NOT casually prioritize:
+- giant backend task engine
+- broad visual redesign
+- more top-level nav breadth
+- more executive dashboards
+- broad clinical scaffolding
+- generic cleanup sweeps
+- premature scale/performance work
+- work that sounds impressive but does not strengthen the wedge
+
+Required final output structure:
+1. EXECUTIVE VERDICT
+2. PRODUCT MATURITY MAP
+3. LARGE ROADMAP BY PHASE
+4. TOP 15–25 EXACT NEXT TASKS
+5. HOT FILES / CANONICAL ANCHORS TO PROTECT
+6. LANE / OVERLAP RECOMMENDATIONS
+7. BIGGEST THINGS TO DEFER
+8. FINAL ARTIFACT
+
+In PRODUCT MATURITY MAP, classify major surfaces/modules into:
+- STRONG
+- USABLE BUT THIN
+- PARTIAL / FRAGILE
+- MOSTLY SCAFFOLDING
+
+In LARGE ROADMAP BY PHASE, be explicit about sequence and why.
+
+In TOP 15–25 EXACT NEXT TASKS, sort by highest value first.
+
+In HOT FILES / CANONICAL ANCHORS TO PROTECT, name exact files or file groups if you can.
+
+In LANE / OVERLAP RECOMMENDATIONS, be conservative. Assume 2 coding lanes is the sane default, and only recommend a third if it is clearly low-conflict.
+
+In FINAL ARTIFACT, include a clean copy-pasteable block that summarizes:
+- current honest product category
+- strongest wedge
+- biggest risks
+- roadmap order
+- top next tasks
+- what should not be prioritized yet
+
+Quality bar:
+I do not want a flattering feature recap.
+I want the most useful planning document possible for deciding what to build next.
+If prior beliefs are wrong, say so plainly.
+If a route/module should wait, say so.
+If a task belongs on the main agent, say so.
+If the shell is broader than the core, say so.

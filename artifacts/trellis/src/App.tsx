@@ -103,6 +103,7 @@ const DistrictOverview = lazy(() => import("@/pages/district-overview"));
 const BehaviorAssessmentPage = lazy(() => import("@/pages/behavior-assessment"));
 const IepBuilderPage = lazy(() => import("@/pages/iep-builder"));
 const IepBuilderLanding = lazy(() => import("@/pages/iep-builder-landing"));
+const CmReviewPage = lazy(() => import("@/pages/cm-review"));
 const ExecutiveDashboard = lazy(() => import("@/pages/executive-dashboard"));
 const ResourceManagement = lazy(() => import("@/pages/resource-management"));
 const CaseloadBalancing = lazy(() => import("@/pages/caseload-balancing"));
@@ -318,6 +319,7 @@ function StaffRouter() {
        * Do NOT add a featureKey prop to any of these three routes.
        */}
       <BoundedRoute path="/action-center" component={ActionCenterPage} fallbackTitle="Action center error" />
+      <BoundedRoute path="/cm-review/:itemId" component={CmReviewPage} fallbackTitle="Case manager review error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <Redirect to="/compliance?tab=timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <Redirect to="/compliance?tab=checklist" />}</Route>

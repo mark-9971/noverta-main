@@ -1,0 +1,137 @@
+TRELLIS — FIX G-A PRODUCT RENDER BLOCKER SO WEDGE SMOKE GATE CAN GO GREEN
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a narrow product unblock, not a broad app-shell refactor.
+- The wedge harness is now restored and runnable.
+- The current gate is RED because the trellis web app is not rendering in fresh E2E browser contexts.
+- Do not broaden into unrelated product cleanup, provider architecture redesign, or broader UI work.
+- Fix only what is needed to restore a real rendered app shell for the wedge smoke gate.
+
+Current known blocker
+The restored wedge smoke harness now reaches product code, but the gate fails because the trellis app renders essentially nothing in the E2E session.
+Observed symptoms:
+- page snapshot shows only the Replit dev banner / empty mount
+- browser/runtime logs correlate with:
+  useRole must be used within RoleProvider
+- likely cause is provider ordering in the app tree, with something like SupportSessionProvider and/or SessionTimerProvider mounted outside RoleProvider
+
+Objective
+Fix the provider-ordering/runtime context bug so the trellis app renders correctly in fresh E2E sessions and the existing wedge smoke spec can proceed to real product assertions.
+
+Why now
+Planning cannot honestly resume T02 until the wedge gate is real.
+The harness work is already done.
+This is now the shortest path to a real runnable wedge smoke gate.
+
+Success criteria
+By the end of this task:
+1. The app renders normally in the E2E browser context
+2. The specific RoleProvider/useRole runtime error is gone
+3. shared-handling-state.spec.ts can be re-run as the primary wedge smoke gate
+4. If that spec still fails, it fails on a later real product assertion rather than empty app render / provider-context crash
+5. Scope stays tightly bounded to the app-shell/render blocker
+
+In scope
+- inspect the app/provider tree
+- fix provider ordering / required wrapper placement
+- ensure any hook using useRole is mounted under RoleProvider
+- make the minimum code change needed to restore correct rendering in E2E
+- re-run the canonical wedge smoke spec after the fix
+- report whether the wedge gate is now GREEN or still RED, with exact blocker if still red
+
+Out of scope
+- no broad auth redesign
+- no broad support-session redesign
+- no broad context/provider cleanup unless strictly required
+- no unrelated page-level product fixes
+- no T02/T03/T04/T05 work
+- no Playwright harness redesign
+- no generic visual/UI cleanup
+
+Likely file focus
+Primary expected file:
+- artifacts/trellis/src/App.tsx
+
+Possibly nearby provider/context files only if needed:
+- support-session-context.tsx
+- session timer provider files
+- role/provider wiring files
+
+Architecture expectations
+- Reuse the existing provider model; do not invent a parallel role/context system
+- Keep the fix minimal and canonical
+- Do not duplicate role state or bypass the hook contract
+- If the likely one-file App.tsx fix is enough, stop there
+
+Testing / verification requirements
+Required:
+- run the wedge smoke gate again, preferably:
+  e2e/tests/shared-handling-state.spec.ts
+- if needed, also run the narrower existing wedge-adjacent spec used during the prior task
+- explicitly state:
+  - whether the app renders now
+  - whether the RoleProvider/useRole error is gone
+  - whether the smoke gate is GREEN or still RED
+  - if still RED, what the next real blocker is
+
+Also report:
+- exact files changed
+- exact reason for each change
+- whether this was truly just provider ordering or something broader
+- any unrelated pre-existing failures clearly separated
+
+Required final output
+1. EXECUTIVE VERDICT
+   - COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT CHANGES MADE
+   - exact file paths
+   - exact provider/context changes
+3. USER-VISIBLE IMPACT
+   - likely none for end users directly; explain operational/testing impact honestly
+4. ARCHITECTURE / MODEL IMPACT
+   - what canonical provider/context structure was preserved
+   - whether any new canonical wrapper assumptions now exist
+5. TEST / BUILD STATUS
+   - exact specs run
+   - pass/fail
+   - whether app render is restored
+   - whether wedge gate is GREEN or RED
+6. REMAINING GAPS
+   - only real remaining blockers
+7. EXACT NEXT TASKS
+   - if gate is green, explicitly say resume T02
+   - if gate is still red, name the next blocker exactly
+8. FINAL ARTIFACT
+   - plain-text block easy to paste into project docs
+
+Additional required sections
+Also include:
+- WEDGE GATE STATUS
+  - before this fix
+  - after this fix
+- APP SHELL STATUS
+  - was the app rendering in E2E before?
+  - is it rendering now?
+- HONEST ACCEPTANCE CALL
+  - Can planning now resume T02 with a real wedge gate? yes/no
+
+Acceptance bar
+COMPLETE only if:
+- the provider/render bug is fixed
+- the app renders correctly in E2E
+- the wedge smoke gate can be re-run without empty-app/provider crash
+- planning can honestly use the result as the real gate for resuming the Phase A chain
+
+PARTIAL if:
+- the provider bug is improved but the app still does not render correctly
+- or the gate still fails before meaningful product assertions for another app-shell reason
+
+INCORRECTLY IMPLEMENTED if:
+- the task broadens into unrelated app-shell cleanup
+- or claims success without restoring real app render in E2E
+
+If successful, the exact next task should be:
+T02 — wire intent=makeup deep-link to auto-open block-create with sourceActionItemId

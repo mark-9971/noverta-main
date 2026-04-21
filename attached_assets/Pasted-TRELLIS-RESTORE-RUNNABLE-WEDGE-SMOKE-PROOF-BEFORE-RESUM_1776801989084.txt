@@ -1,0 +1,137 @@
+TRELLIS — RESTORE RUNNABLE WEDGE SMOKE PROOF BEFORE RESUMING PHASE A
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a bounded reliability/unblock task, not a broad testing-platform refactor.
+- The goal is to restore a real wedge testing gate so Phase A can proceed honestly.
+- Do not casually broaden into generic Playwright cleanup, CI redesign, or unrelated test debt.
+- Reuse existing wedge proof paths and current auth/test setup where possible.
+- Be explicit about what is pre-existing failure vs what you fixed.
+- If a broader issue is discovered, isolate it and report it rather than silently expanding scope.
+
+Context
+T01 is complete: the schema link for the makeup chain landed.
+But the required wedge baseline gate is currently blocked by pre-existing harness failures:
+- e2e/global setup crashes because of CommonJS __dirname usage in an ESM context
+- some required Clerk test users for cross-user wedge proof are missing
+This means the current operating model is not enforceable unless wedge smoke proof is restored.
+
+Why now
+The current roadmap is actively normalized around:
+T01 -> T02 -> T03 -> T04 -> T05
+But planning has now explicitly decided that it is acceptable to deviate slightly in order to restore runnable wedge proof first, because proceeding without a working wedge gate would be dishonest and operationally weak.
+
+Objective
+Restore a runnable wedge smoke baseline so we can gate the current closed-loop scheduling chain with real proof before resuming T02.
+
+Success criteria
+By the end of this task:
+1. At least one meaningful wedge smoke path runs end-to-end
+2. The wedge harness no longer dies at global setup from ESM/CJS path issues
+3. Only the minimum missing Clerk test users required for wedge smoke are provisioned/repaired
+4. Remaining blocked suites, if any, are explicitly named and separated from the restored smoke baseline
+5. The result is strong enough that planning can honestly say “wedge smoke proof is runnable again”
+
+In scope
+- Fix the ESM/global-setup crash caused by __dirname usage or equivalent CommonJS-only assumptions in Playwright/e2e helpers
+- Repair only the minimum auth/test-user setup needed to run meaningful wedge smoke proof
+- Prefer restoring existing high-value wedge proof rather than inventing an entirely new test path if practical
+- If restoring the existing highest-value shared-handling wedge proof is too entangled, create the smallest honest wedge smoke path that proves a real wedge workflow and can serve as a gate
+- Document exact remaining pre-existing test/harness issues that are still unresolved after this task
+- Update any narrow fixture/setup code required for this bounded goal
+
+Out of scope
+- No broad Playwright architecture rewrite
+- No generic CI overhaul
+- No broad fixture system redesign
+- No attempt to make the whole test suite green
+- No unrelated product workflow changes
+- No expansion into T02/T03/T04/T05 behavior
+- No broad docs sweep except any targeted update required to record newly confirmed pre-existing test noise
+
+Preferred outcome order
+1. Fix setup/runtime blocker
+2. Restore existing wedge proof if possible
+3. Only if that is not viable within bounded scope, create a minimal wedge-smoke gate
+4. Stop once a real wedge gate exists
+
+Architecture / canonical anchors to reuse
+Treat these as canonical unless the codebase proves otherwise:
+- e2e/tests/shared-handling-state.spec.ts
+- e2e/tests/incident-lifecycle.spec.ts
+- existing Playwright global setup / fixture paths
+- current Clerk testing/provisioning path
+- existing wedge auth and tenant-boundary behavior
+Do not duplicate wedge workflow logic in tests if existing helpers/spec patterns already cover it.
+
+Decision rules
+- Prefer the smallest fix that restores honest wedge proof
+- If the missing Clerk users can be provisioned cleanly, do that
+- If restoring cross-user proof requires broader auth/platform surgery, fall back to the smallest real wedge smoke path and report the broader blocker explicitly
+- Do not claim COMPLETE unless a real wedge smoke test actually runs
+- Do not bury remaining blocked suites in a footnote
+
+Testing / verification requirements
+Required verification:
+- Run the restored smoke proof and report exact result
+- State exactly which spec(s) were run
+- State whether the restored proof covers cross-user/shared-state behavior or only a narrower wedge path
+- If any existing wedge suite is still blocked, name the exact blocker
+- State build/typecheck status only for commands actually run
+- Separate unrelated pre-existing failures from regressions
+
+Required final output
+1. EXECUTIVE VERDICT
+   - COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT CHANGES MADE
+   - exact files changed
+   - exact reason for each
+3. USER-VISIBLE IMPACT
+   - likely none directly; say that clearly, then explain operational impact
+4. ARCHITECTURE / MODEL IMPACT
+   - what existing test/setup/auth paths were reused
+   - whether any new smoke gate became canonical
+5. TEST / BUILD STATUS
+   - exact specs run
+   - pass/fail
+   - what remains blocked
+   - what was pre-existing
+6. REMAINING GAPS
+   - only real gaps
+7. EXACT NEXT TASKS
+   - resume point should be explicit if this succeeds
+8. FINAL ARTIFACT
+   - plain-text block easy to paste into project docs
+
+Additional required output details
+Also include:
+- WEDGE GATE STATUS
+  - not runnable before
+  - now runnable / still blocked
+- EXECUTION PATH
+  - which smoke path is now the gate
+- AUTH / TEST IDENTITY STATUS
+  - which test users existed
+  - which were missing
+  - what you added or changed
+- HONEST ACCEPTANCE CALL
+  - Can planning now resume T02 with a real wedge gate? yes/no
+
+Acceptance bar
+COMPLETE only if:
+- the harness/setup crash is fixed
+- at least one real wedge smoke path runs successfully
+- the result is sufficient to act as a real gate for continuing the makeup-loop chain
+
+PARTIAL if:
+- setup is improved but no meaningful wedge smoke path runs
+- or only a narrow slice works but cannot honestly gate Phase A yet
+
+INCORRECTLY IMPLEMENTED if:
+- the task turns into broad test-platform work
+- or claims success without a real runnable wedge smoke proof
+
+If successful, the exact next task should be:
+T02 — wire intent=makeup deep-link to auto-open block-create with sourceActionItemId

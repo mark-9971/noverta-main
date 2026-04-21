@@ -1,0 +1,26 @@
+{
+  "adminA": {
+    "email": "trellis-e2e-admin+clerk_test@example.com",
+    "staffId": 3013,
+    "districtId": 6,
+    "provisioned": true
+  },
+  "adminB": {
+    "email": "trellis-e2e-admin-b+clerk_test@example.com",
+    "staffId": 3015,
+    "districtId": 9997,
+    "provisioned": true
+  },
+  "adminC": {
+    "email": "trellis-e2e-admin-c+clerk_test@example.com",
+    "staffId": 3016,
+    "districtId": 10176,
+    "provisioned": true
+  },
+  "teacher": {
+    "email": "trellis-e2e-teacher+clerk_test@example.com",
+    "staffId": 3014,
+    "districtId": 9997,
+    "provisioned": true
+  }
+}

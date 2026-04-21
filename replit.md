@@ -27,6 +27,50 @@ Trellis is a SPED service-delivery and compliance-risk platform for Massachusett
 I want iterative development and detailed explanations of your thought process. Ask clarifying questions before making major architectural changes or implementing complex features. Do not change the fundamental project structure or core technologies without explicit approval.
 NEVER hide, demote, remove, or delete nav items, pages, routes, components, or features. Reorganization that *adds* discoverability (e.g., listing a link in two nav groups) is fine; anything that reduces visibility is not. Re-parents that orphan a link from its previous group also count as hiding — preserve the original location and add the new one. The wedge-task prompt that said "hide or demote distracting modules" is overridden by this rule.
 
+## Operating Model (binding for every future session — ACCEPTED NORMALIZED VERSION 2026-04-21)
+
+**Product truth.** Trellis is strongest today as an operational workflow tool with a compliance reporting backbone. The wedge is: Action Center, Today / executive wedge surfaces, Compliance Risk Report, Quick Log, Student Detail "Recommended Next Step", shared handling state, and school-calendar-aware minute math. Biggest current risks: (1) Schedule Makeup / recovery orchestration is still not a true closed loop; (2) surrounding surface area still overstates maturity and creates confusion.
+
+**Roadmap execution rule.**
+- Immediate main build priority: closed-loop scheduling / makeup orchestration (roadmap Phase A; tasks T01–T05 + T07).
+- In parallel, allow only narrow, high-value surface-honesty fixes that reduce current confusion without broadening scope (e.g., T06 truthful-CTA rename).
+- After closed-loop makeup lands, continue broader maturity / surface-honesty consolidation (Phase B; T09–T11).
+- Then proceed to durable case-manager persistence, audit-grade proof, and selective demo / sales polish (Phases C → G → F).
+- Phase D (notifications) cannot start until Phase A is fully merged.
+
+**Lane model (default 2 lanes; 3 max only when the third is clearly low-conflict).**
+- *Main agent:* high-conflict wedge work; anything changing workflow shape; anything touching canonical wedge primitives, recommendation logic, shared handling hooks/routes, minute math, nav truth, replit.md truth, demo reset orchestration, or closed-loop scheduling.
+- *Background lane:* isolated reliability work, isolated e2e, isolated seeder cleanup, isolated persistence work, buyer pack / docs, low-conflict module work.
+Do not encourage many simultaneous coding lanes against wedge files.
+
+**Hot files / high-conflict areas (call out overlap risk explicitly when a task touches these):**
+- `artifacts/trellis/src/components/wedge-primitives.tsx`
+- `artifacts/trellis/src/lib/action-recommendations.ts`
+- `artifacts/trellis/src/lib/use-handling-state.ts`
+- `artifacts/trellis/src/lib/use-dismissal-state.ts`
+- `artifacts/trellis/src/pages/action-center.tsx`
+- `artifacts/trellis/src/pages/compliance-risk-report.tsx`
+- `artifacts/trellis/src/components/dashboard/*`
+- `artifacts/api-server/src/routes/actionItemHandling.ts`
+- `artifacts/api-server/src/routes/actionItemDismissals.ts`
+- `artifacts/api-server/src/lib/minuteCalc.ts`
+- `artifacts/api-server/src/lib/schoolCalendar.ts`
+- `artifacts/trellis/src/lib/nav-config.ts`
+- `replit.md`
+- demo reset / seeding files
+- scheduling orchestration files
+
+**Output contract for substantial tasks.** Do the work, not just a plan. Reuse canonical helpers/models/components/routes; do not duplicate logic; do not broaden scope casually. Be explicit about what is persisted vs derived vs local-only vs shared. If prior summaries conflict with code, prefer the code. Substantial outputs return: (1) EXECUTIVE VERDICT, (2) EXACT CHANGES MADE, (3) USER-VISIBLE IMPACT, (4) ARCHITECTURE / MODEL IMPACT, (5) TEST / BUILD STATUS, (6) REMAINING GAPS, (7) EXACT NEXT TASKS — plus a clean plain-text FINAL ARTIFACT block. Verdicts are honest: COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED.
+
+**Roadmap order to assume:**
+1. Surface honesty / maturity clarity where needed
+2. Closed-loop scheduling / makeup orchestration
+3. Durable case-manager persistence
+4. Audit-grade proof
+5. Selective demo / sales polish
+
+**Do not prioritize yet:** giant backend task engine, broad visual redesign, more clinical scaffolding, more executive dashboards, generic localStorage cleanup sweeps, more top-level nav breadth.
+
 ## System Architecture
 
 Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and backend components.

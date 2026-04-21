@@ -1,0 +1,135 @@
+TRELLIS — RESTORE THE CANONICAL BROWSER-BASED WEDGE GATE FOR REAL
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- We are not moving to T02 until one canonical browser-based wedge smoke spec actually completes.
+- The API-only wedge smoke is useful, but it is not an acceptable replacement for the browser/UI/auth/session gate.
+- The provider-ordering hypothesis has already been disproven and should not be revisited unless new direct evidence appears.
+- Do not broaden into product work unless a real product defect is exposed by a completed spec run.
+- Do not invent another substitute gate. The goal is to make the real Playwright/browser wedge proof runnable.
+
+Objective
+Make one canonical Playwright-based wedge smoke spec complete reliably and reproducibly, using the lightest viable execution mode, and produce a real PASS or FAIL result.
+
+Why now
+Planning still does not have the browser/UI/auth/session gate needed before resuming Phase A. The current blocker appears to be execution-environment operability, especially memory/runtime pressure around Playwright + Chromium + live servers.
+
+Success criteria
+By the end of this task:
+1. One canonical Playwright wedge spec completes to a real end state
+   - PASS or FAIL are both acceptable
+   - OOM kill / orphaned process / browser launch failure / environment crash are not acceptable
+2. The run is reproducible with a documented command
+3. The run uses the real browser/UI/auth/session path
+4. If the result is FAIL, it fails on a named product assertion or product behavior
+5. Planning can honestly say the canonical wedge gate is now operational
+
+Preferred spec order
+1. e2e/tests/incident-lifecycle.spec.ts
+2. e2e/tests/shared-handling-state.spec.ts
+
+If the second is still too heavy, getting the first to a real completion state is acceptable as the minimum browser gate, but do not stop at setup-only success.
+
+In scope
+- make the Playwright/browser execution path viable in this environment
+- use the lightest stable browser mode and runtime settings possible
+- adjust Playwright config, scripts, launch flags, worker count, timeouts, preview/dev mode, or process coordination as needed
+- if production-preview mode is the best path, wire it cleanly and use it
+- if the current container truly cannot run the canonical spec in any bounded way, prove that with hard evidence and establish the smallest alternative execution path that actually runs the canonical browser spec
+- document the exact command and environment needed to rerun it
+
+Out of scope
+- no T02/T03/T04/T05 work
+- no new API-only gate
+- no speculative app-shell fixes unless a completed spec run exposes a real product bug
+- no broad CI overhaul unless required for one real canonical browser spec to run
+- no rehash of disproven provider-ordering theory
+- no claiming success based on screenshots, setup logs, or partial runs
+
+Allowed implementation areas
+- e2e/package.json
+- playwright.config.ts
+- e2e/global-setup / fixtures only if needed
+- browser launch configuration / chromium path / preview-mode execution
+- runtime/process scripts for trellis + api-server coordination
+- memory-conscious execution settings
+
+Architecture expectations
+- preserve the canonical browser-based proof path
+- do not replace it with a lower-fidelity substitute
+- prefer the smallest operational changes that make the existing spec runnable
+- if a new script is added, it should exist to run the canonical spec, not to bypass it
+
+Testing / verification requirements
+Required:
+- run one canonical Playwright wedge spec to actual completion
+- provide exact command(s) used
+- provide exact environment/runtime settings used
+- state whether the result is PASS or FAIL
+- if FAIL, provide the exact failing assertion or named product blocker
+- if PASS, explicitly state that planning can now resume T02
+
+Also include:
+- whether the run used dev mode or production preview
+- whether system Chromium or Playwright Chromium was used
+- what memory/runtime tuning was necessary
+- what prior blocker(s) were actually solved
+
+Required final output
+1. EXECUTIVE VERDICT
+   - COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT CHANGES MADE
+   - exact files changed
+   - exact script/config/runtime changes
+3. USER-VISIBLE IMPACT
+   - likely none directly; explain testing/operability impact honestly
+4. ARCHITECTURE / MODEL IMPACT
+   - what canonical gate path was preserved
+   - whether any new canonical run mode now exists
+5. TEST / BUILD STATUS
+   - exact spec run
+   - exact command
+   - environment used
+   - pass/fail
+   - whether run completed cleanly
+6. REMAINING GAPS
+   - only real remaining blockers
+7. EXACT NEXT TASKS
+   - if PASS, resume T02
+   - if FAIL, name the exact product blocker
+8. FINAL ARTIFACT
+   - plain-text block easy to paste into project docs
+
+Additional required sections
+Also include:
+- CANONICAL WEDGE GATE STATUS
+  - before
+  - after
+- EXECUTION MODE
+  - dev vs preview
+  - browser binary used
+  - worker count / special flags
+- HONEST ACCEPTANCE CALL
+  - Can planning resume T02 now? yes/no
+
+Acceptance bar
+COMPLETE only if:
+- a canonical Playwright/browser wedge spec completes cleanly
+- the result is reproducible
+- planning now has a real browser/UI/auth/session wedge gate
+
+PARTIAL if:
+- the spec still does not complete
+- or only partial/browserless proof exists
+
+INCORRECTLY IMPLEMENTED if:
+- the task substitutes a lower-fidelity gate again
+- or claims success without a completed canonical spec run
+
+If COMPLETE and PASS, the exact next task should be:
+T02 — wire intent=makeup deep-link to auto-open block-create with sourceActionItemId
+
+If COMPLETE and FAIL, the exact next task should be:
+the named product blocker revealed by the now-runnable canonical wedge gate

@@ -329,13 +329,42 @@ if (process.env.NODE_ENV !== "production") {
       const { data: users } = await clerkClient.users.getUserList({
         emailAddress: [email],
       });
-      if (!users.length) {
-        res
-          .status(404)
-          .json({ error: `No Clerk user found with email: ${email}` });
-        return;
+      let user = users[0];
+      if (!user) {
+        // Auto-create Clerk testing users when the email matches Clerk's
+        // reserved `+clerk_test@` testing pattern. This unblocks E2E
+        // provisioning in fresh / shared dev environments without requiring
+        // manual Clerk dashboard setup. Gated by NODE_ENV !== "production"
+        // and the X-E2E-Key shared secret already enforced above.
+        const isClerkTestEmail = /\+clerk_test@/.test(email);
+        if (!isClerkTestEmail) {
+          res
+            .status(404)
+            .json({ error: `No Clerk user found with email: ${email}` });
+          return;
+        }
+        try {
+          // Random 24-char password — never used; testing-token sign-in path
+          // bypasses password verification for +clerk_test@ users.
+          const tempPassword =
+            Math.random().toString(36).slice(2) +
+            Math.random().toString(36).slice(2).toUpperCase() +
+            "!9";
+          user = await clerkClient.users.createUser({
+            emailAddress: [email],
+            password: tempPassword,
+            firstName: "E2E",
+            lastName: role === "admin" ? "Admin" : "Teacher",
+          });
+        } catch (createErr) {
+          res.status(502).json({
+            error: `Failed to create Clerk testing user ${email}: ${
+              createErr instanceof Error ? createErr.message : String(createErr)
+            }`,
+          });
+          return;
+        }
       }
-      const user = users[0];
       const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
 
       // Resolve or discover the district for this user up front, because the
@@ -489,6 +518,8 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 app.use(healthRouter);
+
+
 app.use("/api", requireActiveSubscription);
 // Enforce tenant isolation in EVERY environment: overrides any client-supplied
 // districtId query param with the token-derived value and strips schoolId so

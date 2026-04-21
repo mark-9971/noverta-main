@@ -45,6 +45,27 @@ export async function signIn(page: Page): Promise<void> {
     };
   });
 
+  // Strip our Trellis-only auth headers from any cross-origin request before
+  // they leave the browser. Without this, Clerk's own browser-side API calls
+  // (e.g. star-skunk-*.clerk.accounts.dev) receive our `Authorization: Bearer`
+  // header AND the browser-set `Origin` header, which Clerk rejects with HTTP
+  // 400 ("only one of 'Origin' and 'Authorization' headers should be
+  // provided"). That 400 silently breaks Clerk session restoration on
+  // subsequent page navigations, so AppLayout never finishes rendering and the
+  // test hangs on element-visibility waits.
+  await page.context().route(
+    /clerk\.(com|accounts\.dev|dev)/,
+    async (route) => {
+      const headers = { ...route.request().headers() };
+      delete headers["authorization"];
+      delete headers["x-test-user-id"];
+      delete headers["x-test-role"];
+      delete headers["x-test-district-id"];
+      delete headers["x-test-staff-id"];
+      await route.continue({ headers });
+    },
+  );
+
   // Authenticate page.request.* via dev-bypass headers.
   await page.context().setExtraHTTPHeaders({ ...DEV_BYPASS_HEADERS });
 

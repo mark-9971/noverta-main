@@ -141,7 +141,21 @@ export async function ensureSampleData(page: Page): Promise<void> {
     .then((r) => r.json() as Promise<{ hasSampleData: boolean; sampleStudents: number }>);
   if (status.hasSampleData && status.sampleStudents > 0) return;
 
-  const seedRes = await page.request.post("/api/sample-data");
+  // Small, capacity-safe seed so freshly-provisioned districts (e.g. the
+  // E2E secondary district used by Admin C) don't trip the seeder's
+  // provider-capacity guard. Districts that already have sample data
+  // short-circuit above; this body only applies on first-seed.
+  const seedRes = await page.request.post("/api/sample-data", {
+    data: {
+      targetStudents: 20,
+      providerCount: 4,
+      caseManagerCount: 2,
+      paraCount: 2,
+      bcbaCount: 1,
+      avgRequiredMinutesPerWeek: 60,
+      backfillMonths: 1,
+    },
+  });
   expect(
     seedRes.ok(),
     `POST /api/sample-data should succeed (status ${seedRes.status()})`,

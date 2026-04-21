@@ -1,0 +1,158 @@
+TRELLIS — MAKE WEDGE SMOKE ACTUALLY RUNNABLE END-TO-END BEFORE T02
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- We are not proceeding to T02 until the wedge smoke gate is truly operational.
+- The provider-ordering theory has already been investigated and should be treated as disproven unless new code-level evidence appears.
+- The remaining blocker is that the wedge proof path still does not produce a reliable pass/fail signal in the current environment.
+- Do not broaden into Phase A product work.
+- Do not re-investigate already disproven theories unless the code now contradicts that conclusion.
+- The goal is no longer “diagnose G-A.” The goal is “make wedge smoke actually runnable.”
+
+Current known state
+Already true:
+- global setup no longer crashes on __dirname / ESM
+- required Clerk +clerk_test users can now be provisioned
+- sample-data setup for the secondary district was improved enough to stop the earlier seed-capacity blocker
+- the provider-ordering / useRole hypothesis in App.tsx was investigated and did not hold
+Still not true:
+- the wedge smoke gate does not yet produce a reliable pass/fail result
+- Playwright execution in this environment appears unstable and/or memory-constrained
+- planning still does not have a real wedge gate
+
+Objective
+Make the wedge smoke gate operational end-to-end in a way that produces a real pass/fail signal, and only then clear the path to T02.
+
+Success criteria
+By the end of this task:
+1. At least one canonical wedge smoke spec runs to a real completion state
+   - PASS or FAIL is acceptable
+   - OOM kill / launch failure / environment crash is not acceptable
+2. The run reaches a real product assertion and exits cleanly
+3. If it fails, it fails on a named product behavior, not harness/environment collapse
+4. The exact operational recipe for rerunning wedge smoke is documented clearly
+5. Planning can honestly say either:
+   - “The wedge gate is runnable and green”
+   - or “The wedge gate is runnable and red on a real product defect”
+   but not “we still can’t tell”
+
+In scope
+- Fix the actual remaining blocker(s) that prevent Playwright wedge smoke from completing in this environment or in a viable alternative execution path
+- This may include:
+  - browser install/runtime requirements
+  - memory/swap/runtime tuning
+  - worker/concurrency/browser-launch settings
+  - dev-server/process coordination
+  - any narrow Playwright config changes needed to make the smoke gate operational
+- Reuse the current canonical wedge smoke specs if possible:
+  - e2e/tests/shared-handling-state.spec.ts
+  - e2e/tests/incident-lifecycle.spec.ts
+- Prefer making an existing canonical wedge spec runnable over inventing a new one
+- If the current container is genuinely not viable, establish the smallest honest alternative execution path and prove it by actually running the spec there
+- Report the exact command/path/environment that now works
+
+Out of scope
+- No T02/T03/T04/T05 work
+- No broad Playwright redesign
+- No broad CI overhaul unless absolutely required to make one canonical wedge smoke path runnable
+- No speculative product-code fixes unless the smoke run now exposes a concrete product defect
+- No re-opening the App.tsx provider-ordering theory without new direct evidence
+- No docs sweep beyond any narrow update needed to record the real blocker and the new runnable gate path
+
+Preferred approach
+1. Keep the current harness improvements
+2. Make one canonical wedge smoke spec operational
+3. Produce a real run result
+4. Only then decide whether any product defect remains
+
+Architecture / canonical anchors to reuse
+- e2e/tests/shared-handling-state.spec.ts
+- e2e/tests/incident-lifecycle.spec.ts
+- current Playwright config / global setup / fixture helpers
+- current /api/e2e/setup path
+- current seeded district / Clerk test identity model
+Do not introduce a parallel fake smoke path unless the existing canonical paths are truly impossible to make runnable in bounded scope.
+
+Implementation guidance
+- Treat “OOM kill” / browser launch collapse / missing runtime deps / unstable dev-server coexistence as first-class blockers to solve
+- Prefer the smallest operational fix that yields a reliable run:
+  - one worker
+  - lower browser overhead
+  - longer timeout only if needed
+  - swap or memory adjustment if available
+  - alternate browser mode if valid
+  - alternate execution environment only if necessary and actually used
+- If you conclude the current container cannot run the spec reliably, do not stop at that conclusion — establish and verify a working alternative path
+
+Testing / verification requirements
+Required:
+- run at least one canonical wedge smoke spec to a real end state
+- provide exact command(s) used
+- provide exact environment/runtime notes needed to reproduce
+- state whether the result is:
+  - GREEN
+  - RED on named product defect
+- if RED, name the exact next product/code blocker
+- if GREEN, explicitly say planning can resume T02
+
+Also include:
+- whether the run happened in the same container or a different execution path
+- whether any memory/runtime tuning was required
+- whether any new operational dependency exists for wedge smoke
+
+Required final output
+1. EXECUTIVE VERDICT
+   - COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT CHANGES MADE
+   - exact files changed
+   - exact runtime/config/environment changes
+3. USER-VISIBLE IMPACT
+   - likely none directly; explain operational/testing impact honestly
+4. ARCHITECTURE / MODEL IMPACT
+   - what canonical proof path was preserved
+   - whether any new operational gate path is now canonical
+5. TEST / BUILD STATUS
+   - exact spec(s) run
+   - exact command(s)
+   - pass/fail
+   - environment used
+   - whether run completed cleanly
+6. REMAINING GAPS
+   - only real remaining blockers
+7. EXACT NEXT TASKS
+   - if GREEN, resume T02
+   - if RED, name the exact next blocker
+8. FINAL ARTIFACT
+   - plain-text block easy to paste into project docs
+
+Additional required sections
+Also include:
+- WEDGE GATE STATUS
+  - before this task
+  - after this task
+- EXECUTION ENVIRONMENT STATUS
+  - what was preventing real completion before
+  - what now allows real completion
+- HONEST ACCEPTANCE CALL
+  - Can planning now resume T02? yes/no
+
+Acceptance bar
+COMPLETE only if:
+- a canonical wedge smoke spec runs to a real completion state
+- the result is reproducible
+- planning now has a real operational wedge gate
+
+PARTIAL if:
+- more investigation happened, but the gate still does not complete reliably
+
+INCORRECTLY IMPLEMENTED if:
+- the task rehashes disproven theories
+- or still does not produce a real runnable wedge smoke result
+
+If COMPLETE and GREEN, the exact next task should be:
+T02 — wire intent=makeup deep-link to auto-open block-create with sourceActionItemId
+
+If COMPLETE and RED, the exact next task should be:
+the named product blocker revealed by the now-runnable wedge gate

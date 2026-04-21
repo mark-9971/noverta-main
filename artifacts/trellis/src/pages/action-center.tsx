@@ -27,7 +27,9 @@ import {
   type HandlingState,
   type ActionRecommendation,
 } from "@/lib/action-recommendations";
-import { useHandlingState, resolveOwnerDisplay, formatRelativeTime, type HandlingRow } from "@/lib/use-handling-state";
+import { useHandlingState, resolveOwnerDisplay, formatRelativeTime, handOffToCaseManager, cmReviewHref, type HandlingRow } from "@/lib/use-handling-state";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import HandlingHistoryPopover from "@/components/handling-history-popover";
 import { useDismissalState, type DismissalEntry } from "@/lib/use-dismissal-state";
 import {
@@ -416,8 +418,43 @@ function WorkItemRow({
   onSetHandling: (id: string, state: HandlingState) => void;
 }) {
   const [, navigate] = useLocation();
+  const qc = useQueryClient();
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
+
+  // Phase 1F — real CM hand-off shared by primary + secondary buttons.
+  function doHandoffToCM() {
+    if (!item.studentId) {
+      onSetHandling(item.id, "under_review");
+      return;
+    }
+    handOffToCaseManager({
+      itemId: item.id,
+      studentId: item.studentId,
+      recommendation: {
+        causeLabel: recommendation.causeLabel,
+        primaryActionLabel: recommendation.primaryActionLabel,
+        explanation: recommendation.explanation,
+        confidence: recommendation.confidence,
+      },
+      signal: {
+        shortfallMinutes: item.signal?.shortfallMinutes ?? null,
+        requiredMinutes: item.signal?.requiredMinutes ?? null,
+        serviceRequirementId: item.signal?.serviceRequirementId ?? null,
+      },
+    }).then((result) => {
+      qc.invalidateQueries({ queryKey: ["action-item-handling"] });
+      const cmName = result.caseManager?.name ?? "the case manager";
+      toast.success(`Routed to ${cmName} for review`, {
+        description: "They'll see this in their Action Center with the requirement, schedule, and recent sessions to review together.",
+        action: { label: "Open review", onClick: () => navigate(cmReviewHref(item.id)) },
+      });
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Could not hand off — marked under review instead.";
+      onSetHandling(item.id, "under_review");
+      toast.error("Handoff failed", { description: msg });
+    });
+  }
   // Phase 1B: cause-aware primary CTA.
   //
   // The button label and behavior come from the centralized recommendation
@@ -477,7 +514,8 @@ function WorkItemRow({
     // (e.g. Fix Schedule) via the secondary "Open" link below.
     if (primaryAction === "schedule_makeup") onSetHandling(item.id, "recovery_scheduled");
     else if (primaryAction === "follow_up_with_provider") onSetHandling(item.id, "awaiting_confirmation");
-    else if (primaryAction === "review_with_case_manager" || primaryAction === "review_requirement_data") onSetHandling(item.id, "under_review");
+    else if (primaryAction === "review_with_case_manager") doHandoffToCM();
+    else if (primaryAction === "review_requirement_data") onSetHandling(item.id, "under_review");
     else if (primaryAction === "escalate_coverage_issue") onSetHandling(item.id, "handed_off");
   }
 
@@ -593,6 +631,20 @@ function WorkItemRow({
           {canQuickLog && <ClipboardEdit className="w-3 h-3" />}
           {recommendation.primaryActionLabel}
         </button>
+        {/* Phase 1F — when an item has been routed to a case manager,
+            offer a single-click jump into the focused CM Review surface.
+            Both the routing teammate and the CM see this link, so either
+            can re-open the structured note + outcome buttons in context. */}
+        {handlingState === "handed_off" && handlingEntry?.assignedToRole === "case_manager" && (
+          <Link
+            href={cmReviewHref(item.id)}
+            className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 whitespace-nowrap flex items-center gap-0.5 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100"
+            data-testid={`link-cm-review-${item.id}`}
+            title="Open the focused case-manager review for this item"
+          >
+            Review
+          </Link>
+        )}
         {/* Secondary: keep the original "go to context page" link */}
         <Link
           href={item.href}
@@ -641,7 +693,8 @@ function WorkItemRow({
                           }
                         }
                         else if (sa.type === "follow_up_with_provider") onSetHandling(item.id, "awaiting_confirmation");
-                        else if (sa.type === "review_with_case_manager" || sa.type === "review_requirement_data") onSetHandling(item.id, "under_review");
+                        else if (sa.type === "review_with_case_manager") doHandoffToCM();
+                        else if (sa.type === "review_requirement_data") onSetHandling(item.id, "under_review");
                         else if (sa.type === "escalate_coverage_issue") onSetHandling(item.id, "handed_off");
                       }}
                       className="w-full text-left px-2.5 py-1.5 text-[12px] text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"

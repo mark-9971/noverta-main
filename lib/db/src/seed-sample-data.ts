@@ -1285,6 +1285,16 @@ export async function seedSampleDataForDistrict(
   const ptStaff     = insertedStaff.find(s => s.title?.includes("Physical")) ?? insertedStaff[0];
   const counselor   = insertedStaff.find(s => s.title?.includes("Counselor")) ?? insertedStaff[0];
   const providers   = insertedStaff.filter(s => s.role === "provider" || s.role === "bcba");
+  // Discipline-specific provider pools so a single specialist isn't overloaded
+  // when many students share the same service. Falls back to the singleton
+  // specialist if no others match the title pattern.
+  const bcbaPool      = insertedStaff.filter(s => s.role === "bcba");
+  const slpPool       = insertedStaff.filter(s => s.title?.includes("Speech"));
+  const otPool        = insertedStaff.filter(s => s.title?.includes("Occupational"));
+  const ptPool        = insertedStaff.filter(s => s.title?.includes("Physical"));
+  const counselorPool = insertedStaff.filter(s => s.title?.includes("Counselor"));
+  const pickFrom = <T,>(pool: T[], fallback: T, key: number): T =>
+    pool.length > 0 ? pool[Math.abs(key) % pool.length]! : fallback;
 
   // Round-robin case manager assignment so caseloads stay realistic when
   // multiple case managers exist (medium = 3 CMs split ~20 students each;
@@ -1536,13 +1546,15 @@ export async function seedSampleDataForDistrict(
   const srRows: (typeof serviceRequirementsTable.$inferInsert)[] = [];
   for (const spec of studentSpecs) {
     for (const stId of spec.serviceTypeIds) {
-      // Assign provider matching service type
+      // Assign provider matching service type, spreading load across pool members
+      // so a single specialist isn't overloaded when many students share the
+      // same service.
       let provider = providers[(spec.id + stId) % providers.length];
-      if (stId === aba.id && bcba) provider = bcba;
-      else if (stId === speech.id && slp) provider = slp;
-      else if (stId === ot.id && otStaff) provider = otStaff;
-      else if (stId === pt.id && ptStaff) provider = ptStaff;
-      else if (stId === counseling.id && counselor) provider = counselor;
+      if (stId === aba.id) provider = pickFrom(bcbaPool, bcba, spec.id);
+      else if (stId === speech.id) provider = pickFrom(slpPool, slp, spec.id);
+      else if (stId === ot.id) provider = pickFrom(otPool, otStaff, spec.id);
+      else if (stId === pt.id) provider = pickFrom(ptPool, ptStaff, spec.id);
+      else if (stId === counseling.id) provider = pickFrom(counselorPool, counselor, spec.id);
 
       // Crisis students need high required minutes to generate >$3K exposure
       const reqMin = spec.scenario === "crisis"
@@ -2909,6 +2921,14 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
       // sort. We've already enumerated every reachable table above so
       // nothing gets silently orphaned.
       await tx.execute(sql`SET LOCAL session_replication_role = 'replica'`);
+      // Disable parallel-worker plans for this txn: snapshot SELECTs over
+      // huge IN-lists (thousands of students) otherwise spawn parallel
+      // workers that each allocate ~8 MB of shared memory on /dev/shm. In
+      // constrained environments (containers with default 64 MB shm) this
+      // hits "could not resize shared memory segment ... No space left on
+      // device" (53100). Forcing serial execution costs a few seconds but
+      // keeps the wipe deterministic and within the shared-memory budget.
+      await tx.execute(sql`SET LOCAL max_parallel_workers_per_gather = 0`);
 
       // ---- Snapshot phase ----
       // The reachable predicates reference parent rows (e.g. SGD's predicate

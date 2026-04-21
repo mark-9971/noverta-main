@@ -215,3 +215,9 @@ id = "pi5m68sZNyCPYNWKo0Y2L"
 uri = "file://artifacts/trellis/screenshots/final/README.md"
 type = "text"
 title = "Captions + route URLs"
+
+[[outputs]]
+id = "LSyKyCOGl4CzTIunqBUZZ"
+uri = "file://.local/audits/trellis-roadmap-2026-04-21.txt"
+type = "text"
+title = "Trellis — Honest Roadmap & Next Tasks (2026-04-21)"

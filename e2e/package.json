@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "ensure-browser": "command -v chromium >/dev/null 2>&1 || playwright install chromium",
+    "test": "pnpm run ensure-browser && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"$(command -v chromium)\" playwright test",
+    "test:headed": "pnpm run ensure-browser && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"$(command -v chromium)\" playwright test --headed",
+    "wedge:smoke": "node wedge-smoke.mjs"
   },
   "devDependencies": {
     "@clerk/testing": "^1.4.0",

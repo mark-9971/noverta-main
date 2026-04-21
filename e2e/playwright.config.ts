@@ -7,6 +7,22 @@ const baseURL = process.env.E2E_BASE_URL
 // Playwright's downloaded shell cannot load Nix-managed shared libraries).
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
+// Memory-constrained mode (E2E_LOW_MEM=1): pass chromium flags that collapse
+// renderer/utility/GPU into a single OS process and disable /dev/shm usage.
+// Saves ~300-500 MB RSS at the cost of slower navigation. Required to run
+// Playwright reliably in tightly constrained dev containers where the parent
+// agent infrastructure already consumes most of available RAM.
+const lowMemArgs =
+  process.env.E2E_LOW_MEM === "1"
+    ? [
+        "--single-process",
+        "--disable-dev-shm-usage",
+        "--no-zygote",
+        "--disable-gpu",
+        "--disable-extensions",
+      ]
+    : [];
+
 export default defineConfig({
   testDir: "./tests",
   timeout: 180_000,
@@ -29,9 +45,10 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        ...(chromiumExecutablePath
-          ? { launchOptions: { executablePath: chromiumExecutablePath } }
-          : {}),
+        launchOptions: {
+          ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {}),
+          ...(lowMemArgs.length > 0 ? { args: lowMemArgs } : {}),
+        },
       },
     },
   ],
