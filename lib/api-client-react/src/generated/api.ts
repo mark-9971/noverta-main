@@ -30,6 +30,7 @@ import type {
   AuditPackageResponse,
   AutoCreateIepGoals201,
   AutoCreateIepGoalsBody,
+  BehaviorTargetItem,
   Bip,
   BudgetResponse,
   BulkCreateSessionsBody,
@@ -108,6 +109,7 @@ import type {
   CreateTeamMeeting201,
   CreateTeamMeetingBody,
   DashboardSummary,
+  DataSessionItem,
   DeleteAbsence200,
   DeleteAccommodation200,
   DeleteAssignment200,
@@ -164,7 +166,6 @@ import type {
   GetAssignment200,
   GetAuditLogStats200,
   GetAuditPackageReportParams,
-  GetBehaviorDataTrends200Item,
   GetBehaviorDataTrendsParams,
   GetClass200,
   GetClassRoster200Item,
@@ -204,7 +205,6 @@ import type {
   GetParaStudentTargetsParams,
   GetPendingSignatures200Item,
   GetPendingSignaturesParams,
-  GetProgramDataTrends200Item,
   GetProgramDataTrendsParams,
   GetProgressReport200,
   GetProtectiveIncident200,
@@ -256,14 +256,12 @@ import type {
   ListAnnouncements200Item,
   ListAuditLogs200,
   ListAuditLogsParams,
-  ListBehaviorTargets200Item,
   ListBehaviorTargetsParams,
   ListClassAssignments200Item,
   ListClasses200Item,
   ListClassesParams,
   ListCompensatoryObligationsParams,
   ListComplianceEvents200Item,
-  ListDataSessions200Item,
   ListDataSessionsParams,
   ListFaSessions200Item,
   ListFbaObservations200Item,
@@ -278,10 +276,7 @@ import type {
   ListMinuteProgressParams,
   ListParentContacts200,
   ListParentContactsParams,
-  ListProgramSteps200Item,
-  ListProgramTargets200Item,
   ListProgramTargetsParams,
-  ListProgramTemplates200Item,
   ListProgramTemplatesParams,
   ListProgressNoteContributions200Item,
   ListProgressNoteContributionsParams,
@@ -293,7 +288,6 @@ import type {
   ListServiceRequirementsParams,
   ListSessions200,
   ListSessionsParams,
-  ListSpedStudents200Item,
   ListSpedStudentsParams,
   ListStaffAssignmentsParams,
   ListStaffParams,
@@ -331,6 +325,9 @@ import type {
   PhaseChange,
   PilotHealthResponse,
   Program,
+  ProgramStepItem,
+  ProgramTargetItem,
+  ProgramTemplateItem,
   ProgressSummary,
   ProviderDashboardItem,
   ProviderUtilization,
@@ -361,6 +358,7 @@ import type {
   SignIncidentBody,
   SignIncidentSignature200,
   SignIncidentSignatureBody,
+  SpedStudentListItem,
   Staff,
   StaffAssignment,
   StaffCoverageResponse,
@@ -381,6 +379,7 @@ import type {
   TransitionIncidentStatus200,
   TransitionIncidentStatus400,
   TransitionIncidentStatusBody,
+  TrendPoint,
   UnenrollStudent200,
   UpdateAccommodation200,
   UpdateAccommodationBody,
@@ -13800,8 +13799,8 @@ export const listBehaviorTargets = async (
   studentId: number,
   params?: ListBehaviorTargetsParams,
   options?: RequestInit,
-): Promise<ListBehaviorTargets200Item[]> => {
-  return customFetch<ListBehaviorTargets200Item[]>(
+): Promise<BehaviorTargetItem[]> => {
+  return customFetch<BehaviorTargetItem[]>(
     getListBehaviorTargetsUrl(studentId, params),
     {
       ...options,
@@ -14099,8 +14098,8 @@ export const listProgramTargets = async (
   studentId: number,
   params?: ListProgramTargetsParams,
   options?: RequestInit,
-): Promise<ListProgramTargets200Item[]> => {
-  return customFetch<ListProgramTargets200Item[]>(
+): Promise<ProgramTargetItem[]> => {
+  return customFetch<ProgramTargetItem[]>(
     getListProgramTargetsUrl(studentId, params),
     {
       ...options,
@@ -14380,8 +14379,8 @@ export const getListProgramStepsUrl = (id: number) => {
 export const listProgramSteps = async (
   id: number,
   options?: RequestInit,
-): Promise<ListProgramSteps200Item[]> => {
-  return customFetch<ListProgramSteps200Item[]>(getListProgramStepsUrl(id), {
+): Promise<ProgramStepItem[]> => {
+  return customFetch<ProgramStepItem[]>(getListProgramStepsUrl(id), {
     ...options,
     method: "GET",
   });
@@ -14739,8 +14738,8 @@ export const getListProgramTemplatesUrl = (
 export const listProgramTemplates = async (
   params?: ListProgramTemplatesParams,
   options?: RequestInit,
-): Promise<ListProgramTemplates200Item[]> => {
-  return customFetch<ListProgramTemplates200Item[]>(
+): Promise<ProgramTemplateItem[]> => {
+  return customFetch<ProgramTemplateItem[]>(
     getListProgramTemplatesUrl(params),
     {
       ...options,
@@ -15375,8 +15374,8 @@ export const listDataSessions = async (
   studentId: number,
   params?: ListDataSessionsParams,
   options?: RequestInit,
-): Promise<ListDataSessions200Item[]> => {
-  return customFetch<ListDataSessions200Item[]>(
+): Promise<DataSessionItem[]> => {
+  return customFetch<DataSessionItem[]>(
     getListDataSessionsUrl(studentId, params),
     {
       ...options,
@@ -15669,8 +15668,8 @@ export const getBehaviorDataTrends = async (
   studentId: number,
   params?: GetBehaviorDataTrendsParams,
   options?: RequestInit,
-): Promise<GetBehaviorDataTrends200Item[]> => {
-  return customFetch<GetBehaviorDataTrends200Item[]>(
+): Promise<TrendPoint[]> => {
+  return customFetch<TrendPoint[]>(
     getGetBehaviorDataTrendsUrl(studentId, params),
     {
       ...options,
@@ -15790,8 +15789,8 @@ export const getProgramDataTrends = async (
   studentId: number,
   params?: GetProgramDataTrendsParams,
   options?: RequestInit,
-): Promise<GetProgramDataTrends200Item[]> => {
-  return customFetch<GetProgramDataTrends200Item[]>(
+): Promise<TrendPoint[]> => {
+  return customFetch<TrendPoint[]>(
     getGetProgramDataTrendsUrl(studentId, params),
     {
       ...options,
@@ -24621,14 +24620,11 @@ export const getListSpedStudentsUrl = (params?: ListSpedStudentsParams) => {
 export const listSpedStudents = async (
   params?: ListSpedStudentsParams,
   options?: RequestInit,
-): Promise<ListSpedStudents200Item[]> => {
-  return customFetch<ListSpedStudents200Item[]>(
-    getListSpedStudentsUrl(params),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
+): Promise<SpedStudentListItem[]> => {
+  return customFetch<SpedStudentListItem[]>(getListSpedStudentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
 };
 
 export const getListSpedStudentsQueryKey = (

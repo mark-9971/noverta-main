@@ -148,6 +148,223 @@ export interface CreateProgramBody {
   description?: string | null;
 }
 
+export interface AntecedentStrategyItem {
+  id: string;
+  category: string;
+  description: string;
+  /** @nullable */
+  implementedBy?: string | null;
+  /** @nullable */
+  setting?: string | null;
+}
+
+export interface TeachingStrategyItem {
+  id: string;
+  skill: string;
+  method: string;
+  /** @nullable */
+  replacementFor?: string | null;
+  /** @nullable */
+  promptingStrategy?: string | null;
+  /** @nullable */
+  materials?: string | null;
+}
+
+export interface ConsequenceProcedureItem {
+  id: string;
+  targetBehavior: string;
+  triggerLevel: string;
+  procedure: string;
+  /** @nullable */
+  responsibleStaff?: string | null;
+  /** @nullable */
+  avoidResponse?: string | null;
+}
+
+export interface ReinforcementItem {
+  id: string;
+  reinforcer: string;
+  reinforcerType: string;
+  schedule: string;
+  /** @nullable */
+  scheduleDetail?: string | null;
+  /** @nullable */
+  deliveredBy?: string | null;
+  /** @nullable */
+  thinningPlan?: string | null;
+}
+
+export interface CrisisSupportItem {
+  id: string;
+  phase: string;
+  procedure: string;
+  /** @nullable */
+  staffRole?: string | null;
+  /** @nullable */
+  contactNotify?: string | null;
+  /** @nullable */
+  deescalationTips?: string | null;
+  /** @nullable */
+  physicalProcedureInvolved?: boolean | null;
+}
+
+export interface BehaviorTargetItem {
+  id: number;
+  studentId: number;
+  name: string;
+  description: string;
+  measurementType: string;
+  targetDirection: string;
+  /** @nullable */
+  baselineValue?: string | null;
+  /** @nullable */
+  goalValue?: string | null;
+  active: boolean;
+  /** @nullable */
+  trackingMethod?: string | null;
+  /** @nullable */
+  intervalLengthSeconds?: number | null;
+  /** @nullable */
+  intervalMode?: string | null;
+  /** @nullable */
+  enableHourlyTracking?: boolean | null;
+}
+
+export interface ProgramTargetItem {
+  id: number;
+  studentId: number;
+  name: string;
+  description: string;
+  programType: string;
+  targetCriterion: string;
+  domain: string;
+  active: boolean;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  phaseChangedAt?: string | null;
+  /** @nullable */
+  promptHierarchy?: string[] | null;
+  /** @nullable */
+  currentPromptLevel?: string | null;
+  /** @nullable */
+  currentStep?: number | null;
+  /** @nullable */
+  autoProgressEnabled?: boolean | null;
+  /** @nullable */
+  masteryCriterionPercent?: number | null;
+  /** @nullable */
+  masteryCriterionSessions?: number | null;
+  /** @nullable */
+  regressionThreshold?: number | null;
+  /** @nullable */
+  regressionSessions?: number | null;
+  /** @nullable */
+  reinforcementSchedule?: string | null;
+  /** @nullable */
+  reinforcementType?: string | null;
+  /** @nullable */
+  tutorInstructions?: string | null;
+  /** @nullable */
+  templateId?: number | null;
+}
+
+export interface ProgramStepItem {
+  id: number;
+  programTargetId: number;
+  stepNumber: number;
+  name: string;
+  /** @nullable */
+  sdInstruction?: string | null;
+  /** @nullable */
+  targetResponse?: string | null;
+  /** @nullable */
+  materials?: string | null;
+  /** @nullable */
+  promptStrategy?: string | null;
+  /** @nullable */
+  errorCorrection?: string | null;
+  /** @nullable */
+  reinforcementNotes?: string | null;
+  active: boolean;
+  mastered: boolean;
+}
+
+export type ProgramTemplateItemStepsItem = {
+  name: string;
+  /** @nullable */
+  sdInstruction?: string | null;
+  /** @nullable */
+  targetResponse?: string | null;
+  /** @nullable */
+  materials?: string | null;
+};
+
+export interface ProgramTemplateItem {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  programType: string;
+  domain: string;
+  isGlobal: boolean;
+  promptHierarchy: string[];
+  defaultMasteryPercent: number;
+  defaultMasterySessions: number;
+  tutorInstructions: string;
+  steps: ProgramTemplateItemStepsItem[];
+}
+
+export interface DataSessionItem {
+  id: number;
+  studentId: number;
+  sessionDate: string;
+  /** @nullable */
+  staffName?: string | null;
+  startTime: string;
+  endTime: string;
+}
+
+export interface TrendPoint {
+  sessionDate: string;
+  /** @nullable */
+  value?: string | null;
+  /** @nullable */
+  targetName?: string | null;
+  /** @nullable */
+  measurementType?: string | null;
+  /** @nullable */
+  behaviorTargetId?: number | null;
+  /** @nullable */
+  programTargetId?: number | null;
+  /** @nullable */
+  trialsCorrect?: number | null;
+  /** @nullable */
+  trialsTotal?: number | null;
+  /** @nullable */
+  percentCorrect?: string | null;
+  /** @nullable */
+  promptLevelUsed?: string | null;
+  /** @nullable */
+  hourBlock?: string | null;
+  /** @nullable */
+  prompted?: number | null;
+}
+
+export interface SpedStudentListItem {
+  id: number;
+  firstName: string;
+  lastName: string;
+  /** @nullable */
+  grade?: string | null;
+  /** @nullable */
+  schoolId?: number | null;
+  /** @nullable */
+  placementType?: string | null;
+  /** @nullable */
+  status?: string | null;
+}
+
 export interface StudentSummary {
   id: number;
   firstName: string;
@@ -389,6 +606,8 @@ export interface SessionLog {
   isCompensatory?: boolean;
   /** @nullable */
   compensatoryObligationId?: number | null;
+  /** @nullable */
+  scheduleBlockId?: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -2163,6 +2382,18 @@ export interface Bip {
   createdByName?: string | null;
   /** @nullable */
   behaviorTargetName?: string | null;
+  /** @nullable */
+  antecedentStrategiesStructured?: AntecedentStrategyItem[] | null;
+  /** @nullable */
+  teachingStrategiesStructured?: TeachingStrategyItem[] | null;
+  /** @nullable */
+  consequenceProceduresStructured?: ConsequenceProcedureItem[] | null;
+  /** @nullable */
+  reinforcementComponentsStructured?: ReinforcementItem[] | null;
+  /** @nullable */
+  crisisSupportsStructured?: CrisisSupportItem[] | null;
+  /** @nullable */
+  lastReviewedAt?: string | null;
 }
 
 export type CreateBipBodyStatus =
@@ -3470,8 +3701,6 @@ export type ListBehaviorTargetsParams = {
   active?: string | null;
 };
 
-export type ListBehaviorTargets200Item = { [key: string]: unknown };
-
 export type CreateBehaviorTargetBody = { [key: string]: unknown };
 
 export type CreateBehaviorTarget201 = { [key: string]: unknown };
@@ -3487,8 +3716,6 @@ export type ListProgramTargetsParams = {
   active?: string | null;
 };
 
-export type ListProgramTargets200Item = { [key: string]: unknown };
-
 export type CreateProgramTargetBody = { [key: string]: unknown };
 
 export type CreateProgramTarget201 = { [key: string]: unknown };
@@ -3496,8 +3723,6 @@ export type CreateProgramTarget201 = { [key: string]: unknown };
 export type UpdateProgramTargetBody = { [key: string]: unknown };
 
 export type UpdateProgramTarget200 = { [key: string]: unknown };
-
-export type ListProgramSteps200Item = { [key: string]: unknown };
 
 export type CreateProgramStepBody = { [key: string]: unknown };
 
@@ -3531,8 +3756,6 @@ export type ListProgramTemplatesParams = {
    */
   search?: string | null;
 };
-
-export type ListProgramTemplates200Item = { [key: string]: unknown };
 
 export type CreateProgramTemplateBody = { [key: string]: unknown };
 
@@ -3569,8 +3792,6 @@ export type ListDataSessionsParams = {
   limit?: number | null;
 };
 
-export type ListDataSessions200Item = { [key: string]: unknown };
-
 export type CreateDataSessionBody = { [key: string]: unknown };
 
 export type CreateDataSession201 = { [key: string]: unknown };
@@ -3592,8 +3813,6 @@ export type GetBehaviorDataTrendsParams = {
   behaviorTargetId?: number | null;
 };
 
-export type GetBehaviorDataTrends200Item = { [key: string]: unknown };
-
 export type GetProgramDataTrendsParams = {
   /**
    * @nullable
@@ -3608,8 +3827,6 @@ export type GetProgramDataTrendsParams = {
    */
   programTargetId?: number | null;
 };
-
-export type GetProgramDataTrends200Item = { [key: string]: unknown };
 
 export type ListIepGoalsParams = {
   /**
@@ -4036,8 +4253,6 @@ export type ListSpedStudentsParams = {
    */
   schoolId?: number | null;
 };
-
-export type ListSpedStudents200Item = { [key: string]: unknown };
 
 export type GetComplianceDeadlinesParams = {
   /**

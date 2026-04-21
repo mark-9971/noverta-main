@@ -609,6 +609,7 @@ export const GetStudentResponse = zod.object({
       isMakeup: zod.boolean(),
       isCompensatory: zod.boolean().optional(),
       compensatoryObligationId: zod.number().nullish(),
+      scheduleBlockId: zod.number().nullish(),
       notes: zod.string().nullish(),
       createdAt: zod.string(),
       goalCount: zod.number().optional(),
@@ -809,6 +810,7 @@ export const GetStudentSessionsResponseItem = zod.object({
   isMakeup: zod.boolean(),
   isCompensatory: zod.boolean().optional(),
   compensatoryObligationId: zod.number().nullish(),
+  scheduleBlockId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   goalCount: zod.number().optional(),
@@ -1479,6 +1481,7 @@ export const ListSessionsResponse = zod
           isMakeup: zod.boolean(),
           isCompensatory: zod.boolean().optional(),
           compensatoryObligationId: zod.number().nullish(),
+          scheduleBlockId: zod.number().nullish(),
           notes: zod.string().nullish(),
           createdAt: zod.string(),
           goalCount: zod.number().optional(),
@@ -1610,6 +1613,7 @@ export const GetSessionResponse = zod.object({
   isMakeup: zod.boolean(),
   isCompensatory: zod.boolean().optional(),
   compensatoryObligationId: zod.number().nullish(),
+  scheduleBlockId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   goalCount: zod.number().optional(),
@@ -1726,6 +1730,7 @@ export const UpdateSessionResponse = zod.object({
   isMakeup: zod.boolean(),
   isCompensatory: zod.boolean().optional(),
   compensatoryObligationId: zod.number().nullish(),
+  scheduleBlockId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   goalCount: zod.number().optional(),
@@ -2502,6 +2507,7 @@ export const GetMissedSessionsReportResponseItem = zod.object({
   isMakeup: zod.boolean(),
   isCompensatory: zod.boolean().optional(),
   compensatoryObligationId: zod.number().nullish(),
+  scheduleBlockId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   goalCount: zod.number().optional(),
@@ -3835,6 +3841,68 @@ export const GetStudentBipsResponseItem = zod.object({
   updatedAt: zod.coerce.date(),
   createdByName: zod.string().nullish(),
   behaviorTargetName: zod.string().nullish(),
+  antecedentStrategiesStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        category: zod.string(),
+        description: zod.string(),
+        implementedBy: zod.string().nullish(),
+        setting: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  teachingStrategiesStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        skill: zod.string(),
+        method: zod.string(),
+        replacementFor: zod.string().nullish(),
+        promptingStrategy: zod.string().nullish(),
+        materials: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  consequenceProceduresStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        targetBehavior: zod.string(),
+        triggerLevel: zod.string(),
+        procedure: zod.string(),
+        responsibleStaff: zod.string().nullish(),
+        avoidResponse: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  reinforcementComponentsStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        reinforcer: zod.string(),
+        reinforcerType: zod.string(),
+        schedule: zod.string(),
+        scheduleDetail: zod.string().nullish(),
+        deliveredBy: zod.string().nullish(),
+        thinningPlan: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  crisisSupportsStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        phase: zod.string(),
+        procedure: zod.string(),
+        staffRole: zod.string().nullish(),
+        contactNotify: zod.string().nullish(),
+        deescalationTips: zod.string().nullish(),
+        physicalProcedureInvolved: zod.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+  lastReviewedAt: zod.string().nullish(),
 });
 export const GetStudentBipsResponse = zod.array(GetStudentBipsResponseItem);
 
@@ -3899,6 +3967,68 @@ export const GetBipResponse = zod.object({
   updatedAt: zod.coerce.date(),
   createdByName: zod.string().nullish(),
   behaviorTargetName: zod.string().nullish(),
+  antecedentStrategiesStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        category: zod.string(),
+        description: zod.string(),
+        implementedBy: zod.string().nullish(),
+        setting: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  teachingStrategiesStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        skill: zod.string(),
+        method: zod.string(),
+        replacementFor: zod.string().nullish(),
+        promptingStrategy: zod.string().nullish(),
+        materials: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  consequenceProceduresStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        targetBehavior: zod.string(),
+        triggerLevel: zod.string(),
+        procedure: zod.string(),
+        responsibleStaff: zod.string().nullish(),
+        avoidResponse: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  reinforcementComponentsStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        reinforcer: zod.string(),
+        reinforcerType: zod.string(),
+        schedule: zod.string(),
+        scheduleDetail: zod.string().nullish(),
+        deliveredBy: zod.string().nullish(),
+        thinningPlan: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  crisisSupportsStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        phase: zod.string(),
+        procedure: zod.string(),
+        staffRole: zod.string().nullish(),
+        contactNotify: zod.string().nullish(),
+        deescalationTips: zod.string().nullish(),
+        physicalProcedureInvolved: zod.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+  lastReviewedAt: zod.string().nullish(),
 });
 
 /**
@@ -3953,6 +4083,68 @@ export const UpdateBipResponse = zod.object({
   updatedAt: zod.coerce.date(),
   createdByName: zod.string().nullish(),
   behaviorTargetName: zod.string().nullish(),
+  antecedentStrategiesStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        category: zod.string(),
+        description: zod.string(),
+        implementedBy: zod.string().nullish(),
+        setting: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  teachingStrategiesStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        skill: zod.string(),
+        method: zod.string(),
+        replacementFor: zod.string().nullish(),
+        promptingStrategy: zod.string().nullish(),
+        materials: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  consequenceProceduresStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        targetBehavior: zod.string(),
+        triggerLevel: zod.string(),
+        procedure: zod.string(),
+        responsibleStaff: zod.string().nullish(),
+        avoidResponse: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  reinforcementComponentsStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        reinforcer: zod.string(),
+        reinforcerType: zod.string(),
+        schedule: zod.string(),
+        scheduleDetail: zod.string().nullish(),
+        deliveredBy: zod.string().nullish(),
+        thinningPlan: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  crisisSupportsStructured: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        phase: zod.string(),
+        procedure: zod.string(),
+        staffRole: zod.string().nullish(),
+        contactNotify: zod.string().nullish(),
+        deescalationTips: zod.string().nullish(),
+        physicalProcedureInvolved: zod.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+  lastReviewedAt: zod.string().nullish(),
 });
 
 /**
@@ -4473,7 +4665,21 @@ export const ListBehaviorTargetsQueryParams = zod.object({
   active: zod.coerce.string().nullish(),
 });
 
-export const ListBehaviorTargetsResponseItem = zod.object({}).passthrough();
+export const ListBehaviorTargetsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  name: zod.string(),
+  description: zod.string(),
+  measurementType: zod.string(),
+  targetDirection: zod.string(),
+  baselineValue: zod.string().nullish(),
+  goalValue: zod.string().nullish(),
+  active: zod.boolean(),
+  trackingMethod: zod.string().nullish(),
+  intervalLengthSeconds: zod.number().nullish(),
+  intervalMode: zod.string().nullish(),
+  enableHourlyTracking: zod.boolean().nullish(),
+});
 export const ListBehaviorTargetsResponse = zod.array(
   ListBehaviorTargetsResponseItem,
 );
@@ -4509,7 +4715,30 @@ export const ListProgramTargetsQueryParams = zod.object({
   active: zod.coerce.string().nullish(),
 });
 
-export const ListProgramTargetsResponseItem = zod.object({}).passthrough();
+export const ListProgramTargetsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  name: zod.string(),
+  description: zod.string(),
+  programType: zod.string(),
+  targetCriterion: zod.string(),
+  domain: zod.string(),
+  active: zod.boolean(),
+  phase: zod.string().nullish(),
+  phaseChangedAt: zod.string().nullish(),
+  promptHierarchy: zod.array(zod.string()).nullish(),
+  currentPromptLevel: zod.string().nullish(),
+  currentStep: zod.number().nullish(),
+  autoProgressEnabled: zod.boolean().nullish(),
+  masteryCriterionPercent: zod.number().nullish(),
+  masteryCriterionSessions: zod.number().nullish(),
+  regressionThreshold: zod.number().nullish(),
+  regressionSessions: zod.number().nullish(),
+  reinforcementSchedule: zod.string().nullish(),
+  reinforcementType: zod.string().nullish(),
+  tutorInstructions: zod.string().nullish(),
+  templateId: zod.number().nullish(),
+});
 export const ListProgramTargetsResponse = zod.array(
   ListProgramTargetsResponseItem,
 );
@@ -4541,7 +4770,20 @@ export const ListProgramStepsParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const ListProgramStepsResponseItem = zod.object({}).passthrough();
+export const ListProgramStepsResponseItem = zod.object({
+  id: zod.number(),
+  programTargetId: zod.number(),
+  stepNumber: zod.number(),
+  name: zod.string(),
+  sdInstruction: zod.string().nullish(),
+  targetResponse: zod.string().nullish(),
+  materials: zod.string().nullish(),
+  promptStrategy: zod.string().nullish(),
+  errorCorrection: zod.string().nullish(),
+  reinforcementNotes: zod.string().nullish(),
+  active: zod.boolean(),
+  mastered: zod.boolean(),
+});
 export const ListProgramStepsResponse = zod.array(ListProgramStepsResponseItem);
 
 /**
@@ -4584,7 +4826,27 @@ export const ListProgramTemplatesQueryParams = zod.object({
   search: zod.coerce.string().nullish(),
 });
 
-export const ListProgramTemplatesResponseItem = zod.object({}).passthrough();
+export const ListProgramTemplatesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  programType: zod.string(),
+  domain: zod.string(),
+  isGlobal: zod.boolean(),
+  promptHierarchy: zod.array(zod.string()),
+  defaultMasteryPercent: zod.number(),
+  defaultMasterySessions: zod.number(),
+  tutorInstructions: zod.string(),
+  steps: zod.array(
+    zod.object({
+      name: zod.string(),
+      sdInstruction: zod.string().nullish(),
+      targetResponse: zod.string().nullish(),
+      materials: zod.string().nullish(),
+    }),
+  ),
+});
 export const ListProgramTemplatesResponse = zod.array(
   ListProgramTemplatesResponseItem,
 );
@@ -4652,7 +4914,14 @@ export const ListDataSessionsQueryParams = zod.object({
   limit: zod.coerce.number().nullish(),
 });
 
-export const ListDataSessionsResponseItem = zod.object({}).passthrough();
+export const ListDataSessionsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  sessionDate: zod.string(),
+  staffName: zod.string().nullish(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+});
 export const ListDataSessionsResponse = zod.array(ListDataSessionsResponseItem);
 
 /**
@@ -4686,7 +4955,20 @@ export const GetBehaviorDataTrendsQueryParams = zod.object({
   behaviorTargetId: zod.coerce.number().nullish(),
 });
 
-export const GetBehaviorDataTrendsResponseItem = zod.object({}).passthrough();
+export const GetBehaviorDataTrendsResponseItem = zod.object({
+  sessionDate: zod.string(),
+  value: zod.string().nullish(),
+  targetName: zod.string().nullish(),
+  measurementType: zod.string().nullish(),
+  behaviorTargetId: zod.number().nullish(),
+  programTargetId: zod.number().nullish(),
+  trialsCorrect: zod.number().nullish(),
+  trialsTotal: zod.number().nullish(),
+  percentCorrect: zod.string().nullish(),
+  promptLevelUsed: zod.string().nullish(),
+  hourBlock: zod.string().nullish(),
+  prompted: zod.number().nullish(),
+});
 export const GetBehaviorDataTrendsResponse = zod.array(
   GetBehaviorDataTrendsResponseItem,
 );
@@ -4704,7 +4986,20 @@ export const GetProgramDataTrendsQueryParams = zod.object({
   programTargetId: zod.coerce.number().nullish(),
 });
 
-export const GetProgramDataTrendsResponseItem = zod.object({}).passthrough();
+export const GetProgramDataTrendsResponseItem = zod.object({
+  sessionDate: zod.string(),
+  value: zod.string().nullish(),
+  targetName: zod.string().nullish(),
+  measurementType: zod.string().nullish(),
+  behaviorTargetId: zod.number().nullish(),
+  programTargetId: zod.number().nullish(),
+  trialsCorrect: zod.number().nullish(),
+  trialsTotal: zod.number().nullish(),
+  percentCorrect: zod.string().nullish(),
+  promptLevelUsed: zod.string().nullish(),
+  hourBlock: zod.string().nullish(),
+  prompted: zod.number().nullish(),
+});
 export const GetProgramDataTrendsResponse = zod.array(
   GetProgramDataTrendsResponseItem,
 );
@@ -5700,7 +5995,15 @@ export const ListSpedStudentsQueryParams = zod.object({
   schoolId: zod.coerce.number().nullish(),
 });
 
-export const ListSpedStudentsResponseItem = zod.object({}).passthrough();
+export const ListSpedStudentsResponseItem = zod.object({
+  id: zod.number(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  grade: zod.string().nullish(),
+  schoolId: zod.number().nullish(),
+  placementType: zod.string().nullish(),
+  status: zod.string().nullish(),
+});
 export const ListSpedStudentsResponse = zod.array(ListSpedStudentsResponseItem);
 
 /**

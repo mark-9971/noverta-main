@@ -6,7 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import {
-  BehaviorTarget, TrendPoint, Student, COLORS, measureLabel, INTERVAL_MODE_CONFIG,
+  BehaviorTarget, TrendPoint, Student, COLORS, measureLabel, INTERVAL_MODE_CONFIG, IntervalMode,
 } from "./constants";
 
 interface PhaseChange {
@@ -241,9 +241,9 @@ export default function BehaviorsTab({ student, behaviorTargets, behaviorTrends,
                       {bt.enableHourlyTracking && " · Hourly"}
                       {bt.intervalLengthSeconds && ` · ${bt.intervalLengthSeconds}s`}
                     </p>
-                    {bt.measurementType === "interval" && bt.intervalMode && INTERVAL_MODE_CONFIG[bt.intervalMode] && (
-                      <span className={`inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded border ${INTERVAL_MODE_CONFIG[bt.intervalMode].color}`}>
-                        {INTERVAL_MODE_CONFIG[bt.intervalMode].label}
+                    {bt.measurementType === "interval" && bt.intervalMode && INTERVAL_MODE_CONFIG[bt.intervalMode as IntervalMode] && (
+                      <span className={`inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded border ${INTERVAL_MODE_CONFIG[bt.intervalMode as IntervalMode].color}`}>
+                        {INTERVAL_MODE_CONFIG[bt.intervalMode as IntervalMode].label}
                       </span>
                     )}
                   </div>

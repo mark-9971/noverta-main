@@ -5,7 +5,7 @@ import {
   getListStaffQueryKey, getListSpedStudentsQueryKey,
 } from "@workspace/api-client-react";
 import type {
-  Staff, ServiceType, CreateScheduleBlockBody,
+  ServiceType, CreateScheduleBlockBody,
 } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
@@ -26,8 +26,6 @@ import { BlockFormDialog, BlockForm } from "./BlockFormDialog";
 // parent Scheduling Hub (admin) plus the coordinator role explicitly named in
 // the product requirement for this feature.
 const SCHEDULING_ROLES = new Set(["admin", "coordinator"]);
-
-type StudentListItem = { id: number; firstName: string; lastName: string };
 
 interface MinuteRow {
   serviceRequirementId: number;
@@ -93,7 +91,7 @@ const DEFAULT_BLOCK_FORM: BlockForm = {
 };
 
 export default function MinutesOversightTab() {
-  const { filterParams } = useSchoolContext();
+  const { filterParams, typedFilter } = useSchoolContext();
   const { role } = useRole();
   const canSchedule = SCHEDULING_ROLES.has(role);
   const queryClient = useQueryClient();
@@ -114,16 +112,14 @@ export default function MinutesOversightTab() {
   const [blockSaving, setBlockSaving] = useState(false);
   const [serviceTypesList, setServiceTypesList] = useState<ServiceType[]>([]);
 
-  const { data: staffData } = useListStaff(filterParams, {
-    query: { enabled: canSchedule, queryKey: getListStaffQueryKey(filterParams) },
+  const { data: staffData } = useListStaff(typedFilter, {
+    query: { enabled: canSchedule, queryKey: getListStaffQueryKey(typedFilter) },
   });
-  const { data: studentsData } = useListSpedStudents(filterParams, {
-    query: { enabled: canSchedule, queryKey: getListSpedStudentsQueryKey(filterParams) },
+  const { data: studentsData } = useListSpedStudents(typedFilter, {
+    query: { enabled: canSchedule, queryKey: getListSpedStudentsQueryKey(typedFilter) },
   });
-  const staffList: Staff[] = Array.isArray(staffData) ? staffData : [];
-  const studentList: StudentListItem[] = Array.isArray(studentsData)
-    ? (studentsData as StudentListItem[])
-    : [];
+  const staffList = staffData ?? [];
+  const studentList = studentsData ?? [];
 
   useEffect(() => {
     if (!canSchedule) return;

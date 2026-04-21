@@ -482,8 +482,9 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
               const isLatency = bt.measurementType === "latency";
               const scores = intervalScoresMap[bt.id] || [];
               const intervalPct = scores.length > 0 ? Math.round((scores.filter(Boolean).length / scores.length) * 100) : null;
+              const modeLabelMap: Record<string, string> = { partial_interval: "PI", whole_interval: "WI", momentary_time_sampling: "MTS" };
               const modeLabel = isInterval && bt.intervalMode
-                ? { partial_interval: "PI", whole_interval: "WI", momentary_time_sampling: "MTS" }[bt.intervalMode] ?? null
+                ? modeLabelMap[bt.intervalMode] ?? null
                 : null;
 
               /* ── Duration helpers ── */

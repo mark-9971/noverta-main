@@ -3642,7 +3642,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/BehaviorTargetItem"
     post:
       operationId: createBehaviorTarget
       tags: [program-data]
@@ -3715,7 +3715,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/ProgramTargetItem"
     post:
       operationId: createProgramTarget
       tags: [program-data]
@@ -3784,7 +3784,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/ProgramStepItem"
     post:
       operationId: createProgramStep
       tags: [program-data]
@@ -3885,7 +3885,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/ProgramTemplateItem"
     post:
       operationId: createProgramTemplate
       tags: [program-data]
@@ -4046,7 +4046,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/DataSessionItem"
     post:
       operationId: createDataSession
       tags: [program-data]
@@ -4121,7 +4121,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/TrendPoint"
 
   /students/{studentId}/program-data/trends:
     get:
@@ -4154,7 +4154,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/TrendPoint"
 
   # ─── IEP Management ────────────────────────────────────────────
   /students/{studentId}/iep-goals:
@@ -6292,7 +6292,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: "#/components/schemas/SpedStudentListItem"
 
   # ─── Dashboard extras ──────────────────────────────────────────
   /dashboard/compliance-deadlines:
@@ -7084,6 +7084,312 @@ components:
       required: [name, schoolId]
 
     # ─── Students ─────────────────────────────────────────────────
+    AntecedentStrategyItem:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        implementedBy:
+          type: ["string", "null"]
+        setting:
+          type: ["string", "null"]
+      required: [id, category, description]
+
+    TeachingStrategyItem:
+      type: object
+      properties:
+        id:
+          type: string
+        skill:
+          type: string
+        method:
+          type: string
+        replacementFor:
+          type: ["string", "null"]
+        promptingStrategy:
+          type: ["string", "null"]
+        materials:
+          type: ["string", "null"]
+      required: [id, skill, method]
+
+    ConsequenceProcedureItem:
+      type: object
+      properties:
+        id:
+          type: string
+        targetBehavior:
+          type: string
+        triggerLevel:
+          type: string
+        procedure:
+          type: string
+        responsibleStaff:
+          type: ["string", "null"]
+        avoidResponse:
+          type: ["string", "null"]
+      required: [id, targetBehavior, triggerLevel, procedure]
+
+    ReinforcementItem:
+      type: object
+      properties:
+        id:
+          type: string
+        reinforcer:
+          type: string
+        reinforcerType:
+          type: string
+        schedule:
+          type: string
+        scheduleDetail:
+          type: ["string", "null"]
+        deliveredBy:
+          type: ["string", "null"]
+        thinningPlan:
+          type: ["string", "null"]
+      required: [id, reinforcer, reinforcerType, schedule]
+
+    CrisisSupportItem:
+      type: object
+      properties:
+        id:
+          type: string
+        phase:
+          type: string
+        procedure:
+          type: string
+        staffRole:
+          type: ["string", "null"]
+        contactNotify:
+          type: ["string", "null"]
+        deescalationTips:
+          type: ["string", "null"]
+        physicalProcedureInvolved:
+          type: ["boolean", "null"]
+      required: [id, phase, procedure]
+
+    BehaviorTargetItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        measurementType:
+          type: string
+        targetDirection:
+          type: string
+        baselineValue:
+          type: ["string", "null"]
+        goalValue:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        trackingMethod:
+          type: ["string", "null"]
+        intervalLengthSeconds:
+          type: ["integer", "null"]
+        intervalMode:
+          type: ["string", "null"]
+        enableHourlyTracking:
+          type: ["boolean", "null"]
+      required: [id, studentId, name, description, measurementType, targetDirection, active]
+
+    ProgramTargetItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        programType:
+          type: string
+        targetCriterion:
+          type: string
+        domain:
+          type: string
+        active:
+          type: boolean
+        phase:
+          type: ["string", "null"]
+        phaseChangedAt:
+          type: ["string", "null"]
+        promptHierarchy:
+          type: ["array", "null"]
+          items:
+            type: string
+        currentPromptLevel:
+          type: ["string", "null"]
+        currentStep:
+          type: ["integer", "null"]
+        autoProgressEnabled:
+          type: ["boolean", "null"]
+        masteryCriterionPercent:
+          type: ["number", "null"]
+        masteryCriterionSessions:
+          type: ["integer", "null"]
+        regressionThreshold:
+          type: ["number", "null"]
+        regressionSessions:
+          type: ["integer", "null"]
+        reinforcementSchedule:
+          type: ["string", "null"]
+        reinforcementType:
+          type: ["string", "null"]
+        tutorInstructions:
+          type: ["string", "null"]
+        templateId:
+          type: ["integer", "null"]
+      required: [id, studentId, name, description, programType, targetCriterion, domain, active]
+
+    ProgramStepItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        programTargetId:
+          type: integer
+        stepNumber:
+          type: integer
+        name:
+          type: string
+        sdInstruction:
+          type: ["string", "null"]
+        targetResponse:
+          type: ["string", "null"]
+        materials:
+          type: ["string", "null"]
+        promptStrategy:
+          type: ["string", "null"]
+        errorCorrection:
+          type: ["string", "null"]
+        reinforcementNotes:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        mastered:
+          type: boolean
+      required: [id, programTargetId, stepNumber, name, active, mastered]
+
+    ProgramTemplateItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        programType:
+          type: string
+        domain:
+          type: string
+        isGlobal:
+          type: boolean
+        promptHierarchy:
+          type: array
+          items:
+            type: string
+        defaultMasteryPercent:
+          type: number
+        defaultMasterySessions:
+          type: integer
+        tutorInstructions:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              sdInstruction:
+                type: ["string", "null"]
+              targetResponse:
+                type: ["string", "null"]
+              materials:
+                type: ["string", "null"]
+            required: [name]
+      required: [id, name, description, category, programType, domain, isGlobal, promptHierarchy, defaultMasteryPercent, defaultMasterySessions, tutorInstructions, steps]
+
+    DataSessionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        sessionDate:
+          type: string
+        staffName:
+          type: ["string", "null"]
+        startTime:
+          type: string
+        endTime:
+          type: string
+      required: [id, studentId, sessionDate, startTime, endTime]
+
+    TrendPoint:
+      type: object
+      properties:
+        sessionDate:
+          type: string
+        value:
+          type: ["string", "null"]
+        targetName:
+          type: ["string", "null"]
+        measurementType:
+          type: ["string", "null"]
+        behaviorTargetId:
+          type: ["integer", "null"]
+        programTargetId:
+          type: ["integer", "null"]
+        trialsCorrect:
+          type: ["integer", "null"]
+        trialsTotal:
+          type: ["integer", "null"]
+        percentCorrect:
+          type: ["string", "null"]
+        promptLevelUsed:
+          type: ["string", "null"]
+        hourBlock:
+          type: ["string", "null"]
+        prompted:
+          type: ["integer", "null"]
+      required: [sessionDate]
+
+    SpedStudentListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        grade:
+          type: ["string", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        placementType:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+      required: [id, firstName, lastName]
+
     StudentSummary:
       type: object
       properties:
@@ -7711,6 +8017,8 @@ components:
         isCompensatory:
           type: boolean
         compensatoryObligationId:
+          type: ["integer", "null"]
+        scheduleBlockId:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
@@ -10001,6 +10309,28 @@ components:
         createdByName:
           type: ["string", "null"]
         behaviorTargetName:
+          type: ["string", "null"]
+        antecedentStrategiesStructured:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/AntecedentStrategyItem"
+        teachingStrategiesStructured:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/TeachingStrategyItem"
+        consequenceProceduresStructured:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/ConsequenceProcedureItem"
+        reinforcementComponentsStructured:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/ReinforcementItem"
+        crisisSupportsStructured:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CrisisSupportItem"
+        lastReviewedAt:
           type: ["string", "null"]
       required: [id, studentId, version, status, targetBehavior, operationalDefinition, hypothesizedFunction, createdAt, updatedAt]
 

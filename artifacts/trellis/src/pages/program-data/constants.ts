@@ -40,13 +40,12 @@ export const INTERVAL_MODE_CONFIG: Record<IntervalMode, {
   },
 };
 
-export interface BehaviorTarget {
-  id: number; studentId: number; name: string; description: string;
-  measurementType: string; targetDirection: string;
-  baselineValue: string | null; goalValue: string | null; active: boolean;
-  trackingMethod?: string; intervalLengthSeconds?: number | null;
-  intervalMode?: IntervalMode | null; enableHourlyTracking?: boolean;
-}
+import type {
+  BehaviorTargetItem, ProgramTargetItem, ProgramStepItem,
+  DataSessionItem, ProgramTemplateItem, TrendPoint as ApiTrendPoint,
+} from "@workspace/api-client-react";
+
+export type BehaviorTarget = BehaviorTargetItem;
 export type ProgramPhase = "baseline" | "training" | "maintenance" | "mastered" | "reopened";
 export const PROGRAM_PHASES: ProgramPhase[] = ["baseline", "training", "maintenance", "mastered", "reopened"];
 
@@ -94,40 +93,12 @@ export const PHASE_CONFIG: Record<ProgramPhase, {
   },
 };
 
-export interface ProgramTarget {
-  id: number; studentId: number; name: string; description: string;
-  programType: string; targetCriterion: string; domain: string; active: boolean;
-  phase?: ProgramPhase; phaseChangedAt?: string | null;
-  promptHierarchy?: string[]; currentPromptLevel?: string; currentStep?: number;
-  autoProgressEnabled?: boolean; masteryCriterionPercent?: number;
-  masteryCriterionSessions?: number; regressionThreshold?: number;
-  regressionSessions?: number; reinforcementSchedule?: string;
-  reinforcementType?: string; tutorInstructions?: string; templateId?: number;
-}
-export interface ProgramStep {
-  id: number; programTargetId: number; stepNumber: number; name: string;
-  sdInstruction?: string; targetResponse?: string; materials?: string;
-  promptStrategy?: string; errorCorrection?: string; reinforcementNotes?: string;
-  active: boolean; mastered: boolean;
-}
-export interface DataSession {
-  id: number; studentId: number; sessionDate: string; staffName: string | null;
-  startTime: string; endTime: string;
-}
-export interface ProgramTemplate {
-  id: number; name: string; description: string; category: string;
-  programType: string; domain: string; isGlobal: boolean;
-  promptHierarchy: string[]; defaultMasteryPercent: number;
-  defaultMasterySessions: number; tutorInstructions: string;
-  steps: Array<{ name: string; sdInstruction?: string; targetResponse?: string; materials?: string }>;
-}
+export type ProgramTarget = ProgramTargetItem;
+export type ProgramStep = ProgramStepItem;
+export type DataSession = DataSessionItem;
+export type ProgramTemplate = ProgramTemplateItem;
 export interface Student { id: number; firstName: string; lastName: string; }
-export interface TrendPoint {
-  sessionDate: string; value?: string; targetName?: string; measurementType?: string;
-  behaviorTargetId?: number; programTargetId?: number;
-  trialsCorrect?: number; trialsTotal?: number; percentCorrect?: string;
-  promptLevelUsed?: string; hourBlock?: string; prompted?: number;
-}
+export type TrendPoint = ApiTrendPoint;
 
 export const COLORS = ["#059669", "#f59e0b", "#ef4444", "#10b981", "#6b7280", "#9ca3af", "#374151", "#d1d5db"];
 
@@ -148,12 +119,11 @@ export const REINFORCEMENT_SCHEDULES = [
   { value: "variable_interval", label: "Variable Interval (VI)" },
 ];
 
-export function measureLabel(t: string, intervalMode?: IntervalMode | null) {
+export function measureLabel(t: string, intervalMode?: string | null) {
   if (t === "frequency") return "Count";
   if (t === "interval") {
-    if (intervalMode && INTERVAL_MODE_CONFIG[intervalMode]) {
-      return `% intervals (${INTERVAL_MODE_CONFIG[intervalMode].abbrev})`;
-    }
+    const cfg = intervalMode ? INTERVAL_MODE_CONFIG[intervalMode as IntervalMode] : undefined;
+    if (cfg) return `% intervals (${cfg.abbrev})`;
     return "% of intervals";
   }
   if (t === "duration") return "Duration (sec)";

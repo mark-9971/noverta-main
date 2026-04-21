@@ -16,6 +16,12 @@ import {
   getListStudentsQueryKey,
   getListStaffQueryKey,
 } from "@workspace/api-client-react";
+import type {
+  ListAlertsParams,
+  ListScheduleBlocksParams,
+  ListSessionsParams,
+  ListServiceRequirementsParams,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -150,45 +156,50 @@ export default function TodayPage() {
   const today = useMemo(() => todayInfo(), []);
   const weekStart = useMemo(() => weekStartIso(), []);
 
-  const allStaffParams = {} as any;
+  const allStaffParams = {};
   const { data: allStaff } = useListStaff(allStaffParams, { query: { enabled: isSupervisor, queryKey: getListStaffQueryKey(allStaffParams) } });
-  const staffList = (allStaff as any[]) ?? [];
+  const staffList = allStaff ?? [];
   const viewedStaff = staffList.find(s => s.id === viewedStaffId) ?? null;
 
   const enabled = !!viewedStaffId;
-  const staffIdStr = viewedStaffId ? String(viewedStaffId) : "";
 
   // All hooks fetch only when we have a staff id
-  const blocksParams = (enabled ? { staffId: staffIdStr, dayOfWeek: today.dayName } : {}) as any;
+  const blocksParams: ListScheduleBlocksParams = enabled
+    ? { staffId: viewedStaffId, dayOfWeek: today.dayName }
+    : {};
   const { data: blocksData, isLoading: blocksLoading } = useListScheduleBlocks(
     blocksParams,
     { query: { enabled, queryKey: getListScheduleBlocksQueryKey(blocksParams) } }
   );
-  const sessionsParams = (enabled
-    ? { staffId: staffIdStr, dateFrom: weekStart, dateTo: today.date, limit: "500" }
-    : {}) as any;
+  const sessionsParams: ListSessionsParams = enabled
+    ? { staffId: viewedStaffId, dateFrom: weekStart, dateTo: today.date, limit: 500 }
+    : {};
   const { data: sessionsData, isLoading: sessionsLoading } = useListSessions(
     sessionsParams,
     { query: { enabled, queryKey: getListSessionsQueryKey(sessionsParams) } }
   );
-  const reqsParams = (enabled ? { providerId: staffIdStr, active: "true" } : {}) as any;
+  const reqsParams: ListServiceRequirementsParams = enabled
+    ? { providerId: viewedStaffId, active: "true" }
+    : {};
   const { data: reqsData, isLoading: reqsLoading } = useListServiceRequirements(
     reqsParams,
     { query: { enabled, queryKey: getListServiceRequirementsQueryKey(reqsParams) } }
   );
-  const alertsParams = (enabled ? { staffId: staffIdStr, resolved: "false", snoozed: "false" } : {}) as any;
+  const alertsParams: ListAlertsParams = enabled
+    ? { staffId: viewedStaffId, resolved: "false", snoozed: "false" }
+    : {};
   const { data: alertsData, isLoading: alertsLoading } = useListAlerts(
     alertsParams,
     { query: { enabled, queryKey: getListAlertsQueryKey(alertsParams) } }
   );
-  const studentsParams = {} as any;
+  const studentsParams = {};
   const { data: studentsData } = useListStudents(studentsParams, { query: { enabled, queryKey: getListStudentsQueryKey(studentsParams) } });
 
-  const blocks = (blocksData as any[]) ?? [];
-  const sessions = ((sessionsData as any)?.data ?? (Array.isArray(sessionsData) ? sessionsData : [])) as any[];
-  const reqs = (Array.isArray(reqsData) ? reqsData : (reqsData as any)?.data ?? []) as any[];
-  const alerts = ((alertsData as any)?.data ?? (Array.isArray(alertsData) ? alertsData : [])) as any[];
-  const students = ((studentsData as any)?.data ?? (Array.isArray(studentsData) ? studentsData : [])) as any[];
+  const blocks = blocksData ?? [];
+  const sessions = sessionsData?.data ?? [];
+  const reqs = reqsData ?? [];
+  const alerts = alertsData?.data ?? [];
+  const students = studentsData?.data ?? [];
   const studentMap = useMemo(() => new Map(students.map(s => [s.id, s])), [students]);
 
   // ----- Derived data -----

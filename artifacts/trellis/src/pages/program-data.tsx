@@ -51,7 +51,7 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
       const list = data?.data ?? [];
       const withData = list.filter((s) => s.status === "active");
       setStudents(withData);
-      setTemplates(tmpl as any[]);
+      setTemplates(tmpl);
       if (withData.length > 0 && externalStudentId == null) setSelectedStudent(withData[0].id);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -66,11 +66,11 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
       getProgramDataTrends(sid),
       authFetch(`/api/students/${sid}/phase-changes`).then(r => r.json()).catch(() => []),
     ]);
-    setBehaviorTargets(bt as any);
-    setProgramTargets(pt as any);
-    setDataSessions(ds as any);
-    setBehaviorTrends(btrend as any);
-    setProgramTrends(ptrend as any);
+    setBehaviorTargets(bt);
+    setProgramTargets(pt);
+    setDataSessions(ds);
+    setBehaviorTrends(btrend);
+    setProgramTrends(ptrend);
     setPhaseChanges(Array.isArray(pcRaw) ? pcRaw : []);
   }, []);
 
@@ -87,7 +87,7 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
   function handleEditBuilder(pt: ProgramTarget) {
     listProgramSteps(pt.id).then(s => {
       setBuilderEditProgram(pt);
-      setBuilderEditSteps(s as any[]);
+      setBuilderEditSteps(s);
     });
   }
 
@@ -182,7 +182,7 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
             <TemplateManager
               studentId={selectedStudent}
               onCloned={() => loadStudentData(selectedStudent)}
-              onTemplateUpdated={() => listProgramTemplates().then(t => setTemplates(t as any[]))}
+              onTemplateUpdated={() => listProgramTemplates().then(t => setTemplates(t))}
             />
           )}
         </>
@@ -242,7 +242,7 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
           programId={saveAsTemplateProgram.id}
           programName={saveAsTemplateProgram.name}
           onClose={() => setSaveAsTemplateProgram(null)}
-          onSaved={() => { setSaveAsTemplateProgram(null); listProgramTemplates().then(t => setTemplates(t as any[])); }}
+          onSaved={() => { setSaveAsTemplateProgram(null); listProgramTemplates().then(t => setTemplates(t)); }}
         />
       )}
     </div>

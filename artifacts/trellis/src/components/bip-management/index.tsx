@@ -8,6 +8,9 @@ import {
   updateBip, createBip, createBipVersion, deleteBip,
   getFbaObservationsSummary,
 } from "@workspace/api-client-react";
+import type {
+  CreateBipBody, CreateBipBodyStatus, UpdateBipBody, UpdateBipBodyStatus,
+} from "@workspace/api-client-react";
 import { Bip, BipFormState, EMPTY_BIP_FORM, STATUS_LABELS } from "./types";
 import { BipRow } from "./BipRow";
 import { BipForm } from "./BipForm";
@@ -62,7 +65,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     setLoading(true);
     try {
       const data = await getStudentBips(studentId);
-      setBips(data as any);
+      setBips(data as Bip[]);
     } catch { /* ignore */ }
     setLoading(false);
   }
@@ -149,11 +152,11 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       effectiveDate: bip.effectiveDate || "",
       status: bip.status,
       /* structured JSONB — null signals legacy mode; array signals structured mode */
-      antecedentStrategiesStructured: (bip as any).antecedentStrategiesStructured ?? null,
-      teachingStrategiesStructured: (bip as any).teachingStrategiesStructured ?? null,
-      consequenceProceduresStructured: (bip as any).consequenceProceduresStructured ?? null,
-      reinforcementComponentsStructured: (bip as any).reinforcementComponentsStructured ?? null,
-      crisisSupportsStructured: (bip as any).crisisSupportsStructured ?? null,
+      antecedentStrategiesStructured: bip.antecedentStrategiesStructured ?? null,
+      teachingStrategiesStructured: bip.teachingStrategiesStructured ?? null,
+      consequenceProceduresStructured: bip.consequenceProceduresStructured ?? null,
+      reinforcementComponentsStructured: bip.reinforcementComponentsStructured ?? null,
+      crisisSupportsStructured: bip.crisisSupportsStructured ?? null,
     });
 
     /* Load FBA insights for this BIP's linked FBA */
@@ -183,18 +186,20 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     }
     setSaving(true);
     try {
-      const body: any = {
+      const baseBody = {
         ...form,
         fbaId: form.fbaId ? parseInt(form.fbaId) : null,
         behaviorTargetId: form.behaviorTargetId ? parseInt(form.behaviorTargetId) : null,
       };
-      if (!body.reviewDate) delete body.reviewDate;
-      if (!body.effectiveDate) delete body.effectiveDate;
+      if (!baseBody.reviewDate) delete (baseBody as Partial<typeof baseBody>).reviewDate;
+      if (!baseBody.effectiveDate) delete (baseBody as Partial<typeof baseBody>).effectiveDate;
 
       if (editingBip) {
-        await updateBip(editingBip.id, body);
+        const updateBody: UpdateBipBody = { ...baseBody, status: form.status as UpdateBipBodyStatus };
+        await updateBip(editingBip.id, updateBody);
       } else {
-        await createBip(studentId, body);
+        const createBody: CreateBipBody = { ...baseBody, status: form.status as CreateBipBodyStatus };
+        await createBip(studentId, createBody);
       }
       toast.success(editingBip ? "BIP updated" : "BIP created");
       setShowForm(false);
@@ -231,7 +236,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
 
   async function handleStatusChange(bipId: number, newStatus: string) {
     try {
-      await updateBip(bipId, { status: newStatus as any });
+      await updateBip(bipId, { status: newStatus as UpdateBipBodyStatus });
       toast.success(`Status changed to ${STATUS_LABELS[newStatus] || newStatus}`);
       fetchBips();
     } catch {

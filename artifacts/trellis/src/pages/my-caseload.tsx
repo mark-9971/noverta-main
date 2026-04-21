@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { useListServiceRequirements, useListStudents, useListSessions, useListStaff, getListServiceRequirementsQueryKey, getListSessionsQueryKey } from "@workspace/api-client-react";
+import type { ListServiceRequirementsParams, ListSessionsParams } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,20 +24,6 @@ interface AssignedBip {
   implementationStartDate: string | null;
 }
 
-interface ServiceReq {
-  id: number; studentId: number; providerId: number | null;
-  serviceTypeName?: string; serviceType?: any;
-  requiredMinutes: number; intervalType: string;
-  startDate: string | null; endDate: string | null; active: boolean;
-}
-interface Student {
-  id: number; firstName: string; lastName: string;
-  grade: string | null; schoolId: number | null;
-}
-interface SessionLog {
-  id: number; studentId: number; staffId: number | null;
-  sessionDate: string; durationMinutes: number | null; status: string;
-}
 
 function minuteLabel(minutes: number, interval: string) {
   if (interval === "weekly") return `${minutes} min/wk`;
@@ -53,15 +40,17 @@ function ComplianceDot({ status }: { status: "ok" | "warn" | "missing" }) {
 export default function MyCaseloadPage() {
   const { teacherId, role } = useRole();
 
-  const reqsParams = (teacherId ? { providerId: teacherId, active: "true" } : {}) as any;
+  const reqsParams: ListServiceRequirementsParams = teacherId
+    ? { providerId: teacherId, active: "true" }
+    : {};
   const { data: allReqs, isLoading: reqsLoading } = useListServiceRequirements(
     reqsParams,
     { query: { enabled: !!teacherId, queryKey: getListServiceRequirementsQueryKey(reqsParams) } }
   );
-  const { data: allStudents, isLoading: studentsLoading } = useListStudents({} as any);
-  const sessionsParams = { staffId: teacherId } as any;
+  const { data: allStudents, isLoading: studentsLoading } = useListStudents({});
+  const sessionsParams: ListSessionsParams = { staffId: teacherId };
   const { data: recentSessions } = useListSessions(sessionsParams, { query: { enabled: !!teacherId, queryKey: getListSessionsQueryKey(sessionsParams) } });
-  const { data: allStaff } = useListStaff({} as any);
+  const { data: allStaff } = useListStaff({});
 
   const { data: assignedBipsData } = useQuery<AssignedBip[]>({
     queryKey: ["assigned-bips", teacherId],
@@ -74,13 +63,13 @@ export default function MyCaseloadPage() {
   });
   const assignedBips: AssignedBip[] = assignedBipsData ?? [];
 
-  const reqs: ServiceReq[] = useMemo(() => (allReqs as any[] ?? []).filter((r: any) => r.active), [allReqs]);
-  const students: Student[] = useMemo(() => ((allStudents as any)?.data ?? []) as Student[], [allStudents]);
-  const sessions: SessionLog[] = useMemo(() => ((recentSessions as any)?.data ?? []) as SessionLog[], [recentSessions]);
+  const reqs = useMemo(() => (allReqs ?? []).filter(r => r.active), [allReqs]);
+  const students = useMemo(() => allStudents?.data ?? [], [allStudents]);
+  const sessions = useMemo(() => recentSessions?.data ?? [], [recentSessions]);
 
   const myStaff = useMemo(() => {
     if (!teacherId) return null;
-    return (allStaff as any[] ?? []).find((s: any) => s.id === teacherId) ?? null;
+    return (allStaff ?? []).find(s => s.id === teacherId) ?? null;
   }, [allStaff, teacherId]);
 
   const caseloadStudentIds = useMemo(() => {
@@ -196,7 +185,7 @@ export default function MyCaseloadPage() {
                         <div className="flex flex-wrap gap-2 mt-1">
                           {studentReqs.map((req, i) => (
                             <span key={i} className="text-[11px] text-gray-500">
-                              {req.serviceType?.name ?? req.serviceTypeName ?? "Service"} · {minuteLabel(req.requiredMinutes, req.intervalType)}
+                              {req.serviceTypeName ?? "Service"} · {minuteLabel(req.requiredMinutes, req.intervalType)}
                             </span>
                           ))}
                         </div>
@@ -299,7 +288,7 @@ export default function MyCaseloadPage() {
           <CardContent className="space-y-2">
             {sessions.slice(0, 6).length === 0 ? (
               <p className="text-[12px] text-gray-400 py-4 text-center">No sessions recorded yet.</p>
-            ) : sessions.slice(0, 6).map((s: any) => {
+            ) : sessions.slice(0, 6).map(s => {
               const stu = students.find(st => st.id === s.studentId);
               return (
                 <div key={s.id} className="flex items-center justify-between text-[12px]">
