@@ -123,16 +123,27 @@ export function ScheduleGrid({
                       <div className="space-y-1">
                         {cellBlocks.map((block: any) => {
                           const isAtRisk = atRiskStudentIds.has(block.studentId);
+                          const isMakeup = block.blockType === "makeup" ||
+                            (typeof block.blockLabel === "string" && /makeup/i.test(block.blockLabel)) ||
+                            (typeof block.notes === "string" && /makeup/i.test(block.notes));
                           return (
                             <div
                               key={block.id}
-                              className={`text-[10px] p-2 rounded-lg border ${serviceColorMap[block.serviceTypeId] ?? BLOCK_COLORS[0]} leading-tight ${isAdmin ? "cursor-pointer hover:ring-1 hover:ring-emerald-300" : ""} group/block relative ${isAtRisk ? "ring-1 ring-amber-300/60" : ""}`}
+                              data-testid={isMakeup ? "schedule-block-makeup" : "schedule-block"}
+                              className={`text-[10px] p-2 rounded-lg border ${serviceColorMap[block.serviceTypeId] ?? BLOCK_COLORS[0]} leading-tight ${isAdmin ? "cursor-pointer hover:ring-1 hover:ring-emerald-300" : ""} group/block relative ${isAtRisk ? "ring-1 ring-amber-300/60" : ""} ${isMakeup ? "ring-1 ring-blue-400/70 border-dashed" : ""}`}
                               onClick={(e) => { e.stopPropagation(); if (isAdmin) onEditBlock(block); }}
                             >
                               <div className="flex items-start gap-1">
                                 <ComplianceDot studentId={block.studentId} complianceMap={complianceMap} />
                                 <div className="min-w-0">
-                                  <div className="font-semibold truncate">{block.studentName ?? "Student"}</div>
+                                  <div className="font-semibold truncate flex items-center gap-1">
+                                    {block.studentName ?? "Student"}
+                                    {isMakeup && (
+                                      <span className="text-[8px] uppercase tracking-wide font-bold px-1 py-px rounded bg-blue-100 text-blue-700 border border-blue-200">
+                                        Makeup
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="opacity-70 truncate">{block.serviceTypeName}</div>
                                   <div className="opacity-50 mt-0.5">{block.startTime}–{block.endTime}</div>
                                   {block.staffName && <div className="opacity-40 truncate">{block.staffName}</div>}

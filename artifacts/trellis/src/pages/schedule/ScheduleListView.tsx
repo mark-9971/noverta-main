@@ -112,9 +112,21 @@ export function ScheduleListView({
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    <span className={`text-[11px] px-2 py-0.5 rounded-lg border font-medium ${serviceColorMap[block.serviceTypeId] ?? BLOCK_COLORS[0]}`}>
-                      {block.serviceTypeName ?? "—"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[11px] px-2 py-0.5 rounded-lg border font-medium ${serviceColorMap[block.serviceTypeId] ?? BLOCK_COLORS[0]}`}>
+                        {block.serviceTypeName ?? "—"}
+                      </span>
+                      {(block.blockType === "makeup" ||
+                        (typeof block.blockLabel === "string" && /makeup/i.test(block.blockLabel)) ||
+                        (typeof block.notes === "string" && /makeup/i.test(block.notes))) && (
+                        <span
+                          data-testid="schedule-list-block-makeup"
+                          className="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200"
+                        >
+                          Makeup
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-[13px] text-gray-500">{block.staffName ?? "—"}</td>
                   <td className="px-5 py-3">
