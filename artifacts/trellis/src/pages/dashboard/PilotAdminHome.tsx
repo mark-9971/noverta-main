@@ -11,6 +11,8 @@ import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
+import { useAggregateHandlingForStudents } from "@/lib/use-handling-state";
+import { HANDLING_LABELS, HANDLING_BADGE } from "@/lib/action-recommendations";
 import { useSchoolContext } from "@/lib/school-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
@@ -359,6 +361,14 @@ export default function PilotAdminHome() {
       .slice(0, 6);
   }, [risk?.needsAttention]);
 
+  // Phase 1D — overlay aggregate handling state for the top-students list.
+  // Reads from every `trellis:action-center:handling:*` namespace so a
+  // case manager who marked "recovery scheduled" on the risk report
+  // shows up here as in-progress instead of looking like a fresh alert.
+  const aggregateHandling = useAggregateHandlingForStudents(
+    useMemo(() => topStudents.map(s => s.studentId), [topStudents])
+  );
+
   const studentsAttentionCount = useMemo(() => {
     if (!risk?.needsAttention) return 0;
     return new Set(risk.needsAttention.map(r => r.studentId)).size;
@@ -626,6 +636,20 @@ export default function PilotAdminHome() {
                       {s.studentName}
                     </Link>
                     <RiskPill status={s.riskStatus} label={s.riskLabel} />
+                    {(() => {
+                      const state = aggregateHandling.get(s.studentId);
+                      if (!state) return null;
+                      const badge = HANDLING_BADGE[state];
+                      return (
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold ring-1 ${badge.bg} ${badge.fg} ${badge.ring}`}
+                          title="A teammate has marked this student as in progress on another surface (Action Center, Risk Report, or Student Detail)."
+                          data-testid={`dashboard-handling-pill-${s.studentId}`}
+                        >
+                          {HANDLING_LABELS[state]}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-gray-500 truncate mt-0.5">
                     {[s.school, s.grade && `Grade ${s.grade}`, s.service, s.providerName !== "Unassigned" && s.providerName].filter(Boolean).join(" · ")}

@@ -20,32 +20,24 @@
  */
 
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ChevronDown, MoreHorizontal, Sparkles, ArrowRight } from "lucide-react";
 import {
   recommendAction,
   HANDLING_LABELS,
   HANDLING_BADGE,
+  HANDLING_TRANSITIONS,
   type RecommendationSignal,
-  type HandlingState,
   type RecommendedActionType,
 } from "@/lib/action-recommendations";
 import { useHandlingState } from "@/lib/use-handling-state";
+import { buildScheduleMakeupHref, type ScheduleMakeupOrigin } from "@/lib/schedule-makeup";
 
 const CONFIDENCE_PIP: Record<"high" | "medium" | "low", { dot: string; label: string }> = {
   high: { dot: "bg-emerald-500", label: "high confidence" },
   medium: { dot: "bg-amber-500", label: "medium confidence" },
   low: { dot: "bg-gray-400", label: "lower confidence — review" },
 };
-
-const HANDLING_TRANSITIONS: { state: HandlingState; label: string; help: string }[] = [
-  { state: "needs_action",          label: "Mark as needs action",     help: "Back to the default red state" },
-  { state: "awaiting_confirmation", label: "Awaiting confirmation",    help: "Asked the provider / parent — waiting for reply" },
-  { state: "recovery_scheduled",    label: "Recovery scheduled",       help: "Makeup is on the calendar" },
-  { state: "handed_off",            label: "Handed off",               help: "Passed to scheduler / case manager / admin" },
-  { state: "under_review",          label: "Under review",             help: "Looking into the underlying requirement / data" },
-  { state: "resolved",              label: "Resolved",                 help: "Done — hide on next refresh" },
-];
 
 interface Props {
   studentId: number;
@@ -60,11 +52,17 @@ interface Props {
   /** When the recommendation is `confirm_and_log_session` we open the
    *  inline QuickLogSheet rather than mark a handling state. */
   onLogSession?: () => void;
+  /** Origin surface for the schedule-makeup deep-link's back-link. */
+  scheduleMakeupOrigin?: ScheduleMakeupOrigin;
+  /** Optional service requirement id to include in the makeup launch. */
+  serviceRequirementId?: number | null;
 }
 
 export default function RecommendedNextStepCard({
   studentId, signal, itemId, whySummary, additionalIssueCount = 0,
   currentUserRole, userKey, onLogSession,
+  scheduleMakeupOrigin = "student-detail",
+  serviceRequirementId,
 }: Props) {
   const recommendation = useMemo(
     () => recommendAction(signal, { currentUserRole }),
@@ -74,6 +72,7 @@ export default function RecommendedNextStepCard({
   const handlingState = getState(itemId);
   const handlingBadge = HANDLING_BADGE[handlingState];
   const confidencePip = CONFIDENCE_PIP[recommendation.confidence];
+  const [, navigate] = useLocation();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [stateMenuOpen, setStateMenuOpen] = useState(false);
@@ -84,7 +83,19 @@ export default function RecommendedNextStepCard({
       if (onLogSession) onLogSession();
       return;
     }
-    if (action === "schedule_makeup") return setState(itemId, "recovery_scheduled");
+    if (action === "schedule_makeup") {
+      // Phase 1D — real launch path: deep-link to Scheduling Hub →
+      // Minutes at Risk with makeup intent prefilled. Also mark
+      // recovery_scheduled so the row does not re-surface as
+      // untouched on the previous queue.
+      setState(itemId, "recovery_scheduled");
+      navigate(buildScheduleMakeupHref({
+        studentId,
+        serviceRequirementId: serviceRequirementId ?? null,
+        from: scheduleMakeupOrigin,
+      }));
+      return;
+    }
     if (action === "follow_up_with_provider") return setState(itemId, "awaiting_confirmation");
     if (action === "review_with_case_manager" || action === "review_requirement_data") return setState(itemId, "under_review");
     if (action === "escalate_coverage_issue" || action === "review_iep_timeline") return setState(itemId, "handed_off");

@@ -4,14 +4,17 @@ import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Printer, Download, AlertTriangle, CheckCircle, TrendingDown, Users, DollarSign, Clock, ChevronDown, ChevronUp, Settings as SettingsIcon } from "lucide-react";
+import { Printer, Download, AlertTriangle, CheckCircle, TrendingDown, Users, DollarSign, Clock, ChevronDown, ChevronUp, Settings as SettingsIcon, CalendarPlus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
-import { recommendAction } from "@/lib/action-recommendations";
+import { recommendAction, HANDLING_LABELS, HANDLING_BADGE } from "@/lib/action-recommendations";
+import { useHandlingState } from "@/lib/use-handling-state";
+import { useRole } from "@/lib/role-context";
+import { buildScheduleMakeupHref, riskRowItemId } from "@/lib/schedule-makeup";
 
 interface StudentRow {
   studentId: number;
@@ -259,6 +262,119 @@ const RISK_ORDER: Record<string, number> = {
   on_track: 4,
   completed: 5,
 };
+
+/**
+ * Phase 1D — Needs-Attention row with inline "Schedule makeup" CTA and
+ * a handling-state pill. The inline CTA only renders when the row has
+ * hard-evidence missed sessions (matching the recommendation engine's
+ * `missed_sessions` decision). The pill only renders when handling
+ * state is non-default. State is keyed by `risk-row:<sid>:<reqId>` so
+ * it round-trips with the same id used elsewhere in Phase 1D.
+ */
+function RiskAttentionRow({
+  r, highlightFirst, setDrilldownStudent, riskBadge, fmtDollars,
+}: {
+  r: StudentRow;
+  highlightFirst: boolean;
+  setDrilldownStudent: (s: { studentId: number; studentName: string; serviceRequirementId: number }) => void;
+  riskBadge: (status: string, label: string) => React.ReactNode;
+  fmtDollars: (n: number) => string;
+}) {
+  const { role } = useRole();
+  const { getState, setState } = useHandlingState(`${role}::risk-report`);
+  const itemId = riskRowItemId(r.studentId, r.serviceRequirementId);
+  const handlingState = getState(itemId);
+  const handlingActive = handlingState !== "needs_action";
+  const handlingBadge = HANDLING_BADGE[handlingState];
+  const [, navigate] = useLocation();
+
+  const rec = recommendAction({
+    category: "compliance",
+    alertType: r.missedSessions > 0 ? "missed_sessions" : "service_minutes_behind",
+    source: r.missedSessions > 0 ? "alert" : "risk_report",
+    riskStatus: r.riskStatus,
+    requiredMinutes: r.requiredMinutes,
+    shortfallMinutes: r.shortfallMinutes,
+    hasMissedEvidence: r.missedSessions > 0,
+    serviceRequirementId: r.serviceRequirementId,
+  }, { currentUserRole: role ?? undefined });
+
+  // Show inline CTA when the engine actually recommends scheduling a
+  // makeup. Avoids inviting the user to schedule when the more honest
+  // next step is "ask the provider" or "review with case manager."
+  const showInlineMakeup = rec.recommendedAction === "schedule_makeup";
+
+  function launchMakeup() {
+    setState(itemId, "recovery_scheduled");
+    navigate(buildScheduleMakeupHref({
+      studentId: r.studentId,
+      serviceRequirementId: r.serviceRequirementId,
+      from: "compliance",
+    }));
+  }
+
+  return (
+    <tr
+      className="border-t hover:bg-gray-50/50"
+      {...(highlightFirst ? { "data-tour-id": "shortfall-student", "data-demo-highlight": "risk" } : {})}
+    >
+      <td className="px-3 py-2 font-medium">
+        <Link href={`/students/${r.studentId}?from=compliance`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors" data-testid={`link-risk-student-${r.studentId}`}>
+          {r.studentName}
+        </Link>
+        <div className="text-[10px] text-gray-500 mt-0.5 leading-tight flex items-center gap-1.5 flex-wrap" data-testid={`text-risk-recommendation-${r.studentId}`}>
+          <span>
+            Next: <span className="font-semibold text-gray-700">{rec.primaryActionLabel}</span> ·{" "}
+            {rec.recommendedOwner === "you" ? "You" : rec.ownerLabel}
+          </span>
+          {showInlineMakeup && (
+            <button
+              type="button"
+              onClick={launchMakeup}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+              title="Open the Scheduling Hub with this requirement preselected"
+              data-testid={`button-risk-schedule-makeup-${r.studentId}-${r.serviceRequirementId}`}
+            >
+              <CalendarPlus className="w-3 h-3" /> Schedule makeup
+            </button>
+          )}
+          {handlingActive && (
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold ring-1 ${handlingBadge.bg} ${handlingBadge.fg} ${handlingBadge.ring}`}
+              data-testid={`handling-state-${itemId}`}
+              title="Marked from this surface — derived UI state, not a server-side assignment"
+            >
+              {HANDLING_LABELS[handlingState]}
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">{r.school}</td>
+      <td className="px-3 py-2">{r.service}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{r.requiredMinutes}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{r.deliveredMinutes}</td>
+      <td className="px-3 py-2 text-right tabular-nums">
+        <span className="font-semibold text-red-700">{r.shortfallMinutes}</span>
+        {r.missedSessions > 0 && (
+          <div className="text-[10px] text-red-400 font-normal leading-none mt-0.5">{r.missedSessions} session{r.missedSessions === 1 ? "" : "s"} missed</div>
+        )}
+      </td>
+      <td className="px-3 py-2">{riskBadge(r.riskStatus, r.riskLabel)}</td>
+      <td className="px-3 py-2 text-right tabular-nums">
+        {r.estimatedExposure != null && r.estimatedExposure > 0 ? (
+          <button
+            onClick={() => setDrilldownStudent({ studentId: r.studentId, studentName: r.studentName, serviceRequirementId: r.serviceRequirementId })}
+            className="text-red-700 font-semibold underline decoration-dashed decoration-red-300 underline-offset-2 hover:text-red-900 transition-colors cursor-pointer"
+            title="Click to see itemised breakdown"
+          >
+            {fmtDollars(r.estimatedExposure)}
+          </button>
+        ) : "—"}
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">{r.providerName}</td>
+    </tr>
+  );
+}
 
 const RISK_FILTERS = [
   { value: "all", label: "All" },
@@ -531,59 +647,14 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                     </thead>
                     <tbody>
                       {data.needsAttention.map((r, i) => (
-                        <tr
+                        <RiskAttentionRow
                           key={`${r.studentId}-${r.service}-${i}`}
-                          className="border-t hover:bg-gray-50/50"
-                          {...(i === 0 ? { "data-tour-id": "shortfall-student", "data-demo-highlight": "risk" } : {})}
-                        >
-                          <td className="px-3 py-2 font-medium">
-                            <Link href={`/students/${r.studentId}?from=compliance`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors" data-testid={`link-risk-student-${r.studentId}`}>
-                              {r.studentName}
-                            </Link>
-                            {(() => {
-                              // Phase 1C — compact recommendation subline. Reuses the
-                              // centralized engine; if `missedSessions > 0` we have
-                              // hard-evidence missed-service, else honest ambiguous.
-                              const rec = recommendAction({
-                                category: "compliance",
-                                alertType: r.missedSessions > 0 ? "missed_sessions" : "service_minutes_behind",
-                                source: r.missedSessions > 0 ? "alert" : "risk_report",
-                                riskStatus: r.riskStatus,
-                                requiredMinutes: r.requiredMinutes,
-                                shortfallMinutes: r.shortfallMinutes,
-                                hasMissedEvidence: r.missedSessions > 0,
-                              });
-                              return (
-                                <div className="text-[10px] text-gray-500 mt-0.5 leading-tight" data-testid={`text-risk-recommendation-${r.studentId}`}>
-                                  Next: <span className="font-semibold text-gray-700">{rec.primaryActionLabel}</span> · {rec.ownerLabel}
-                                </div>
-                              );
-                            })()}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">{r.school}</td>
-                          <td className="px-3 py-2">{r.service}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{r.requiredMinutes}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{r.deliveredMinutes}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            <span className="font-semibold text-red-700">{r.shortfallMinutes}</span>
-                            {r.missedSessions > 0 && (
-                              <div className="text-[10px] text-red-400 font-normal leading-none mt-0.5">{r.missedSessions} session{r.missedSessions === 1 ? "" : "s"} missed</div>
-                            )}
-                          </td>
-                          <td className="px-3 py-2">{riskBadge(r.riskStatus, r.riskLabel)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            {r.estimatedExposure != null && r.estimatedExposure > 0 ? (
-                              <button
-                                onClick={() => setDrilldownStudent({ studentId: r.studentId, studentName: r.studentName, serviceRequirementId: r.serviceRequirementId })}
-                                className="text-red-700 font-semibold underline decoration-dashed decoration-red-300 underline-offset-2 hover:text-red-900 transition-colors cursor-pointer"
-                                title="Click to see itemised breakdown"
-                              >
-                                {fmtDollars(r.estimatedExposure)}
-                              </button>
-                            ) : "—"}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">{r.providerName}</td>
-                        </tr>
+                          r={r}
+                          highlightFirst={i === 0}
+                          setDrilldownStudent={setDrilldownStudent}
+                          riskBadge={riskBadge}
+                          fmtDollars={fmtDollars}
+                        />
                       ))}
                     </tbody>
                   </table>

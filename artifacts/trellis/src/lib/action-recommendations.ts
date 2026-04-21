@@ -130,6 +130,13 @@ export interface RecommendationSignal {
   /** True if the signal already has hard evidence the service did not
    *  occur (e.g., session_logs.status === "missed"). */
   hasMissedEvidence?: boolean;
+  /** Phase 1D — when known, the at-risk service requirement this
+   *  signal targets. Used to deep-link "Schedule makeup" into the
+   *  right row of the Scheduling Hub. */
+  serviceRequirementId?: number | null;
+  /** Phase 1D — when known (missed-session alerts), the specific
+   *  session log id whose makeup is being planned. */
+  missedSessionId?: number | null;
 }
 
 export interface ActionRecommendation {
@@ -152,6 +159,46 @@ function chronicShortfall(s: RecommendationSignal): boolean {
 }
 
 /**
+ * Phase 1D — owner-aware "you" substitution.
+ *
+ * When the current user's role is the natural owner of the
+ * recommendation, we substitute "you" so the prompt feels assigned
+ * instead of abstract. Mappings are conservative:
+ *   - service_provider  ← provider, direct_provider
+ *   - case_manager      ← case_manager, sped_teacher, bcba
+ *   - admin             ← admin, coordinator
+ *   - scheduler         ← admin, coordinator (no dedicated scheduler role
+ *                         in the system; admins / coordinators are the
+ *                         operators who actually schedule)
+ *   - you               ← always remains "you"
+ *
+ * Returns the (possibly substituted) owner.
+ */
+export function resolveOwner(
+  owner: RecommendedOwner,
+  currentUserRole?: string,
+): RecommendedOwner {
+  if (owner === "you" || !currentUserRole) return owner;
+  const r = currentUserRole;
+  switch (owner) {
+    case "service_provider":
+      if (r === "provider" || r === "direct_provider") return "you";
+      return owner;
+    case "case_manager":
+      if (r === "case_manager" || r === "sped_teacher" || r === "bcba") return "you";
+      return owner;
+    case "admin":
+      if (r === "admin" || r === "coordinator") return "you";
+      return owner;
+    case "scheduler":
+      if (r === "admin" || r === "coordinator") return "you";
+      return owner;
+    default:
+      return owner;
+  }
+}
+
+/**
  * Pure function: given a derived signal, recommend the next operational
  * step. The current user's role can shift the recommended owner from a
  * generic role to "you" when the user is the right person to act.
@@ -161,6 +208,7 @@ export function recommendAction(
   ctx: { currentUserRole?: string } = {},
 ): ActionRecommendation {
   const t = signal.alertType ?? "";
+  const role = ctx.currentUserRole;
 
   // 1. Documentation lag — we have a strong signal that the session
   //    likely happened but is not yet detailed in the log.
@@ -168,8 +216,7 @@ export function recommendAction(
     return build({
       cause: "documentation_lag",
       confidence: "high",
-      owner: ctx.currentUserRole === "provider" || ctx.currentUserRole === "direct_provider"
-        ? "you" : "service_provider",
+      owner: resolveOwner("service_provider", role),
       action: "confirm_and_log_session",
       explanation: "Session was scheduled but no log details were recorded. Confirm whether it happened and finish the entry.",
       secondary: ["follow_up_with_provider", "monitor_only"],
@@ -181,7 +228,7 @@ export function recommendAction(
     return build({
       cause: "likely_missed_service",
       confidence: "high",
-      owner: "scheduler",
+      owner: resolveOwner("scheduler", role),
       action: "schedule_makeup",
       explanation: "One or more scheduled sessions were marked missed. Plan a makeup so minutes are recovered.",
       secondary: ["follow_up_with_provider", "review_with_case_manager"],
@@ -196,7 +243,7 @@ export function recommendAction(
     return build({
       cause: "deadline_pressure",
       confidence: "high",
-      owner: "case_manager",
+      owner: resolveOwner("case_manager", role),
       action: "review_iep_timeline",
       explanation: "An IEP or meeting deadline is at or past due. Confirm the meeting is set and consents are in.",
       secondary: ["review_with_case_manager", "monitor_only"],
@@ -206,7 +253,7 @@ export function recommendAction(
     return build({
       cause: "deadline_pressure",
       confidence: "high",
-      owner: "admin",
+      owner: resolveOwner("admin", role),
       action: "escalate_coverage_issue",
       explanation: "Evaluation timeline is exceeded. Escalate so the eval is assigned and the 60-day window is honored.",
       secondary: ["review_with_case_manager", "monitor_only"],
@@ -218,7 +265,7 @@ export function recommendAction(
     return build({
       cause: "schedule_mismatch",
       confidence: "high",
-      owner: "scheduler",
+      owner: resolveOwner("scheduler", role),
       action: "escalate_coverage_issue",
       explanation: "Weekly schedule does not cover the required IEP minutes. The schedule itself needs to be changed, not just back-filled with logs.",
       secondary: ["review_with_case_manager", "follow_up_with_provider"],
@@ -231,7 +278,7 @@ export function recommendAction(
     return build({
       cause: "ambiguous_review_needed",
       confidence: "medium",
-      owner: "case_manager",
+      owner: resolveOwner("case_manager", role),
       action: "review_with_case_manager",
       explanation: "Shortfall is large relative to the requirement. Worth checking the IEP minutes, schedule, and provider assignment together before just logging.",
       secondary: ["review_requirement_data", "follow_up_with_provider", "schedule_makeup"],
@@ -249,7 +296,7 @@ export function recommendAction(
     return build({
       cause: "ambiguous_review_needed",
       confidence: "low",
-      owner: "case_manager",
+      owner: resolveOwner("case_manager", role),
       action: "follow_up_with_provider",
       explanation: "Minutes are behind but the cause is not certain — could be undocumented sessions or true missed service. Ask the provider before scheduling makeups.",
       secondary: ["confirm_and_log_session", "schedule_makeup", "review_requirement_data"],
@@ -261,7 +308,7 @@ export function recommendAction(
     return build({
       cause: "provider_absence_or_staffing_issue",
       confidence: "medium",
-      owner: "admin",
+      owner: resolveOwner("admin", role),
       action: "escalate_coverage_issue",
       explanation: "A provider absence or coverage gap is in play. Ensure coverage or a makeup plan exists.",
       secondary: ["follow_up_with_provider", "review_with_case_manager"],
@@ -272,7 +319,7 @@ export function recommendAction(
   return build({
     cause: "ambiguous_review_needed",
     confidence: "low",
-    owner: "case_manager",
+    owner: resolveOwner("case_manager", role),
     action: "monitor_only",
     explanation: "No clear cause inferred from current signals. Worth a quick eyes-on review.",
     secondary: ["follow_up_with_provider", "review_with_case_manager"],
@@ -301,6 +348,23 @@ function build(input: {
       .map(a => ({ type: a, label: ACTION_LABELS[a] })),
   };
 }
+
+// ─── Handling-state transition menu (shared) ─────────────────────────────────
+
+/**
+ * Phase 1D — single source of truth for the handling-state transition
+ * menu. Action Center and the student-detail Recommended Next Step card
+ * both render this menu; pre-1D each had its own copy with cosmetically
+ * different help text.
+ */
+export const HANDLING_TRANSITIONS: { state: HandlingState; label: string; help: string }[] = [
+  { state: "needs_action",          label: "Mark as needs action",     help: "Back to the default red state — clears handling" },
+  { state: "awaiting_confirmation", label: "Awaiting confirmation",    help: "Asked the provider / parent — waiting for reply" },
+  { state: "recovery_scheduled",    label: "Recovery scheduled",       help: "Makeup is on the calendar" },
+  { state: "handed_off",            label: "Handed off",               help: "Passed to scheduler / case manager / admin" },
+  { state: "under_review",          label: "Under review",             help: "Looking into the underlying requirement / data" },
+  { state: "resolved",              label: "Resolved",                 help: "Done — hide on next refresh" },
+];
 
 // ─── Handling state badge styling ────────────────────────────────────────────
 

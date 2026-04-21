@@ -19,6 +19,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { HandlingState } from "./action-recommendations";
 
+const HANDLING_KEY_PREFIX = "trellis:action-center:handling:";
+
 export interface HandlingEntry {
   state: HandlingState;
   setAt: number;
@@ -29,7 +31,7 @@ export interface HandlingEntry {
 export type HandlingMap = Record<string, HandlingEntry>;
 
 function lsKeyForUser(userKey: string): string {
-  return `trellis:action-center:handling:${userKey}`;
+  return `${HANDLING_KEY_PREFIX}${userKey}`;
 }
 
 function readHandling(userKey: string): HandlingMap {
@@ -82,4 +84,116 @@ export function useHandlingState(userKey: string) {
   }, [handling]);
 
   return { handling, setState, clear, getState };
+}
+
+// ─── Cross-surface aggregate readers (Phase 1D) ──────────────────────────────
+
+/**
+ * Severity ordering for picking the "worst" handling state when several
+ * surfaces have marked the same student. Order is operationally
+ * chosen: a row that is `awaiting_confirmation` or `under_review` is
+ * still actively in flight, so it outranks `recovery_scheduled` /
+ * `handed_off` / `resolved` for the purpose of showing "in progress"
+ * on the dashboard. `needs_action` is the implicit lowest.
+ */
+const HANDLING_SEVERITY: Record<HandlingState, number> = {
+  needs_action: 0,
+  resolved: 1,
+  recovery_scheduled: 2,
+  handed_off: 3,
+  under_review: 4,
+  awaiting_confirmation: 5,
+};
+
+function pickWorstHandling(states: HandlingState[]): HandlingState {
+  let worst: HandlingState = "needs_action";
+  for (const s of states) {
+    if (HANDLING_SEVERITY[s] > HANDLING_SEVERITY[worst]) worst = s;
+  }
+  return worst;
+}
+
+function readAllHandlingNamespaces(): HandlingMap {
+  if (typeof localStorage === "undefined") return {};
+  const merged: HandlingMap = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(HANDLING_KEY_PREFIX)) continue;
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          for (const [id, entry] of Object.entries(parsed as HandlingMap)) {
+            // First-write wins → keep the most-recently-set entry per id.
+            const cur = merged[id];
+            if (!cur || (entry.setAt ?? 0) > (cur.setAt ?? 0)) {
+              merged[id] = entry;
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  return merged;
+}
+
+/**
+ * Pure helper (testable) — given a merged handling map and a student
+ * id, return the worst non-default handling state across the ids that
+ * unambiguously belong to that student (`risk-row:<sid>:*`,
+ * `student:<sid>:*`). Returns `needs_action` when nothing is in
+ * progress.
+ *
+ * Note: Action Center alert ids (`alert-N`, `risk-N`) are NOT scanned
+ * because they don't carry the studentId in a stable form here. Surfaces
+ * that want their state to flow into this aggregate should adopt the
+ * `risk-row:<sid>:<reqId>` or `student:<sid>:*` id patterns.
+ */
+export function pickHandlingForStudent(
+  merged: HandlingMap,
+  studentId: number,
+): HandlingState {
+  const prefixes = [`risk-row:${studentId}:`, `student:${studentId}:`];
+  const matches: HandlingState[] = [];
+  for (const [id, entry] of Object.entries(merged)) {
+    if (prefixes.some(p => id.startsWith(p))) {
+      matches.push(entry.state);
+    }
+  }
+  return pickWorstHandling(matches);
+}
+
+/**
+ * React hook — re-reads aggregate handling state for a list of
+ * student ids on every render and reacts to localStorage `storage`
+ * events from other tabs. Returns a `Map<studentId, HandlingState>`
+ * containing only entries whose state is non-default, so callers can
+ * cheaply check `aggregate.has(id)`.
+ */
+export function useAggregateHandlingForStudents(studentIds: number[]): Map<number, HandlingState> {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key && e.key.startsWith(HANDLING_KEY_PREFIX)) setTick(t => t + 1);
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Recompute on every render — cheap; localStorage scan is small in
+  // pilot scale and avoids missing same-tab updates.
+  void tick;
+  const merged = readAllHandlingNamespaces();
+  const out = new Map<number, HandlingState>();
+  for (const sid of studentIds) {
+    const state = pickHandlingForStudent(merged, sid);
+    // Exclude `needs_action` (default) AND `resolved` — the dashboard
+    // "Where are we at risk?" list is about *in-progress* work, so a
+    // resolved row should not pollute it with a stale pill.
+    if (state !== "needs_action" && state !== "resolved") out.set(sid, state);
+  }
+  return out;
 }

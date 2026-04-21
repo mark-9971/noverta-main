@@ -1,0 +1,161 @@
+Implement Pilot Wedge Phase 1E — server-side shared handling state for operational action items.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Replace the current localStorage-only handling state with a real shared server-side operational handling model so multiple admins/users can see the same in-progress state, ownership, and handoff information across the key pilot-wedge surfaces.
+
+Primary product objective:
+When one admin/coordinator/provider marks an item as handed off, awaiting confirmation, recovery scheduled, under review, or resolved, other authorized users in the same district should see that same handling state and not duplicate the work.
+
+This is the next infrastructure step for the pilot wedge. It should make the wedge feel like a shared operations tool, not a single-browser demo.
+
+Context:
+Phase 1A is complete:
+- Action Center workflow tightened
+- dashboard funnel improved
+- pilot nav simplified
+
+Phase 1B is complete:
+- centralized recommendation engine exists
+- Action Center uses cause-aware / owner-aware / action-aware language
+
+Phase 1C is complete:
+- student detail Recommended Next Step surface uses the same action model
+- compliance Risk Report rows show recommendation language
+- return-to-queue flow is implemented
+
+Phase 1D quick fixes may also be complete or in progress:
+- schedule makeup launch path
+- stronger risk row actionability
+- owner-aware “you” wording
+- dashboard handling-state awareness
+- shared HANDLING_TRANSITIONS constant
+
+Current limitation:
+Handling state is localStorage-backed and per-browser/per-surface namespace only. That is not sufficient for:
+- shared visibility
+- real handoff
+- auditability
+- reducing duplicate chasing across users/devices
+
+==================================================
+A. WHAT THIS PHASE MUST DELIVER
+==================================================
+
+There are six required deliverables:
+
+1. A real server-side/shared handling-state persistence model
+2. Stable canonical item identity for the touched wedge surfaces
+3. District-scoped read/write API for handling state
+4. Frontend hook replacement from localStorage to shared API-backed state
+5. Action Center + student detail + touched risk/compliance surface wired to the shared state
+6. Honest handling-history / auditability foundation if feasible in the same pass
+
+If #1–#5 are not completed in a meaningful way, verdict should be PARTIAL.
+#6 is strongly preferred, but if it cannot be done cleanly in the same pass, explicitly say so and list the exact next task.
+
+==================================================
+B. CORE DOMAIN MODEL — REQUIRED OUTCOME
+==================================================
+
+Implement a thin, explicit shared “operational handling state” model for action items.
+
+At minimum, the persisted model should support:
+- stable item_id
+- district_id
+- current handling_state
+- recommended_owner_role if available
+- assigned_to_user_id nullable
+- assigned_to_role nullable
+- state_reason or note nullable
+- updated_by_user_id
+- updated_at
+- maybe resolved_at if useful
+
+You may adapt field names to fit the codebase, but preserve the meaning.
+
+Handling states should at minimum support:
+- needs_action
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+- resolved
+
+Important:
+This is NOT a giant task engine.
+Do not overbuild.
+This is a thin shared state layer for operational coordination.
+
+==================================================
+C. STABLE ITEM IDENTITY — REQUIRED OUTCOME
+==================================================
+
+A major requirement of this phase is stable canonical item identity.
+
+Action Center, student detail, and the most relevant compliance/risk surface must converge on stable item ids for the same underlying issue when appropriate.
+
+You must:
+- audit the current item id schemes already in use
+- define/normalize the canonical item-id format used by the shared handling layer
+- make the chosen ids explicit in code and in the final output
+
+Good examples of acceptable formats:
+- alert:<id>
+- risk:<studentId>:<requirementId>:<period>
+- deadline:<studentId>:<type>:<date>
+- student:<studentId>:<kind>:<requirementId?>
+- service-gap:<studentId>:<requirementId>:<window>
+
+The exact format may differ, but it must be:
+- deterministic
+- stable
+- explainable
+- reusable across surfaces
+
+Important:
+Do not leave each surface inventing its own incompatible id rules if it can be avoided.
+If some surfaces cannot fully unify yet, be explicit about which ones and why.
+
+==================================================
+D. DISTRICT-SCOPED API / BACKEND — REQUIRED OUTCOME
+==================================================
+
+Add a real backend path for handling state with correct district scoping.
+
+At minimum, implement:
+- read endpoint for handling state by a set of item ids
+- write/update endpoint for a single item id or small batch
+- district scoping / tenant enforcement
+- safe auth/role behavior consistent with current backend patterns
+
+Expected behavior:
+- user in district A cannot read or write handling state for district B items
+- touched pilot-wedge surfaces can request state for their visible items efficiently
+- write semantics are simple and predictable
+
+A reasonable API shape could be something like:
+- GET /api/handling-state?ids=...
+- PUT /api/handling-state/:itemId
+or similar.
+Use the codebase’s conventions.
+
+If batching is more efficient, do it.
+Do not make the frontend do N requests per row.
+
+==================================================
+E. FRONTEND STATE LAYER — REQUIRED OUTCOME
+==================================================
+
+Replace the current localStorage-only handling hook with a shared API-backed hook.
+
+Requirements:
+- keep the ergonomics close to the existing useHandlingState if possible
+- support reading shared state for multiple visible item ids efficiently
+- support optimistic updates where appropriate
+- revalidate from the server
+- do not silently lose state if another surface refreshes
+
+If it helps, implement:
+- a

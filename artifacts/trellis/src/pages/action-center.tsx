@@ -23,12 +23,14 @@ import {
   recommendAction,
   HANDLING_LABELS,
   HANDLING_BADGE,
+  HANDLING_TRANSITIONS,
   type RecommendationSignal,
   type RecommendedActionType,
   type HandlingState,
   type ActionRecommendation,
 } from "@/lib/action-recommendations";
 import { useHandlingState } from "@/lib/use-handling-state";
+import { buildScheduleMakeupHref } from "@/lib/schedule-makeup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,6 +115,7 @@ function scheduleGapToWorkItem(
       category: "schedule",
       source: "schedule_gap",
       shortfallMinutes: mp.remainingMinutes,
+      serviceRequirementId: (mp as any).serviceRequirementId ?? null,
     },
   };
 }
@@ -181,6 +184,8 @@ function alertToWorkItem(a: any, index: number): WorkItem {
       category: alertCategory(a.type ?? ""),
       alertType: a.type,
       source: "alert",
+      serviceRequirementId: a.serviceRequirementId ?? null,
+      missedSessionId: a.sessionLogId ?? a.missedSessionId ?? null,
     },
   };
 }
@@ -209,6 +214,7 @@ function riskToWorkItem(r: any): WorkItem {
       riskStatus: r.riskStatus,
       shortfallMinutes: r.shortfallMinutes,
       requiredMinutes: r.requiredMinutes,
+      serviceRequirementId: r.serviceRequirementId ?? null,
     },
   };
 }
@@ -487,15 +493,6 @@ const QUICK_LOG_ACTIONS: ReadonlySet<RecommendedActionType> = new Set([
   "confirm_and_log_session",
 ]);
 
-const HANDLING_TRANSITIONS: { state: HandlingState; label: string; help: string }[] = [
-  { state: "needs_action",          label: "Mark as needs action",     help: "Clear handling state" },
-  { state: "awaiting_confirmation", label: "Awaiting confirmation",    help: "I asked someone — waiting on a reply" },
-  { state: "recovery_scheduled",    label: "Recovery scheduled",       help: "A makeup or follow-up session is on the calendar" },
-  { state: "handed_off",            label: "Handed off",               help: "Passed to the right owner" },
-  { state: "under_review",          label: "Under review",             help: "Looking into the underlying requirement / data" },
-  { state: "resolved",              label: "Resolved",                 help: "Done — hide on next refresh" },
-];
-
 function WorkItemRow({
   item, onLogSession, onDismiss, onSnooze,
   recommendation, handlingState, onSetHandling,
@@ -508,6 +505,7 @@ function WorkItemRow({
   handlingState: HandlingState;
   onSetHandling: (id: string, state: HandlingState) => void;
 }) {
+  const [, navigate] = useLocation();
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
   // Phase 1B: cause-aware primary CTA.
@@ -548,10 +546,26 @@ function WorkItemRow({
       onLogSession!(item.studentId!, item.studentName ?? "");
       return;
     }
-    // For non-QuickLog primary actions we record the matching handling
-    // state so the user can hand off / mark as scheduled without losing
-    // the row. They can still use the in-context links (e.g. Fix Schedule)
-    // via the secondary "Open" link below.
+    // Phase 1D — Schedule makeup is now a real launch path (not just a
+    // handling-state mark). We deep-link to the Scheduling Hub →
+    // Minutes at Risk tab with makeup intent + studentId so the
+    // existing BlockFormDialog can pre-open for the matching row.
+    // We also record `recovery_scheduled` so the row does not appear
+    // unhandled when the user comes back to the queue.
+    if (primaryAction === "schedule_makeup" && item.studentId) {
+      onSetHandling(item.id, "recovery_scheduled");
+      navigate(buildScheduleMakeupHref({
+        studentId: item.studentId,
+        serviceRequirementId: item.signal?.serviceRequirementId ?? null,
+        missedSessionId: item.signal?.missedSessionId ?? null,
+        from: "action-center",
+      }));
+      return;
+    }
+    // For other non-QuickLog primary actions we record the matching
+    // handling state so the user can hand off / mark as scheduled
+    // without losing the row. They can still use the in-context links
+    // (e.g. Fix Schedule) via the secondary "Open" link below.
     if (primaryAction === "schedule_makeup") onSetHandling(item.id, "recovery_scheduled");
     else if (primaryAction === "follow_up_with_provider") onSetHandling(item.id, "awaiting_confirmation");
     else if (primaryAction === "review_with_case_manager" || primaryAction === "review_requirement_data") onSetHandling(item.id, "under_review");
@@ -677,7 +691,17 @@ function WorkItemRow({
                           onLogSession(item.studentId, item.studentName ?? "");
                           return;
                         }
-                        if (sa.type === "schedule_makeup") onSetHandling(item.id, "recovery_scheduled");
+                        if (sa.type === "schedule_makeup") {
+                          onSetHandling(item.id, "recovery_scheduled");
+                          if (item.studentId) {
+                            navigate(buildScheduleMakeupHref({
+                              studentId: item.studentId,
+                              serviceRequirementId: item.signal?.serviceRequirementId ?? null,
+                              missedSessionId: item.signal?.missedSessionId ?? null,
+                              from: "action-center",
+                            }));
+                          }
+                        }
                         else if (sa.type === "follow_up_with_provider") onSetHandling(item.id, "awaiting_confirmation");
                         else if (sa.type === "review_with_case_manager" || sa.type === "review_requirement_data") onSetHandling(item.id, "under_review");
                         else if (sa.type === "escalate_coverage_issue") onSetHandling(item.id, "handed_off");

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useListStaff, useListSpedStudents, listServiceTypes, createScheduleBlock,
@@ -96,12 +96,24 @@ export default function MinutesOversightTab() {
   const canSchedule = SCHEDULING_ROLES.has(role);
   const queryClient = useQueryClient();
   const searchStr = useSearch();
-  const preselectedStudentId = useMemo(() => {
-    const v = new URLSearchParams(searchStr).get("studentId");
-    if (!v) return null;
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 ? n : null;
+  const queryFlags = useMemo(() => {
+    const p = new URLSearchParams(searchStr);
+    const sid = Number(p.get("studentId"));
+    const reqId = Number(p.get("serviceRequirementId"));
+    return {
+      preselectedStudentId: Number.isFinite(sid) && sid > 0 ? sid : null,
+      preselectedRequirementId: Number.isFinite(reqId) && reqId > 0 ? reqId : null,
+      makeupIntent: p.get("intent") === "makeup",
+      from: p.get("from") ?? null,
+    };
   }, [searchStr]);
+  const { preselectedStudentId, preselectedRequirementId, makeupIntent, from } = queryFlags;
+
+  // Phase 1D — auto-open guard so we don't reopen the dialog every
+  // render or after the user closes it. Resets when the launch context
+  // (intent / studentId / requirementId) changes.
+  const autoOpenKey = `${makeupIntent ? "1" : "0"}:${preselectedStudentId ?? ""}:${preselectedRequirementId ?? ""}`;
+  const autoOpenedRef = useRef<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -188,6 +200,28 @@ export default function MinutesOversightTab() {
 
   const allRows: MinuteRow[] = rows ?? [];
 
+  // Phase 1D — when launched with `intent=makeup` and a target row is
+  // identifiable, auto-open the BlockFormDialog prefilled for that
+  // service requirement so the user lands directly on the next click
+  // (pick a slot + save). We intentionally do NOT pre-write the block
+  // — the user still confirms via the dialog.
+  useEffect(() => {
+    if (!makeupIntent || !canSchedule) return;
+    if (preselectedStudentId == null) return;
+    if (autoOpenedRef.current === autoOpenKey) return;
+    const candidates = allRows.filter(r => r.studentId === preselectedStudentId);
+    if (candidates.length === 0) return;
+    const target =
+      preselectedRequirementId != null
+        ? candidates.find(r => r.serviceRequirementId === preselectedRequirementId) ?? null
+        : candidates.length === 1
+          ? candidates[0]
+          : null;
+    if (!target) return;
+    autoOpenedRef.current = autoOpenKey;
+    openScheduleFor(target);
+  }, [makeupIntent, canSchedule, preselectedStudentId, preselectedRequirementId, autoOpenKey, allRows]);
+
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const r of allRows) c[r.riskStatus] = (c[r.riskStatus] ?? 0) + 1;
@@ -240,8 +274,46 @@ export default function MinutesOversightTab() {
     );
   }
 
+  // Phase 1D — back-link target for the makeup launch workflow.
+  const backHref =
+    from === "action-center" ? "/action-center"
+    : from === "compliance" ? "/compliance"
+    : from === "student-detail" && preselectedStudentId != null
+      ? `/students/${preselectedStudentId}`
+      : null;
+  const backLabel =
+    from === "action-center" ? "Back to Action Center"
+    : from === "compliance" ? "Back to Compliance"
+    : from === "student-detail" ? "Back to student"
+    : null;
+
   return (
     <div className="space-y-5">
+      {makeupIntent && (
+        <div
+          className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 text-[12px] text-blue-800"
+          data-testid="banner-makeup-intent"
+        >
+          <CalendarPlus className="w-4 h-4 shrink-0 text-blue-600" />
+          <span className="flex-1">
+            Scheduling a <strong>makeup session</strong>
+            {preselectedStudentId != null && allRows.length > 0 && (() => {
+              const r = allRows.find(x => x.studentId === preselectedStudentId);
+              return r ? <> for <strong>{r.studentName}</strong>{preselectedRequirementId != null && r.serviceRequirementId === preselectedRequirementId && <> · {r.serviceTypeName}</>}.</> : null;
+            })()}
+            {" "}Pick a slot below — the existing scheduling form is pre-filled.
+          </span>
+          {backHref && backLabel && (
+            <Link
+              href={backHref}
+              className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 whitespace-nowrap"
+              data-testid="link-makeup-back"
+            >
+              ← {backLabel}
+            </Link>
+          )}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-gray-700">Service Minutes at Risk</h2>

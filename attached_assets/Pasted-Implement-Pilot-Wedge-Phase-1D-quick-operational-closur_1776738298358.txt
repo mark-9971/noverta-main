@@ -1,0 +1,285 @@
+Implement Pilot Wedge Phase 1D — quick operational closures before shared handling-state infrastructure.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Finish the highest-ROI remaining visible Phase 1 wedge improvements before the bigger server-side handling-state pass. This phase should make the current operational action model feel more executable, more visible on key surfaces, and less duplicative.
+
+Primary product objective:
+When an admin/coordinator sees a student/service behind on minutes, the product should not just recommend the right next step — it should make that step easier to initiate from the most important surfaces, and it should reduce duplicate chasing in the visible wedge.
+
+Context:
+Phase 1A is complete:
+- Action Center opens Quick Log inline
+- dashboard has clearer Action Center funnel
+- focused nav is trimmed
+
+Phase 1B is complete:
+- centralized action recommendation model exists
+- Action Center shows likely cause, owner, recommended next action
+- local handling state exists
+
+Phase 1C is complete for visible wedge work:
+- student detail has a Recommended Next Step card
+- compliance Risk Report has recommendation subline
+- return-to-queue via ?from=action-center / ?from=compliance is implemented
+- server-side handling state was explicitly deferred honestly
+
+The highest-value remaining visible gaps are now:
+1. “Schedule makeup” is still mostly a recommendation, not a real launch path
+2. Risk Report rows still require one extra click to act
+3. owner-aware “you” wording is incomplete
+4. dashboard/needs-attention surfaces do not yet reflect handling-state enough to reduce duplicate chasing
+5. HANDLING_TRANSITIONS is duplicated and should be hoisted while context is fresh
+
+==================================================
+A. REQUIRED DELIVERABLES
+==================================================
+
+This phase should complete these five things in one pass:
+
+1. Wire “Schedule makeup” to a real scheduler launch path
+2. Add Risk Report inline primary CTA + handling pill on the highest-value row treatment
+3. Extend owner-aware “you” substitution where it should obviously apply
+4. Make dashboard / NeedsAttention reflect handling-state enough to reduce duplicate chasing
+5. Hoist HANDLING_TRANSITIONS to a single shared source of truth
+
+If fewer than 4 of these 5 are implemented meaningfully, verdict should be PARTIAL.
+
+==================================================
+B. SCHEDULE MAKEUP — REQUIRED OUTCOME
+==================================================
+
+This is the highest-priority visible fix.
+
+Right now “Schedule makeup” is often just a recommendation / state update. That is not enough.
+Make it launch a real operational path.
+
+Required behavior:
+- when the recommendation is schedule_makeup, the primary CTA should route/open the scheduling surface with as much prefilled context as safely possible
+- pass through at minimum:
+  - studentId
+  - serviceRequirementId if available
+  - missedSessionId or best available shortfall context if available
+  - intent=makeup
+- do not invent a giant new scheduling system
+- reuse the existing scheduling surface and query-param patterns if possible
+- preserve the queue-oriented workflow as much as practical
+
+Preferred behavior:
+- if launched from Action Center or student detail, the user should clearly be in a “makeup intent” mode
+- if returning is already supported by query params or existing context patterns, preserve it
+- if a perfect round-trip cannot be completed in this phase, still make the launch operationally useful and report the exact remaining gap honestly
+
+==================================================
+C. RISK REPORT INLINE ACTIONABILITY — REQUIRED OUTCOME
+==================================================
+
+The compliance Risk Report should stop being one click more passive than necessary.
+
+Implement a stronger row treatment for the highest-value at-risk rows (for example out_of_compliance / highest-priority rows) so the row itself is more actionable.
+
+At minimum, for the chosen row treatment:
+- show the recommended next action clearly
+- show owner clearly
+- show handling-state pill
+- offer the primary CTA inline where density allows
+- keep the row readable and not cluttered
+- continue to allow click-through to student detail
+
+Important:
+- reuse the centralized recommendation model
+- do not duplicate logic
+- do not make “Log Session” generic
+- if row density forces a compact pattern, prioritize the highest-value row state(s) rather than trying to treat every row equally
+
+==================================================
+D. OWNER-AWARE “YOU” SUBSTITUTION — REQUIRED OUTCOME
+==================================================
+
+Extend the current owner-aware wording beyond the narrow existing provider case.
+
+Where the user’s current role clearly matches the recommended owner, the UI should say “you” instead of a generic role label in the relevant touched surfaces.
+
+Target at minimum:
+- service provider
+- case manager / SPED teacher if role mapping exists cleanly
+- scheduler if role mapping exists cleanly
+- admin when appropriate
+
+Do this only where it is actually justified by the current role/context.
+Do not fake owner identity if the system cannot infer it reliably.
+
+==================================================
+E. DASHBOARD / NEEDS-ATTENTION HANDLING VISIBILITY — REQUIRED OUTCOME
+==================================================
+
+The dashboard should do a better job of not making already-in-progress items look identical to untouched items.
+
+Improve the highest-value dashboard / NeedsAttention surface so that handling-state affects presentation enough to reduce duplicate chasing.
+
+Acceptable implementations include:
+- grey out items already in non-default handling states
+- exclude items already marked in-progress from “needs action” counts if safe
+- separate “needs action” from “already in progress”
+- show a lightweight in-progress label/state
+
+Important:
+- do not break trust in counts
+- do not create a misleading “resolved” illusion if the state is still only local-only
+- keep it honest and useful
+
+==================================================
+F. HOIST HANDLING TRANSITIONS — REQUIRED OUTCOME
+==================================================
+
+Move HANDLING_TRANSITIONS to a single shared source of truth so Action Center and RecommendedNextStepCard no longer duplicate the constant.
+
+This is small, but should be done in the same pass while the context is fresh.
+
+==================================================
+G. WHAT NOT TO DO
+==================================================
+
+Do NOT:
+- start the server-side handling-state migration in this pass unless it falls out almost trivially
+- create schema changes or migrations in this phase unless absolutely unavoidable
+- redesign the whole scheduler
+- redesign the whole dashboard
+- refactor unrelated code
+- weaken the centralized action recommendation model
+- turn this into a general workflow engine
+
+This phase is for visible, high-ROI operational closures before the bigger shared-state infrastructure pass.
+
+==================================================
+H. EXECUTION STRATEGY
+==================================================
+
+1. Start with wiring Schedule makeup to the real scheduler launch path
+2. Then strengthen Risk Report row actionability
+3. Then extend owner-aware “you” substitution
+4. Then make dashboard handling-state more useful
+5. Hoist HANDLING_TRANSITIONS as part of the cleanup
+6. Keep all recommendation logic centralized
+
+If some dashboard handling-state behavior depends too much on server-side persistence, implement the strongest honest local-only version now and say so clearly.
+
+==================================================
+I. WHAT I CARE ABOUT MOST
+==================================================
+
+- “Schedule makeup” should become a real action, not just a label
+- Risk Report should be more actionable
+- handling-state should reduce visible duplicate chasing
+- owner wording should feel assigned, not abstract
+- the wedge should feel faster and more operational
+- recommendation logic must remain centralized
+- no scattered shallow edits
+
+==================================================
+J. CONSTRAINTS
+==================================================
+
+- Use the main agent
+- No schema changes or migrations unless absolutely unavoidable
+- No broad redesign
+- No unrelated refactors
+- Keep existing risk/correctness logic intact unless a small safe change is needed
+- If you have to choose, prioritize:
+  1. schedule makeup launch path
+  2. risk row inline actionability
+  3. dashboard handling-state usefulness
+  4. owner-aware wording
+  5. transitions cleanup
+
+==================================================
+K. STATUS UPDATES REQUIRED DURING EXECUTION
+==================================================
+
+Give concise progress updates as you work.
+Each update should include:
+- which visible gap you are fixing
+- what user problem it solves
+- whether it is actionability, queue flow, wording, dashboard state visibility, or cleanup
+- any important judgment call
+- current test/build status when relevant
+
+==================================================
+L. TESTING REQUIREMENTS
+==================================================
+
+Add/modify focused tests for the touched behaviors.
+
+At minimum, cover:
+- schedule_makeup CTA launches the scheduling surface with the intended context params
+- at least one Risk Report row scenario shows the correct inline CTA/handling treatment
+- “you” substitution appears where the role/owner match is intended
+- dashboard handling-state behavior changes the visible treatment or count as intended
+- no regression in Action Center and student-detail action-model behavior
+- HANDLING_TRANSITIONS remains consistent across touched surfaces after hoisting
+
+If some UI-level queue-return details are difficult to test end-to-end, test the critical mechanics honestly and explain any remaining gap.
+
+==================================================
+M. REQUIRED FINAL OUTPUT FORMAT
+==================================================
+
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph on whether the wedge is materially more executable after this pass
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact components/pages/hooks/routes/helpers changed
+- exact reason for the change
+- whether it is schedule-makeup actionability, risk-row actionability, owner wording, dashboard handling visibility, shared constant cleanup, or tests
+
+3. DELIVERABLES COMPLETED
+State explicitly whether each of these is complete:
+- real Schedule makeup launch path
+- Risk Report inline primary CTA + handling pill
+- owner-aware “you” substitution expansion
+- dashboard / NeedsAttention handling-state visibility
+- HANDLING_TRANSITIONS hoisted
+
+4. WORKFLOW IMPACT
+Explain concretely how the flow improved for a district admin trying to:
+- identify risk
+- choose the next action
+- launch makeup scheduling
+- see whether something is already being handled
+- avoid duplicate chasing
+- continue to the next issue
+
+5. TEST / BUILD STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- any typecheck/build results
+- any unrelated pre-existing failures clearly separated from regressions
+
+6. REMAINING PHASE-1 GAPS
+List only the highest-value remaining Phase 1 gaps after this pass.
+
+7. EXACT NEXT TASKS
+List the next 3–10 highest-value follow-up tasks in priority order.
+
+8. SCHEDULE-MAKEUP EXECUTION PATH
+State exactly:
+- where the CTA now launches
+- what params/context are passed
+- what still remains to make the makeup path fully operational, if anything
+
+9. HANDLING-STATE LIMITATIONS
+State clearly:
+- what still depends on local-only handling state
+- what visible duplicate-chasing risk remains until the server-side/shared handling pass
+- the exact next task needed to fix it
+
+Important:
+- Include a summary of exact changes made, not just a recap
+- Keep the recommendation model centralized
+- Do not leave “Schedule makeup” half-explained
+- Be honest about what is still local-only
