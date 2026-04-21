@@ -1,0 +1,121 @@
+Implement “School Calendar v0 — Slice 4B: remaining downstream consequence alignment” in the existing Trellis codebase.
+
+Context:
+Slice 4A is already shipped:
+- collectServiceShortfallRisks now delegates to computeAllActiveMinuteProgress
+- closure / early-release days now suppress false service_shortfall alerts
+- calendar-aware exposure explanation text was added
+- relevant alert-path tests are green
+
+However, Slice 4 is NOT fully complete yet.
+
+Discovery already found at least one remaining duplicated downstream consequence path:
+- costAvoidanceSnapshots.ts
+
+Goal:
+Finish the remaining alignment work so all major downstream consequence paths that convert shortfall into exposure / cost / owed logic are consistent with school-calendar-adjusted expectation math.
+
+Primary objective:
+No major downstream consequence surface should still behave as though closure/early-release days were normal instructional time once shared minute-progress logic already discounted them.
+
+Do NOT redo the alerting path. Finish the remaining consequence paths.
+
+Scope:
+Audit and align the remaining shared/business-logic consumers for:
+- cost avoidance / cost exposure / liability summaries
+- compensatory / owed-minute summaries if present
+- makeup-needed / recovery summaries if present
+- any other remaining downstream shared path that still duplicates pre-calendar shortfall math
+
+What to implement:
+
+1. FIND ALL REMAINING DUPLICATED CONSEQUENCE MATH
+- Start from the discovery finding in costAvoidanceSnapshots.ts
+- Search for any remaining code paths that independently derive service shortfall / exposure / owed values instead of delegating to the shared calendar-aware minute-progress path
+- Prioritize shared helpers and business-logic modules over leaf UI routes
+
+2. ALIGN THEM TO SHARED CALENDAR-AWARE LOGIC
+Required behavior:
+- closure days do not create false exposure / cost / owed values
+- early-release days use the SAME fallback rule already used by shared minute-progress logic
+- requiredMinutes remains unchanged; only expected-by-now / shortfall-derived consequence math changes
+- do not create a second competing calendar-weight rule anywhere
+
+3. PRESERVE SCOPE
+- no new admin UI
+- no schema changes unless absolutely unavoidable
+- no broad redesign
+- no unrelated refactors
+- no reopening already-fixed alert logic unless truly necessary
+
+4. USER-VISIBLE IMPACT
+- wherever cost/exposure/owed values are shown, the values should now reflect calendar-adjusted shortfall logic
+- add only minimal explanatory text if needed and only where already consistent with product patterns
+
+5. CONTRACT HYGIENE
+- if API/read models change, update OpenAPI/client codegen as appropriate
+- do not leave typed contract drift
+
+Acceptance criteria:
+1. Remaining shared downstream consequence paths are aligned
+2. costAvoidanceSnapshots.ts no longer uses stale duplicated pre-calendar math
+3. closure days do not inflate cost/exposure/owed values
+4. early-release uses the same existing fallback rule as the shared minute-progress logic
+5. no duplicate calendar math remains in major downstream consequence helpers
+6. tests prove the aligned downstream consumers now behave correctly
+7. existing Slice 1–4A behavior remains intact
+
+Testing requirements:
+- add focused tests for the newly aligned paths
+- add at least one integration test proving a closure-heavy window yields zero or reduced downstream consequence values where appropriate
+- add a mixed early-release scenario
+- preserve and rerun relevant prior alert-path tests
+- mention any full-suite timeout separately from relevant targeted suites
+
+Output format required:
+
+1. COMPLETION STATUS
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one short paragraph
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact functions/routes/components/types changed
+- exact reason for the change
+- whether it is shared business logic, route wiring, UI wiring, OpenAPI/codegen, or tests
+
+3. REMAINING CONSEQUENCE COVERAGE
+State exactly which remaining downstream consequence paths now honor school-calendar exceptions and how:
+- cost avoidance / cost exposure / liability
+- compensatory / owed-minute logic
+- makeup-needed logic
+- any additional shared downstream consumers automatically changed because of shared logic refactors
+
+4. BUSINESS RULE CONSISTENCY
+State explicitly:
+- what closure now does
+- what early release now does
+- whether the same fallback rule as Slice 2 is reused
+- whether requiredMinutes remains unchanged
+
+5. TEST STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- what scenarios are covered
+- any known gaps
+- whether any suite timeout is pre-existing infra noise vs a regression
+
+6. REMAINING LIMITATIONS
+Only list real remaining follow-ups after this pass, such as:
+- exact time-of-day proration via schedule_blocks
+- weekday-aware baseline pacing
+- bulk calendar tooling
+- deeper finance redesign
+Do not broaden beyond real remaining follow-ups discovered in the work.
+
+Important:
+- This is finishing Slice 4, not starting a new product area
+- Favor shared-logic correctness over UI polish
+- Include a summary of exact changes made, not just a high-level recap
