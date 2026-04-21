@@ -1,0 +1,159 @@
+Implement Pilot Wedge Phase 1 — core workflow hardening and nav simplification.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Make the pilot-critical daily workflow feel tight, credible, and easy to use for a district admin / coordinator, without broad redesign or random feature sprawl.
+
+Primary product objective:
+A user should be able to move through the core loop quickly:
+
+1. Know who is at risk
+2. Understand why
+3. See what to do next
+4. Prove / review the underlying details
+
+Core pilot wedge surfaces:
+- Dashboard
+- Compliance
+- Action Center
+- Student detail
+- Today
+- Quick log / session logging
+- scheduling visibility where it directly supports the above loop
+
+Context:
+The School Calendar v0 work is now strong enough:
+- closures
+- early release
+- downstream read math
+- forecast/timing-aware paths
+- consequence alignment
+- weekday-aware baseline
+
+Do NOT keep deepening calendar work unless you find a direct blocker in one of the core wedge surfaces. The current goal is product usability and coherence, not more subsystem nuance.
+
+What I want you to do:
+Audit the current pilot-critical experience as a product architect + staff engineer, then implement the highest-value improvements that make the core wedge more usable and less confusing.
+
+Focus areas:
+A. Navigation / information architecture
+- identify cyclical, duplicative, or confusing entry points across Dashboard, Compliance, Action Center, Student detail, Today, and session logging
+- reduce unnecessary overlap or redundant paths where possible
+- improve the “next obvious click” from one core surface to another
+- hide, de-emphasize, or stop routing users toward non-core distractions if that can be done safely without broad redesign
+
+B. Core workflow clarity
+Improve the flow from:
+- Dashboard → why is this student/school at risk?
+- Compliance → what specifically is wrong?
+- Student detail → what action should we take?
+- Today / session logging → how do providers actually close the gap?
+
+C. Student detail page usefulness
+Student detail is likely part of the pilot-critical loop. Improve it if needed, especially if:
+- the page is too cluttered
+- the most important compliance/service info is buried
+- actions are too hard to find
+- tab structure or layout hurts core use
+
+D. Actionability
+Where the product currently reports risk but does not guide action well, improve the path to action without inventing a giant new workflow.
+Examples:
+- better links to relevant student detail or logging surfaces
+- clearer “why this matters” summaries
+- less dead-end reporting
+- better placement of actions already available in the codebase
+
+E. Keep this phase bounded
+This is NOT a broad redesign and NOT a visual beautification project.
+Do not:
+- build a whole new scheduling system
+- redesign the whole product shell
+- add speculative new modules
+- reopen deep calendar architecture unless a core wedge bug requires it
+- spread across unrelated non-pilot surfaces
+
+Execution strategy:
+1. Audit the pilot wedge first
+2. Identify the highest-value usability/flow issues
+3. Implement the improvements with the best ROI
+4. Prefer focused changes in shared navigation, page composition, and action flow over giant rewrites
+5. If one or two surfaces are especially messy (for example student detail), it is okay to structurally clean them up if it directly improves the wedge
+
+What I care about most:
+- fewer confusing paths
+- better coherence between pages
+- better explanation of risk
+- better path from insight to action
+- less nav clutter around the pilot-critical loop
+- preserving correctness and trust
+
+Constraints:
+- Use the main agent
+- No schema changes or migrations unless absolutely unavoidable
+- No giant refactor unless directly justified by pilot-wedge value
+- No broad redesign outside the pilot-critical surfaces
+- No random cleanup work unless it directly supports this phase
+- Keep existing core logic intact unless a usability fix requires a small, safe adjustment
+
+Status updates required during execution:
+Give concise progress updates as you work.
+In those updates, include:
+- which pilot-critical surface you are auditing/changing
+- what user problem you are solving
+- whether the change is nav/flow, UI composition, or small logic wiring
+- current test/build status when relevant
+
+Required final output format:
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph on whether the pilot wedge is now meaningfully tighter
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact components/pages/hooks/routes changed
+- exact reason for the change
+- whether it is navigation, UI composition, flow/actionability, shared helper, or tests
+
+3. PILOT WEDGE IMPROVEMENTS
+State exactly what improved for:
+- Dashboard
+- Compliance
+- Action Center
+- Student detail
+- Today
+- Quick log / session logging
+- scheduling visibility if touched
+
+4. BEFORE/AFTER WORKFLOW IMPACT
+Explain concretely how the flow improved for a district admin trying to:
+- identify risk
+- understand why
+- act
+- verify the outcome
+
+5. TEST / BUILD STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- any build/typecheck status
+- any unrelated pre-existing failures clearly separated from regressions
+
+6. REMAINING PILOT-WEDGE GAPS
+List only the real next-highest-value remaining gaps after this phase.
+Examples might include:
+- scheduling / makeup orchestration
+- audit/export proof layer
+- role-based nav trimming
+- student detail decomposition if only partially addressed
+Do not broaden into unrelated product areas.
+
+7. EXACT NEXT TASKS
+List the next 3–10 highest-value tasks that should follow this phase, in priority order.
+
+Important:
+- Include a summary of exact changes made, not just a high-level recap
+- Favor meaningful wedge improvement over lots of shallow edits
+- If you have to choose, improve the user’s path from risk → why → action rather than cosmetic polish

@@ -19,7 +19,6 @@ import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
 import SchoolComplianceBreakdown from "@/components/dashboard/SchoolComplianceBreakdown";
 import ProviderDelivery from "@/components/dashboard/ProviderDelivery";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
-import { LifeThreateningAlertsBanner } from "./AlertBanners";
 import { CollapsibleSection } from "./CollapsibleSection";
 import {
   AccommodationComplianceCard, EvalsTransitionsSection,
@@ -439,9 +438,6 @@ export default function PilotAdminHome() {
           <ShowcaseTourButton />
         </div>
       </div>
-
-      {/* Life-threatening medical alert banner — dismissible per session */}
-      <LifeThreateningAlertsBanner />
 
       {/*
         Setup/readiness is the dominant concern until the district is pilot-ready.

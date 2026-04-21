@@ -16,7 +16,7 @@ import { CASELOAD_ROLES, getGreeting, formatLastUpdated } from "./types";
 import type { ProviderCaseloadSummary, DashboardSummaryExtended, RiskOverview, AlertsSummary } from "./types";
 import type { Alert, ComplianceByService } from "@workspace/api-client-react";
 import type { DashboardTabsProps } from "./DashboardTabs";
-import { NeedsAttentionPanel, CriticalMedicalAlertsBanner, LifeThreateningAlertsBanner } from "./AlertBanners";
+import { NeedsAttentionPanel } from "./AlertBanners";
 import { DashboardTabs } from "./DashboardTabs";
 import RecentWins from "@/components/dashboard/RecentWins";
 import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAlertsWidget";
@@ -191,10 +191,10 @@ function DashboardFull() {
         </div>
       </div>
 
-      {/* Persistent above-tab elements: onboarding checklist + alert banners */}
+      {/* Persistent above-tab elements: onboarding checklist + alert banners.
+          Medical alerts intentionally live on the student detail page only —
+          they are not surfaced on the dashboard. */}
       {isAdmin && <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />}
-      <LifeThreateningAlertsBanner />
-      <CriticalMedicalAlertsBanner />
       <NeedsAttentionPanel />
 
       {!isAdmin && <RecentWins days={30} />}
