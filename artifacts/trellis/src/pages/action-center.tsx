@@ -29,6 +29,7 @@ import {
 } from "@/lib/action-recommendations";
 import { useHandlingState, resolveOwnerDisplay, formatRelativeTime, type HandlingRow } from "@/lib/use-handling-state";
 import HandlingHistoryPopover from "@/components/handling-history-popover";
+import { useDismissalState, type DismissalEntry } from "@/lib/use-dismissal-state";
 import {
   itemIdForAlert, itemIdForRisk, itemIdForDeadline, itemIdForServiceGap,
 } from "@/lib/action-recommendations";
@@ -370,115 +371,13 @@ function StudentSearch() {
 }
 
 // ─── Dismiss / snooze persistence ─────────────────────────────────────────────
+//
+// Task #951: shared across a district. The actual state lives on the
+// server (action_item_dismissals) and is consumed via useDismissalState
+// (imported at the top of this file). The local alias below keeps the
+// existing footer/component shape working without churn.
 
-// Default TTL for a "Dismiss" (×) — auto-restores after this many days so a
-// permanently-handled item doesn't permanently disappear if the underlying
-// alert recurs. Snooze choices override this with their own duration.
-const DISMISS_DEFAULT_TTL_DAYS = 7;
-
-interface HiddenEntry {
-  expiresAt: number;       // unix ms; Number.POSITIVE_INFINITY ⇒ never
-  reason: "dismissed" | "snoozed";
-  durationLabel: string;   // e.g. "1 day", "3 days", "dismissed"
-  hiddenAt: number;        // unix ms
-  snapshot: { title: string; detail: string };
-}
-
-type HiddenMap = Record<string, HiddenEntry>;
-
-function lsKeyForUser(userKey: string): string {
-  return `trellis:action-center:hidden:${userKey}`;
-}
-
-function readHidden(userKey: string): HiddenMap {
-  try {
-    const raw = localStorage.getItem(lsKeyForUser(userKey));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return {};
-    // Re-hydrate Infinity (JSON.stringify turns it into null)
-    for (const k of Object.keys(parsed)) {
-      const e = parsed[k];
-      if (e && (e.expiresAt === null || e.expiresAt === undefined)) {
-        e.expiresAt = Number.POSITIVE_INFINITY;
-      }
-    }
-    return parsed as HiddenMap;
-  } catch {
-    return {};
-  }
-}
-
-function writeHidden(userKey: string, map: HiddenMap) {
-  try {
-    // Replace Infinity with null for JSON; readHidden re-hydrates.
-    const replacer = (_k: string, v: unknown) =>
-      typeof v === "number" && !isFinite(v) ? null : v;
-    localStorage.setItem(lsKeyForUser(userKey), JSON.stringify(map, replacer));
-  } catch {}
-}
-
-function useHiddenItems(userKey: string) {
-  const [hidden, setHidden] = useState<HiddenMap>(() => readHidden(userKey));
-
-  // Re-load when the user changes
-  useEffect(() => { setHidden(readHidden(userKey)); }, [userKey]);
-
-  // Drop expired entries on mount and on a periodic tick so items reappear
-  // automatically when their snooze/TTL elapses.
-  useEffect(() => {
-    function prune() {
-      const now = Date.now();
-      setHidden(prev => {
-        let changed = false;
-        const next: HiddenMap = {};
-        for (const [k, v] of Object.entries(prev)) {
-          if (v.expiresAt > now) next[k] = v;
-          else changed = true;
-        }
-        if (changed) writeHidden(userKey, next);
-        return changed ? next : prev;
-      });
-    }
-    prune();
-    const t = setInterval(prune, 60_000);
-    return () => clearInterval(t);
-  }, [userKey]);
-
-  const hide = useCallback((id: string, durationMs: number, reason: "dismissed" | "snoozed", durationLabel: string, snapshot: { title: string; detail: string }) => {
-    setHidden(prev => {
-      const next: HiddenMap = {
-        ...prev,
-        [id]: {
-          expiresAt: isFinite(durationMs) ? Date.now() + durationMs : Number.POSITIVE_INFINITY,
-          reason,
-          durationLabel,
-          hiddenAt: Date.now(),
-          snapshot,
-        },
-      };
-      writeHidden(userKey, next);
-      return next;
-    });
-  }, [userKey]);
-
-  const restore = useCallback((id: string) => {
-    setHidden(prev => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      writeHidden(userKey, next);
-      return next;
-    });
-  }, [userKey]);
-
-  const restoreAll = useCallback(() => {
-    setHidden({});
-    writeHidden(userKey, {});
-  }, [userKey]);
-
-  return { hidden, hide, restore, restoreAll };
-}
+type HiddenMap = Record<string, DismissalEntry>;
 
 // ─── Work Item Row ─────────────────────────────────────────────────────────────
 
@@ -812,7 +711,7 @@ function WorkItemRow({
           <button
             onClick={() => onDismiss(item)}
             className="flex items-center text-gray-300 hover:text-gray-700 transition-colors p-0.5"
-            title={`Dismiss (auto-restores in ${DISMISS_DEFAULT_TTL_DAYS} days)`}
+            title={`Dismiss (auto-restores in 7 days)`}
             aria-label="Dismiss this item"
             data-testid={`button-dismiss-${item.id}`}
           >
@@ -873,7 +772,8 @@ function HiddenItemsFooter({
               <div className="flex-1 min-w-0">
                 <div className="text-[12px] text-gray-700 truncate">{e.snapshot.title}</div>
                 <div className="text-[10px] text-gray-400 truncate">
-                  {e.reason === "snoozed" ? `Snoozed ${e.durationLabel}` : `Dismissed (${e.durationLabel})`}
+                  {e.state === "snoozed" ? `Snoozed ${e.durationLabel}` : `Dismissed (${e.durationLabel})`}
+                  {e.updatedByName ? ` · by ${e.updatedByName}` : ""}
                   {" · "}
                   {describeRemaining(e.expiresAt - now)}
                 </div>
@@ -1217,42 +1117,34 @@ export default function ActionCenter() {
     return agg;
   }, [meetingDash, evalDash, transitionDash]);
 
-  // ── Per-user dismiss / snooze state ───────────────────────────────────────
-  // Scoped per user (not per district) via RoleContext — survives reload via
-  // localStorage. Aggregate (count-level) items are intentionally not
-  // dismissible per the product spec. RoleContext does not currently expose a
-  // stable user id, so we combine role + display name to reduce the chance of
-  // collisions when two demo personas share a browser. When the auth layer
-  // exposes a stable user id, swap that in here.
-  const userKey = `${role ?? "unknown"}::${user?.name?.trim() || "anonymous"}`;
-  const { hidden, hide, restore, restoreAll } = useHiddenItems(userKey);
-  // Phase 1E: district-scoped, server-side shared handling state.
-  // Pre-fetch the canonical itemIds for every visible work item in one
-  // batch so the per-row pill renders synchronously. `userKey` is no
-  // longer used for namespacing — district scoping is enforced server-side.
-  void userKey;
+  // ── District-shared dismiss / snooze state (task #951) ────────────────────
+  // Backed by /action-item-dismissals on the server, scoped to the caller's
+  // district. Survives reload, syncs across browsers and users in the same
+  // district. Aggregate (count-level) items are intentionally not dismissible
+  // per the product spec.
   // Aggregate (count-level) items don't carry a stable WorkItem id and
   // are intentionally excluded from the handling-state pill machinery.
   const visibleHandlingIds = useMemo(() => allItems.map(i => i.id), [allItems]);
   const { getState: getHandlingState, setState: setHandlingState, getEntry: getHandlingEntry } = useHandlingState(visibleHandlingIds);
+  const {
+    hidden,
+    dismiss: dismissShared,
+    snooze: snoozeShared,
+    restore,
+    restoreAll,
+  } = useDismissalState(visibleHandlingIds);
 
   const handleDismiss = useCallback((item: WorkItem) => {
-    hide(
-      item.id,
-      DISMISS_DEFAULT_TTL_DAYS * 24 * 60 * 60 * 1000,
-      "dismissed",
-      `auto-restore in ${DISMISS_DEFAULT_TTL_DAYS}d`,
-      { title: item.title, detail: item.detail },
-    );
-  }, [hide]);
+    dismissShared(item.id, { title: item.title, detail: item.detail });
+  }, [dismissShared]);
 
   const handleSnooze = useCallback((item: WorkItem, durationMs: number, label: string) => {
-    hide(item.id, durationMs, "snoozed", label, { title: item.title, detail: item.detail });
-  }, [hide]);
+    snoozeShared(item.id, durationMs, label, { title: item.title, detail: item.detail });
+  }, [snoozeShared]);
 
-  // Items that are still hidden right now (filter out anything already expired
-  // on this render even before the next prune tick).
-  const liveHidden = useMemo(() => {
+  // Items still hidden as of this render. The hook already filters expired
+  // entries; this guard handles the in-flight case before the next refetch.
+  const liveHidden = useMemo<HiddenMap>(() => {
     const now = Date.now();
     const out: HiddenMap = {};
     for (const [k, v] of Object.entries(hidden)) {
