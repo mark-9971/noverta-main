@@ -1,0 +1,416 @@
+Implement Pilot Wedge Phase 1E — server-side shared handling state for operational action items.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Replace the current localStorage-only handling state with a real shared server-side operational handling model so multiple admins/users can see the same in-progress state, ownership, and handoff information across the key pilot-wedge surfaces.
+
+Primary product objective:
+When one admin/coordinator/provider marks an item as handed off, awaiting confirmation, recovery scheduled, under review, or resolved, other authorized users in the same district should see that same handling state and not duplicate the work.
+
+This is the next infrastructure step for the pilot wedge. It should make the wedge feel like a shared operations tool, not a single-browser demo.
+
+Context:
+Phase 1A is complete:
+- Action Center workflow tightened
+- dashboard funnel improved
+- pilot nav simplified
+
+Phase 1B is complete:
+- centralized recommendation engine exists
+- Action Center uses cause-aware / owner-aware / action-aware language
+
+Phase 1C is complete:
+- student detail Recommended Next Step surface uses the same action model
+- compliance Risk Report rows show recommendation language
+- return-to-queue flow is implemented
+
+Phase 1D quick fixes may also be complete or in progress:
+- schedule makeup launch path
+- stronger risk row actionability
+- owner-aware “you” wording
+- dashboard handling-state awareness
+- shared HANDLING_TRANSITIONS constant
+
+Current limitation:
+Handling state is localStorage-backed and per-browser/per-surface namespace only. That is not sufficient for:
+- shared visibility
+- real handoff
+- auditability
+- reducing duplicate chasing across users/devices
+
+==================================================
+A. WHAT THIS PHASE MUST DELIVER
+==================================================
+
+There are six required deliverables:
+
+1. A real server-side/shared handling-state persistence model
+2. Stable canonical item identity for the touched wedge surfaces
+3. District-scoped read/write API for handling state
+4. Frontend hook replacement from localStorage to shared API-backed state
+5. Action Center + student detail + touched risk/compliance surface wired to the shared state
+6. Honest handling-history / auditability foundation if feasible in the same pass
+
+If #1–#5 are not completed in a meaningful way, verdict should be PARTIAL.
+#6 is strongly preferred, but if it cannot be done cleanly in the same pass, explicitly say so and list the exact next task.
+
+==================================================
+B. CORE DOMAIN MODEL — REQUIRED OUTCOME
+==================================================
+
+Implement a thin, explicit shared “operational handling state” model for action items.
+
+At minimum, the persisted model should support:
+- stable item_id
+- district_id
+- current handling_state
+- recommended_owner_role if available
+- assigned_to_user_id nullable
+- assigned_to_role nullable
+- state_reason or note nullable
+- updated_by_user_id
+- updated_at
+- maybe resolved_at if useful
+
+You may adapt field names to fit the codebase, but preserve the meaning.
+
+Handling states should at minimum support:
+- needs_action
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+- resolved
+
+Important:
+This is NOT a giant task engine.
+Do not overbuild.
+This is a thin shared state layer for operational coordination.
+
+==================================================
+C. STABLE ITEM IDENTITY — REQUIRED OUTCOME
+==================================================
+
+A major requirement of this phase is stable canonical item identity.
+
+Action Center, student detail, and the most relevant compliance/risk surface must converge on stable item ids for the same underlying issue when appropriate.
+
+You must:
+- audit the current item id schemes already in use
+- define/normalize the canonical item-id format used by the shared handling layer
+- make the chosen ids explicit in code and in the final output
+
+Good examples of acceptable formats:
+- alert:<id>
+- risk:<studentId>:<requirementId>:<period>
+- deadline:<studentId>:<type>:<date>
+- student:<studentId>:<kind>:<requirementId?>
+- service-gap:<studentId>:<requirementId>:<window>
+
+The exact format may differ, but it must be:
+- deterministic
+- stable
+- explainable
+- reusable across surfaces
+
+Important:
+Do not leave each surface inventing its own incompatible id rules if it can be avoided.
+If some surfaces cannot fully unify yet, be explicit about which ones and why.
+
+==================================================
+D. DISTRICT-SCOPED API / BACKEND — REQUIRED OUTCOME
+==================================================
+
+Add a real backend path for handling state with correct district scoping.
+
+At minimum, implement:
+- read endpoint for handling state by a set of item ids
+- write/update endpoint for a single item id or small batch
+- district scoping / tenant enforcement
+- safe auth/role behavior consistent with current backend patterns
+
+Expected behavior:
+- user in district A cannot read or write handling state for district B items
+- touched pilot-wedge surfaces can request state for their visible items efficiently
+- write semantics are simple and predictable
+
+A reasonable API shape could be something like:
+- GET /api/handling-state?ids=...
+- PUT /api/handling-state/:itemId
+or similar.
+Use the codebase’s conventions.
+
+If batching is more efficient, do it.
+Do not make the frontend do N requests per row.
+
+==================================================
+E. FRONTEND STATE LAYER — REQUIRED OUTCOME
+==================================================
+
+Replace the current localStorage-only handling hook with a shared API-backed hook.
+
+Requirements:
+- keep the ergonomics close to the existing useHandlingState if possible
+- support reading shared state for multiple visible item ids efficiently
+- support optimistic updates where appropriate
+- revalidate from the server
+- do not silently lose state if another surface refreshes
+
+If it helps, implement:
+- a thin SWR/react-query style hook
+- local fallback/cache only as a resilience layer, not the source of truth
+
+Important:
+Do NOT fake server-side/shared behavior while still using localStorage as primary storage.
+If localStorage remains as a fallback cache, say so explicitly.
+
+==================================================
+F. SURFACE WIRING — REQUIRED OUTCOME
+==================================================
+
+Wire the shared handling state into the key pilot-wedge surfaces already using the action model.
+
+At minimum, wire:
+1. Action Center
+2. student detail Recommended Next Step card
+3. the touched compliance/risk surface from Phase 1C/1D
+
+For each surface, shared handling state should:
+- display the current state correctly
+- allow state transitions
+- show the same status if another user/browser would read the same item later
+- reduce duplicate chasing
+
+Also make sure any dashboard or NeedsAttention handling-state visibility introduced earlier is updated to read from the shared state if applicable.
+
+==================================================
+G. ASSIGNMENT / OWNER PERSISTENCE — STRONGLY PREFERRED
+==================================================
+
+If feasible in the same pass, persist not just the current handling state but also enough ownership data to make the handoff real.
+
+Preferred persisted fields:
+- recommended_owner_role
+- assigned_to_user_id
+- assigned_to_role
+- updated_by_user_id
+
+This does NOT need to become a full routing/notification system yet.
+But it should be enough that a touched surface can honestly show:
+- handed off
+- assigned to scheduler
+- assigned to case manager
+- last updated by X
+if the codebase/user model supports it cleanly.
+
+If some of this cannot be completed cleanly, implement the strongest honest subset and explain the remainder.
+
+==================================================
+H. TRANSITION HISTORY / AUDITABILITY — STRONGLY PREFERRED
+==================================================
+
+If feasible in the same pass, add a minimal history/audit foundation.
+
+Good bounded options:
+- append-only handling-state events table
+or
+- lightweight audit log rows for transitions
+
+At minimum, I want you to think hard about whether this can be added cheaply now.
+It is very valuable for:
+- who changed the state
+- when
+- what it changed from/to
+
+If you do not implement this in the same pass, explicitly say why and list the exact next task needed.
+
+Do NOT fake auditability if it is not actually stored.
+
+==================================================
+I. WHAT THIS SHOULD NOT BECOME
+==================================================
+
+Do NOT turn this into:
+- a full messaging system
+- a broad notification engine
+- a giant task platform
+- comments/threads everywhere
+- cross-product assignment routing beyond the touched wedge
+- a broad schema redesign
+
+This is a thin shared operational handling layer, not Jira-for-SPED.
+
+==================================================
+J. DEMO / SEEDED DATA CHECK — REQUIRED PRE-STEP
+==================================================
+
+Before or during this pass, confirm that the main demo user/main wedge surfaces actually exercise the handling-state scenarios we care about.
+
+At minimum, determine whether the demo data visibly covers:
+- documentation lag
+- likely missed service
+- ambiguous review-needed case
+- recurring/programmatic case
+- already-being-handled states like awaiting_confirmation, recovery_scheduled, handed_off, under_review
+
+If coverage is weak:
+- prefer updating the seeder or demo-safe data so the key scenarios are present
+- if a seeder change is too invasive for this pass, add the smallest clean demo-safe data needed
+- be explicit in the final output about what was already present vs what was added
+
+Important:
+I do not want a shared handling system that cannot be demonstrated on the main wedge surfaces.
+
+==================================================
+K. EXECUTION STRATEGY
+==================================================
+
+1. Audit current handling-state usage and id schemes
+2. Audit demo data coverage for the important scenarios
+3. Implement the minimal backend/shared model cleanly
+4. Replace the frontend hook
+5. Wire Action Center, student detail, and the chosen compliance/risk surface
+6. If feasible, add lightweight transition history/audit foundation
+7. Run targeted tests, typecheck, and relevant suites
+
+Keep the scope tight and operational.
+Prefer correctness and shared visibility over fancy UX extras.
+
+==================================================
+L. WHAT I CARE ABOUT MOST
+==================================================
+
+- real shared visibility across users/browsers
+- stable item identity
+- honest district scoping
+- preserving the centralized recommendation model
+- reducing duplicate chasing across the wedge
+- making handoff/handling feel real
+- not overbuilding into a giant task system
+- demo data that actually exercises the important states
+
+==================================================
+M. CONSTRAINTS
+==================================================
+
+- Use the main agent
+- Schema changes/migrations are allowed here if truly needed for the shared handling model
+- Keep schema narrow and purpose-built
+- No broad redesign outside the wedge surfaces
+- No unrelated refactors
+- If you have to choose, prioritize:
+  1. stable shared handling state
+  2. correct surface wiring
+  3. district-scoped API
+  4. demo coverage
+  5. history/audit foundation
+over cosmetic polish
+
+==================================================
+N. STATUS UPDATES REQUIRED DURING EXECUTION
+==================================================
+
+Give concise progress updates as you work.
+Each update should include:
+- what backend/shared-state piece you are implementing
+- what surface you are wiring
+- any important decision about canonical item ids
+- whether demo coverage was already sufficient or needed changes
+- current test/build status when relevant
+
+==================================================
+O. TESTING REQUIREMENTS
+==================================================
+
+Add/modify focused tests for the shared handling layer and touched surfaces.
+
+At minimum, cover:
+- district-scoped read/write behavior
+- stable item id handling for at least the key touched surface types
+- Action Center reads/writes shared state correctly
+- student detail reads/writes shared state correctly
+- touched compliance/risk surface reads shared state correctly
+- cross-read/write behavior where one write is visible to another read path
+- optimistic update/revalidation behavior if implemented
+- any demo-seed additions or assumptions that materially affect the wedge demo
+
+If a full end-to-end multi-user simulation is too heavy, do the strongest honest route/hook-level proof and explain the gap.
+
+==================================================
+P. REQUIRED FINAL OUTPUT FORMAT
+==================================================
+
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph on whether the wedge now has real shared operational handling
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact components/pages/hooks/routes/helpers/schema/tests changed
+- exact reason for the change
+- whether it is backend/shared-state model, API, surface wiring, demo data, id normalization, audit foundation, or tests
+
+3. HANDLING MODEL IMPLEMENTED
+State exactly:
+- schema/model added
+- fields persisted
+- handling states supported
+- whether assignment/owner fields are persisted
+- whether history/audit was implemented
+
+4. CANONICAL ITEM ID MODEL
+State exactly:
+- the item-id formats used
+- which surfaces use which ids
+- where ids are unified vs still surface-specific
+- any remaining id inconsistency
+
+5. SURFACES WIRED
+State exactly what now reads/writes shared handling state on:
+- Action Center
+- student detail
+- compliance/risk surface
+- dashboard/needs-attention if touched
+
+6. DEMO DATA COVERAGE
+State exactly:
+- whether the demo user already had sufficient scenario coverage
+- which scenarios were missing, if any
+- whether you updated the seeder or added manual demo-safe data
+- which students/items now demonstrate each scenario
+
+7. WORKFLOW IMPACT
+Explain concretely how the flow improved for a district admin trying to:
+- see whether someone else is already handling an issue
+- hand off an issue
+- avoid duplicate chasing
+- move across Action Center, student detail, and compliance without state drifting
+
+8. TEST / BUILD STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- any typecheck/build results
+- any unrelated pre-existing failures clearly separated from regressions
+
+9. REMAINING GAPS
+List only the highest-value remaining gaps after this pass.
+
+10. EXACT NEXT TASKS
+List the next 3–10 highest-value follow-up tasks in priority order.
+
+11. STORAGE / SYNC MODEL
+State clearly:
+- whether localStorage is still used at all
+- if so, whether it is fallback/cache only or still a source of truth anywhere
+- whether cross-user/shared behavior is now truly implemented
+- what still remains before this becomes a fuller task/assignment system
+
+Important:
+- Include a summary of exact changes made, not just a high-level recap
+- Do not fake shared behavior
+- Do not fake auditability
+- Keep the recommendation logic centralized
+- Keep the model thin and future-extensible

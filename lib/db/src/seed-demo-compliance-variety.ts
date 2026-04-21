@@ -297,6 +297,70 @@ export async function seedDemoComplianceVariety(): Promise<DemoComplianceVariety
     action: "Complete transition assessment and post-secondary goals before annual review",
   });
 
+  // Additional missed_sessions alerts so the "Schedule makeup" recommendation
+  // appears for several students on the Action Center, not just one. Pick
+  // top-missed students in the district that don't already have a
+  // missed_sessions alert. Each gets a tag that's idempotent across reseeds.
+  const moreMissed = await db.execute(sql`
+    SELECT s.id AS student_id, s.first_name || ' ' || s.last_name AS name,
+           (SELECT COUNT(*)::int FROM session_logs WHERE student_id = s.id AND status = 'missed') AS missed
+    FROM students s
+    JOIN schools sc ON sc.id = s.school_id
+    WHERE sc.district_id = ${districtId}
+      AND NOT EXISTS (
+        SELECT 1 FROM alerts a
+        WHERE a.student_id = s.id AND a.type = 'missed_sessions' AND a.resolved = false
+      )
+    ORDER BY missed DESC
+    LIMIT 6
+  `);
+  let missedSeq = 2;
+  for (const r of moreMissed.rows as { student_id: number; name: string; missed: number }[]) {
+    if (r.missed < 60) break;
+    if (missedSeq > 5) break; // cap at 4 additional alerts (keys missed-2..missed-5)
+    variants.push({
+      key: `missed-${missedSeq}`,
+      type: "missed_sessions",
+      sev: missedSeq <= 3 ? "critical" : "high",
+      sid: r.student_id,
+      msg: `${r.name} has ${r.missed} missed sessions on record — schedule makeups before quarter end`,
+      action: "Schedule makeup sessions and notify case manager",
+    });
+    missedSeq++;
+  }
+
+  // Service-gap alerts so the schedule-mismatch branch ("Escalate coverage gap")
+  // is exercised. Pick students with active requirements but no schedule blocks
+  // — that's a genuine schedule-doesn't-cover-IEP situation.
+  const gapCandidates = await db.execute(sql`
+    SELECT s.id AS student_id, s.first_name || ' ' || s.last_name AS name
+    FROM students s
+    JOIN schools sc ON sc.id = s.school_id
+    JOIN service_requirements sr ON sr.student_id = s.id AND sr.active = true
+    LEFT JOIN schedule_blocks sb ON sb.student_id = s.id
+    WHERE sc.district_id = ${districtId}
+      AND NOT EXISTS (
+        SELECT 1 FROM alerts a
+        WHERE a.student_id = s.id AND a.type = 'service_gap' AND a.resolved = false
+      )
+    GROUP BY s.id, s.first_name, s.last_name
+    HAVING COUNT(DISTINCT sr.id) >= 2 AND COUNT(DISTINCT sb.id) = 0
+    ORDER BY s.id
+    LIMIT 2
+  `);
+  let gapSeq = 1;
+  for (const r of gapCandidates.rows as { student_id: number; name: string }[]) {
+    variants.push({
+      key: `service-gap-${gapSeq}`,
+      type: "service_gap",
+      sev: gapSeq === 1 ? "high" : "medium",
+      sid: r.student_id,
+      msg: `${r.name}'s weekly schedule does not cover required IEP minutes — coverage gap, not just a documentation lag`,
+      action: "Open scheduling hub and add blocks to cover the IEP minutes",
+    });
+    gapSeq++;
+  }
+
   let inserted = 0, skipped = 0;
   for (const v of variants) {
     const tag = `[demo-variety:${v.key}]`;
