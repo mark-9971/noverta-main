@@ -1,0 +1,124 @@
+Finish School Calendar v0 — Slice 5B: remaining timing-aware early-release proration alignment.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Finish Slice 5 by aligning every remaining call path that already has precise service-window timing, so exact early-release proration is used consistently wherever the data supports it.
+
+Context:
+School Calendar v0 status so far:
+- Slice 1 complete: per-school school_calendar_exceptions CRUD
+- Slice 2 complete: shared minute-progress read-path integration
+- Slice 3 complete: trust / explanation layer
+- Slice 4A complete: alerting-path consequence alignment
+- Slice 4B complete: remaining cost/exposure consequence alignment
+- Slice 5A complete: /schedules/today now delegates to the shared helper adjustExpectedMinutesForSchoolException and exact straddler proration is covered by tests
+
+Known remaining follow-up:
+- lib/serviceForecast.ts still needs to load and apply school-calendar exceptions through the shared helper
+- There may be other remaining timing-aware call sites that already have real service-window timing and still are not aligned
+
+Primary objective:
+Audit and finish every remaining timing-aware path that already has precise service-window timing available, starting with lib/serviceForecast.ts.
+
+Business rules:
+1. If a service window is fully before dismissal time:
+- expected obligation counts fully
+
+2. If a service window straddles dismissal time:
+- expected obligation is prorated to the pre-dismissal portion only
+
+3. If a service window starts after dismissal time:
+- expected obligation is 0
+
+4. If a path does NOT have enough timing precision:
+- keep the current deterministic fallback
+- do not fake precision
+- do not broaden scope trying to manufacture timing data
+
+Important rule:
+There must remain exactly one source of truth for early-release proration:
+- use adjustExpectedMinutesForSchoolException
+- do not introduce any second competing helper or inline math branch
+
+Scope:
+1. Audit all remaining timing-aware call sites
+2. Start with lib/serviceForecast.ts
+3. Align every timing-aware call path you find that already has real service-window timing available without invasive redesign
+4. Preserve the existing 0.5 fallback for date-bucketed or timing-imprecise paths such as lib/minuteCalc.ts unless timing precision is already naturally available
+5. Add focused tests
+6. Keep existing Slice 1–5A behavior intact
+
+Out of scope:
+- schema changes or migrations unless absolutely unavoidable
+- new admin UI
+- broad minute-calc redesign
+- changing closure semantics
+- changing the fallback weight itself
+- unrelated refactors
+
+Execution style:
+- Work efficiently and keep moving
+- Do not stop at the first aligned path if others with existing timing precision remain
+- Make a best-effort audit of all likely timing-aware consumers before declaring completion
+- If you find only one true remaining timing-aware path, say that clearly and explain why
+
+Status updates required during execution:
+Give concise progress updates as you work, not just a final answer.
+I want status messages that include:
+- what path you are auditing or changing
+- whether it is exact-proration-capable or still fallback-only
+- any important design decision
+- current test status when relevant
+
+Required final output format:
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact functions/routes/helpers/tests changed
+- exact reason for the change
+- whether it is shared business logic, route wiring, forecast logic, OpenAPI/codegen, or tests
+
+3. PRORATION COVERAGE
+List every timing-aware path audited and classify each as:
+- EXACT PRORATION NOW APPLIED
+- FALLBACK ONLY BY DESIGN
+- NOT ACTUALLY TIMING-AWARE
+For each one, explain why.
+
+4. BUSINESS RULE CONSISTENCY
+State explicitly:
+- what closure does
+- what early release does
+- whether the same shared helper is reused everywhere
+- whether the 0.5 fallback still exists only where timing data is unavailable
+- whether requiredMinutes remains unchanged
+
+5. TEST STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- what scenarios are covered
+- any known flaky or unrelated infra issues separated clearly from regressions
+
+6. REMAINING LIMITATIONS
+Only list real remaining follow-ups after this slice, such as:
+- weekday-aware baseline pacing
+- instructional-day-aware baseline model
+- bulk calendar tooling
+- deeper finance redesign
+Do not broaden beyond real remaining follow-ups discovered in the code.
+
+7. EXACT REMAINING TASKS
+If verdict is PARTIAL, list the exact remaining task or tasks needed to truly close Slice 5.
+
+Definition of done:
+- every remaining path that already has precise service-window timing and can safely use exact early-release proration now does so through the shared helper
+- timing-imprecise paths still use fallback by design
+- no second proration rule exists
+- targeted tests prove it
+- output includes exact changes made, not just a summary
