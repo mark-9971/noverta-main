@@ -63,7 +63,7 @@ function AlertOptOutIndicator({ staffId, name }: { staffId: number; name: string
 
 export default function Staff() {
   const { typedFilter } = useSchoolContext();
-  const { data: staff, isLoading } = useListStaff(typedFilter);
+  const { data: staff, isLoading } = useListStaff({ ...typedFilter, limit: 500 });
   const { data: providerSummary } = useGetProviderDashboardSummary(typedFilter);
   const { data: paraSummary } = useGetParaDashboardSummary(typedFilter);
 
@@ -76,9 +76,10 @@ export default function Staff() {
   const paraMap: Record<number, any> = {};
   for (const p of paras) paraMap[p.staffId] = p;
 
-  const clinicians = staffList.filter(s => ["bcba", "slp", "ot", "pt", "counselor"].includes(s.role));
+  const clinicians = staffList.filter(s => ["bcba", "slp", "ot", "pt", "counselor", "provider", "school_psychologist", "sped_teacher"].includes(s.role));
   const parasList = staffList.filter(s => s.role === "para");
   const caseManagers = staffList.filter(s => s.role === "case_manager");
+  const totalShown = clinicians.length + parasList.length + caseManagers.length;
 
   function StaffRow({ member, summary }: { member: any; summary: any }) {
     const utilPct = summary?.utilizationPercent ?? 0;
@@ -135,7 +136,7 @@ export default function Staff() {
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Staff & Providers</h1>
-        <p className="text-xs md:text-sm text-gray-400 mt-1">{staffList.length} active staff members</p>
+        <p className="text-xs md:text-sm text-gray-400 mt-1">{totalShown} active staff members</p>
       </div>
 
       <Tabs defaultValue="clinicians">
