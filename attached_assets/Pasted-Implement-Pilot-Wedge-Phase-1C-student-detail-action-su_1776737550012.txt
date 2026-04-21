@@ -1,0 +1,395 @@
+Implement Pilot Wedge Phase 1C — student detail action surface, compliance/risk row actionability, return-to-queue workflow closure, and server-side handling state if feasible.
+
+Use the main agent. Do the work, not just a plan.
+
+Goal:
+Finish the highest-value remaining Pilot Wedge Phase 1 work in one coherent pass by extending the operational action model beyond Action Center into the other core wedge surfaces that still feel passive or dead-end, while also attempting to replace local-only handling state with a real shared server-side model if that can be done cleanly.
+
+Primary product objective:
+A district admin / coordinator should be able to move through the core loop with minimal friction:
+
+1. identify risk
+2. understand likely cause
+3. see the single recommended next action
+4. take or hand off that action
+5. see whether it is already being handled
+6. return to the queue and continue with the next student / issue
+
+Phase 1A is complete:
+- Action Center always opens Quick Log inline
+- dashboard variants have a clearer Action Center funnel
+- pilot/focused scheduling nav was simplified
+
+Phase 1B is partially complete:
+- Action Center now uses a centralized cause-aware / owner-aware recommendation model
+- handling state exists but is currently localStorage-backed
+- “Log Session” is no longer the universal default
+
+This phase should finish the biggest remaining wedge gaps, not start a new product area.
+
+==================================================
+A. WHAT THIS PHASE MUST DELIVER
+==================================================
+
+There are five target deliverables in this phase:
+
+1. Student detail becomes a real action surface
+2. Compliance / risk row surfaces become actionable using the same model
+3. Return-to-queue behavior is explicit and reliable
+4. The new action model is reused, not reinvented
+5. Server-side/shared handling state is implemented if it can be done cleanly without derailing the phase
+
+If #1–#4 are not completed in a meaningful way, verdict should be PARTIAL.
+If #5 cannot be completed cleanly in the same pass, do NOT fake it — keep the strongest honest implementation and explicitly declare the exact next task required.
+
+==================================================
+B. STUDENT DETAIL — REQUIRED OUTCOME
+==================================================
+
+Student detail must stop feeling like a passive verification stop and become a clear “what should we do for this student now?” surface.
+
+Implement a high-signal Recommended Next Step surface on the most important student-detail summary area (likely TabSummary or the true equivalent).
+
+That surface must show, for the student’s highest-priority current issue:
+- likely cause
+- confidence / ambiguity state if relevant
+- recommended owner
+- single recommended next action
+- current handling state if one exists
+- one-sentence “why this recommendation” explanation
+- a small set of secondary available actions where appropriate
+
+Important:
+- This must reuse the centralized recommendation model from the Action Center work
+- Do not create a second recommendation engine for student detail
+- If the student has multiple issues, choose one clear top-priority recommendation and optionally summarize that more issues exist
+- Do not bury the Recommended Next Step below low-priority cards
+
+Good examples:
+- “Recommended next step: Schedule makeup”
+- “Likely cause: likely missed service”
+- “Owner: scheduler”
+- “Why: 2 scheduled blocks were missed and no delivery was logged”
+- Handling state: “Awaiting confirmation” / “Recovery scheduled” / etc. if present
+
+Student detail also must support queue-aware return behavior:
+- if opened from Action Center, show a clear “Back to Action Center” affordance
+- if opened from Compliance / risk list, show a clear “Back to Compliance” affordance
+- do not rely on browser back button alone
+- preserve enough context to continue the queue/list workflow
+
+==================================================
+C. COMPLIANCE / RISK SURFACES — REQUIRED OUTCOME
+==================================================
+
+The most central compliance/risk list or report row surface must stop being passive.
+
+Choose the highest-ROI row/list surface where admins actually review at-risk students/services in the pilot wedge, and apply the same operational action language there.
+
+At minimum, each important row should have:
+- likely cause subline
+- recommended owner
+- single recommended next action
+- a small secondary action affordance if needed
+- if applicable, current handling state
+- if appropriate, inline Quick Log only when the recommendation model says documentation lag is likely
+
+Important:
+- Do not add generic “Log Session” everywhere
+- Do not duplicate the recommendation logic
+- If the row surface is too dense for full treatment, at least add a compact but meaningful version of the same model
+- If multiple compliance/risk surfaces exist, choose the most central/highest-value one and explain why in the output
+
+Examples of acceptable compact row treatment:
+- “Likely cause: documentation lag • Owner: provider”
+- Primary CTA: “Confirm & log”
+- Secondary menu: “Schedule makeup”, “Open student”, etc.
+
+or
+
+- “Likely cause: likely missed service • Owner: scheduler”
+- Primary CTA: “Schedule makeup”
+- Secondary menu: “Open student”, “Mark handed off”, etc.
+
+==================================================
+D. RETURN-TO-QUEUE / THROUGHPUT — REQUIRED OUTCOME
+==================================================
+
+This is a hard requirement.
+
+After an admin/coordinator takes the recommended action or initiates a handoff, the product should return them to the originating operational context when appropriate so they can work the next issue immediately.
+
+That means:
+
+- If acting from Action Center:
+  - stay in Action Center whenever possible
+  - preserve tab/filter/scroll/list context
+  - update the row in place if possible
+  - make it easy to continue to the next unresolved item
+
+- If drilling into student detail from Action Center:
+  - there must be a visible “Back to Action Center” affordance
+  - recommended-next-step actions taken there should not strand the user
+
+- If drilling into student detail from Compliance/risk:
+  - there must be a visible “Back to Compliance” affordance
+  - preserve enough context to continue that queue/list
+
+Prefer:
+- inline sheets/drawers
+- query-param/context preservation
+- status refresh in place
+- keeping the user in the originating queue/list
+
+Avoid:
+- forcing deep navigation after every action
+- making the user re-find their place
+- relying only on browser back
+
+This is not just navigation polish; it is queue-based operational throughput.
+
+==================================================
+E. ACTION MODEL REUSE — REQUIRED OUTCOME
+==================================================
+
+Use the existing centralized recommendation model as the single source of truth.
+
+You may extend it if necessary, but you must not:
+- fork a second model for student detail
+- fork a second model for compliance rows
+- reintroduce universal “Log Session”
+- invent a parallel owner/cause taxonomy in each page
+
+If extensions are needed, make them centrally and use them everywhere.
+
+Be explicit about:
+- what is derived recommendation logic
+- what is persisted handling state
+- what remains local-only vs shared
+
+==================================================
+F. SERVER-SIDE HANDLING STATE — STRONGLY PREFERRED
+==================================================
+
+The current localStorage-only handling state is not sufficient for a real multi-user school workflow.
+
+In this phase, attempt to promote handling state to a real server-side/shared model if it can be done cleanly and safely without derailing the phase.
+
+At minimum, a server-side handling model should support:
+- stable item id
+- current handling state
+- current/recommended owner if applicable
+- updated_by
+- updated_at
+
+If you can implement this cleanly in the same pass, do it and wire the touched pilot-wedge surfaces to use it.
+
+If you cannot do it cleanly without broadening scope too much, then:
+- do NOT fake cross-user/shared behavior
+- keep the strongest honest bounded implementation
+- explicitly state that server-side handling remains the next highest-priority task
+- list the exact schema/routes/components needed to finish it next
+
+Important:
+Do not leave the final output vague on this point. State clearly whether handling state is:
+- fully server-side/shared
+- partially server-side/shared
+- still local-only by design for now
+
+If you do implement server-side handling:
+- prefer reusing existing stable work-item identifiers if available
+- if a new minimal persistence model is necessary, keep it narrowly scoped to this operational handling purpose
+- do not turn this into a giant task/notification platform
+- touched surfaces must read/write the shared state consistently
+
+If you do not implement server-side handling:
+- do not let the local-only approach block #1–#4
+- but be explicit and concrete about the remaining work
+
+==================================================
+G. HANDLING STATE / OPERATIONAL STATUS
+==================================================
+
+Use the handling-state system where appropriate.
+
+At minimum, the touched surfaces should be able to reflect meaningful states like:
+- needs_action
+- awaiting_confirmation
+- recovery_scheduled
+- handed_off
+- under_review
+- resolved
+
+Important:
+- If handling state is still local-only in this phase, be honest about that
+- Surface it where it reduces duplicate chasing
+- Do not pretend cross-user coordination exists if it does not
+- But do make the operational state genuinely useful in the touched surfaces
+
+==================================================
+H. WHAT TO IMPLEMENT VS WHAT TO DEFER
+==================================================
+
+Implement now:
+- student detail Recommended Next Step surface
+- compliance/risk row actionability on the most valuable surface
+- back-to-queue / return affordances
+- recommendation-model reuse
+- queue-preserving action flow
+- meaningful use of handling state on touched surfaces
+- server-side/shared handling state if feasible without derailing the phase
+
+Do NOT broaden into:
+- a full messaging system
+- a full task/assignment backend beyond what is minimally needed for shared handling state
+- a full scheduling system rewrite
+- broad redesign across all tabs/pages
+- calendar subsystem changes unless you find a direct blocker
+- speculative AI cause inference
+
+If a “Schedule makeup” CTA still cannot launch a real prefilled scheduling flow without broad scope, do the strongest honest version you can now and clearly report the remaining gap.
+
+==================================================
+I. EXECUTION STRATEGY
+==================================================
+
+1. Audit the exact student-detail summary surface and the most central compliance/risk row surface
+2. Reuse/extend the centralized action recommendation model
+3. Assess whether server-side/shared handling can be added cleanly in this pass
+4. Implement student detail first if you need to prioritize
+5. Add the back-to-queue affordances in the same pass
+6. Keep changes focused and high-ROI
+7. Prefer meaningful operational improvements over lots of scattered edits
+
+If there is a structural mess preventing good implementation on student detail, do only the minimum composition cleanup needed to make the Recommended Next Step surface correct and obvious.
+
+==================================================
+J. WHAT I CARE ABOUT MOST
+==================================================
+
+- Student detail should tell me what to do for this student now
+- Compliance/risk rows should be less dead-end
+- Recommended action should feel realistic, not generic
+- Owner should matter
+- Handling state should reduce duplicate chasing
+- Taking action should not throw me out of my working queue
+- The product should feel more like an operations tool, not just a reporting tool
+- If feasible in this phase, shared server-side handling state is strongly preferred over localStorage-only state
+
+==================================================
+K. CONSTRAINTS
+==================================================
+
+- Use the main agent
+- No schema changes or migrations unless absolutely unavoidable
+- No broad redesign outside these pilot-wedge surfaces
+- No unrelated refactors
+- Keep existing risk/correctness logic intact unless a small, safe change is necessary
+- If you cannot safely persist more state, do not fake it
+- If you have to choose, prioritize:
+  1. student detail actionability
+  2. return-to-queue behavior
+  3. risk-row actionability
+  4. server-side/shared handling if cleanly feasible
+  over cosmetic polish
+
+==================================================
+L. STATUS UPDATES REQUIRED DURING EXECUTION
+==================================================
+
+Give concise progress updates as you work.
+Each update should include:
+- which surface you are changing
+- what user problem you are solving
+- whether the change is recommendation reuse, UI composition, row actionability, return-to-queue behavior, or server-side/shared handling
+- important judgment calls about ambiguity vs confidence
+- current test/build status when relevant
+
+==================================================
+M. TESTING REQUIREMENTS
+==================================================
+
+Add/modify focused tests for the touched surfaces and flows.
+
+At minimum, cover:
+- student detail Recommended Next Step renders the centralized recommendation for the highest-priority issue
+- Action Center → student detail → action → return path works or is clearly preserved
+- Compliance/risk row shows the correct cause-aware / owner-aware CTA on at least one key row scenario
+- handling state is reflected on the touched surfaces where intended
+- if server-side/shared handling is implemented, at least one cross-read/write path proves shared persistence behavior
+- quick-log behavior remains correct and is only primary when the recommendation model says documentation lag
+- no regression in existing Action Center action-model behavior
+
+If some of the queue-return behavior is hard to test end-to-end, test the critical mechanics honestly and explain any remaining gap.
+
+==================================================
+N. REQUIRED FINAL OUTPUT FORMAT
+==================================================
+
+1. EXECUTIVE VERDICT
+- COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+- one paragraph on whether Phase 1 is now materially closer to feeling like a real school-operations wedge
+
+2. EXACT CHANGES MADE
+For every file changed, list:
+- exact file path
+- exact components/pages/hooks/routes/helpers changed
+- exact reason for the change
+- whether it is recommendation reuse, student-detail composition, compliance row actionability, return-to-queue behavior, status modeling, server-side/shared handling, navigation, or tests
+
+3. SURFACES IMPLEMENTED
+State exactly what was implemented on:
+- student detail
+- compliance / risk surface chosen
+- Action Center if touched
+- return-to-queue flow
+
+4. RECOMMENDATION MODEL REUSE
+Explain exactly how the centralized model was reused or extended.
+State whether any logic remains duplicated anywhere important.
+
+5. BEFORE/AFTER WORKFLOW IMPACT
+Explain concretely how the flow improved for a district admin trying to:
+- identify risk
+- understand likely cause
+- choose the right next action
+- hand off or mark in-progress status
+- return to the queue
+- continue to the next student/issue
+
+6. TEST / BUILD STATUS
+Give:
+- exact tests added/modified
+- exact pass/fail counts
+- any typecheck/build results
+- any unrelated pre-existing failures clearly separated from regressions
+
+7. REMAINING PHASE-1 GAPS
+List only the highest-value remaining Phase 1 gaps after this pass.
+
+8. EXACT NEXT TASKS
+List the next 3–10 highest-value follow-up tasks in priority order.
+
+9. RETURN-TO-QUEUE BEHAVIOR
+State exactly:
+- after which actions the user stays in the current queue/list context
+- where the user returns after drilling into student detail
+- how context is preserved (inline sheet, query params, tab state, row refresh, etc.)
+- whether the next unresolved item is easier to continue with
+
+10. HANDLING STATE STORAGE MODEL
+State exactly:
+- whether handling state is now server-side/shared or still local-only
+- what schema/model/endpoints were added or reused
+- what stable item id is used
+- what fields are persisted
+- what touched surfaces now read/write the shared state
+- if not completed, the exact next task required to finish it
+
+Important:
+- Include a summary of exact changes made, not just a high-level recap
+- Favor meaningful wedge improvement over scattered edits
+- Do not make “Log Session” the universal answer
+- Do not leave return-to-queue vague; implement it concretely
+- Be honest about what is actually persisted versus derived
+- Do not fake server-side/shared handling if it is not truly implemented

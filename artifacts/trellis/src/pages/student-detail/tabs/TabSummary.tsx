@@ -6,6 +6,8 @@ import { CheckCircle, XCircle, TrendingUp, AlertTriangle, Clock, Bell } from "lu
 import StudentSnapshot from "@/components/student-snapshot";
 import StudentGoalSection from "../StudentGoalSection";
 import StudentMedicaidField from "../StudentMedicaidField";
+import RecommendedNextStepCard from "@/components/recommended-next-step-card";
+import { deriveStudentTopSignal } from "@/lib/student-top-signal";
 
 interface Props {
   studentId: number;
@@ -33,6 +35,11 @@ interface Props {
   missedSessions: number;
   caps: any;
   refetchStudent: () => void;
+  /** Phase 1C — passed through so the Recommended Next Step card can
+   *  derive a top operational signal without refetching anything. */
+  currentUserRole?: string;
+  currentUserKey: string;
+  onLogSessionForRecommendation?: () => void;
 }
 
 export default function TabSummary(props: Props) {
@@ -43,10 +50,33 @@ export default function TabSummary(props: Props) {
     annotationsByGoal, onAddAnnotation, onRemoveAnnotation,
     overallPct, riskCfg, totalDelivered, totalRequired,
     completedSessions, missedSessions, caps, refetchStudent,
+    currentUserRole, currentUserKey, onLogSessionForRecommendation,
   } = props;
+
+  // Phase 1C — Recommended Next Step. Reuses the centralized
+  // recommendation engine; returns null when nothing material is
+  // wrong so the card simply doesn't render.
+  const top = deriveStudentTopSignal(studentId, {
+    atRiskServices,
+    missedSessions,
+    reEvalStatus,
+  });
 
   return (
     <div className="space-y-5">
+      {top && (
+        <RecommendedNextStepCard
+          studentId={studentId}
+          signal={top.signal}
+          itemId={top.itemId}
+          whySummary={top.whySummary}
+          additionalIssueCount={top.additionalIssueCount}
+          currentUserRole={currentUserRole}
+          userKey={currentUserKey}
+          onLogSession={onLogSessionForRecommendation}
+        />
+      )}
+
       {reEvalStatus?.hasEligibility && reEvalStatus.reEvalStatus && (reEvalStatus.reEvalStatus.urgency === "overdue" || reEvalStatus.reEvalStatus.urgency === "upcoming") && (
         <Card className={reEvalStatus.reEvalStatus.urgency === "overdue" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
           <CardContent className="py-3 px-5 flex items-center gap-3">

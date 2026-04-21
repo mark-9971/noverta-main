@@ -557,6 +557,9 @@ export default function StudentDetail() {
           missedSessions={missedSessions}
           caps={caps}
           refetchStudent={refetchStudent}
+          currentUserRole={role}
+          currentUserKey={`${role}::student-detail`}
+          onLogSessionForRecommendation={() => setQuickLogOpen(true)}
         />
       </div>
 

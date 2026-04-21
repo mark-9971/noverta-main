@@ -11,6 +11,7 @@ import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
+import { recommendAction } from "@/lib/action-recommendations";
 
 interface StudentRow {
   studentId: number;
@@ -536,9 +537,28 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                           {...(i === 0 ? { "data-tour-id": "shortfall-student", "data-demo-highlight": "risk" } : {})}
                         >
                           <td className="px-3 py-2 font-medium">
-                            <Link href={`/students/${r.studentId}`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors">
+                            <Link href={`/students/${r.studentId}?from=compliance`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors" data-testid={`link-risk-student-${r.studentId}`}>
                               {r.studentName}
                             </Link>
+                            {(() => {
+                              // Phase 1C — compact recommendation subline. Reuses the
+                              // centralized engine; if `missedSessions > 0` we have
+                              // hard-evidence missed-service, else honest ambiguous.
+                              const rec = recommendAction({
+                                category: "compliance",
+                                alertType: r.missedSessions > 0 ? "missed_sessions" : "service_minutes_behind",
+                                source: r.missedSessions > 0 ? "alert" : "risk_report",
+                                riskStatus: r.riskStatus,
+                                requiredMinutes: r.requiredMinutes,
+                                shortfallMinutes: r.shortfallMinutes,
+                                hasMissedEvidence: r.missedSessions > 0,
+                              });
+                              return (
+                                <div className="text-[10px] text-gray-500 mt-0.5 leading-tight" data-testid={`text-risk-recommendation-${r.studentId}`}>
+                                  Next: <span className="font-semibold text-gray-700">{rec.primaryActionLabel}</span> · {rec.ownerLabel}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.school}</td>
                           <td className="px-3 py-2">{r.service}</td>
@@ -634,7 +654,7 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                     {(showAllStudents ? filteredDetail : filteredDetail.slice(0, 20)).map((r, i) => (
                       <tr key={`${r.studentId}-${r.service}-${i}`} className="border-t hover:bg-gray-50/50">
                         <td className="px-3 py-2 font-medium">
-                          <Link href={`/students/${r.studentId}`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors">
+                          <Link href={`/students/${r.studentId}?from=compliance`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors">
                             {r.studentName}
                           </Link>
                         </td>
