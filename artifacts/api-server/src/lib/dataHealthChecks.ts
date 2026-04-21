@@ -22,6 +22,13 @@ export interface HealthCheckItem {
    * /api/data-health/migration-report/:reportId/resolve.
    */
   reportId?: number;
+  /**
+   * For rows surfaced in the "recently resolved" list: ISO timestamp the
+   * row was marked resolved, and the resolver's display name (or "Unknown"
+   * when the staff record has been deleted / set null).
+   */
+  resolvedAt?: string;
+  resolvedByName?: string;
 }
 
 export interface HealthCheck {
@@ -35,6 +42,15 @@ export interface HealthCheck {
   items: HealthCheckItem[];
   /** Optional set of reason values present in `items`, sorted ascending. */
   reasons?: string[];
+  /**
+   * Optional list of recently-resolved migration report rows for the
+   * `service_reqs_needing_review` check. Each item carries `resolvedAt`,
+   * `resolvedByName`, and a `reportId` for the front-end "Show resolved"
+   * toggle and "Unresolve" action. Capped at 25 most-recent rows.
+   */
+  resolvedItems?: HealthCheckItem[];
+  /** Total recently-resolved rows (within the last 30 days). */
+  resolvedCount?: number;
 }
 
 export interface DataHealthReport {
@@ -388,6 +404,62 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
       });
     }
   }
+  // Recently-resolved migration report rows so ops can verify their
+  // teammates' fixes and undo mistakes. Window: last 30 days, cap 25
+  // (newest first). District-scoped via the same student-in-district join.
+  const resolvedItems: HealthCheckItem[] = [];
+  let resolvedTotalCount = 0;
+  if (studentIds.length > 0) {
+    const resolvedRows = await db.execute<{
+      id: number;
+      requirement_id: number;
+      reason: string;
+      student_id: number;
+      service_type_id: number;
+      resolved_at: string;
+      resolved_by: number | null;
+      resolver_first: string | null;
+      resolver_last: string | null;
+      total: string;
+    }>(sql`
+      SELECT mrsr.id, mrsr.requirement_id, mrsr.reason,
+             sr.student_id, sr.service_type_id,
+             mrsr.resolved_at, mrsr.resolved_by,
+             st.first_name AS resolver_first,
+             st.last_name  AS resolver_last,
+             COUNT(*) OVER () AS total
+        FROM migration_report_service_requirements mrsr
+        JOIN service_requirements sr ON sr.id = mrsr.requirement_id
+   LEFT JOIN staff st ON st.id = mrsr.resolved_by
+       WHERE mrsr.resolved_at IS NOT NULL
+         AND mrsr.resolved_at >= NOW() - INTERVAL '30 days'
+         AND sr.student_id IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})
+       ORDER BY mrsr.resolved_at DESC, mrsr.id DESC
+       LIMIT 25
+    `);
+    if (resolvedRows.rows.length > 0) {
+      resolvedTotalCount = Number(resolvedRows.rows[0].total) || resolvedRows.rows.length;
+    }
+    for (const row of resolvedRows.rows) {
+      const studentName = studentMap.get(row.student_id) || `Student #${row.student_id}`;
+      const svc = serviceTypeMap.get(row.service_type_id) || "Service";
+      const resolverName = row.resolver_first || row.resolver_last
+        ? `${row.resolver_first ?? ""} ${row.resolver_last ?? ""}`.trim()
+        : "Unknown";
+      const resolvedAt = new Date(row.resolved_at as unknown as string | number | Date).toISOString();
+      resolvedItems.push({
+        id: row.requirement_id,
+        label: `${studentName} · ${svc}`,
+        detail: `Reason: ${row.reason}`,
+        reason: row.reason,
+        studentId: row.student_id,
+        reportId: row.id,
+        resolvedAt,
+        resolvedByName: resolverName,
+      });
+    }
+  }
+
   checks.push({
     id: "service_reqs_needing_review",
     category: "services",
@@ -398,6 +470,8 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
     total: allServiceReqs.length,
     items: reviewItems,
     reasons: Array.from(reviewReasonSet).sort(),
+    resolvedItems,
+    resolvedCount: resolvedTotalCount,
   });
 
   // ── Service Requirement v1 (supersede flow): stale schedule blocks ──

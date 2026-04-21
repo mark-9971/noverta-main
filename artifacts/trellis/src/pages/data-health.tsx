@@ -25,6 +25,10 @@ interface HealthCheckItem {
   // When present, the card renders a "Mark resolved" button that POSTs
   // to /api/data-health/migration-report/:id/resolve.
   reportId?: number;
+  // Set on rows surfaced in the "recently resolved" list: ISO timestamp the
+  // row was marked resolved and the resolver's display name.
+  resolvedAt?: string;
+  resolvedByName?: string;
 }
 
 interface HealthCheck {
@@ -39,6 +43,10 @@ interface HealthCheck {
   // When present, the card renders filter chips for each reason and
   // narrows the visible item list to the selected reason.
   reasons?: string[];
+  // Recently-resolved migration report rows (last 30 days, max 25). Used by
+  // the `service_reqs_needing_review` "Show resolved" toggle.
+  resolvedItems?: HealthCheckItem[];
+  resolvedCount?: number;
 }
 
 interface HealthResult {
@@ -76,7 +84,7 @@ function SeverityIcon({ severity }: { severity: string }) {
   return <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />;
 }
 
-function HealthCheckCard({ check }: { check: HealthCheck }) {
+function HealthCheckCard({ check, onChanged }: { check: HealthCheck; onChanged?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   // null = "All" (no reason filter). Only relevant when check.reasons is set.
   const [reasonFilter, setReasonFilter] = useState<string | null>(null);
@@ -85,6 +93,10 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
   const [resolvingId, setResolvingId] = useState<number | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  // Tracks reportIds the admin un-resolved in this session so they hide
+  // from the "Show resolved" list optimistically without a re-fetch.
+  const [unresolvedIds, setUnresolvedIds] = useState<Set<number>>(new Set());
+  const [showResolved, setShowResolved] = useState(false);
 
   const markResolved = useCallback(async (reportId: number) => {
     setResolvingId(reportId);
@@ -109,9 +121,39 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
     }
   }, []);
 
+  const unresolve = useCallback(async (reportId: number) => {
+    setResolvingId(reportId);
+    setResolveError(null);
+    try {
+      const res = await authFetch(`/api/data-health/migration-report/${reportId}/unresolve`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed (${res.status})`);
+      }
+      setUnresolvedIds((prev) => {
+        const next = new Set(prev);
+        next.add(reportId);
+        return next;
+      });
+      // Refetch so the row reappears in the unresolved review queue
+      // immediately, instead of leaving the user to click Re-run.
+      onChanged?.();
+    } catch (e: any) {
+      setResolveError(e?.message || "Failed to unresolve");
+    } finally {
+      setResolvingId(null);
+    }
+  }, [onChanged]);
+
   const passed = check.count === 0;
   const pct = check.total > 0 ? Math.round(((check.total - check.count) / check.total) * 100) : 100;
   const hasReasonFilter = !!check.reasons && check.reasons.length > 0;
+  // For the review card: keep the card expandable when the unresolved
+  // queue is empty but there are recently-resolved rows worth reviewing.
+  const hasResolvedHistory = (check.resolvedItems?.length ?? 0) > 0;
+  const expandable = check.items.length > 0 || (check.id === "service_reqs_needing_review" && hasResolvedHistory);
   const filteredByReason = hasReasonFilter && reasonFilter
     ? check.items.filter((it) => it.reason === reasonFilter)
     : check.items;
@@ -128,7 +170,7 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
       "border-gray-100 bg-white"
     }`}>
       <button
-        onClick={() => !passed && check.items.length > 0 && setExpanded(!expanded)}
+        onClick={() => expandable && setExpanded(!expanded)}
         className="w-full text-left p-4 flex items-start gap-3"
       >
         <SeverityIcon severity={passed ? "info" : check.severity} />
@@ -172,13 +214,24 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
             </div>
           )}
         </div>
-        {!passed && check.items.length > 0 && (
+        {expandable && (
           expanded ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
         )}
       </button>
 
-      {expanded && check.items.length > 0 && (
+      {expanded && expandable && (
         <div className="border-t border-gray-100 px-4 pb-3">
+          {check.id === "service_reqs_needing_review" && (check.resolvedItems?.length ?? 0) > 0 && (
+            <div className="flex items-center justify-end mt-3">
+              <button
+                type="button"
+                onClick={() => setShowResolved((v) => !v)}
+                className="text-[11px] font-semibold text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+              >
+                {showResolved ? "Hide resolved" : `Show resolved (${check.resolvedCount ?? check.resolvedItems!.length})`}
+              </button>
+            </div>
+          )}
           {hasReasonFilter && (
             <div className="flex flex-wrap items-center gap-1.5 mt-3">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1">Filter</span>
@@ -266,6 +319,45 @@ function HealthCheckCard({ check }: { check: HealthCheck }) {
               </p>
             )}
           </div>
+          {check.id === "service_reqs_needing_review" && showResolved && (check.resolvedItems?.length ?? 0) > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
+                Recently resolved (last 30 days)
+              </p>
+              <div className="max-h-[260px] overflow-y-auto space-y-1">
+                {check.resolvedItems!.filter((it) => !it.reportId || !unresolvedIds.has(it.reportId)).map((item, i) => (
+                  <div key={`r-${item.reportId ?? i}`} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-emerald-50/40 group">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                      <span className="text-[12px] font-medium text-gray-700 truncate">{item.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-500 truncate max-w-[280px]" title={item.detail}>
+                        Resolved by {item.resolvedByName || "Unknown"}
+                        {item.resolvedAt ? ` · ${new Date(item.resolvedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}
+                      </span>
+                      {item.reportId && (
+                        <button
+                          type="button"
+                          onClick={() => unresolve(item.reportId!)}
+                          disabled={resolvingId === item.reportId}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-200 bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                          title="Move this row back to the review queue"
+                        >
+                          {resolvingId === item.reportId ? "Working…" : "Unresolve"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {(check.resolvedCount ?? 0) > (check.resolvedItems?.length ?? 0) && (
+                  <p className="text-[11px] text-gray-400 text-center py-2">
+                    Showing {check.resolvedItems!.length} of {check.resolvedCount} — only the 25 most recent are listed
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -434,7 +526,7 @@ export default function DataHealthPage() {
                 </div>
                 <div className="space-y-2">
                   {catChecks.map(check => (
-                    <HealthCheckCard key={check.id} check={check} />
+                    <HealthCheckCard key={check.id} check={check} onChanged={runHealthCheck} />
                   ))}
                 </div>
               </div>
