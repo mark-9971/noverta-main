@@ -145,53 +145,63 @@ describe("v2/overlay — runDemoReadinessOverlay (DB integration)", () => {
     expect(distinctRunIds.has(second.runId)).toBe(true);
   }, 90_000);
 
-  it("invariant trips when a sample alert is mutated between snapshot & write", async () => {
-    // Run the overlay once cleanly so we have a stable baseline state.
+  it("invariant ENFORCES throw: runDemoReadinessOverlay rejects when a primitive fact mutates mid-run", async () => {
+    // Run cleanly first to capture a baseline showcase-row fingerprint.
     await runDemoReadinessOverlay(db, districtId);
-    const baselineCount = (await db.select({ id: demoShowcaseCasesTable.id })
-      .from(demoShowcaseCasesTable)
-      .where(eq(demoShowcaseCasesTable.districtId, districtId))).length;
+    const baselineRows = await db.select().from(demoShowcaseCasesTable)
+      .where(eq(demoShowcaseCasesTable.districtId, districtId));
+    expect(baselineRows.length).toBeGreaterThan(0);
+    const baselineRunId = baselineRows[0].runId;
 
-    // Synthetic drift: mutate one sample alert's resolved flag in a
-    // background timer that fires WHILE the overlay's selectors run.
-    // The post-snapshot will see a different per-table digest and
-    // throw. We don't strictly NEED concurrency here — flipping the
-    // row before the post-snapshot is enough — so we monkey-patch by
-    // updating an alert immediately after kicking off the overlay.
-    //
-    // The simplest deterministic recipe: wrap runDemoReadinessOverlay
-    // and update a row between its internal pre- and post- snapshots.
-    // Since we don't expose those phases, we instead flip a row,
-    // verify the next overlay throws, then restore.
+    // Pick a real sample alert we will flip mid-overlay.
     const targetAlert = (await db.select().from(alertsTable)
       .where(inArray(alertsTable.studentId, sampleStudentIds))
       .limit(1))[0];
     expect(targetAlert).toBeDefined();
 
-    // Patch snapshotPrimitiveFacts at the call seam by: run the
-    // overlay; inside, the post-snapshot reads alerts. We mutate the
-    // alert AFTER the pre-snapshot is captured by hooking a Promise
-    // microtask. Easiest deterministic path: call the pre-snapshot
-    // ourselves, mutate, then call snapshotPrimitiveFacts again and
-    // assert the digest differs.
-    const pre = await snapshotPrimitiveFacts(db, districtId);
-    await db.update(alertsTable)
-      .set({ resolved: !targetAlert.resolved })
-      .where(eq(alertsTable.id, targetAlert.id));
-    const post = await snapshotPrimitiveFacts(db, districtId);
-    expect(post.digest).not.toBe(pre.digest);
-    expect(post.perTable["alerts"]).not.toBe(pre.perTable["alerts"]);
+    // Wrap the real db so that the FIRST time the overlay opens its
+    // write transaction (which sits between the pre- and post-
+    // snapshot reads) we sneak in a mutation to the alerts table.
+    // The post-snapshot will then see a different per-table SHA-256
+    // digest and the overlay must throw.
+    let injected = false;
+    const driftDb = new Proxy(db, {
+      get(target, prop, recv) {
+        const value = Reflect.get(target, prop, recv);
+        if (prop !== "transaction") return value;
+        return async (fn: (tx: typeof db) => Promise<unknown>) => {
+          if (!injected) {
+            injected = true;
+            await target.update(alertsTable)
+              .set({ resolved: !targetAlert.resolved })
+              .where(eq(alertsTable.id, targetAlert.id));
+          }
+          return (value as typeof db.transaction).call(target, fn);
+        };
+      },
+    });
 
-    // Restore the row so the rest of the suite is unaffected.
+    await expect(
+      runDemoReadinessOverlay(driftDb as unknown as typeof db, districtId),
+    ).rejects.toThrow(/NO-MUTATION INVARIANT VIOLATED.*alerts/);
+    expect(injected).toBe(true);
+
+    // Restore the row so subsequent runs / suites are unaffected.
     await db.update(alertsTable)
       .set({ resolved: targetAlert.resolved })
       .where(eq(alertsTable.id, targetAlert.id));
 
-    // Sanity: the showcase table count is unchanged by our snapshot
-    // assertions (we only read).
-    const afterCount = (await db.select({ id: demoShowcaseCasesTable.id })
+    // The throw was raised AFTER the demo_showcase_cases rewrite
+    // committed (pre-snapshot, write tx, post-snapshot ordering),
+    // so the table currently holds the new run's rows. A clean
+    // re-run heals it back to a stable fingerprint.
+    const healed = await runDemoReadinessOverlay(db, districtId);
+    expect(healed.noMutationInvariantHeld).toBe(true);
+    const healedRows = await db.select({ runId: demoShowcaseCasesTable.runId })
       .from(demoShowcaseCasesTable)
-      .where(eq(demoShowcaseCasesTable.districtId, districtId))).length;
-    expect(afterCount).toBe(baselineCount);
-  }, 60_000);
+      .where(eq(demoShowcaseCasesTable.districtId, districtId));
+    const distinctRunIds = new Set(healedRows.map((r) => r.runId));
+    expect(distinctRunIds.size).toBe(1);
+    expect(distinctRunIds.has(baselineRunId)).toBe(false);
+  }, 90_000);
 });

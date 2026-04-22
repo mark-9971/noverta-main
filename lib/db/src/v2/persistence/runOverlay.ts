@@ -222,16 +222,11 @@ export async function runSimulationOverlayForDistrict(
     // simulator's internal alertRef into the canonical `alert:<dbId>`
     // form. Drop blocks whose source alert never landed.
     if (payload.scheduleBlocks.length > 0) {
-      const blockRows = payload.scheduleBlocks.map((b, i) => {
+      const blockRows = payload.scheduleBlocks.map((b) => {
         const ref = b.sourceActionItemId as string | null;
         if (!ref) return b;
         const id = alertIdByRef.get(ref);
-        if (id === undefined) {
-          // Drop the canonical link; keep the block (the simulator
-          // emitted it from a real makeup decision).
-          return { ...b, sourceActionItemId: null };
-        }
-        void i;
+        if (id === undefined) return { ...b, sourceActionItemId: null };
         return { ...b, sourceActionItemId: `alert:${id}` };
       });
       await chunkedInsert(scheduleBlocksTable, blockRows, { db: tx });
