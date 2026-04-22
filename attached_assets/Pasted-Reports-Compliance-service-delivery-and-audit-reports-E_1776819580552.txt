@@ -1,0 +1,79 @@
+Reports
+Compliance, service delivery, and audit reports
+
+Executive Summary
+Compliance Trend
+Audit Package
+Minutes Export
+Missed Sessions
+At-Risk Export
+Parent Summary
+Exports
+Pilot Health
+Pilot Health Dashboard
+4 of 5 metrics on track · Generated 4/21/2026, 8:59:21 PM
+
+Needs Attention
+Export CSV
+Print / Save as PDF
+IEP Roster Coverage
+100%
+/ 100% target
+600 of 600 active students have an IEP (proxy — official district roster not in Trellis)
+
+0%
+Target: 100%
+100%
+Active students with an IEP entered in Trellis vs all active students. (Proxy mode: official district IEP count is external and not stored in Trellis.)
+
+Service Logging Adoption
+673%
+/ 80% target
+Improving (was 534% prior)
+10014 timely logs out of 1488 expected sessions (last 30 days) · 7951 / 1488 prior period
+
+0%
+Target: 80%
+100%
+Trend over last 6 periods
+532% → 673%
+Sessions logged within 48 hours of the session date vs expected sessions from active service mandates (last 30 days vs prior 30 days).
+
+Incident Reporting Timeliness
+0%
+/ 100% target
+0 of 1 incidents on time (last 30 days)
+
+0%
+Target: 100%
+100%
+Trend over last 6 periods
+100% → 0%
+
+Physical restraint / seclusion incidents logged within 24 hours of the incident date (last 30 days vs prior 30 days).
+
+Annual Review Visibility
+0
+target: 0
+0 overdue IEPs total · all had resolved 30-day advance alerts
+
+Trend over last 6 periods
+0 → 0
+
+Overdue IEPs where no resolved (acknowledged) alert was created in the 30-day advance window before expiration, indicating the case manager was not notified and confirmed in time.
+
+Staff Engagement
+97%
+/ 80% target
+Improving (was 0% prior)
+31 of 32 staff averaging 3+ sessions/week over 13-week pilot
+
+0%
+Target: 80%
+100%
+Trend over last 6 periods
+0% → 100%
+
+Case managers & coordinators averaging ≥3 session log submissions per week over the 90-day pilot window (proxy for logins; no login_events table).
+
+Metrics 1–4 must be fully met and Metric 5 must reach ≥80% of case managers for the pilot to be declared a success. Service logging and incident timeliness reflect the last 30 days vs the prior 30 days. Staff engagement reflects the 90-

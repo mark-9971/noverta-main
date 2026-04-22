@@ -1,0 +1,202 @@
+# T05 follow-up — finish the remaining wedge-surface rollout for scheduled pending
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a follow-up to a PARTIAL T05, not a fresh broad implementation.
+- Keep the work tightly bounded to the explicitly deferred gaps.
+- Reuse canonical helpers/models/components/routes/hooks.
+- Do not duplicate logic around architectural anchors.
+- Do not broaden into T06, T07, nav work, notifications, or general surface-honesty sweep.
+- Be explicit about what is persisted vs derived vs local-only vs shared.
+- If any remaining gap turns out to require a broader refactor, say so explicitly instead of silently expanding scope.
+
+Before declaring COMPLETE, verify:
+1. the remaining user-visible behavior actually exists
+2. the correct canonical anchors were reused
+3. no competing duplicate logic was introduced
+4. tests/build status are clearly stated
+5. remaining gaps are honestly listed
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. ARCHITECTURE / MODEL IMPACT
+5. TEST / BUILD STATUS
+6. REMAINING GAPS
+7. EXACT NEXT TASKS
+
+Also include:
+- BEFORE / AFTER WORKFLOW IMPACT
+- RETURN-TO-QUEUE / SURFACE CONSISTENCY
+- DATA / DISPLAY MODEL
+- EXECUTION PATH
+- FINAL ARTIFACT
+
+## Context
+
+The last T05 submission made real progress but was not complete. It already landed:
+- canonical “Scheduled pending” label propagation
+- `MakeupMinutesPill` in wedge-primitives
+- T03 bucket exposure on compliance-risk-report JSON/CSV
+- Compliance Risk Report row rendering
+- `scheduleBlockId` plumbing through Today, Para My Day, and dashboard TodayScheduleCard
+
+However, the output explicitly deferred the remaining gaps, so T05 is still PARTIAL until those are finished. :contentReference[oaicite:0]{index=0}
+
+## Objective
+
+Finish T05 by completing the remaining wedge-surface rollout of the scheduled-pending model and linked-block logging path.
+
+The goal is to make the wedge speak one consistent language across the intended surfaces and ensure the remaining meaningful Quick Log entry points carry `scheduleBlockId` where appropriate.
+
+## Why now
+
+Do not move to T06 or T07 yet.
+
+The current T05 output itself says the rollout is still incomplete, especially on:
+- Student Detail
+- Action Center
+- remaining Quick Log entry points
+- focused report-route proof
+
+So the correct move is a tight T05 follow-up, not phase drift. :contentReference[oaicite:1]{index=1}
+
+## Scope
+
+Complete only these remaining items:
+
+### 1. Student Detail
+Render `MakeupMinutesPill` on the relevant Student Detail surface so the scheduled-pending state is visible there too.
+
+### 2. Action Center
+Finish the relevant Action Center path so the scheduled-pending / linked-logging experience is not missing from one of the core wedge surfaces.
+
+If Action Center should render the pill directly, do that.
+If the intended T05 requirement in Action Center is only the Quick Log launch / linked logging path, finish that cleanly.
+Be explicit which interpretation is correct from the actual codebase and implement the missing piece.
+
+### 3. Remaining meaningful Quick Log call sites
+Finish the explicitly deferred Quick Log entry points:
+- `sessions/index.tsx`
+- `action-center.tsx`
+- `floating-timer.tsx`
+
+Thread `scheduleBlockId` where appropriate through the canonical Quick Log path.
+Do not expose or depend on client-side `sourceActionItemId` generation.
+
+### 4. Focused proof for compliance-risk-report JSON buckets
+Add the dedicated test the previous output explicitly deferred:
+- assert that `/reports/compliance-risk-report` JSON includes the T03 bucket fields needed by the UI
+- keep this targeted and honest
+
+## Out of scope
+
+Do not broaden into:
+- T06 CTA rename
+- T07 e2e schedule-makeup-loop spec
+- T08 parity proof
+- nav cleanup
+- maturity-badge sweep
+- notifications
+- compensatory lifecycle
+- new reporting surfaces
+- visual redesign
+- client-side minute math
+- general cleanup of unrelated Quick Log code
+
+## Required deliverables
+
+By the end of this follow-up, all of the following should be true:
+
+1. `MakeupMinutesPill` is present on Student Detail where the scheduled-pending state should be shown.
+2. The missing Action Center piece is completed and explained clearly.
+3. The remaining meaningful Quick Log entry points now pass `scheduleBlockId` where appropriate.
+4. `/reports/compliance-risk-report` JSON bucket coverage has a focused automated test.
+5. The core intended T05 wedge rollout is no longer missing its explicitly deferred pieces.
+6. Tests/build/manual verification are reported honestly.
+
+## Architectural anchors that must be reused
+
+Reuse:
+- `artifacts/trellis/src/components/wedge-primitives.tsx`
+- `artifacts/trellis/src/components/quick-log-sheet/*`
+- `artifacts/trellis/src/pages/action-center.tsx`
+- relevant Student Detail files
+- canonical report route / minute-progress payload path
+- canonical T03/T04 server contracts already in place
+
+Do not:
+- create page-local copies of the pill
+- recreate pending math in the client
+- bypass the existing Quick Log path
+- add raw client-side `sourceActionItemId` logic
+
+## Likely files
+
+Expected touch points are likely limited to:
+- Student Detail files
+- `action-center.tsx`
+- `sessions/index.tsx`
+- `floating-timer.tsx`
+- `quick-log-sheet/*`
+- focused report route test file(s)
+
+Keep the change set tight.
+
+## Testing / verification requirements
+
+Minimum required proof:
+1. targeted proof that Student Detail now renders the intended scheduled-pending state
+2. targeted proof that the remaining Quick Log call sites pass `scheduleBlockId` correctly where appropriate
+3. dedicated test for `/reports/compliance-risk-report` JSON bucket fields
+4. honest build/typecheck/test reporting
+5. unrelated pre-existing failures clearly separated from regressions
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- Student Detail is done
+- the missing Action Center piece is done
+- the deferred Quick Log call sites are wired
+- the focused report JSON bucket test exists
+- no duplicate display logic or client math was introduced
+- remaining gaps are only later proof/polish tasks, not unfinished T05 scope
+
+### PARTIAL
+Use PARTIAL if:
+- one or more of the explicitly deferred T05 items are still left open
+- Action Center remains ambiguous/incomplete
+- proof is still missing for the report JSON contract
+- only some remaining Quick Log entry points are finished
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- the task broadens into T06/T07/T08 or unrelated cleanup
+- page-local pill logic is introduced
+- client-side pending math is introduced
+- the remaining rollout gaps are relabeled as “non-blocking” instead of actually being finished
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. BEFORE / AFTER WORKFLOW IMPACT
+5. RETURN-TO-QUEUE / SURFACE CONSISTENCY
+6. DATA / DISPLAY MODEL
+7. ARCHITECTURE / MODEL IMPACT
+8. EXECUTION PATH
+9. TEST / BUILD STATUS
+10. REMAINING GAPS
+11. EXACT NEXT TASKS
+12. FINAL ARTIFACT
+
+Be explicit about which previously deferred T05 items are now closed and whether any truly remain.
+Do not claim T05 COMPLETE unless all explicitly deferred T05 follow-up items are actually done.

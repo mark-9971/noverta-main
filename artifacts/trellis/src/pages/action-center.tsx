@@ -1428,6 +1428,13 @@ export default function ActionCenter() {
         staffId={null}
         prefillStudentId={quickLogStudent?.id}
         prefillStudentName={quickLogStudent?.name}
+        // T05: WorkItem signals do not carry scheduleBlockId today —
+        // the alerts table has no schedule_block_id column. Pass null
+        // explicitly; server-side auto-resolve will fuzzy-match by
+        // student+date+service. Honest gap noted in REMAINING GAPS:
+        // server enrichment of alert→scheduleBlockId would let this
+        // path do an exact server-side resolution.
+        prefillScheduleBlockId={null}
       />
 
       {/* ── Quick links footer ── */}

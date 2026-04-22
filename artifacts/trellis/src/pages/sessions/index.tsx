@@ -545,6 +545,10 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
         staffId={teacherId}
         prefillStudentId={quickLogPrefillStudentId}
         prefillStudentName={quickLogPrefillStudentName}
+        // T05: Sessions list FAB has no schedule-block context (free-form
+        // entry path). Passing null explicitly is the contract — server
+        // auto-resolve will fall back to fuzzy match on student+date+service.
+        prefillScheduleBlockId={null}
       />
 
       {!embedded && isProvider && (

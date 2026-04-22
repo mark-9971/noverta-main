@@ -11,6 +11,7 @@ import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { RISK_CONFIG } from "@/lib/constants";
 import { authFetch } from "@/lib/auth-fetch";
 import { getServiceRequirementChain, getGetServiceRequirementChainQueryKey } from "@workspace/api-client-react";
+import { MakeupMinutesPill } from "@/components/wedge-primitives";
 
 interface ChainEntry {
   requirement: {
@@ -459,6 +460,18 @@ export default function StudentServiceSection({
                             ? `${progress.deliveredMinutes} / ${progress.requiredMinutes} min · ${progress.minutesPerWeek} min/wk`
                             : summarizeRow(primary)}
                         </p>
+                        {progress && (
+                          <div className="mt-1">
+                            <MakeupMinutesPill
+                              requiredMinutes={progress.requiredMinutes}
+                              deliveredMinutes={progress.deliveredMinutes}
+                              scheduledPendingMinutes={(progress as any).scheduledPendingMinutes ?? 0}
+                              stillAtRiskMinutes={(progress as any).stillAtRiskMinutes ?? null}
+                              size="xs"
+                              testId={`makeup-pill-req-${primary.id}`}
+                            />
+                          </div>
+                        )}
                         <p className="text-[10px] text-gray-400">
                           {fmtDate(primary.startDate)} – {fmtDate(primary.endDate)}
                         </p>

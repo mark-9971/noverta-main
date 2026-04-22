@@ -971,6 +971,10 @@ export function FloatingTimer() {
         prefillEndTime={quickLogPrefill.endTime}
         sessionDate={quickLogPrefill.sessionDate}
         collectedGoalData={quickLogGoalData}
+        // T05: TimerEntry has no scheduleBlockId — the floating timer is
+        // started ad-hoc, not from a scheduled block. Pass null explicitly;
+        // the server will fuzzy-match on student+date+service if applicable.
+        prefillScheduleBlockId={null}
       />
     </>
   );
