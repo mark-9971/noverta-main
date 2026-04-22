@@ -113,12 +113,47 @@ router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordin
     logger.info({ districtId, opts, ...result }, "sample data seeded");
     res.status(201).json({ ok: true, ...result });
   } catch (err) {
-    // Log the original error (including any raw SQL) server-side, but never
-    // surface it to the user — toasts/banners must stay friendly.
+    // Log the original error (including any raw SQL) server-side, but
+    // surface a *categorized* error code + sanitized detail to the
+    // operator so the UI can explain *why* sample data failed (e.g.
+    // SEED_CAPACITY_VIOLATION) rather than only the generic toast.
+    // Raw stack traces and SQL fragments stay in the server log.
     logger.error({ err, districtId }, "sample-data seed failed");
-    res.status(500).json({ error: "Couldn't load sample data — please try again" });
+    const { code, detail } = classifySeedError(err);
+    res.status(500).json({
+      error: "Couldn't load sample data — please try again",
+      code,
+      detail,
+    });
   }
 });
+
+/**
+ * Classify a thrown seeder error into an operator-facing code + sanitized
+ * one-line detail. Patterns are matched against `Error.message` produced
+ * by the seeder; anything unrecognized falls through as
+ * SEED_UNKNOWN_ERROR with a redacted detail string. We never echo the
+ * full stack or raw SQL; the server log retains the full error object.
+ */
+function classifySeedError(err: unknown): { code: string; detail: string } {
+  const raw = err instanceof Error ? err.message : String(err);
+  // Strip newlines and clamp length so the detail is safe to surface in a
+  // toast/banner without breaking layout or leaking large payloads.
+  const sanitize = (s: string) => s.replace(/\s+/g, " ").trim().slice(0, 280);
+  if (/Seed capacity violation/i.test(raw)) {
+    return { code: "SEED_CAPACITY_VIOLATION", detail: sanitize(raw) };
+  }
+  if (/District \d+ could not be auto-provisioned/i.test(raw)) {
+    return { code: "SEED_DISTRICT_PROVISION_FAILED", detail: sanitize(raw) };
+  }
+  if (/duplicate key|unique constraint/i.test(raw)) {
+    return { code: "SEED_DUPLICATE_ROW", detail: "A sample row collided with existing data; partial seed was rolled back." };
+  }
+  if (/foreign key|violates foreign key/i.test(raw)) {
+    return { code: "SEED_FK_VIOLATION", detail: "Sample data references a missing parent row; partial seed was rolled back." };
+  }
+  return { code: "SEED_UNKNOWN_ERROR", detail: sanitize(raw) };
+}
 
 router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);

@@ -365,6 +365,29 @@ const STAFF_RATIOS: Record<string, number> = {
   "admin":                    250,
 };
 
+/**
+ * Conservative per-specialty share of the roster — i.e. what fraction of
+ * the total student count is expected to receive a given specialty's
+ * services based on `studentSpecs` distribution (default scenarios pick
+ * 2–3 of {speech, ot, counseling, aba, pt}, plus scenario-locked picks
+ * for behavior_plan / transition / esy_eligible / incident_history).
+ *
+ * Used by `buildStaffSeeds` to compute a load-aware floor on per-specialty
+ * provider count so the capacity validator at the SR-insert step
+ * (PROVIDER_MONTHLY_MIN_CAPACITY ≈ 8473 min/mo) cannot be tripped by the
+ * seeder's own default options. Intentionally over-estimates to leave
+ * headroom; PRE-1 precondition fix, not the full V2 staffing model.
+ */
+const SPECIALTY_LOAD_SHARE: Record<string, number> = {
+  "bcba":                      0.40, // aba palette + behavior_plan + incident_history
+  "provider:Speech":           0.60, // palette + transition + esy_eligible + behavior_plan_half
+  "provider:Occupational":     0.45, // palette + esy_eligible
+  "provider:Physical":         0.35, // palette only (less common service)
+  "provider:Counselor":        0.55, // palette + transition + behavior_plan_half + incident_history
+};
+
+const PROVIDER_MONTHLY_MIN_CAPACITY = 5 * 6.5 * 60 * 4.345; // ≈ 8473 min/mo
+
 function buildStaffSeeds(
   profile: Exclude<SizeProfile, "random">,
   targetStudents?: number,
@@ -409,6 +432,34 @@ function buildStaffSeeds(
       scaledCount = Math.max(slot.count, Math.ceil(targetStudents / effRatio));
     } else {
       scaledCount = slot.count;
+    }
+
+    // PRE-1 — per-specialty load-aware floor. The student-to-staff ratio
+    // alone (above) underestimates the provider count needed when each
+    // student in a specialty consumes a high monthly minute count. We
+    // compute the expected total monthly minutes the specialty will carry
+    // (`roster × specialtyShare × avgMonthlyMin`) and clamp the provider
+    // count so each provider stays under PROVIDER_MONTHLY_MIN_CAPACITY
+    // (≈ 8473 min/mo) — the same envelope the SR-insert validator
+    // enforces. Without this clamp the seeder's own default options
+    // (random roster 50–100, default reqMinutesMonthlyRange [60, 360])
+    // can deterministically trip the validator and 500 the route.
+    //
+    // We use the upper bound of `reqMinutesMonthlyRange` (not the mean)
+    // as a safety margin so randomly drawn high-minute SRs don't tip a
+    // tightly-balanced specialty over the envelope. Headroom of +1 is
+    // added on top so providers are never seeded at >100% utilization.
+    if (targetStudents && targetStudents > 0) {
+      const share = SPECIALTY_LOAD_SHARE[ratioKey];
+      if (share != null) {
+        const reqRange = shape?.reqMinutesMonthlyRange ?? SAMPLE_BOUNDS.requiredMinutes;
+        // Use upper bound for safety; SR rows draw uniformly from the range,
+        // so the worst-case specialty load is bounded above by max-min × N.
+        const worstAvgMin = reqRange[1];
+        const expectedMinutes = targetStudents * share * worstAvgMin;
+        const loadFloor = Math.ceil(expectedMinutes / PROVIDER_MONTHLY_MIN_CAPACITY) + 1;
+        scaledCount = Math.max(scaledCount, loadFloor);
+      }
     }
 
     const candidates = SAMPLE_STAFF_POOL.filter(p =>

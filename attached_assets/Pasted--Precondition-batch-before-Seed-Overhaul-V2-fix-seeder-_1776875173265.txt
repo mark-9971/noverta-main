@@ -1,0 +1,247 @@
+# Precondition batch before Seed Overhaul V2 — fix seeder default-capacity failure, surface real seed errors, add regression coverage, and repair Demo Control route drift
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is the precondition batch that must land before Seed Overhaul V2 implementation begins.
+- Keep scope tightly bounded to PRE-1 through PRE-4 only.
+- Do NOT start the Seed Overhaul V2 rewrite itself yet.
+- Do NOT broaden into long-tail module seeding, seed-platform redesign, alerts.schedule_block_id enrichment, ShowcaseTour cleanup, or other adjacent work.
+- Be explicit about what is a seed-platform fix vs route bug vs test addition.
+- Do not silently roll PRE-5 into this task; district cleanup is operational and separate.
+
+Before declaring COMPLETE, verify:
+1. POST /api/sample-data with default empty body no longer fails on the seeder’s own defaults
+2. the route/UI surfaces real seed error codes/details instead of only a generic toast
+3. the regression test exists and passes
+4. Demo Control readiness/data-health no longer 500 on stale table refs
+5. no unrelated product behavior was changed
+6. tests/build status are clearly stated
+7. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. ARCHITECTURE / MODEL IMPACT
+5. TEST / BUILD STATUS
+6. REMAINING GAPS
+7. EXACT NEXT TASKS
+
+Also include:
+- FAILURE REPROS BEFORE FIX
+- BEFORE / AFTER BEHAVIOR
+- PRE-1 / PRE-2 / PRE-3 / PRE-4 STATUS
+- FINAL ARTIFACT
+
+## Objective
+
+Complete the required precondition batch before Seed Overhaul V2 implementation:
+
+### PRE-1
+Fix the seeder default-capacity failure:
+- `seedSampleDataForDistrict` rolls `rosterOverride`
+- that value must actually be forwarded into `buildStaffSeeds(...)`
+- add the per-specialty provider-count sanity clamp so the generated staff can satisfy the seeder’s own capacity invariant
+
+### PRE-2
+Surface real seeder error codes/details:
+- `routes/sampleData.ts` should expose a structured error code such as `SEED_CAPACITY_VIOLATION`
+- include sanitized useful detail for the operator
+- update the relevant UI(s) so the operator sees the real failure category instead of only “Couldn’t load sample data — please try again”
+
+### PRE-3
+Add the missing regression test:
+- empty-body `POST /api/sample-data`
+- across 5 distinct districtId PRNG seeds
+- assert successful seeding and non-zero sample counts
+
+### PRE-4
+Fix Demo Control route/schema drift:
+- rename stale table references in `routes/demoControl.ts`
+  - `staff_school_assignments` → `staff_assignments`
+  - `service_sessions` → `session_logs`
+- reshape the staff-count subquery as needed for the correct schema
+- add a smoke test for:
+  - `GET /api/demo-control/readiness`
+  - `GET /api/demo-control/data-health`
+
+## Why now
+
+Seed Overhaul V2 planning is allowed, but implementation is gated behind these fixes.
+
+Current known findings:
+- Add Sample Data currently fails for a real seed-platform reason: the seeder’s rolled roster size never reaches `buildStaffSeeds`, so provider counts remain too low and the capacity validator throws on default seed behavior.
+- The route currently hides that useful failure behind a generic 500 message.
+- Demo Control readiness/data-health are currently broken because of stale table-name drift, not because of a seed problem.
+- These are all small, concrete blockers and should be cleaned up before the larger rewrite starts.
+
+## Scope
+
+In scope:
+- `lib/db/src/seed-sample-data.ts` fixes required for PRE-1
+- `artifacts/api-server/src/routes/sampleData.ts` + relevant UI error display for PRE-2
+- the regression test for PRE-3
+- `artifacts/api-server/src/routes/demoControl.ts` + its smoke tests for PRE-4
+
+Out of scope:
+- PRE-5 district cleanup
+- Seed Overhaul V2 platform rewrite
+- new seed profiles
+- long-tail module cadence work
+- new demo scenarios
+- broader reset/teardown redesign
+- unrelated reliability cleanup
+
+## Required deliverables
+
+By the end:
+1. empty-body `POST /api/sample-data` no longer fails because of the current staff-sizing bug
+2. operators see a real seed error category/details when seeding fails
+3. the new regression test exists and passes
+4. Demo Control readiness/data-health return 200 instead of 500 due to stale table refs
+5. changes are tightly scoped and honest
+
+## Exact task details
+
+### PRE-1 — Seeder capacity/default fix
+Fix the structural defect already diagnosed:
+- `seedSampleDataForDistrict` rolls `rosterOverride`
+- `buildStaffSeeds(profile, targetStudents?, shape)` never receives it
+- the ratio-scaling branch remains dead
+- provider counts stay at baseline and can violate capacity
+
+Implement the smallest correct fix:
+- forward the rolled roster into `buildStaffSeeds`
+- add a per-specialty provider-count sanity clamp so counts cannot undershoot required monthly capacity for the generated service load
+
+Be explicit in the output about:
+- the exact formula/guard you used
+- why it is safe
+- whether this is still only a precondition fix, not the full V2 staffing model
+
+### PRE-2 — Route/UI error passthrough
+Fix the generic error masking in `routes/sampleData.ts` and expose structured seeder error info to the UI.
+
+Requirements:
+- preserve safety/sanitization
+- do not leak raw stack traces
+- do expose meaningful operator-facing categories and details
+- render that in:
+  - PilotReadinessPanel sample-data entry path
+  - any closely related onboarding/sample-data CTA path if it uses the same route and is already in reach
+
+Be explicit about exactly which UI surfaces now show the richer error.
+
+### PRE-3 — Regression test
+Add:
+- `artifacts/api-server/tests/16-sample-data-default-body.spec.ts`
+
+Requirements:
+- exercise `POST /api/sample-data` with `{}` body
+- use 5 distinct districtId PRNG seeds
+- assert successful creation or valid idempotent behavior as appropriate
+- assert non-zero sample counts
+- ensure the regression would have caught the current capacity-validator bug
+
+Do not make the assertions brittle to exact row counts unless truly necessary.
+
+### PRE-4 — Demo Control route fix
+Fix:
+- `staff_school_assignments` → `staff_assignments`
+- `service_sessions` → `session_logs`
+
+Also:
+- reshape the staff-count subquery correctly for the actual schema
+- add a smoke test proving the two endpoints return 200 for a valid demo district
+
+Be explicit in the output that this was a route/schema drift bug, not a seed-gap fix.
+
+## Architectural anchors / constraints
+
+Respect:
+- current seeder entrypoint and rollback flow
+- current auth + district-scoping model
+- current UI entry path for Add Sample Data
+- current Demo Control routes
+
+Do not:
+- start redesigning the seeder architecture yet
+- start adding batch ids / deterministic wave engine / seed overhaul platform changes
+- turn this into a broad reset/teardown rewrite
+- hide seed failure again behind vague operator messaging
+
+## Likely files
+
+Expected touch points likely include:
+- `lib/db/src/seed-sample-data.ts`
+- `artifacts/api-server/src/routes/sampleData.ts`
+- relevant sample-data UI component(s), likely in dashboard / pilot readiness area
+- `artifacts/api-server/tests/16-sample-data-default-body.spec.ts`
+- `artifacts/api-server/src/routes/demoControl.ts`
+- smoke tests for Demo Control readiness/data-health
+
+Keep the fix set tight.
+
+## Testing / verification requirements
+
+Minimum required proof:
+1. exact repro of the pre-fix seed failure
+2. exact repro of the pre-fix Demo Control 500
+3. green regression test for PRE-3
+4. proof that default-body sample-data seeding now works across 5 districtId seeds
+5. proof that Demo Control readiness/data-health now return 200
+6. honest build/typecheck/test reporting
+7. unrelated pre-existing failures clearly separated
+
+If a district-cleanup issue still blocks some test ids, say so explicitly and use clean/new districts for reproducible proof where appropriate.
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- PRE-1, PRE-2, PRE-3, and PRE-4 are all actually done
+- the seed default-capacity failure is fixed
+- richer seed errors are surfaced to operators
+- the regression test exists and passes
+- Demo Control route drift is fixed and smoke-tested
+- no broader seed rewrite was started
+
+### PARTIAL
+Use PARTIAL if:
+- only some of PRE-1..PRE-4 landed
+- the seeder works for one case but not the intended multi-seed regression test
+- Demo Control still lacks proper smoke coverage
+- UI error passthrough is incomplete
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- the task broadens into V2 implementation
+- the seed failure is hidden rather than fixed
+- the regression test is weak enough that it would not catch the original bug
+- the Demo Control bug is papered over without aligning to the real schema
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. FAILURE REPROS BEFORE FIX
+3. EXACT CHANGES MADE
+4. USER-VISIBLE IMPACT
+5. BEFORE / AFTER BEHAVIOR
+6. ARCHITECTURE / MODEL IMPACT
+7. PRE-1 / PRE-2 / PRE-3 / PRE-4 STATUS
+8. TEST / BUILD STATUS
+9. REMAINING GAPS
+10. EXACT NEXT TASKS
+11. FINAL ARTIFACT
+
+In `PRE-1 / PRE-2 / PRE-3 / PRE-4 STATUS`, explicitly label each as:
+- COMPLETE
+- PARTIAL
+- NOT DONE
+
+Do not claim the Seed Overhaul V2 rewrite has started.
+Do not claim PRE-5 was completed.

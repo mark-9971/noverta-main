@@ -166,7 +166,21 @@ function SampleDataRestoreFooter() {
     mutationFn: async () => {
       const r = await authFetch("/api/sample-data", { method: "POST" });
       const body = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(body?.error || "Failed to load sample data");
+      if (!r.ok) {
+        // Surface the structured error from the route (PRE-2): when the
+        // seeder fails for a recognized reason (capacity, FK, duplicate)
+        // the operator sees the real category + sanitized detail rather
+        // than only the generic toast string.
+        const code = typeof body?.code === "string" ? body.code : null;
+        const detail = typeof body?.detail === "string" ? body.detail : null;
+        const base = body?.error || "Failed to load sample data";
+        const msg = code && detail
+          ? `${base} (${code}): ${detail}`
+          : code
+            ? `${base} (${code})`
+            : base;
+        throw new Error(msg);
+      }
       return body;
     },
     onSuccess: (body) => {

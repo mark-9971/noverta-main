@@ -96,11 +96,26 @@ async function loadSchoolIds(districtId: number): Promise<number[]> {
   return rows.map(r => r.id);
 }
 
+/**
+ * Build an inline SQL int-array literal for use with `ANY(...)`. Drizzle's
+ * `${array}` interpolation flattens JS arrays into separate positional
+ * params (so `ANY(${ids})` becomes `ANY($1)` with one scalar bound,
+ * yielding "malformed array literal"). Inlining as `ARRAY[1,2,3]::int[]`
+ * keeps a single bind shape and works across pg versions. Inputs are
+ * coerced via Number() to defend against accidental strings — the only
+ * caller paths feed this with `serial` PK ids loaded from our own DB.
+ */
+function intArraySql(ids: number[]) {
+  if (ids.length === 0) return sql`ARRAY[]::int[]`;
+  const safe = ids.map(n => Number(n)).filter(Number.isFinite);
+  return sql.raw(`ARRAY[${safe.join(",")}]::int[]`);
+}
+
 async function loadStudentIds(districtId: number): Promise<number[]> {
   const schoolIds = await loadSchoolIds(districtId);
   if (schoolIds.length === 0) return [];
   const rows = (await db.execute<{ id: number }>(sql`
-    SELECT id FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+    SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL
   `)).rows;
   return rows.map(r => r.id);
 }
@@ -128,16 +143,17 @@ router.get("/demo-control/readiness", async (req: Request, res: Response) => {
     }>(sql`
       SELECT
         ${schoolIds.length}::int AS schools,
-        (SELECT COUNT(*)::int FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL) AS students,
-        (SELECT COUNT(DISTINCT staff_id)::int FROM staff_school_assignments WHERE school_id = ANY(${schoolIds})) AS staff,
+        (SELECT COUNT(*)::int FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL) AS students,
+        (SELECT COUNT(DISTINCT sa.staff_id)::int FROM staff_assignments sa
+           WHERE sa.student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))) AS staff,
         (SELECT COUNT(*)::int FROM alerts WHERE student_id IN
-           (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))) AS alerts,
+           (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))) AS alerts,
         (SELECT COUNT(*)::int FROM alerts WHERE resolved = false AND student_id IN
-           (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))) AS open_alerts,
+           (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))) AS open_alerts,
         (SELECT COUNT(*)::int FROM compensatory_obligations WHERE status IN ('pending','in_progress') AND student_id IN
-           (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))) AS comp_open,
-        (SELECT COUNT(*)::int FROM service_sessions WHERE created_at > NOW() - INTERVAL '30 days' AND student_id IN
-           (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))) AS sessions_30d
+           (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))) AS comp_open,
+        (SELECT COUNT(*)::int FROM session_logs WHERE created_at > NOW() - INTERVAL '30 days' AND student_id IN
+           (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))) AS sessions_30d
     `)).rows as Array<Record<string, number>>;
     const checks = [
       { key: "schools",   label: "Has schools",            pass: counts.schools >= 1,  detail: `${counts.schools} school(s)` },
@@ -176,24 +192,27 @@ router.get("/demo-control/data-health", async (req: Request, res: Response) => {
       duplicate_alerts: number; comp_neg: number; staff_no_email: number;
     }>(sql`
       SELECT
-        (SELECT COUNT(*)::int FROM students s WHERE s.school_id = ANY(${schoolIds})
+        (SELECT COUNT(*)::int FROM students s WHERE s.school_id = ANY(${intArraySql(schoolIds)})
            AND NOT EXISTS (SELECT 1 FROM schools sc WHERE sc.id = s.school_id)) AS orphans,
-        (SELECT COUNT(*)::int FROM students WHERE school_id = ANY(${schoolIds})
-           AND date_of_birth > CURRENT_DATE) AS future_dob,
-        (SELECT COUNT(*)::int FROM students WHERE school_id = ANY(${schoolIds})
+        (SELECT COUNT(*)::int FROM students WHERE school_id = ANY(${intArraySql(schoolIds)})
+           AND date_of_birth IS NOT NULL
+           AND date_of_birth ~ '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$'
+           AND date_of_birth::date > CURRENT_DATE) AS future_dob,
+        (SELECT COUNT(*)::int FROM students WHERE school_id = ANY(${intArraySql(schoolIds)})
            AND (grade IS NULL OR grade = '')) AS missing_grade,
         (SELECT COUNT(*)::int FROM (
            SELECT student_id, type, COUNT(*) c FROM alerts
            WHERE resolved = false AND student_id IN
-             (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
+             (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))
            GROUP BY student_id, type HAVING COUNT(*) > 5
          ) d) AS duplicate_alerts,
         (SELECT COUNT(*)::int FROM compensatory_obligations
-           WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
+           WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))
            AND minutes_owed < 0) AS comp_neg,
-        (SELECT COUNT(DISTINCT staff_id)::int FROM staff_school_assignments ssa
-           JOIN staff st ON st.id = ssa.staff_id
-           WHERE ssa.school_id = ANY(${schoolIds}) AND (st.email IS NULL OR st.email = '')) AS staff_no_email
+        (SELECT COUNT(DISTINCT sa.staff_id)::int FROM staff_assignments sa
+           JOIN staff st ON st.id = sa.staff_id
+           WHERE sa.student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))
+             AND (st.email IS NULL OR st.email = '')) AS staff_no_email
     `)).rows as Array<Record<string, number>>;
     const checks = [
       { name: "No orphan students",        status: row.orphans === 0 ? "pass" : "fail", message: `${row.orphans} orphans` },
@@ -230,7 +249,7 @@ router.get("/demo-control/caseload-summary", async (req: Request, res: Response)
              COALESCE(st.last_name,  '') AS last_name
       FROM students s
       LEFT JOIN staff st ON st.id = s.staff_id
-      WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL AND s.staff_id IS NOT NULL
+      WHERE s.school_id = ANY(${intArraySql(schoolIds)}) AND s.deleted_at IS NULL AND s.staff_id IS NOT NULL
       GROUP BY s.staff_id, st.first_name, st.last_name
     `)).rows;
     const counts = rows.map(x => Number(x.n));
@@ -278,17 +297,17 @@ router.get("/demo-control/overview", async (_req: Request, res: Response) => {
       }
       const [{ n: students }] = (await db.execute<{ n: number }>(sql`
         SELECT COUNT(*)::int AS n FROM students
-        WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+        WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL
       `)).rows as Array<{ n: number }>;
       const [{ n: staff }] = (await db.execute<{ n: number }>(sql`
         SELECT COUNT(*)::int AS n FROM staff
-        WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+        WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL
       `)).rows as Array<{ n: number }>;
       const [{ n: openAlerts }] = (await db.execute<{ n: number }>(sql`
         SELECT COUNT(*)::int AS n FROM alerts a
         WHERE a.resolved = false
           AND a.student_id IN (
-            SELECT id FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+            SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL
           )
       `)).rows as Array<{ n: number }>;
       return { id: d.id, name: d.name, schools: schoolIds.length,
@@ -328,13 +347,13 @@ router.post("/demo-control/hero-cast", async (req: Request, res: Response) => {
         UPDATE alerts SET resolved = true, resolved_at = NOW(),
           resolved_note = ${`${DEMO_TAG} Cleared by hero-cast refresh`}
         WHERE resolved = false AND message LIKE ${"%" + CAST_TAG + "%"}
-          AND student_id = ANY(${studentIds})
+          AND student_id = ANY(${intArraySql(studentIds)})
       `);
       await db.execute(sql`
         UPDATE compensatory_obligations SET status = 'completed',
           minutes_delivered = minutes_owed
         WHERE status = 'pending' AND notes LIKE ${"%" + CAST_TAG + "%"}
-          AND student_id = ANY(${studentIds})
+          AND student_id = ANY(${intArraySql(studentIds)})
       `);
     }
 
@@ -343,8 +362,8 @@ router.post("/demo-control/hero-cast", async (req: Request, res: Response) => {
       SELECT st.id, st.first_name, st.last_name, COUNT(s.id)::int AS n
       FROM staff st
       LEFT JOIN students s ON s.case_manager_id = st.id AND s.deleted_at IS NULL
-        AND s.school_id = ANY(${schoolIds})
-      WHERE st.school_id = ANY(${schoolIds})
+        AND s.school_id = ANY(${intArraySql(schoolIds)})
+      WHERE st.school_id = ANY(${intArraySql(schoolIds)})
       GROUP BY st.id, st.first_name, st.last_name
       ORDER BY n DESC LIMIT 1
     `)).rows;
@@ -521,21 +540,21 @@ router.post("/demo-control/before-after", async (req: Request, res: Response) =>
     }
     const [stuRow] = (await db.execute<{ total: number; affected: number }>(sql`
       SELECT
-        (SELECT COUNT(*) FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL)::int AS total,
+        (SELECT COUNT(*) FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL)::int AS total,
         (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false
-           AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS affected
+           AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)})))::int AS affected
     `)).rows as Array<{ total: number; affected: number }>;
     const [alertRow] = (await db.execute<{ open: number; critical: number }>(sql`
       SELECT
         COUNT(*) FILTER (WHERE resolved = false)::int AS open,
         COUNT(*) FILTER (WHERE resolved = false AND severity = 'high')::int AS critical
-      FROM alerts WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
+      FROM alerts WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))
     `)).rows as Array<{ open: number; critical: number }>;
     const [compRow] = (await db.execute<{ owed: number; delivered: number }>(sql`
       SELECT COALESCE(SUM(minutes_owed),0)::int AS owed,
              COALESCE(SUM(minutes_delivered),0)::int AS delivered
       FROM compensatory_obligations
-      WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}))
+      WHERE student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}))
     `)).rows as Array<{ owed: number; delivered: number }>;
 
     const total = Number(stuRow.total || 0);
@@ -659,7 +678,7 @@ router.get("/demo-control/comp-forecast", async (req: Request, res: Response) =>
              COUNT(DISTINCT student_id)::int AS students
       FROM compensatory_obligations
       WHERE status IN ('pending','in_progress')
-        AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL)
+        AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL)
     `)).rows as Array<{ owed: number; delivered: number; obligations: number; students: number }>;
     // Current backlog
     const open = Math.max(0, Number(row.owed || 0) - Number(row.delivered || 0));
@@ -727,7 +746,7 @@ router.get("/demo-control/caseload-providers", async (req: Request, res: Respons
     }>(sql`
       SELECT st.id, st.first_name, st.last_name, st.role, st.title, st.school_id
       FROM staff st
-      WHERE st.school_id = ANY(${schoolIds}) AND st.deleted_at IS NULL
+      WHERE st.school_id = ANY(${intArraySql(schoolIds)}) AND st.deleted_at IS NULL
         AND st.status = 'active'
       ORDER BY st.last_name, st.first_name
     `)).rows;
@@ -738,7 +757,7 @@ router.get("/demo-control/caseload-providers", async (req: Request, res: Respons
       SELECT s.id, s.first_name, s.last_name, s.grade, s.school_id,
              s.case_manager_id
       FROM students s
-      WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL
+      WHERE s.school_id = ANY(${intArraySql(schoolIds)}) AND s.deleted_at IS NULL
         AND s.status = 'active'
       ORDER BY s.last_name, s.first_name
     `)).rows;
@@ -790,7 +809,7 @@ router.post("/demo-control/alert-density", async (req: Request, res: Response) =
     const targetCount = target === "low" ? 5 : target === "medium" ? 18 : 40;
     const [{ n: openAlerts }] = (await db.execute<{ n: number }>(sql`
       SELECT COUNT(*)::int AS n FROM alerts
-      WHERE resolved = false AND student_id = ANY(${studentIds})
+      WHERE resolved = false AND student_id = ANY(${intArraySql(studentIds)})
     `)).rows as Array<{ n: number }>;
     const cur = Number(openAlerts || 0);
     let resolved = 0, inserted = 0;
@@ -804,7 +823,7 @@ router.post("/demo-control/alert-density", async (req: Request, res: Response) =
         ? "CASE severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END ASC"
         : "CASE severity WHEN 'low' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END ASC";
       const toResolve = (await db.execute<{ id: number }>(sql`
-        SELECT id FROM alerts WHERE resolved = false AND student_id = ANY(${studentIds})
+        SELECT id FROM alerts WHERE resolved = false AND student_id = ANY(${intArraySql(studentIds)})
         ORDER BY ${sql.raw(sevOrder)}, created_at ASC
         LIMIT ${drop}
       `)).rows;
@@ -819,7 +838,7 @@ router.post("/demo-control/alert-density", async (req: Request, res: Response) =
     } else if (cur < targetCount) {
       const need = targetCount - cur;
       const stuRows = (await db.execute<{ id: number }>(sql`
-        SELECT id FROM students WHERE id = ANY(${studentIds})
+        SELECT id FROM students WHERE id = ANY(${intArraySql(studentIds)})
         ORDER BY random() LIMIT ${need}
       `)).rows;
       const types = ["missed_session", "iep_overdue", "minutes_shortfall", "behavior_escalation", "evaluation_due"];
@@ -852,7 +871,7 @@ router.post("/demo-control/alert-density", async (req: Request, res: Response) =
              COUNT(*) FILTER (WHERE severity='medium')::int AS medium,
              COUNT(*) FILTER (WHERE severity='low')::int AS low,
              COUNT(*) FILTER (WHERE created_at < NOW() - INTERVAL '7 days')::int AS over_7d
-      FROM alerts WHERE resolved = false AND student_id = ANY(${studentIds})
+      FROM alerts WHERE resolved = false AND student_id = ANY(${intArraySql(studentIds)})
     `)).rows as Array<Record<string, number>>;
     res.json({
       ok: true, target, targetCount, severityMix, ageBucketDays,
@@ -963,16 +982,16 @@ async function buildExecPacketData(districtId: number, districtName: string) {
     .limit(1);
   const [stuRow] = (await db.execute<{ total: number; affected: number; high_risk: number }>(sql`
     SELECT
-      (SELECT COUNT(*) FROM students WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL)::int AS total,
+      (SELECT COUNT(*) FROM students WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL)::int AS total,
       (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false
-         AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS affected,
+         AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)})))::int AS affected,
       (SELECT COUNT(DISTINCT student_id) FROM alerts WHERE resolved = false AND severity = 'high'
-         AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${schoolIds})))::int AS high_risk
+         AND student_id IN (SELECT id FROM students WHERE school_id = ANY(${intArraySql(schoolIds)})))::int AS high_risk
   `)).rows as Array<{ total: number; affected: number; high_risk: number }>;
   const topRisk = (await db.execute<{ id: number; first_name: string; last_name: string; n: number }>(sql`
     SELECT s.id, s.first_name, s.last_name, COUNT(a.id)::int AS n FROM students s
     JOIN alerts a ON a.student_id = s.id AND a.resolved = false
-    WHERE s.school_id = ANY(${schoolIds}) AND s.deleted_at IS NULL
+    WHERE s.school_id = ANY(${intArraySql(schoolIds)}) AND s.deleted_at IS NULL
     GROUP BY s.id, s.first_name, s.last_name ORDER BY n DESC LIMIT 5
   `)).rows;
   // Staffing strain: ratio of active students per active staff member with a
@@ -981,13 +1000,13 @@ async function buildExecPacketData(districtId: number, districtName: string) {
     staff_total: number; staff_with_load: number; overloaded: number; max_caseload: number;
   }>(sql`
     SELECT
-      (SELECT COUNT(*)::int FROM staff WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL) AS staff_total,
+      (SELECT COUNT(*)::int FROM staff WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL) AS staff_total,
       COUNT(*)::int AS staff_with_load,
       COUNT(*) FILTER (WHERE n > 25)::int AS overloaded,
       COALESCE(MAX(n), 0)::int AS max_caseload
     FROM (
       SELECT case_manager_id AS sid, COUNT(*) AS n FROM students
-      WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL AND case_manager_id IS NOT NULL
+      WHERE school_id = ANY(${intArraySql(schoolIds)}) AND deleted_at IS NULL AND case_manager_id IS NOT NULL
       GROUP BY case_manager_id
     ) cl
   `)).rows as Array<Record<string, number>>;

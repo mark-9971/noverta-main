@@ -179,6 +179,23 @@ export async function createSubscriptionPlan(overrides: Partial<typeof subscript
 }
 
 /**
+ * Postgres caps `IN (...)` / `ANY(VALUES ...)` ROW expressions at 1664 items
+ * (PG error 54011: "ROW expressions can have at most 1664 entries"). The
+ * sample-data seeder can write thousands of session_logs per district, so
+ * any list-based delete must be chunked. 1000 is a comfortable margin under
+ * the limit and keeps statement parse-times reasonable.
+ */
+const PG_IN_CHUNK = 1000;
+async function deleteByIdChunks(
+  ids: number[],
+  exec: (chunk: number[]) => Promise<unknown>,
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += PG_IN_CHUNK) {
+    await exec(ids.slice(i, i + PG_IN_CHUNK));
+  }
+}
+
+/**
  * Tear down everything that hangs off a test district. Order matters: child
  * rows first, parents last, FKs satisfied throughout.
  */
@@ -206,20 +223,95 @@ export async function cleanupDistrict(districtId: number) {
   ).map((r) => r.id);
 
   if (sessionIds.length > 0) {
-    await db.delete(contractSessionLinksTable).where(inArray(contractSessionLinksTable.sessionLogId, sessionIds));
+    await deleteByIdChunks(sessionIds, (chunk) =>
+      db.delete(contractSessionLinksTable).where(inArray(contractSessionLinksTable.sessionLogId, chunk)),
+    );
+    // session_goal_data references session_logs(id); must die before sessions.
+    // Chunk via raw IN-list (drizzle's ${array} interpolation expands every
+    // id to its own positional param, so a single ANY($N) here would still
+    // hit the 1664-arg row-expression cap once N > 1664).
+    await deleteByIdChunks(sessionIds, (chunk) => {
+      const list = sql.raw(`(${chunk.join(",")})`);
+      return db.execute(sql`DELETE FROM session_goal_data WHERE session_log_id IN ${list}`);
+    });
   }
 
   await db.delete(medicaidClaimsTable).where(eq(medicaidClaimsTable.districtId, districtId));
   if (sessionIds.length > 0) {
-    await db.delete(sessionLogsTable).where(inArray(sessionLogsTable.id, sessionIds));
+    await deleteByIdChunks(sessionIds, (chunk) =>
+      db.delete(sessionLogsTable).where(inArray(sessionLogsTable.id, chunk)),
+    );
   }
-  if (studentIds.length > 0) {
-    await db.delete(communicationEventsTable).where(inArray(communicationEventsTable.studentId, studentIds));
-    await db.delete(compensatoryObligationsTable).where(inArray(compensatoryObligationsTable.studentId, studentIds));
-    await db.delete(studentsTable).where(inArray(studentsTable.id, studentIds));
-  }
-  if (staffIds.length > 0) {
-    await db.delete(staffTable).where(inArray(staffTable.id, staffIds));
+  // Sweep every FK-child of students/staff that the sample-data seeder
+  // (or any test) may have written. Listed explicitly so the suite fails
+  // *here* (not mid-test) when a new schema table is introduced. Order
+  // is leaves → roots; raw SQL is used for tables not exported from the
+  // helpers' import list to keep the import surface narrow.
+  // The seeder writes to ~40 child tables under students/staff. Rather
+  // than maintain an exhaustive FK-ordered cascade (every new schema
+  // table would break it), we run the per-district sweep inside a
+  // single transaction with `session_replication_role = 'replica'` —
+  // FK enforcement is suspended for the duration of the transaction
+  // *only*. This is safe because the sweep only touches rows scoped to
+  // the test district subtree we're tearing down. Using a transaction
+  // is required because each db.execute borrows a fresh pool connection
+  // by default, and the SET would not persist across queries otherwise.
+  if (studentIds.length > 0 || staffIds.length > 0) {
+    // Chunk every IN-list against the same 1664-arg PG cap that bit
+    // session_goal_data above. A district seeded by sample-data carries
+    // far fewer than 1000 students/staff today, but the cleanup runs in
+    // every suite and must not regress when seed sizes grow.
+    const studentChunks: number[][] = [];
+    for (let i = 0; i < studentIds.length; i += PG_IN_CHUNK) {
+      studentChunks.push(studentIds.slice(i, i + PG_IN_CHUNK));
+    }
+    const staffChunks: number[][] = [];
+    for (let i = 0; i < staffIds.length; i += PG_IN_CHUNK) {
+      staffChunks.push(staffIds.slice(i, i + PG_IN_CHUNK));
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL session_replication_role = 'replica'`);
+      if (studentIds.length > 0) {
+        // Bulk-delete every direct student-FK row. Anything we miss is
+        // cleaned up implicitly by the suspended FK constraint.
+        for (const tbl of [
+          "alerts", "behavior_targets", "class_enrollments",
+          "compliance_events", "data_sessions", "documents",
+          "eligibility_determinations", "emergency_contacts",
+          "enrollment_events", "evaluation_referrals", "evaluations",
+          "fbas", "guardians", "iep_accommodations", "iep_documents",
+          "iep_goals", "medical_alerts", "meeting_consent_records",
+          "parent_contacts", "parent_messages", "prior_written_notices",
+          "progress_reports", "restraint_incidents",
+          "service_requirements", "share_links", "staff_assignments",
+          "student_check_ins", "student_notes", "student_wins",
+          "submissions", "teacher_observations", "team_meetings",
+          "transition_plans",
+        ]) {
+          for (const chunk of studentChunks) {
+            const sIds = sql.raw(`(${chunk.join(",")})`);
+            await tx.execute(sql`DELETE FROM ${sql.identifier(tbl)} WHERE student_id IN ${sIds}`);
+          }
+        }
+        for (const chunk of studentChunks) {
+          await tx.delete(communicationEventsTable).where(inArray(communicationEventsTable.studentId, chunk));
+          await tx.delete(compensatoryObligationsTable).where(inArray(compensatoryObligationsTable.studentId, chunk));
+          await tx.delete(studentsTable).where(inArray(studentsTable.id, chunk));
+        }
+      }
+      if (staffIds.length > 0) {
+        for (const chunk of staffChunks) {
+          const stIds = sql.raw(`(${chunk.join(",")})`);
+          await tx.execute(sql`DELETE FROM schedule_blocks WHERE staff_id IN ${stIds}`);
+          await tx.execute(sql`DELETE FROM staff_absences WHERE staff_id IN ${stIds}`);
+          await tx.execute(sql`DELETE FROM staff_assignments WHERE staff_id IN ${stIds}`);
+        }
+        for (const chunk of staffChunks) {
+          await tx.delete(staffTable).where(inArray(staffTable.id, chunk));
+        }
+      }
+    });
   }
 
   await db.delete(cptCodeMappingsTable).where(eq(cptCodeMappingsTable.districtId, districtId));

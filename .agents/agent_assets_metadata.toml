@@ -221,3 +221,9 @@ id = "LSyKyCOGl4CzTIunqBUZZ"
 uri = "file://.local/audits/trellis-roadmap-2026-04-21.txt"
 type = "text"
 title = "Trellis — Honest Roadmap & Next Tasks (2026-04-21)"
+
+[[outputs]]
+id = "c-s7ZW4heDIQ2mADnPy5_"
+uri = "file://exports/trellis-files.zip"
+type = "unspecified"
+title = "Trellis source files (zip)"
