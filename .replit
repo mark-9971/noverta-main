@@ -24,64 +24,8 @@ localPort = 8080
 externalPort = 80
 
 [[ports]]
-localPort = 8081
-externalPort = 8081
-
-[[ports]]
-localPort = 8082
-externalPort = 4200
-
-[[ports]]
-localPort = 8083
-externalPort = 5000
-
-[[ports]]
-localPort = 18647
-externalPort = 8008
-
-[[ports]]
-localPort = 18650
-externalPort = 9000
-
-[[ports]]
-localPort = 20180
-externalPort = 3001
-
-[[ports]]
-localPort = 20181
-externalPort = 8000
-
-[[ports]]
-localPort = 20182
-externalPort = 8080
-
-[[ports]]
 localPort = 22248
 externalPort = 3000
-
-[[ports]]
-localPort = 22249
-externalPort = 3003
-
-[[ports]]
-localPort = 22250
-externalPort = 5173
-
-[[ports]]
-localPort = 25405
-externalPort = 6000
-
-[[ports]]
-localPort = 25736
-externalPort = 3002
-
-[[ports]]
-localPort = 25737
-externalPort = 6800
-
-[[ports]]
-localPort = 25738
-externalPort = 8099
 
 [nix]
 channel = "stable-25_05"
