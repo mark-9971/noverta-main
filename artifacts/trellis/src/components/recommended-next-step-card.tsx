@@ -12,11 +12,13 @@
  *   - current handling-state pill + ability to change it inline
  *
  * Honesty:
- *   - The "Schedule makeup" / "Follow up with provider" primary CTAs
- *     update *handling state* (localStorage, per-user, per-browser) —
- *     they do not yet route to a real scheduler or send a real email.
- *     The card surfaces this honestly via the help text on the
- *     handling-state menu.
+ *   - "Schedule makeup" deep-links to the real scheduler (Phase 1D).
+ *   - "Mark as awaiting provider response" (T06 truthful rename of the
+ *     former "Follow up with provider" CTA) only updates the shared
+ *     handling state to `awaiting_confirmation`. It does NOT send a
+ *     provider email, in-app notification, or any other outreach. The
+ *     card surfaces this fact inline so users don't expect a real
+ *     message went out.
  */
 
 import { useMemo, useState } from "react";
@@ -180,6 +182,20 @@ export default function RecommendedNextStepCard({
           <h3 className="text-base md:text-lg font-bold text-gray-800 mt-1" data-testid="text-recommendation-action">
             {recommendation.primaryActionLabel}
           </h3>
+
+          {recommendation.action === "follow_up_with_provider" && (
+            // T06 — honest scope note rendered ONLY for the renamed
+            // "Mark as awaiting provider response" CTA. The button
+            // updates shared handling state; it does not actually
+            // notify the provider yet. Keep this short so it doesn't
+            // crowd the card.
+            <p
+              className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1.5 leading-snug"
+              data-testid="text-recommendation-honesty-note"
+            >
+              Updates the team's handling state to "awaiting confirmation". Trellis does not message the provider yet — please reach out directly.
+            </p>
+          )}
 
           <p className="text-[12px] text-gray-600 mt-1.5 leading-snug" data-testid="text-recommendation-why">
             <span className="font-semibold text-gray-700">Likely cause:</span> {recommendation.causeLabel}

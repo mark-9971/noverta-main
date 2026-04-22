@@ -1,0 +1,113 @@
+# T06 — Truthful rename of “Follow up with provider” CTA
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- Do not assume prior summaries are correct if the codebase contradicts them.
+- Reuse canonical helpers/models/components/routes/hooks.
+- Do not duplicate logic around architectural anchors.
+- Do not broaden scope casually.
+- Be explicit about what is persisted vs derived vs local-only vs shared.
+- If this task overlaps another likely lane or hot file, say so explicitly.
+- If any part of the requested behavior is a bad idea in the current architecture, say so.
+
+Before declaring COMPLETE, verify:
+1. the user-visible behavior actually exists
+2. the correct canonical anchors were reused
+3. no competing duplicate logic was introduced
+4. tests/build status are clearly stated
+5. remaining gaps are honestly listed
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. ARCHITECTURE / MODEL IMPACT
+5. TEST / BUILD STATUS
+6. REMAINING GAPS
+7. EXACT NEXT TASKS
+
+Also include:
+- BEFORE / AFTER WORKFLOW IMPACT
+- COPY / PROMISE CORRECTION
+- FINAL ARTIFACT
+
+## Objective
+
+Complete T06:
+Rename the misleading Student Detail “Follow up with provider” CTA to truthful copy that reflects what the system actually does today.
+
+Today, this action updates handling state / bookkeeping but does not send a real provider notification. The product should stop promising a real outreach action when the underlying workflow is not actually implemented.
+
+## Why now
+
+This is the smallest clean trust fix in the current roadmap.
+It is explicitly the only narrow truth fix that fits cleanly alongside the just-finished T01–T05 chain.
+
+## Scope
+
+In scope:
+- find the Student Detail / Recommended Next Step CTA currently labeled “Follow up with provider”
+- rename it to truthful language such as:
+  - “Mark as awaiting provider response”
+  - or another equally accurate label grounded in current behavior
+- add short helper text / tooltip / secondary copy if needed so a user understands:
+  - this updates internal handling state
+  - it does not send a provider notification yet
+- keep the change tightly bounded to this misleading CTA and its local explanatory text
+
+Out of scope:
+- no notification build
+- no email / in-app bell / digest work
+- no workflow or state-machine redesign
+- no recommendation-engine rewrite unless the exact label source already lives there
+- no broader maturity sweep
+- no nav cleanup
+- no “future-proofing” copy that still implies a message was sent
+
+## Required deliverables
+
+By the end:
+1. the misleading CTA is renamed truthfully
+2. any helper text is also truthful
+3. the visible promise now matches the actual system behavior
+4. no fake notification artifacts were introduced
+5. tests/build/manual verification are clearly reported
+
+## Architectural anchors to reuse
+
+Reuse the actual current code path for:
+- Student Detail / Recommended Next Step
+- any canonical recommendation / action label source if the CTA text is generated there
+
+Do not create page-local drift if the label is actually controlled centrally.
+
+## Likely files
+
+- components/recommended-next-step-card.tsx
+- relevant student-detail next-step files
+- action-recommendations.ts only if the label is sourced there
+
+## Testing / verification
+
+Minimum:
+- prove the new label renders in the intended scenario
+- report build / typecheck / manual verification honestly
+- separate unrelated pre-existing failures from regressions
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+COMPLETE only if:
+- the label is truthful
+- the surrounding explanatory copy is truthful
+- no fake notification behavior was implied or added
+
+PARTIAL if:
+- only one surface changed but another still shows the old promise
+- the new label is still ambiguous or overpromising
+
+INCORRECTLY IMPLEMENTED if:
+- the task “fixes” this by adding fake email logs or fake notification wording
+- the system still promises a real provider follow-up that it does not perform

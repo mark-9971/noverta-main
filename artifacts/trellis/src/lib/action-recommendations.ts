@@ -81,7 +81,15 @@ export const OWNER_LABELS: Record<RecommendedOwner, string> = {
 export const ACTION_LABELS: Record<RecommendedActionType, string> = {
   confirm_and_log_session: "Confirm & log session",
   schedule_makeup: "Schedule makeup",
-  follow_up_with_provider: "Follow up with provider",
+  // T06 — truthful rename. The previous label "Follow up with provider"
+  // implied the system would actually contact the provider (email, in-app
+  // message, etc.). It does not. Today this CTA only updates the shared
+  // handling state to `awaiting_confirmation` so the team knows someone
+  // is waiting on the provider's response. The new label states what
+  // actually happens; a small helper line in
+  // `recommended-next-step-card.tsx` makes the no-notification fact
+  // explicit when this CTA is shown.
+  follow_up_with_provider: "Mark as awaiting provider response",
   review_with_case_manager: "Review with case manager",
   escalate_coverage_issue: "Escalate coverage gap",
   review_requirement_data: "Review requirement",
