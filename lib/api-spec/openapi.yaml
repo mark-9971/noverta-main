@@ -8219,6 +8219,16 @@ components:
             "completed" or "makeup", the server auto-transitions the matching
             shared handling row to state="resolved" so the closed-loop wedge
             stops re-surfacing it. See T04 in the wedge spec.
+        scheduleBlockId:
+          type: ["integer", "null"]
+          description: |
+            Optional id of the schedule_block this session was logged against.
+            When set, the server (a) verifies the block belongs to the same
+            student in the caller's district, and (b) inherits the block's
+            `sourceActionItemId` onto the session log if the client did not
+            send one explicitly. This is the canonical "linked-block" path
+            for closing the wedge loop without requiring the client to know
+            the carrier id. See T04.
       required: [studentId, sessionDate, durationMinutes, status, isMakeup]
 
     UpdateSessionBody:

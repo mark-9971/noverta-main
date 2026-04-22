@@ -1642,6 +1642,12 @@ export const CreateSessionBody = zod.object({
     .describe(
       'Optional Action-Center item id (e.g. \"alert:123\", \"service-gap:42:19\")\nthat this session log resolves. When present and the session status is\n\"completed\" or \"makeup\", the server auto-transitions the matching\nshared handling row to state=\"resolved\" so the closed-loop wedge\nstops re-surfacing it. See T04 in the wedge spec.\n',
     ),
+  scheduleBlockId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Optional id of the schedule_block this session was logged against.\nWhen set, the server (a) verifies the block belongs to the same\nstudent in the caller's district, and (b) inherits the block's\n`sourceActionItemId` onto the session log if the client did not\nsend one explicitly. This is the canonical \"linked-block\" path\nfor closing the wedge loop without requiring the client to know\nthe carrier id. See T04.\n",
+    ),
 });
 
 /**
@@ -1905,6 +1911,12 @@ export const BulkCreateSessionsBody = zod.object({
         .nullish()
         .describe(
           'Optional Action-Center item id (e.g. \"alert:123\", \"service-gap:42:19\")\nthat this session log resolves. When present and the session status is\n\"completed\" or \"makeup\", the server auto-transitions the matching\nshared handling row to state=\"resolved\" so the closed-loop wedge\nstops re-surfacing it. See T04 in the wedge spec.\n',
+        ),
+      scheduleBlockId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Optional id of the schedule_block this session was logged against.\nWhen set, the server (a) verifies the block belongs to the same\nstudent in the caller's district, and (b) inherits the block's\n`sourceActionItemId` onto the session log if the client did not\nsend one explicitly. This is the canonical \"linked-block\" path\nfor closing the wedge loop without requiring the client to know\nthe carrier id. See T04.\n",
         ),
     }),
   ),

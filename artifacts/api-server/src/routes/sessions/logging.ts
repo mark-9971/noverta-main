@@ -8,6 +8,7 @@ import {
   compensatoryObligationsTable,
   sessionGoalDataTable,
   guardiansTable, schoolsTable,
+  scheduleBlocksTable,
 } from "@workspace/db";
 import { sendEmail, buildMissedServiceAlertEmail } from "../../lib/email";
 import {
@@ -160,13 +161,63 @@ router.post("/sessions", async (req, res): Promise<void> => {
       resolvedServiceTypeId = row?.service_type_id ?? null;
     }
 
+    // T04 — Linked-block path: when the client passes a scheduleBlockId
+    // (e.g. the makeup-log dialog opened from a schedule_block in the
+    // calendar), look it up, verify it belongs to the same student, and
+    // INHERIT the block's sourceActionItemId onto the session log when
+    // the client did not pass one explicitly. This is the canonical
+    // way to close the wedge loop without making the client know the
+    // carrier id format.
+    //
+    // Strict cross-student check: a block must point at the same
+    // studentId as the session being logged. This prevents a caller in
+    // the right district from misusing a block to mutate handling state
+    // for an unrelated student.
+    let derivedSourceActionItemId: string | null = parsed.data.sourceActionItemId ?? null;
+    const scheduleBlockIdRaw = (sessionFields as { scheduleBlockId?: number | null }).scheduleBlockId ?? null;
+    if (scheduleBlockIdRaw != null) {
+      if (typeof scheduleBlockIdRaw !== "number" || !Number.isFinite(scheduleBlockIdRaw)) {
+        res.status(400).json({ error: "scheduleBlockId must be a number" });
+        return;
+      }
+      const [block] = await db
+        .select({
+          id: scheduleBlocksTable.id,
+          studentId: scheduleBlocksTable.studentId,
+          sourceActionItemId: scheduleBlocksTable.sourceActionItemId,
+        })
+        .from(scheduleBlocksTable)
+        .where(eq(scheduleBlocksTable.id, scheduleBlockIdRaw))
+        .limit(1);
+      if (!block) {
+        res.status(400).json({ error: "scheduleBlockId not found" });
+        return;
+      }
+      if (block.studentId !== parsed.data.studentId) {
+        res.status(400).json({ error: "scheduleBlockId belongs to a different student" });
+        return;
+      }
+      // Only inherit if the client did not send an explicit value. An
+      // explicit client value wins so that a caller can override the
+      // inheritance if the situation calls for it (rare but legitimate).
+      if (derivedSourceActionItemId == null && block.sourceActionItemId) {
+        derivedSourceActionItemId = block.sourceActionItemId;
+      }
+    }
+
     // Training Mode tags writes with `is_sandbox=true` and stamps the
     // caller's real Clerk user id on `sandbox_user_id` so the per-user
     // "Reset training data" action can wipe just this user's writes.
     const sandboxFields = trainingMode
       ? { isSandbox: true, sandboxUserId: trainingWriterUserId(authedReq) }
       : {};
-    const sessionInsert = { ...parsed.data, schoolYearId: activeYearId ?? null, serviceTypeId: resolvedServiceTypeId, ...sandboxFields };
+    const sessionInsert = {
+      ...parsed.data,
+      sourceActionItemId: derivedSourceActionItemId,
+      schoolYearId: activeYearId ?? null,
+      serviceTypeId: resolvedServiceTypeId,
+      ...sandboxFields,
+    };
 
     let goalData: GoalEntry[] = [];
     if (rawGoalData && Array.isArray(rawGoalData) && rawGoalData.length > 0) {

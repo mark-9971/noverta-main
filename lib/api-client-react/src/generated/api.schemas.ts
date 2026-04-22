@@ -1117,6 +1117,18 @@ stops re-surfacing it. See T04 in the wedge spec.
    * @nullable
    */
   sourceActionItemId?: string | null;
+  /**
+   * Optional id of the schedule_block this session was logged against.
+When set, the server (a) verifies the block belongs to the same
+student in the caller's district, and (b) inherits the block's
+`sourceActionItemId` onto the session log if the client did not
+send one explicitly. This is the canonical "linked-block" path
+for closing the wedge loop without requiring the client to know
+the carrier id. See T04.
+
+   * @nullable
+   */
+  scheduleBlockId?: number | null;
 }
 
 export interface UpdateSessionBody {
