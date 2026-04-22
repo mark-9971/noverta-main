@@ -16,6 +16,7 @@ export * from "./coverageInstances";
 export * from "./staffAssignments";
 export * from "./alerts";
 export * from "./actionItemHandling";
+export * from "./demoShowcaseCases";
 export * from "./actionItemDismissals";
 export * from "./imports";
 export * from "./behaviorTargets";

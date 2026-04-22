@@ -11,7 +11,8 @@
     "./v2/scenarios": "./src/v2/scenarios/index.ts",
     "./v2/domain": "./src/v2/domain/index.ts",
     "./v2/simulator": "./src/v2/simulator/index.ts",
-    "./v2/persistence": "./src/v2/persistence/index.ts"
+    "./v2/persistence": "./src/v2/persistence/index.ts",
+    "./v2/overlay": "./src/v2/overlay/index.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

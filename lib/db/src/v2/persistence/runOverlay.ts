@@ -1,5 +1,5 @@
 /**
- * Seed Overhaul V2 — Persistence overlay orchestrator (W4).
+ * Seed Overhaul V2 — Persistence overlay orchestrator (W4, W5 fold-ins).
  *
  * Public entry point that wires the W3 simulator into the real DB
  * tables for a previously-seeded district.
@@ -16,6 +16,19 @@
  *           action_item_handling rows scoped to the sample-tagged
  *           students for this district.
  *        d. INSERTs the simulator-derived payload row arrays.
+ *
+ * W5 fold-ins (architect deferred MEDIUMs from W4):
+ *   - Cleanup + insert run inside ONE transaction so a partial-write
+ *     failure doesn't leave the district in a torn state.
+ *   - schedule_blocks.sourceActionItemId carries the canonical
+ *     `alert:<id>` after alerts are inserted (was: simulator-internal
+ *     ref string).
+ *   - Active school year lookup is district-scoped so multi-district
+ *     test environments don't accidentally pick up another district's
+ *     active year.
+ *   - The chunkedInsert helper now accepts a db handle so it can run
+ *     inside the orchestration transaction instead of the global db
+ *     export.
  *
  * Determinism: same districtId + same upstream roster → byte-identical
  * row arrays (proven in payload-level tests).
@@ -88,11 +101,16 @@ export async function runSimulationOverlayForDistrict(
   options: RunOverlayOptions = {},
 ): Promise<RunOverlayResult> {
   // Resolve school year — required for FK on session_logs/blocks.
+  // FOLD-IN: scope the lookup to this district so a sibling district's
+  // active year doesn't leak into the FK.
   const [schoolYear] = await db.select().from(schoolYearsTable)
-    .where(eq(schoolYearsTable.isActive, true))
+    .where(and(
+      eq(schoolYearsTable.districtId, districtId),
+      eq(schoolYearsTable.isActive, true),
+    ))
     .limit(1);
   if (!schoolYear) {
-    throw new Error(`[v2/persistence] no active school year; cannot overlay simulation for district ${districtId}`);
+    throw new Error(`[v2/persistence] no active school year for district ${districtId}; cannot overlay simulation`);
   }
 
   const mapping = await buildPersistenceMapping(db, districtId, schoolYear.id);
@@ -101,13 +119,8 @@ export async function runSimulationOverlayForDistrict(
   }
 
   const sizeProfileOpt: SizeProfile = options.sizeProfile ?? "small";
-  // resolveSeedShape only accepts the three concrete tiers; collapse
-  // "random" callers to "small" for the simulator pass.
   const sizeProfile: "small" | "medium" | "large" =
     sizeProfileOpt === "random" ? "small" : sizeProfileOpt;
-  // Mirror the seeder's call ordering so resolveSeedShape sees the
-  // same RNG state. setSeed is also called inside runSimulation; that
-  // resets the stream for the simulator's internal forks.
   setSeed(districtId);
   const studentDefs = buildStudentDefs(sizeProfile, 5);
   const shape = resolveSeedShape({ sizeProfile });
@@ -125,7 +138,8 @@ export async function runSimulationOverlayForDistrict(
     systemUserName: options.systemUserName ?? "Simulator (V2)",
   });
 
-  // ── Cleanup: scope to sample-tagged students for the district ────
+  // Resolve sample student id set BEFORE the transaction so the read
+  // doesn't lock rows under the writer.
   const schoolIds = (
     await db.select({ id: schoolsTable.id }).from(schoolsTable)
       .where(eq(schoolsTable.districtId, districtId))
@@ -145,97 +159,106 @@ export async function runSimulationOverlayForDistrict(
     handlingState: 0,
     handlingEvents: 0,
   };
-  if (sampleStudentIds.length > 0) {
-    // Capture the canonical itemIds for handling rows BEFORE we delete
-    // the alerts they point at — so the handling cleanup is scoped to
-    // exactly the rows tied to sample-tagged alerts in this district,
-    // not every `alert:%` row in the district (which would clobber
-    // operator-managed handling state for real, non-sample alerts).
-    // Architect W4 R3 finding: prior LIKE-based wipe was destructive
-    // to operator data.
-    const sampleAlertIds = (await db.select({ id: alertsTable.id }).from(alertsTable)
-      .where(inArray(alertsTable.studentId, sampleStudentIds))).map((r) => r.id);
-    const sampleAlertItemIds = sampleAlertIds.map((id) => `alert:${id}`);
 
-    if (sampleAlertItemIds.length > 0) {
-      cleanup.handlingState = (await db.delete(actionItemHandlingTable)
+  // FOLD-IN: cleanup + insert wrapped in a single transaction so a
+  // partial-write failure never leaves the district half-overlaid.
+  await db.transaction(async (tx) => {
+    if (sampleStudentIds.length > 0) {
+      // Capture sample-alert itemIds BEFORE deleting alerts so handling
+      // cleanup is scoped to exactly the sample alerts in this district
+      // (not every `alert:%` in the district). Architect W4 R3 finding.
+      const sampleAlertIds = (await tx.select({ id: alertsTable.id }).from(alertsTable)
+        .where(inArray(alertsTable.studentId, sampleStudentIds))).map((r) => r.id);
+      const sampleAlertItemIds = sampleAlertIds.map((id) => `alert:${id}`);
+
+      if (sampleAlertItemIds.length > 0) {
+        cleanup.handlingState = (await tx.delete(actionItemHandlingTable)
+          .where(and(
+            eq(actionItemHandlingTable.districtId, districtId),
+            inArray(actionItemHandlingTable.itemId, sampleAlertItemIds),
+          ))).rowCount ?? 0;
+        cleanup.handlingEvents = (await tx.delete(actionItemHandlingEventsTable)
+          .where(and(
+            eq(actionItemHandlingEventsTable.districtId, districtId),
+            inArray(actionItemHandlingEventsTable.itemId, sampleAlertItemIds),
+          ))).rowCount ?? 0;
+      }
+
+      cleanup.sessions = (await tx.delete(sessionLogsTable)
+        .where(inArray(sessionLogsTable.studentId, sampleStudentIds))).rowCount ?? 0;
+      cleanup.alerts = (await tx.delete(alertsTable)
+        .where(inArray(alertsTable.studentId, sampleStudentIds))).rowCount ?? 0;
+      cleanup.compObligations = (await tx.delete(compensatoryObligationsTable)
+        .where(inArray(compensatoryObligationsTable.studentId, sampleStudentIds))).rowCount ?? 0;
+      cleanup.scheduleBlocks = (await tx.delete(scheduleBlocksTable)
         .where(and(
-          eq(actionItemHandlingTable.districtId, districtId),
-          inArray(actionItemHandlingTable.itemId, sampleAlertItemIds),
-        ))).rowCount ?? 0;
-      cleanup.handlingEvents = (await db.delete(actionItemHandlingEventsTable)
-        .where(and(
-          eq(actionItemHandlingEventsTable.districtId, districtId),
-          inArray(actionItemHandlingEventsTable.itemId, sampleAlertItemIds),
+          inArray(scheduleBlocksTable.studentId, sampleStudentIds),
+          eq(scheduleBlocksTable.blockType, "makeup"),
         ))).rowCount ?? 0;
     }
 
-    cleanup.sessions = (await db.delete(sessionLogsTable)
-      .where(inArray(sessionLogsTable.studentId, sampleStudentIds))).rowCount ?? 0;
-    cleanup.alerts = (await db.delete(alertsTable)
-      .where(inArray(alertsTable.studentId, sampleStudentIds))).rowCount ?? 0;
-    cleanup.compObligations = (await db.delete(compensatoryObligationsTable)
-      .where(inArray(compensatoryObligationsTable.studentId, sampleStudentIds))).rowCount ?? 0;
-    cleanup.scheduleBlocks = (await db.delete(scheduleBlocksTable)
-      .where(and(
-        inArray(scheduleBlocksTable.studentId, sampleStudentIds),
-        eq(scheduleBlocksTable.blockType, "makeup"),
-      ))).rowCount ?? 0;
-  }
-
-  // ── Insert payload ───────────────────────────────────────────────
-  // 1. Sessions (no FK back-references needed yet).
-  if (payload.sessions.length > 0) {
-    await chunkedInsert(sessionLogsTable, payload.sessions);
-  }
-  // 2. Alerts. Capture inserted ids so we can convert each alertRef
-  //    into a real `alert:<id>` itemId for the handling tables.
-  const alertIdByRef = new Map<string, number>();
-  if (payload.alerts.length > 0) {
-    // chunkedInsert returns void in our platform helper, so insert in
-    // batches manually here to capture returning() ids.
-    for (let i = 0; i < payload.alerts.length; i += 200) {
-      const slice = payload.alerts.slice(i, i + 200);
-      const refs = payload.alertRefs.slice(i, i + 200);
-      const ret = await db.insert(alertsTable).values(slice).returning({ id: alertsTable.id });
-      for (let j = 0; j < ret.length; j++) {
-        alertIdByRef.set(refs[j], ret[j].id);
+    // ── Insert payload ─────────────────────────────────────────────
+    if (payload.sessions.length > 0) {
+      await chunkedInsert(sessionLogsTable, payload.sessions, { db: tx });
+    }
+    // Alerts. Capture inserted ids so we can convert each alertRef
+    // into a real `alert:<id>` itemId for the handling tables AND
+    // backfill schedule_blocks.sourceActionItemId.
+    const alertIdByRef = new Map<string, number>();
+    if (payload.alerts.length > 0) {
+      for (let i = 0; i < payload.alerts.length; i += 200) {
+        const slice = payload.alerts.slice(i, i + 200);
+        const refs = payload.alertRefs.slice(i, i + 200);
+        const ret = await tx.insert(alertsTable).values(slice).returning({ id: alertsTable.id });
+        for (let j = 0; j < ret.length; j++) {
+          alertIdByRef.set(refs[j], ret[j].id);
+        }
       }
     }
-  }
-  // 3. Comp obligations.
-  if (payload.compObligations.length > 0) {
-    await chunkedInsert(compensatoryObligationsTable, payload.compObligations);
-  }
-  // 4. Schedule blocks.
-  if (payload.scheduleBlocks.length > 0) {
-    await chunkedInsert(scheduleBlocksTable, payload.scheduleBlocks);
-  }
-  // 5. Action item handling rows (state + events). Translate alertRef
-  //    → real DB id; drop rows whose alert never landed (defensive —
-  //    payload builder already filters on alertRefSet).
-  if (payload.handlingState.length > 0) {
-    const rows = payload.handlingState
-      .map((r) => {
-        const id = alertIdByRef.get(r.alertRef);
-        if (id === undefined) return null;
-        const { alertRef: _drop, ...rest } = r;
-        return { ...rest, itemId: `alert:${id}` };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-    if (rows.length > 0) await chunkedInsert(actionItemHandlingTable, rows);
-  }
-  if (payload.handlingEvents.length > 0) {
-    const rows = payload.handlingEvents
-      .map((r) => {
-        const id = alertIdByRef.get(r.alertRef);
-        if (id === undefined) return null;
-        const { alertRef: _drop, ...rest } = r;
-        return { ...rest, itemId: `alert:${id}` };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-    if (rows.length > 0) await chunkedInsert(actionItemHandlingEventsTable, rows);
-  }
+    if (payload.compObligations.length > 0) {
+      await chunkedInsert(compensatoryObligationsTable, payload.compObligations, { db: tx });
+    }
+    // FOLD-IN: rewrite schedule_blocks.sourceActionItemId from the
+    // simulator's internal alertRef into the canonical `alert:<dbId>`
+    // form. Drop blocks whose source alert never landed.
+    if (payload.scheduleBlocks.length > 0) {
+      const blockRows = payload.scheduleBlocks.map((b, i) => {
+        const ref = b.sourceActionItemId as string | null;
+        if (!ref) return b;
+        const id = alertIdByRef.get(ref);
+        if (id === undefined) {
+          // Drop the canonical link; keep the block (the simulator
+          // emitted it from a real makeup decision).
+          return { ...b, sourceActionItemId: null };
+        }
+        void i;
+        return { ...b, sourceActionItemId: `alert:${id}` };
+      });
+      await chunkedInsert(scheduleBlocksTable, blockRows, { db: tx });
+    }
+    if (payload.handlingState.length > 0) {
+      const rows = payload.handlingState
+        .map((r) => {
+          const id = alertIdByRef.get(r.alertRef);
+          if (id === undefined) return null;
+          const { alertRef: _drop, ...rest } = r;
+          return { ...rest, itemId: `alert:${id}` };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      if (rows.length > 0) await chunkedInsert(actionItemHandlingTable, rows, { db: tx });
+    }
+    if (payload.handlingEvents.length > 0) {
+      const rows = payload.handlingEvents
+        .map((r) => {
+          const id = alertIdByRef.get(r.alertRef);
+          if (id === undefined) return null;
+          const { alertRef: _drop, ...rest } = r;
+          return { ...rest, itemId: `alert:${id}` };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      if (rows.length > 0) await chunkedInsert(actionItemHandlingEventsTable, rows, { db: tx });
+    }
+  });
 
   return {
     districtId,
