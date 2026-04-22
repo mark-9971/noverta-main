@@ -1,0 +1,451 @@
+# Seed Overhaul Plan V2 — final tightened execution packet (planning only, no implementation yet)
+
+Use the actual current codebase as the source of truth.
+Use the completed diagnosis outputs, the seed contract inventory, the demo-soon requirements, and the latest precondition work as the governing inputs.
+Do the work, not just a plan.
+
+Important:
+- This is a planning/spec task only.
+- Do NOT start implementing the new seeder yet.
+- PRE-1 through PRE-5 are complete.
+- Respect the corrected PMO stance:
+  - Seed Overhaul V2 planning = GO
+  - Seed Overhaul V2 implementation = GO after this packet is accepted
+- Be extremely critical.
+- Do not assume the earlier 10-phase seed idea was correct as written.
+- Rewrite it into the best version based on:
+  - the actual product truth
+  - the completed diagnoses
+  - the seed contract inventory
+  - the demo-soon requirements
+  - the actual current seed code shape
+- No cheating:
+  - no backfills
+  - no post-seed nudging of dashboard numbers
+  - no mutating already-generated history to hit targets
+  - no hand-patching derived outputs after generation
+  - no “leadership-friendly” target forcing by editing rows after the fact
+
+Before declaring COMPLETE, verify:
+1. the rewritten V2 plan clearly separates finished preconditions from implementation
+2. the plan is aligned to actual product priorities and maturity
+3. the plan explains how wedge numbers/reports are populated honestly from primitive facts
+4. the plan explicitly distinguishes:
+   - seed problems
+   - non-seed bugs
+   - already-fixed preconditions
+   - absorb-into-V2 items
+   - out-of-scope items
+5. the plan is detailed enough to hand directly to the main agent for execution
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. CORRECTED V2 STRATEGY
+3. WHAT CHANGED FROM THE ORIGINAL 10-PHASE IDEA
+4. WEDGE-FIRST PRINCIPLES
+5. DEMO-SOON PRINCIPLES
+6. NO-CHEATING RULES
+7. SURFACE COVERAGE COMMITMENT
+8. DIRECTLY SEEDED VS SIMULATED VS DERIVED VS SPARSE MODEL
+9. PRECONDITIONS STATUS
+10. REQUIRED ARTIFACTS INSIDE V2
+11. SEED OVERHAUL V2 PACKET
+12. ACCEPTANCE CRITERIA / GATES
+13. LANE / OVERLAP GUIDANCE
+14. RISKS / FAILURE MODES
+15. FIRST IMPLEMENTATION SLICE
+16. EXACT NEXT TASKS
+17. FINAL ARTIFACT
+
+Also include:
+- IMPLEMENTATION WAVES
+- TIERING MODEL
+- CUTOVER STRATEGY
+- VALIDATION MATRIX SUMMARY
+- DEMO READINESS OVERLAY
+- WHAT MUST STAY OUTSIDE V2
+- STANDARD DEMO PATH
+- ROLE-SWITCH DEMO PATH
+- SPARSE-BY-DESIGN LIST
+
+## Objective
+
+Generate the final rewritten Seed Overhaul Plan V2 execution packet.
+
+This should replace the earlier rough 10-phase idea with a stricter, more realistic, more demo-ready, and more codebase-aligned version.
+
+The packet must assume:
+- Pilot Readiness diagnosis is complete
+- Add Sample Data diagnosis is complete
+- Seed contract inventory / coverage matrix is complete
+- shared-handling-state spec work is not a Seed V2 dependency and stays outside V2
+- PRE-1 through PRE-5 are complete
+- We are allowed to finalize V2 planning now
+- We are allowed to begin V2 implementation after this packet is accepted
+
+## Correct factual inputs you must incorporate
+
+You must explicitly build the packet around these current truths:
+
+### A. Pilot Readiness / Demo Control truth
+- Pilot Readiness itself is healthy
+- the broken operator-facing surface was Demo Control readiness/data-health
+- route/schema drift was the cause
+- PRE-4 fixed the stale table refs and smoke tests now pass
+- therefore Demo Control bug stays outside V2; it is no longer a planning unknown
+
+### B. Add Sample Data truth
+- PRE-1 fixed the seeder’s default-capacity failure path by wiring rolled roster sizing and clamping specialty staffing
+- PRE-2 fixed route/UI error passthrough so operators can now see structured seed failures
+- PRE-3 added the regression test for default empty-body POST /api/sample-data across distinct PRNG seeds
+- PRE-5 cleaned up the contaminated soft-deleted test districts
+- therefore the known precondition blockers are cleared
+
+### C. Current seeder architecture truth
+The current seeder is already more ambitious than a toy snapshot script. It already contains:
+- seeded RNG / district-specific determinism
+- size profiles / roster overrides
+- scenario archetypes
+- session history generation
+- schedule generation
+- long-tail emitters
+- rollback logic
+- chunked inserts
+
+Therefore:
+- V2 should NOT be framed as a greenfield rewrite
+- V2 should be framed as:
+  - decomposition of an ambitious monolith
+  - shift to explicit 9-month simulation architecture
+  - stronger primitive-facts-first model
+  - explicit demo-readiness overlay
+  - stronger validation and cutover discipline
+
+### D. Existing scenario truth
+The current scenario/archetype system is valuable and should be reused, not discarded.
+V2 should preserve and formalize scenario archetypes into:
+- scenario registry
+- simulation policy per archetype
+- demo-overlay eligibility rules
+
+### E. Demo-soon requirements
+V2 must satisfy two truths at once:
+1. the seeded district must look like 9 months of real usage
+2. the first-login demo must still reliably surface high-signal wedge stories
+
+That means V2 must explicitly include a Demo Readiness Overlay with:
+- guaranteed named showcase cases
+- first-login wedge density
+- role-based demo viability
+- operator reset summary artifact
+- high-signal exports
+- fallback cases if one showcase case is weak
+
+## Locked assumptions
+
+Use these as fixed assumptions:
+
+- simulation horizon = 9 months
+- student churn = minimal
+- staff churn = minimal
+- IEP/service lifecycle churn = real and evenly distributed
+- some IEPs/service bundles expire soon, some much later, some revise/restart midyear
+- handling-state generation = hybrid:
+  - some untouched
+  - some simulated from plausible operator behavior
+  - some bounded showcase overlays for demo quality
+- usage realism = uneven by role and by user
+- durable historical artifacts should be emitted during simulation when appropriate
+- old seeder remains available behind a fallback flag during side-by-side validation
+- contaminated test/demo districts were hard-deleted rather than undeleted
+- default showcase count should be more than 5 and must be explicitly chosen and justified
+
+## Corrected planning stance you must follow
+
+### A. V2 is not a greenfield rewrite
+Do not write the packet as if the current seeder is useless.
+Write it as a structural refactor + simulation upgrade + explicit demo overlay system.
+
+### B. V2 must become a layered system
+The corrected direction should clearly separate:
+
+1. seed platform foundation
+2. domain foundation
+3. 9-month event-loop simulator
+4. live-derived operational truth
+5. bounded demo-readiness overlay
+
+### C. The wedge remains the center of gravity
+The seed system must prioritize the real product:
+- Action Center
+- Today
+- Compliance Risk Report
+- Quick Log flows
+- Student Detail / Recommended Next Step
+- shared handling state
+- scheduled-pending / delivered / still-at-risk model
+- Weekly Compliance Summary
+- comp exposure / comp summary surfaces
+- Pilot Readiness
+- Demo Control / Add Sample Data operator surfaces
+
+Do not let long-tail module completeness overwhelm the wedge.
+
+### D. Demoing soon matters
+The packet must explicitly account for:
+- first-login signal density
+- guaranteed showcase cases
+- role-switch readiness
+- operator post-reset confidence
+- exports/PDFs that look believable
+- known sparse-by-design areas that should not hijack a demo
+
+## Required design principles
+
+### Wedge-first principles
+- seed for the real product first
+- derived wedge numbers must follow from primitive facts
+- trust math must use the actual calendar/minute engine
+- shared handling state must be plausible, not detached from underlying issues
+- reports and exports must derive from the same seeded facts as the UI
+
+### Demo-soon principles
+- realistic district data is not enough; the demo must still work reliably
+- first-login must expose 3–5 high-signal wedge examples without searching
+- there should be more than 5 showcase cases; choose the best count and justify it
+- role-switching must feel alive for admin, provider, case-manager, and para
+- some surfaces should remain lightly populated if that is the honest maturity state
+- demo-safe determinism matters: the district can be realistic without making demo moments dependent on luck
+
+### No-cheating rules
+- no backfills
+- no post-seed edits to force compliance distribution
+- no hard-setting KPI cards
+- no manually patching compensatory totals, risk counts, alert counts, or trend lines after generation
+- no mutating already-generated sessions into a different truth purely to hit targets
+- no alert rows disconnected from underlying seeded facts unless the product truly stores them as primary operational objects
+- no invisible “fix-up” pass that rewrites the district after simulation to make the demo prettier
+
+### Directly seeded vs simulated vs derived vs sparse
+Be explicit about:
+- what should be directly seeded
+- what must be emitted by historical simulation
+- what must be derived by live product logic
+- what can be lightly/sparsely seeded
+- what should stay out of scope
+
+## What the packet must contain
+
+### 1. Corrected strategy
+Explain the best overall approach for V2 in blunt terms.
+
+### 2. What changed from the original 10-phase idea
+Call out:
+- what was right
+- what was wrong
+- what was too broad
+- what was too fake
+- what needed restructuring
+
+### 3. Surface coverage commitment
+Include an explicit section naming how V2 will cover, at minimum:
+
+#### Core wedge surfaces
+- Action Center
+- Today
+- Compliance Risk Report
+- Quick Log
+- Student Detail / Recommended Next Step
+- shared handling / dismissal / scheduled-pending surfaces
+
+#### Major reports/exports
+- compliance risk report JSON/CSV/PDF
+- weekly compliance summary
+- dashboard compliance/risk rollups
+- comp exposure / comp finance rollups where surfaced
+- action-center backlog counts
+- due/overdue meeting/eval/transition/signature/contact counts if currently surfaced
+
+#### Operator/demo surfaces
+- Pilot Readiness
+- Demo Control readiness/data-health
+- Add Sample Data / reset path expectations
+
+### 4. Required artifacts inside V2
+The packet must explicitly define the deliverable shapes for:
+- target module/file decomposition
+- seed config schema
+- simulation policy schema
+- scenario registry schema
+- demo overlay schema
+- post-reset summary artifact schema
+- validation checklist
+- side-by-side compare checklist
+- cutover checklist
+
+### 5. Role usage profiles
+Define the default simulated usage archetypes, at minimum:
+- admin backlog sweeper
+- conscientious case manager
+- overloaded provider
+- sparse-note para
+- nearly inactive user
+
+Explain what each archetype contributes to seeded realism.
+
+### 6. Simulation vs overlay boundary
+You must explicitly decide:
+- what must emerge from the 9-month simulation
+- what may be guaranteed by the demo overlay
+- what the overlay is allowed to select/highlight
+- what the overlay is forbidden to rewrite
+
+### 7. Implementation waves
+Do NOT use the old 10 phases as the execution structure.
+Rewrite into a cleaner wave model.
+
+For each wave, include:
+- objective
+- why now
+- scope
+- non-goals
+- key tables/files likely touched
+- primary validation checks
+
+### 8. Tiering model
+Classify modules into:
+- Tier 1: richly and accurately populated
+- Tier 2: lightly but credibly populated
+- Tier 3: minimal / truth-labeled / not worth deep realism right now
+
+Be concrete and align with actual product maturity.
+
+### 9. Validation model
+Explain how V2 will prove that:
+- wedge pages are populated honestly
+- reports/exports are populated honestly
+- dashboard numbers come from real facts
+- Pilot Readiness and operator surfaces reflect real backing data
+- no post-seed calibration cheats are used
+- demo-overlay guarantees are present after reset
+
+This must include:
+- primitive-fact validation
+- derived-report validation
+- UI/surface validation
+- post-reset demo-readiness validation
+
+### 10. Demo Readiness Overlay
+This must be an explicit section.
+
+It should define:
+- the number of named showcase cases to guarantee
+- the number of fallback showcase cases
+- which categories must always be represented
+- first-login wedge density requirements
+- role-based demo coverage requirements
+- operator summary artifact requirements
+- fallback case requirements if one showcase case is weak
+
+Choose the best showcase-case count and justify it.
+
+### 11. Standard demo path
+Choose and justify the default first 5-minute demo path after reset.
+
+### 12. Role-switch demo path
+Choose and justify the default role-switch path and what each role should visibly demonstrate.
+
+### 13. Sparse-by-design list
+Explicitly name:
+- which modules remain lightly seeded
+- which ones are intentionally not standard-demo priorities
+- which surfaces should typically be avoided in standard demos until later maturity
+
+### 14. Cutover strategy
+Specify how the new seeder should roll out:
+- side-by-side with current seeder
+- compare outputs
+- do not replace reset-demo immediately
+- only cut over after validation gates are met
+- keep the old seeder behind a fallback flag during validation
+- then retire/contain old seeder paths
+
+### 15. Lane / overlap guidance
+This is important:
+- planning only now
+- actual V2 implementation is main-agent / primary-lane work
+- do not mark the core seed rewrite as casually background-safe
+- seed/reset/demo files are hot/high-conflict
+- background lanes, if any, should be limited to diagnostics/validation/docs unless clearly isolated
+
+### 16. Risks / failure modes
+Be explicit about the biggest ways V2 could still go wrong:
+- unrealistic provider capacity
+- fake-looking long-tail data
+- mismatch between seeded facts and derived wedge numbers
+- overfilling shallow modules and overstating maturity
+- slow generation/runtime blowups
+- teardown residue
+- hardcoded demo identity coupling
+- making the demo stronger than the actual product truth
+- simulation too random to be stable
+- simulation too deterministic to feel real
+- role-switch experiences still feeling dead
+- exports looking thin despite the main UI looking good
+
+### 17. First implementation slice
+You must end the packet by choosing the first real implementation task now that PRE-1 through PRE-5 are done.
+
+Important:
+- this first slice should reflect the actual codebase shape
+- do not assume a greenfield platform build
+- strongly consider that the current monolith already has valuable scenario logic that should be preserved
+
+For that first slice, include:
+- title
+- exact objective
+- why it is first
+- scope
+- non-goals
+- likely files/tables touched
+- what proof is required to accept it
+
+## Output requirements
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. CORRECTED V2 STRATEGY
+3. WHAT CHANGED FROM THE ORIGINAL 10-PHASE IDEA
+4. WEDGE-FIRST PRINCIPLES
+5. DEMO-SOON PRINCIPLES
+6. NO-CHEATING RULES
+7. SURFACE COVERAGE COMMITMENT
+8. DIRECTLY SEEDED VS SIMULATED VS DERIVED VS SPARSE MODEL
+9. PRECONDITIONS STATUS
+10. REQUIRED ARTIFACTS INSIDE V2
+11. SEED OVERHAUL V2 PACKET
+   - Objective
+   - Scope
+   - Non-goals
+   - Implementation Waves
+   - Tiering Model
+   - Validation Model
+   - Demo Readiness Overlay
+   - Cutover Strategy
+12. ACCEPTANCE CRITERIA / GATES
+13. LANE / OVERLAP GUIDANCE
+14. RISKS / FAILURE MODES
+15. FIRST IMPLEMENTATION SLICE
+16. EXACT NEXT TASKS
+17. FINAL ARTIFACT
+
+## Important honesty requirements
+
+Be blunt.
+Do not overpromise.
+Do not casually say “every page will be fully realistic” unless the tiering model truly justifies it.
+Do not bury disagreements with the original idea.
+If the earlier plan was wrong in places, say so directly.
+
+The final packet should be strong enough that planning can use it as the source document for the actual Seed Overhaul V2 implementation prompts immediately afterward.
