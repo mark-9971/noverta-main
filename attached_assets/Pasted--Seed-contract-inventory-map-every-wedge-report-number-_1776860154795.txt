@@ -1,0 +1,155 @@
+# Seed contract inventory — map every wedge/report number and the primitive data required to populate it honestly
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is the precondition for the seed rewrite.
+- Do not implement the new seeder yet.
+- The goal is to inventory the product surfaces and define the seed contract:
+  what primitive facts must exist so the app looks like it has been in real use for 6–12 months.
+- No cheating:
+  - no post-seed nudging
+  - no fake backfills
+  - no “just set the counts”
+  - no deriving outputs that do not follow from seeded primitive facts
+
+Before declaring COMPLETE, verify:
+1. the core wedge surfaces are fully inventoried
+2. major reports/exports/KPIs are inventoried
+3. each displayed number/state is mapped to primitive source data
+4. the result distinguishes must-seed vs derived vs lightly-seeded vs out-of-scope
+5. the output is detailed enough to drive the seed rewrite
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. INVENTORY COVERAGE
+3. SURFACE / REPORT / KPI MATRIX
+4. PRIMITIVE DATA CONTRACT
+5. DERIVED VS DIRECTLY SEEDED MODEL
+6. SEED TIERS / PRIORITIES
+7. ARCHITECTURE / MODEL IMPACT
+8. TEST / BUILD / VERIFICATION STATUS
+9. RECOMMENDED IMPLEMENTATION WAVES
+10. EXACT NEXT TASKS
+
+Also include:
+- WEDGE COVERAGE FIRST
+- REPORT / EXPORT COVERAGE
+- LONG-TAIL MODULE TIERING
+- GAPS / UNKNOWNS
+- FINAL ARTIFACT
+
+## Objective
+
+Produce the seed contract inventory and coverage matrix needed before the seed rewrite.
+
+You must examine the actual current product surfaces and map:
+- every wedge page
+- every key report/export
+- every KPI/count/pill/badge that matters
+- every calculation/number shown on the wedge
+- the primitive facts/tables/events needed to populate those values honestly
+
+The result should answer:
+“If we seed a district that looks like it has really been used for 6–12 months, what exact primitive data must exist for each surface/report/number to render correctly and believably?”
+
+## Why now
+
+This is the missing planning artifact before the seed overhaul.
+Without it, the new seeder will still miss pages, reports, counts, and derived states.
+
+## Scope
+
+In scope:
+- inventory core wedge surfaces first
+- inventory major reports and exports
+- inventory important demo/pilot/operator surfaces
+- map each displayed number/state to:
+  - primitive data sources
+  - live derivation logic
+  - direct seed responsibility
+- classify surfaces/modules into tiers:
+  - Tier 1: must be richly and accurately populated
+  - Tier 2: lightly populated
+  - Tier 3: minimal / truth-labeled / not worth deep seed realism yet
+
+Out of scope:
+- no seeder implementation yet
+- no broad product rewrite
+- no fake estimated values
+- no seed tuning/calibration work yet
+
+## Required deliverables
+
+By the end:
+1. the wedge surfaces are comprehensively mapped
+2. major reports/exports/KPIs are mapped
+3. each number/state is tied to primitive facts rather than vague source tables
+4. the result explicitly distinguishes:
+   - directly seeded facts
+   - product-derived outputs
+   - optional/lightly seeded areas
+   - scaffolding/truth-labeled areas not worth deep realism
+5. the inventory is usable as the source document for the rewritten seed overhaul plan
+
+## Minimum coverage expectations
+
+At minimum, include:
+
+### Wedge
+- Action Center
+- Today
+- Compliance Risk Report
+- Quick Log related flows
+- Student Detail / Recommended Next Step
+- shared handling-state surfaces
+- scheduled-pending / delivered / still-at-risk displays
+
+### Reports / exports / major rollups
+- compliance risk report JSON/CSV/PDF paths
+- weekly compliance summary
+- dashboard compliance cards
+- comp-ed / exposure numbers where currently surfaced
+- action-center backlog counts
+- due/overdue IEP / meeting / evaluation / transition / signature / contact counts if surfaced
+
+### Demo / operator / pilot surfaces
+- Pilot Readiness
+- Add Sample Data / reset flow dependencies
+- seeded demo scenario needs
+
+### Long-tail module tiering
+- documents
+- parent communications
+- behavior
+- restraint/seclusion
+- medicaid
+- comp obligations
+- transitions
+- evaluations
+- other currently visible modules as relevant
+
+## Output requirements
+
+For each page/report/surface, include:
+- surface name
+- important visible counts / states / numbers
+- route/query/endpoint if known
+- primitive facts required
+- whether those facts should be:
+  - directly seeded
+  - derived by product logic
+  - lightly seeded only
+  - deferred / not worth deep realism
+- notes on realism constraints
+
+Also include a section:
+- “What the current seeder likely misses”
+- “What must be generated from schedules/history rather than hand-placed”
+- “What should never be calibrated by post-seed tweaks”
+
+## Testing / verification
+
+This is mainly an audit/inventory task, but verify against the actual codebase and actual current surfaces.
+Be explicit about any unknowns or places where code inspection could not prove a mapping cleanly.

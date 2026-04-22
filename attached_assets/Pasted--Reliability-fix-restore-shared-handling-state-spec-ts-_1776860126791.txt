@@ -1,0 +1,95 @@
+# Reliability fix — restore shared-handling-state.spec.ts by removing hardcoded seed-id assumptions
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a narrow reliability/proof task.
+- Do not broaden into seed overhaul, Action Center redesign, nav work, notifications, or other wedge product changes.
+- The Action Center headless-render blocker is already resolved. This task is only about the remaining shared-handling spec failure.
+- If the right fix is in the spec rather than the seed, say so and do that.
+- Prefer dynamic discovery of a valid seeded row over hardcoded entity ids, unless there is a compelling reason to hard-pin deterministic ids.
+
+Before declaring COMPLETE, verify:
+1. shared-handling-state.spec.ts is green
+2. the fix is tightly scoped
+3. no unrelated product behavior was changed
+4. tests/build status are clearly stated
+5. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. ROOT CAUSE
+3. EXACT CHANGES MADE
+4. USER-VISIBLE IMPACT
+5. ARCHITECTURE / MODEL IMPACT
+6. TEST / BUILD STATUS
+7. REMAINING GAPS
+8. EXACT NEXT TASKS
+
+Also include:
+- FAILURE REPRO PATH
+- BEFORE / AFTER TEST BEHAVIOR
+- SPEC VS SEED DECISION
+- FINAL ARTIFACT
+
+## Objective
+
+Fix the remaining red reference spec:
+- e2e/tests/shared-handling-state.spec.ts
+
+Current known context:
+- the previous blocker was Action Center blank render under headless Playwright; that is fixed
+- the remaining failure is now test-data alignment / hardcoded seeded-id expectation
+- schedule-makeup-loop.spec.ts is already green
+- the goal here is to restore the reference shared-handling proof without reopening unrelated work
+
+## Why now
+
+This is the highest-value remaining wedge reliability cleanup after T07.
+It is small, important, and should be resolved before opening the seed rewrite.
+
+## Scope
+
+In scope:
+- reproduce the current failure in shared-handling-state.spec.ts
+- determine whether the best fix is:
+  - dynamic discovery in the spec, or
+  - narrowly pinning the seed output needed by this one reference path
+- implement the smallest correct fix
+- rerun the spec and report the result honestly
+
+Out of scope:
+- no broad seed overhaul
+- no new wedge feature work
+- no Action Center UI redesign
+- no unrelated e2e harness rewrite
+- no attempt to “improve” other specs unless required by the exact fix
+
+## Required deliverables
+
+By the end:
+1. shared-handling-state.spec.ts is green
+2. the hardcoded-id assumption is removed or properly justified
+3. the fix is documented as spec-side or seed-side, with reasoning
+4. no unrelated product behavior changed
+
+## Architectural anchors to respect
+
+Respect:
+- existing Playwright helpers
+- current seeded demo/sample-data path
+- Action Center real route/behavior
+- shared handling-state model
+
+Do not:
+- weaken the spec so much that it stops proving meaningful behavior
+- solve this by broadening into seed redesign
+
+## Testing / verification
+
+Minimum required proof:
+1. exact repro of the pre-fix failure
+2. exact shared-handling-state.spec.ts result after fix
+3. note whether schedule-makeup-loop.spec.ts was rerun or left untouched
+4. clear separation of unrelated failures/noise

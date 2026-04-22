@@ -161,6 +161,15 @@ const queryClient = new QueryClient({
   },
 });
 
+// E2E escape hatch: expose the shared QueryClient on `window` so Playwright
+// helpers can invalidate query keys (e.g. `["action-item-handling"]`) after
+// writing state via the API path. Production users never read this; it is
+// purely a test instrumentation seam.
+if (typeof window !== "undefined") {
+  (window as unknown as { __TRELLIS_QC__?: QueryClient }).__TRELLIS_QC__ =
+    queryClient;
+}
+
 // Includes `trellis_support` so the support-session picker page is reachable.
 // trellis_support users are not actually staff; they hit the standard router
 // only so they can land on /support-session and (after opening a session)

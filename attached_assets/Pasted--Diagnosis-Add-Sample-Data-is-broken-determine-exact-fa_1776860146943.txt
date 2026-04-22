@@ -1,0 +1,105 @@
+# Diagnosis — “Add Sample Data” is broken: determine exact failure path
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a diagnosis task, not the full seed rewrite.
+- Do not assume the fix is “rewrite the seeder” unless the evidence shows that.
+- Determine whether the failure is:
+  - UI flow bug
+  - route/reset bug
+  - seeder failure
+  - teardown/orphan issue
+  - data-shape mismatch
+  - or some combination
+
+Before declaring COMPLETE, verify:
+1. the Add Sample Data failure is reproduced
+2. the exact failure point is identified
+3. exact files/routes/seeder functions involved are named
+4. tests/build/manual verification are clearly stated
+5. bug vs seed-platform classification is explicit
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. FAILURE REPRO
+3. ROOT CAUSE CLASSIFICATION
+4. EXACT FILES / ROUTES / SEED FUNCTIONS INVOLVED
+5. USER-VISIBLE IMPACT
+6. ARCHITECTURE / MODEL IMPACT
+7. TEST / BUILD STATUS
+8. RECOMMENDED FIX PATH
+9. EXACT NEXT TASKS
+
+Also include:
+- BUG VS SEED PLATFORM MATRIX
+- ENTRYPOINT → ROUTE → SEED PATH TRACE
+- TEARDOWN / ORPHAN RISK NOTES
+- FINAL ARTIFACT
+
+## Objective
+
+Diagnose why “Add Sample Data” is broken and determine whether the problem lives in:
+- the UI trigger path
+- the API route / orchestration
+- the current seeder implementation
+- teardown/orphan cleanup
+- environment/runtime assumptions
+- or a combination
+
+## Why now
+
+This is one of the clearest operator-facing failures tied to demo/reset confidence.
+Before rewriting the seed system, we need the exact failure path.
+
+## Scope
+
+In scope:
+- reproduce the Add Sample Data failure
+- trace the UI action to the backend route/orchestration
+- inspect the current seeding call chain
+- determine whether teardown/state contamination is involved
+- classify the failure
+
+Out of scope:
+- no full seeder rewrite yet
+- no broad sample-data redesign yet
+- no unrelated product cleanup
+
+## Required deliverables
+
+By the end:
+1. the Add Sample Data failure path is concretely mapped
+2. the exact failing boundary is named
+3. the issue is classified as:
+   - UI bug
+   - route/orchestration bug
+   - seeder bug
+   - teardown/state contamination
+   - BOTH / MULTI-CAUSE
+4. the recommended remediation path is sequenced
+
+## What I need you to inspect
+
+Trace:
+- user click / page action
+- client mutation / handler
+- API route
+- backend orchestration
+- seeder entrypoint(s)
+- any teardown/reset path called before seeding
+- any error swallowing, partial commits, or orphan-causing behavior
+
+Also note:
+- whether the current seeder succeeds partially
+- whether failures leave residue that breaks reruns
+- whether the failure is deterministic or intermittent
+
+## Testing / verification
+
+Minimum:
+- reproduce the failure
+- trace actual code path
+- distinguish front-end failure from seed-platform failure
+- report concrete evidence, not guesses

@@ -1,0 +1,95 @@
+# Diagnosis — Pilot Readiness module broken: bug vs seed gap vs both
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a diagnosis task, not a full implementation task.
+- Do not roll this straight into the seed overhaul.
+- The goal is to determine exactly why Pilot Readiness is broken:
+  - product logic/query bug
+  - missing seeded backing data
+  - stale contract mismatch
+  - or a combination
+- Be skeptical. Do not assume “the seed is bad” unless you prove it.
+
+Before declaring COMPLETE, verify:
+1. the broken behavior is reproduced
+2. the root cause is classified clearly
+3. exact files/routes/queries involved are named
+4. the result cleanly distinguishes bug vs seed gap vs both
+5. tests/build/manual verification are clearly stated
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. FAILURE REPRO
+3. ROOT CAUSE CLASSIFICATION
+4. EXACT FILES / QUERIES / SURFACES INVOLVED
+5. USER-VISIBLE IMPACT
+6. ARCHITECTURE / MODEL IMPACT
+7. TEST / BUILD STATUS
+8. RECOMMENDED FIX PATH
+9. EXACT NEXT TASKS
+
+Also include:
+- BUG VS SEED GAP MATRIX
+- WHAT DATA THE MODULE EXPECTS
+- WHAT DATA IS ACTUALLY PRESENT
+- FINAL ARTIFACT
+
+## Objective
+
+Diagnose the broken Pilot Readiness module and determine whether the failure is caused by:
+- missing or unrealistic seeded data
+- broken product queries/logic
+- stale assumptions in the module
+- or some combination
+
+## Why now
+
+Pilot Readiness has been flagged as broken and may be one of the main reasons the current seed path feels insufficient.
+Before seed rewrite begins, we need to know whether this module is broken because:
+- the seeder under-populates its dependencies, or
+- the module itself is wrong
+
+## Scope
+
+In scope:
+- reproduce the broken Pilot Readiness behavior
+- trace the page/module to the exact data sources it reads
+- inspect the backing queries/routes/calculations
+- compare expected data against what sample/demo seed currently populates
+- classify the issue
+
+Out of scope:
+- no full fix implementation yet unless one tiny diagnostic fix is unavoidable
+- no seed rewrite yet
+- no broad module redesign
+- no speculative roadmap work
+
+## Required deliverables
+
+By the end:
+1. the module’s failure mode is concretely described
+2. every major card/check/status on the Pilot Readiness surface is mapped to its backing data/query
+3. the issue is classified as:
+   - BUG
+   - SEED GAP
+   - BOTH
+4. the recommended fix path is explicit and sequenced
+
+## What I need you to inspect
+
+For every visible Pilot Readiness indicator/check:
+- what endpoint/query/model does it rely on?
+- what primitive facts must exist for it to go green/yellow/red?
+- is the current seed path populating those facts?
+- if not, is the missing data legitimate seed scope or is the panel asking for the wrong thing?
+
+## Testing / verification
+
+Minimum:
+- reproduce the broken state
+- inspect live data/query behavior
+- give concrete evidence, not guesses
+- report whether manual verification was used if no automated coverage exists

@@ -1,0 +1,116 @@
+I need a strict combined completion report for these four tasks:
+
+1. shared-handling-state.spec.ts reliability fix
+2. Pilot Readiness diagnosis
+3. Add Sample Data diagnosis
+4. Seed contract inventory / coverage matrix
+
+Do not give me a casual recap.
+Do not give me a roadmap speech.
+Do not give me “what you intended.”
+Give me the exact final written report so planning can decide whether we are clear to move into Seed Overhaul Plan V2.
+
+Important:
+- Be explicit about what is COMPLETE vs PARTIAL for each task.
+- If a task is diagnosis-only, say whether the diagnosis is complete even if the product bug is not fixed.
+- Separate real regressions from seed gaps, logic bugs, route bugs, environment issues, and documentation drift.
+- Do not blur implementation, diagnosis, and planning into one vague summary.
+- If Step 4 has provisional sections pending Step 2 or Step 3 findings, say that explicitly.
+
+Return one combined report in exactly this structure:
+
+1. EXECUTIVE VERDICT
+For each of the four tasks, give exactly one verdict:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+Then give a short paragraph for each explaining why.
+
+2. TASK 1 — SHARED-HANDLING-STATE SPEC FIX
+Include:
+- exact root cause
+- exact files changed
+- whether the fix was spec-side, seed-side, or both
+- exact test results
+- whether shared-handling-state.spec.ts is now green
+- whether any other important spec was rerun
+- remaining gaps if any
+
+3. TASK 2 — PILOT READINESS DIAGNOSIS
+Include:
+- exact failure repro
+- classification:
+  - BUG
+  - SEED GAP
+  - BOTH
+- exact files/routes/queries/surfaces involved
+- what data the module expects
+- what data is actually present
+- recommended fix path
+- whether this should be fixed before Seed Overhaul V2, during it, or after it
+
+4. TASK 3 — ADD SAMPLE DATA DIAGNOSIS
+Include:
+- exact failure repro
+- classification:
+  - UI bug
+  - route/orchestration bug
+  - seeder bug
+  - teardown/state contamination
+  - BOTH / MULTI-CAUSE
+- exact files/routes/seed functions involved
+- entrypoint → route → seed path trace
+- teardown/orphan risk notes
+- recommended fix path
+- whether this should be fixed before Seed Overhaul V2, during it, or after it
+
+5. TASK 4 — SEED CONTRACT INVENTORY / COVERAGE MATRIX
+Include:
+- inventory coverage summary
+- wedge coverage
+- report/export coverage
+- long-tail module tiering
+- primitive data contract
+- derived vs directly seeded model
+- what the current seeder likely misses
+- what must be generated from schedules/history rather than hand-placed
+- what should never be calibrated by post-seed tweaks
+- any sections that are provisional pending Task 2/3 diagnosis
+
+6. CROSS-TASK SYNTHESIS
+Answer these directly:
+- What is definitely a seed problem?
+- What is definitely not a seed problem?
+- What must be fixed before starting Seed Overhaul V2?
+- What can be absorbed into Seed Overhaul V2?
+- What should explicitly stay outside the seed rewrite?
+
+7. GO / NO-GO FOR SEED OVERHAUL V2
+Answer directly:
+“Can planning move into Seed Overhaul Plan V2 now?”
+Choose:
+- GO
+- GO WITH PRECONDITIONS
+- NO-GO
+
+Then explain exactly why.
+
+8. REQUIRED PRECONDITIONS BEFORE SEED OVERHAUL V2
+List the exact tasks that must happen first, if any.
+Be strict and concrete.
+
+9. EXACT NEXT TASKS
+Give the next 5–10 tasks in priority order based on the actual findings.
+For each, say whether it is:
+- main-agent
+- background-safe
+- docs/planning only
+
+10. FINAL ARTIFACT
+End with a clean plain-text FINAL ARTIFACT block summarizing:
+- verdict for each of the 4 tasks
+- what is a seed issue vs non-seed issue
+- whether Seed Overhaul V2 can begin now
+- any mandatory preconditions
+- exact next tasks
