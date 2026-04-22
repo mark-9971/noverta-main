@@ -59,6 +59,15 @@ import type {
   ServiceKey,
 } from "../simulator";
 import type { MappedServiceRequirement, MappedStudent, PersistenceMapping } from "./mapping";
+import {
+  ALL_ROLE_PROFILES,
+  assignProfileToAlert,
+  filterEventsForProfile,
+  noteForEvent,
+  noteForState,
+  profileUserId,
+  type RoleProfileId,
+} from "./roleProfiles";
 
 export interface BuildPersistencePayloadInput {
   /** Simulator output — emitted by `runSimulation`. */
@@ -124,6 +133,13 @@ export interface PersistenceCounts {
     scheduleBlocks: number;
     handlingEvents: number;
   };
+  /** How many handling events the role-profile filter dropped per profile.
+   *  Surfaces operator-behavior diversity to PersistenceCounts consumers
+   *  without requiring a join on the persisted rows. */
+  roleProfile: {
+    handlingStateAssigned: Record<RoleProfileId, number>;
+    handlingEventsDropped: Record<RoleProfileId, number>;
+  };
 }
 
 const ZERO_COUNTS: PersistenceCounts = {
@@ -134,7 +150,17 @@ const ZERO_COUNTS: PersistenceCounts = {
   handlingState: 0,
   handlingEvents: 0,
   orphanedRefs: { sessions: 0, alerts: 0, compObligations: 0, scheduleBlocks: 0, handlingEvents: 0 },
+  roleProfile: {
+    handlingStateAssigned: zeroProfileMap(),
+    handlingEventsDropped: zeroProfileMap(),
+  },
 };
+
+function zeroProfileMap(): Record<RoleProfileId, number> {
+  const out = {} as Record<RoleProfileId, number>;
+  for (const p of ALL_ROLE_PROFILES) out[p.id] = 0;
+  return out;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -181,15 +207,26 @@ function resolveService(
   return slot;
 }
 
-function severityToHandlingNote(state: SimulatedHandlingState): string {
-  switch (state) {
-    case "needs_action": return "Triaged from simulated alert; awaiting owner action.";
-    case "awaiting_confirmation": return "Asked provider to confirm; waiting on response.";
-    case "recovery_scheduled": return "Makeup block scheduled in response to gap.";
-    case "handed_off": return "Handed off to coordinator for follow-up.";
-    case "under_review": return "Escalated for compliance review.";
-    case "resolved": return "Resolved after recovery actions completed.";
-  }
+function profileHandlingStateRow(
+  profile: import("./roleProfiles").RoleProfile,
+  latestState: SimulatedHandlingState,
+  alertRef: string,
+  districtId: number,
+  epochDate: string,
+  latestDay: number,
+): Omit<InsertActionItemHandling, "itemId"> & { alertRef: string } {
+  return {
+    alertRef,
+    districtId,
+    state: latestState,
+    note: noteForState(profile, latestState, alertRef),
+    recommendedOwnerRole: profile.recommendedOwnerRole,
+    assignedToRole: profile.assignedToRole,
+    assignedToUserId: profileUserId(profile),
+    updatedByUserId: profileUserId(profile),
+    updatedByName: profile.userDisplayName,
+    resolvedAt: latestState === "resolved" ? timestampAt(epochDate, latestDay) : null,
+  };
 }
 
 function alertMessage(alert: SimulatedAlert): string {
@@ -318,6 +355,9 @@ export function buildPersistencePayload(input: BuildPersistencePayloadInput): Pe
   }
 
   // ── Handling state + events ───────────────────────────────────────
+  // The simulator emits every *potential* transition; the role-profile
+  // layer projects each per-alert sequence through the assigned
+  // operator's behavior to produce the rows that actually land.
   const handlingByRef = reduceHandling(simulation.handlingEvents);
   const handlingState: Array<Omit<InsertActionItemHandling, "itemId"> & { alertRef: string }> = [];
   const handlingEvents: Array<Omit<InsertHandlingEventRow, "itemId"> & { alertRef: string }> = [];
@@ -325,44 +365,63 @@ export function buildPersistencePayload(input: BuildPersistencePayloadInput): Pe
   // Index alerts by their ref for the FK back-fill below.
   const alertRefSet = new Set(alertRefs);
 
-  for (const [alertRef, entry] of handlingByRef) {
+  // Account for handling events whose alertRef does NOT appear in the
+  // persisted alerts (e.g. mapping truncation orphaned the alert).
+  // These get dropped, but they MUST be counted as orphans so drift
+  // diagnostics stay accurate. Architect W4 R2 finding.
+  for (const [alertRef, entry] of handlingByRef.entries()) {
     if (!alertRefSet.has(alertRef)) {
-      // The simulator never emits handling events for non-existent
-      // alerts (W3 invariant test guarantees this), so seeing this
-      // here would indicate a builder bug.
       counts.orphanedRefs.handlingEvents += entry.ordered.length;
+    }
+  }
+
+  // Iterate alertRefs (ordered by emission) so handling rows appear
+  // in a stable order independent of Map insertion timing. Every
+  // alertRef here is by construction in alertRefSet, so we don't
+  // re-check membership in the loop.
+  for (const alertRef of alertRefs) {
+    const entry = handlingByRef.get(alertRef);
+    if (!entry) continue; // alert with no handling events — fine.
+    const profile = assignProfileToAlert(mapping.districtId, alertRef);
+    const filtered = filterEventsForProfile(profile, entry.ordered);
+    counts.roleProfile.handlingEventsDropped[profile.id] += filtered.droppedEventCount;
+    if (filtered.emitted.length === 0 || filtered.latestState === undefined) {
+      // The profile suppressed every transition. We still write a
+      // handling-state row at the very first attempted state so the
+      // dashboard can show that the alert is open and unowned —
+      // otherwise a "nearly_inactive" alert would be invisible.
+      // Use the first simulator-emitted toState as the truthful
+      // landing point (no fabrication; this state was emitted).
+      const first = entry.ordered[0];
+      handlingState.push(profileHandlingStateRow(profile, first.toState, alertRef, mapping.districtId, simulation.epochDate, first.day));
+      counts.handlingState++;
+      counts.roleProfile.handlingStateAssigned[profile.id]++;
       continue;
     }
-    handlingState.push({
-      alertRef,
-      districtId: mapping.districtId,
-      state: entry.latest.toState,
-      note: severityToHandlingNote(entry.latest.toState),
-      recommendedOwnerRole: entry.latest.actorRole,
-      assignedToRole: entry.latest.actorRole,
-      assignedToUserId: null,
-      updatedByUserId: systemUserId,
-      updatedByName: systemUserName,
-      resolvedAt: entry.latest.toState === "resolved"
-        ? timestampAt(simulation.epochDate, entry.latest.day)
-        : null,
-    });
+    const latestEvent = filtered.emitted[filtered.emitted.length - 1];
+    handlingState.push(profileHandlingStateRow(profile, filtered.latestState, alertRef, mapping.districtId, simulation.epochDate, latestEvent.day));
     counts.handlingState++;
+    counts.roleProfile.handlingStateAssigned[profile.id]++;
 
-    for (const ev of entry.ordered) {
+    for (const ev of filtered.emitted) {
       handlingEvents.push({
         alertRef,
         districtId: mapping.districtId,
         fromState: ev.fromState,
         toState: ev.toState,
-        note: severityToHandlingNote(ev.toState),
-        changedByUserId: systemUserId,
-        changedByName: systemUserName,
+        note: noteForEvent(profile, ev.fromState, ev.toState, ev.alertRef),
+        changedByUserId: profileUserId(profile),
+        changedByName: profile.userDisplayName,
         changedAt: timestampAt(simulation.epochDate, ev.day),
       });
       counts.handlingEvents++;
     }
   }
+  // systemUserId / systemUserName are still threaded so the seeder
+  // can override the displayed identity per environment without
+  // rewriting role profiles. Currently unused for handling rows
+  // (profiles own attribution); kept for back-compat callers.
+  void systemUserId; void systemUserName;
 
   return {
     sessions,

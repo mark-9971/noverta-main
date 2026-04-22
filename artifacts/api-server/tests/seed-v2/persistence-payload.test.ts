@@ -74,7 +74,13 @@ describe("v2/persistence — buildPersistencePayload", () => {
     expect(payload.counts.alerts).toBe(sim.alerts.length);
     expect(payload.counts.compObligations).toBe(sim.compEvents.length);
     expect(payload.counts.scheduleBlocks).toBe(sim.makeupBlocks.length);
-    expect(payload.counts.handlingEvents).toBe(sim.handlingEvents.length);
+    // handlingEvents may be < sim.handlingEvents.length because role
+    // profiles deliberately drop some transitions to model real
+    // operator behavior. Persisted + dropped MUST equal simulator
+    // total — that is the no-fabrication invariant.
+    const totalDropped = Object.values(payload.counts.roleProfile.handlingEventsDropped)
+      .reduce((a, n) => a + n, 0);
+    expect(payload.counts.handlingEvents + totalDropped).toBe(sim.handlingEvents.length);
     // No orphans when the mapping mirrors the simulator's plan exactly.
     expect(payload.counts.orphanedRefs).toEqual({
       sessions: 0, alerts: 0, compObligations: 0, scheduleBlocks: 0, handlingEvents: 0,
@@ -182,6 +188,66 @@ describe("v2/persistence — buildPersistencePayload", () => {
     expect(p.counts.orphanedRefs.sessions).toBe(sim.sessions.length);
   });
 
+  it("role profiles — every alert with handling events is assigned a profile", () => {
+    const refsWithEvents = new Set(sim.handlingEvents.map((e) => e.alertRef));
+    const totalAssigned = Object.values(payload.counts.roleProfile.handlingStateAssigned)
+      .reduce((a, n) => a + n, 0);
+    expect(totalAssigned).toBe(refsWithEvents.size);
+    expect(totalAssigned).toBe(payload.handlingState.length);
+  });
+
+  it("role profiles — uses all 5 profiles across a representative simulation", () => {
+    const assigned = payload.counts.roleProfile.handlingStateAssigned;
+    // With ≥5 alerts (small profile easily produces dozens), uniform
+    // mod-5 bucketing should hit every profile at least once.
+    const usedProfiles = Object.entries(assigned)
+      .filter(([, n]) => n > 0)
+      .map(([id]) => id);
+    expect(usedProfiles.length).toBe(5);
+    // Drop counters reflect their profiles' filter behavior:
+    //   inactive should drop the most (keeps only first event)
+    //   conscientious / admin / sparse should drop none
+    const dropped = payload.counts.roleProfile.handlingEventsDropped;
+    expect(dropped.conscientious_case_manager).toBe(0);
+    expect(dropped.admin_backlog_sweeper).toBe(0);
+    expect(dropped.sparse_note_para).toBe(0);
+    expect(dropped.nearly_inactive).toBeGreaterThan(0);
+  });
+
+  it("role profiles — assignment is deterministic per (district, alertRef)", () => {
+    const a = buildPersistencePayload({ simulation: sim, mapping, systemUserId: SYSTEM_USER, systemUserName: SYSTEM_NAME });
+    const b = buildPersistencePayload({ simulation: sim, mapping, systemUserId: SYSTEM_USER, systemUserName: SYSTEM_NAME });
+    // Two builds share assigned-user attribution per alert — proves
+    // the FNV bucketing is stable across calls.
+    expect(a.handlingState.map((r) => r.assignedToUserId).join("|"))
+      .toBe(b.handlingState.map((r) => r.assignedToUserId).join("|"));
+  });
+
+  it("role profiles — sparse-note para sometimes leaves note=NULL (faithful, not invented)", () => {
+    const sparseRows = payload.handlingState.filter((r) => r.assignedToUserId === "system:profile-para-sparse");
+    expect(sparseRows.length).toBeGreaterThan(0);
+    const nulls = sparseRows.filter((r) => r.note === null).length;
+    // Para drops ~60% of state-row notes by design.
+    expect(nulls).toBeGreaterThan(0);
+    expect(nulls).toBeLessThan(sparseRows.length);
+  });
+
+  it("role profiles — nearly_inactive collapses to a single emitted event per alert", () => {
+    const inactiveRows = payload.handlingState.filter((r) => r.assignedToUserId === "system:profile-coord-inactive");
+    expect(inactiveRows.length).toBeGreaterThan(0);
+    // For every inactive alertRef, the persisted handling-event count
+    // is exactly 1 — they triaged once and went silent.
+    const inactiveRefs = new Set<string>();
+    for (let i = 0; i < payload.handlingState.length; i++) {
+      const row = payload.handlingState[i];
+      if (row.assignedToUserId === "system:profile-coord-inactive") inactiveRefs.add(row.alertRef);
+    }
+    for (const ref of inactiveRefs) {
+      const events = payload.handlingEvents.filter((e) => e.alertRef === ref);
+      expect(events.length).toBe(1);
+    }
+  });
+
   it("classifyServiceTypeName returns null for unknown names (no silent fallback)", () => {
     expect(classifyServiceTypeName(null)).toBeNull();
     expect(classifyServiceTypeName("")).toBeNull();
@@ -216,4 +282,4 @@ describe("v2/persistence — buildPersistencePayload", () => {
 
 // Pinned for districtId=4242, sizeProfile=small, epoch=2024-09-02.
 const EXPECTED_GOLDEN_HASH =
-  "654edf7e928a8b683199c5a9cd1207428625044e21327a0f64e5dbe5014caba6";
+  "afa89bd97b2a1df55fc8a73f8b37905d16efe5806ffb0164835b3052845731c4";
