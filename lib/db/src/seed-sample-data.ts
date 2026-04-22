@@ -2950,9 +2950,34 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
         tableNames.push(`${table}|${tmp}`);
       }
 
-      // Tables with student_id but no real FK (pg_constraint wouldn't see them).
-      const nonFkStudentLinkedTables = ["communication_events"];
-      for (const t of nonFkStudentLinkedTables) {
+      // Belt-and-suspenders: dynamically discover *every* public table with
+      // a `student_id` column and DELETE rows scoped to the sample student
+      // set. The BFS-from-students walk above can miss tables when the FK
+      // graph has cycles, depth caps, or complex chains (we have observed
+      // orphaned `parent_contacts`, `restraint_incidents`, `emergency_contacts`,
+      // `behavior_intervention_plans`, `behavior_targets`, `parent_messages`
+      // surviving teardown). Doing this explicit per-table sweep inside the
+      // same replica-role transaction guarantees those rows go away too,
+      // even if they have no real FK or the FK walk skipped them.
+      // Restrict to BASE TABLEs (not views) — running DELETE against a view
+      // without an INSTEAD OF trigger would abort the whole txn. We also rely
+      // on `students.id` being a globally-unique serial PK, so scoping by
+      // `student_id IN (sample-ids)` cannot accidentally match a different
+      // tenant's row even on denormalized columns without an FK
+      // (e.g. `audit_logs.student_id`, `communication_events.student_id`).
+      const studentLinkedRes = await tx.execute(sql`
+        SELECT c.table_name
+        FROM information_schema.columns c
+        JOIN information_schema.tables t
+          ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+        WHERE c.table_schema = 'public'
+          AND c.column_name = 'student_id'
+          AND t.table_type = 'BASE TABLE'
+      `);
+      const studentLinkedTables = (studentLinkedRes.rows as any[])
+        .map(r => String(r.table_name))
+        .filter(t => t !== "students"); // never the parent itself
+      for (const t of studentLinkedTables) {
         await tx.execute(sql.raw(`DELETE FROM "${t}" WHERE student_id IN (${idsList})`));
       }
 
