@@ -19,3 +19,10 @@ export {
   ensureDemoStaffForEmail,
 } from "./seed-demo-identities";
 export type { DemoIdentity } from "./seed-demo-identities";
+
+// Seed Overhaul V2 (W1) — re-export the post-run summary builder so
+// callers can import it from `@workspace/db` without reaching into the
+// `v2` subpath. The platform / scenarios / simulator / domain / overlay
+// namespaces are available via `@workspace/db/v2` and `@workspace/db/v2/platform`.
+export { buildPostRunSummary } from "./v2/postRunSummary";
+export type { PostRunSummary, ScenarioCounts, SeedSampleResultLite } from "./v2/postRunSummary";

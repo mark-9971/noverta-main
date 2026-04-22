@@ -48,77 +48,35 @@ import type { GoalProgressEntry } from "./schema";
 
 import { eq, and, inArray, sql } from "drizzle-orm";
 
-/**
- * Insert a row array in chunks to stay below PostgreSQL's 65 535 bind-param
- * limit. With 2 000-student demos, several tables (iep_goals, students,
- * service_requirements, accommodations, …) blow past the limit when sent as
- * a single VALUES list. Default chunk of 400 keeps every table comfortably
- * under the cap (400 × ~30 cols = 12 000 params).
- */
-async function chunkedInsert<T extends Record<string, unknown>>(
-  table: any,
-  rows: T[],
-  opts: { chunk?: number; returning?: boolean } = {},
-): Promise<any[]> {
-  const chunk = opts.chunk ?? 400;
-  const out: any[] = [];
-  for (let i = 0; i < rows.length; i += chunk) {
-    const slice = rows.slice(i, i + chunk);
-    if (slice.length === 0) continue;
-    if (opts.returning) {
-      const r = await (db.insert(table).values(slice) as any).returning();
-      out.push(...r);
-    } else {
-      await db.insert(table).values(slice);
-    }
-  }
-  return out;
-}
+// ──────────────────────────────────────────────────────────────────
+// Seed Overhaul V2 — Wave 1 platform extraction.
+//
+// RNG (setSeed/srand/rand/randf/pick/sshuffle), the chunked-insert
+// helper, the per-specialty capacity clamp constants + math, the
+// scenario type/registry, and the post-run summary builder all now
+// live under `./v2/`. This file imports them so behavior is byte-
+// identical to the pre-W1 inline definitions while later waves get a
+// stable substrate to build on (see .local/plans/seed-overhaul-v2.md).
+// ──────────────────────────────────────────────────────────────────
+// Import each platform module directly (NOT the `./v2/platform` index)
+// to avoid a structural cycle: the platform index re-exports
+// `./teardown`, which itself is a shim that re-exports
+// `teardownSampleData` from this very file. Going module-by-module
+// breaks the cycle while still letting external V2 consumers reach
+// teardown through the platform index.
+import { setSeed, srand, rand, randf, pick, sshuffle } from "./v2/platform/rng";
+import { chunkedInsert } from "./v2/platform/tx";
+import { loadAwareFloor } from "./v2/platform/capacity";
+import { beginRun, endRun } from "./v2/platform/runMetadata";
+import {
+  type Scenario, type Intensity, COMPLETION_RATE_RANGES,
+} from "./v2/scenarios";
+import { buildPostRunSummary, type PostRunSummary } from "./v2/postRunSummary";
 
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d;
-}
-
-// ──────────────────────────────────────────────────────────────────
-// Constants & helpers
-// ──────────────────────────────────────────────────────────────────
-//
-// Seeded RNG (mulberry32). All `rand`/`randf`/`pick`/`srand`/`sshuffle`
-// calls below route through this state so two runs against the same
-// district id produce byte-identical rosters, sessions, etc. — a hard
-// requirement for reproducible 30-district pilot demos. `setSeed()` is
-// invoked at the top of `seedSampleDataForDistrict()`.
-let _seedState = 0x9e3779b9 >>> 0;
-function setSeed(seedSrc: number) {
-  // Mix the input through a small avalanche so adjacent district ids
-  // (6, 7, 8, …) produce visibly different streams instead of nearby ones.
-  let x = (seedSrc | 0) || 0x9e3779b9;
-  x = (x ^ 0xdeadbeef) >>> 0;
-  x = Math.imul(x ^ (x >>> 16), 0x85ebca6b) >>> 0;
-  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35) >>> 0;
-  x = (x ^ (x >>> 16)) >>> 0;
-  _seedState = x || 0x9e3779b9;
-}
-function srand(): number {
-  // mulberry32
-  _seedState = (_seedState + 0x6d2b79f5) >>> 0;
-  let t = _seedState;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-function rand(min: number, max: number) { return Math.floor(srand() * (max - min + 1)) + min; }
-function randf(min: number, max: number) { return min + srand() * (max - min); }
-function pick<T>(arr: ReadonlyArray<T>): T { return arr[Math.floor(srand() * arr.length)]; }
-function sshuffle<T>(arr: ReadonlyArray<T>): T[] {
-  const out = [...arr];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(srand() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
 }
 
 const SAMPLE_BOUNDS = {
@@ -141,19 +99,9 @@ const SAMPLE_BOUNDS = {
   crisisMinutesOwedFloor: 3300,
 };
 
-type Scenario =
-  | "healthy"
-  | "shortfall"
-  | "urgent"
-  | "compensatory_risk"
-  | "recovered"
-  | "sliding"
-  | "crisis"
-  | "transition"
-  | "behavior_plan"
-  | "incident_history"
-  | "annual_review_due"
-  | "esy_eligible";
+// `Scenario` lives in `./v2/scenarios/registry.ts` (W1 platform extraction);
+// imported at top of file. Re-exported below for back-compat with any external
+// consumer that imported it from this module before W1.
 
 /**
  * District size profile. Controls how many students and staff a sample
@@ -178,20 +126,7 @@ const SIZE_PROFILES = {
   large:  { students: 120, staff: 18 },
 } as const;
 
-const COMPLETION_RATE_RANGES: Record<Scenario, readonly [number, number]> = {
-  healthy:           [0.78, 0.98],
-  shortfall:         [0.45, 0.78],
-  urgent:            [0.15, 0.45],
-  compensatory_risk: [0.30, 0.60],
-  recovered:         [0.88, 0.98], // recent portion; early portion overridden in session gen
-  sliding:           [0.30, 0.50], // recent portion; early portion overridden in session gen
-  crisis:            [0.20, 0.32], // 28% overall target
-  transition:        [0.78, 0.95],
-  behavior_plan:     [0.80, 0.95],
-  incident_history:  [0.65, 0.85],
-  annual_review_due: [0.72, 0.90],
-  esy_eligible:      [0.70, 0.88],
-};
+// `COMPLETION_RATE_RANGES` lives in `./v2/scenarios/registry.ts` (W1).
 
 function addDays(dateStr: string, days: number) {
   const d = new Date(dateStr + "T00:00:00Z");
@@ -365,28 +300,8 @@ const STAFF_RATIOS: Record<string, number> = {
   "admin":                    250,
 };
 
-/**
- * Conservative per-specialty share of the roster — i.e. what fraction of
- * the total student count is expected to receive a given specialty's
- * services based on `studentSpecs` distribution (default scenarios pick
- * 2–3 of {speech, ot, counseling, aba, pt}, plus scenario-locked picks
- * for behavior_plan / transition / esy_eligible / incident_history).
- *
- * Used by `buildStaffSeeds` to compute a load-aware floor on per-specialty
- * provider count so the capacity validator at the SR-insert step
- * (PROVIDER_MONTHLY_MIN_CAPACITY ≈ 8473 min/mo) cannot be tripped by the
- * seeder's own default options. Intentionally over-estimates to leave
- * headroom; PRE-1 precondition fix, not the full V2 staffing model.
- */
-const SPECIALTY_LOAD_SHARE: Record<string, number> = {
-  "bcba":                      0.40, // aba palette + behavior_plan + incident_history
-  "provider:Speech":           0.60, // palette + transition + esy_eligible + behavior_plan_half
-  "provider:Occupational":     0.45, // palette + esy_eligible
-  "provider:Physical":         0.35, // palette only (less common service)
-  "provider:Counselor":        0.55, // palette + transition + behavior_plan_half + incident_history
-};
-
-const PROVIDER_MONTHLY_MIN_CAPACITY = 5 * 6.5 * 60 * 4.345; // ≈ 8473 min/mo
+// SPECIALTY_LOAD_SHARE / PROVIDER_MONTHLY_MIN_CAPACITY / loadAwareFloor live
+// in `./v2/platform/capacity.ts` (W1 platform extraction); imported at top.
 
 function buildStaffSeeds(
   profile: Exclude<SizeProfile, "random">,
@@ -434,32 +349,13 @@ function buildStaffSeeds(
       scaledCount = slot.count;
     }
 
-    // PRE-1 — per-specialty load-aware floor. The student-to-staff ratio
-    // alone (above) underestimates the provider count needed when each
-    // student in a specialty consumes a high monthly minute count. We
-    // compute the expected total monthly minutes the specialty will carry
-    // (`roster × specialtyShare × avgMonthlyMin`) and clamp the provider
-    // count so each provider stays under PROVIDER_MONTHLY_MIN_CAPACITY
-    // (≈ 8473 min/mo) — the same envelope the SR-insert validator
-    // enforces. Without this clamp the seeder's own default options
-    // (random roster 50–100, default reqMinutesMonthlyRange [60, 360])
-    // can deterministically trip the validator and 500 the route.
-    //
-    // We use the upper bound of `reqMinutesMonthlyRange` (not the mean)
-    // as a safety margin so randomly drawn high-minute SRs don't tip a
-    // tightly-balanced specialty over the envelope. Headroom of +1 is
-    // added on top so providers are never seeded at >100% utilization.
+    // PRE-1 — per-specialty load-aware floor (math lives in
+    // ./v2/platform/capacity.ts as loadAwareFloor()). Returns null when
+    // the specialty has no SPECIALTY_LOAD_SHARE entry (no clamp applies).
     if (targetStudents && targetStudents > 0) {
-      const share = SPECIALTY_LOAD_SHARE[ratioKey];
-      if (share != null) {
-        const reqRange = shape?.reqMinutesMonthlyRange ?? SAMPLE_BOUNDS.requiredMinutes;
-        // Use upper bound for safety; SR rows draw uniformly from the range,
-        // so the worst-case specialty load is bounded above by max-min × N.
-        const worstAvgMin = reqRange[1];
-        const expectedMinutes = targetStudents * share * worstAvgMin;
-        const loadFloor = Math.ceil(expectedMinutes / PROVIDER_MONTHLY_MIN_CAPACITY) + 1;
-        scaledCount = Math.max(scaledCount, loadFloor);
-      }
+      const reqRange = shape?.reqMinutesMonthlyRange ?? SAMPLE_BOUNDS.requiredMinutes;
+      const floor = loadAwareFloor(ratioKey, targetStudents, reqRange);
+      if (floor != null) scaledCount = Math.max(scaledCount, floor);
     }
 
     const candidates = SAMPLE_STAFF_POOL.filter(p =>
@@ -602,10 +498,17 @@ export interface SeedSampleResult {
   alerts: number;
   compensatoryObligations: number;
   sizeProfile: Exclude<SizeProfile, "random">;
+  /**
+   * V2 (W1) post-run summary artifact. Operator-facing record of what
+   * the run actually produced. Always populated on the success path.
+   */
+  summary?: PostRunSummary;
 }
 
-/** Three-level slider used by the v1 custom-seed inputs. */
-export type Intensity = "low" | "medium" | "high";
+// `Intensity` and `Scenario` types live in `./v2/scenarios/registry.ts` (W1).
+// Re-exported here for back-compat with external importers.
+export type { Intensity, Scenario } from "./v2/scenarios";
+export type { PostRunSummary } from "./v2/postRunSummary";
 
 /** Demo narrative the seeded data should emphasize. */
 export type DemoEmphasis =
@@ -1124,6 +1027,10 @@ export async function seedSampleDataForDistrict(
   // different rosters (names, scenario assignments, completion patterns).
   setSeed(districtId);
 
+  // V2 (W1) — capture run identity + start wall-clock so the post-run
+  // summary artifact can report honest wall-clock duration to operators.
+  const _v2RunBegin = beginRun(districtId);
+
   // Rollback wrapper: if any insert below throws after we've written
   // rows, we ALWAYS tear down the partial seed via
   // `teardownSampleData(districtId)` so the caller can safely retry.
@@ -1310,7 +1217,14 @@ export async function seedSampleDataForDistrict(
 
   // ── 2. Sample staff (8 members covering all roles) ──
 
-  const staffSeeds = buildStaffSeeds(sizeProfile, rosterOverride, shape);
+  // PRE-1 hardening (W1): when the caller picks an explicit sizeProfile
+  // without a targetStudents override, `rosterOverride` is undefined —
+  // which would skip the load-aware floor inside buildStaffSeeds and
+  // let the SR-insert validator trip on the `large` profile (120 students
+  // × 0.6 share × 360 worst-case min ÷ 2 SLPs ≫ PROVIDER_MONTHLY_MIN_CAPACITY).
+  // Always pass *some* student count so the floor can clamp the slot.
+  const staffStudentCount = rosterOverride ?? SIZE_PROFILES[sizeProfile].students;
+  const staffSeeds = buildStaffSeeds(sizeProfile, staffStudentCount, shape);
   const insertedStaff = await db.insert(staffTable).values(
     staffSeeds.map(s => ({
       firstName: s.firstName,
@@ -2859,7 +2773,15 @@ export async function seedSampleDataForDistrict(
     .set({ hasSampleData: true })
     .where(eq(districtsTable.id, districtId));
 
-  return {
+  // V2 (W1) — build the post-run summary artifact and surface it on the
+  // success return. Per-scenario counts come from the resolved studentDefs
+  // (built much earlier as `studentDefs`); we count by scenario here so
+  // the route can ship an honest "what happened" record to operators.
+  const _v2ScenarioCounts: Record<string, number> = {};
+  for (const def of STUDENT_DEFS) {
+    _v2ScenarioCounts[def.scenario] = (_v2ScenarioCounts[def.scenario] ?? 0) + 1;
+  }
+  const _v2Result = {
     studentsCreated: insertedStudents.length,
     staffCreated: insertedStaff.length,
     serviceRequirements: insertedSrs.length,
@@ -2867,7 +2789,16 @@ export async function seedSampleDataForDistrict(
     alerts: alertRows.length,
     compensatoryObligations: compRows.length,
     sizeProfile,
-  };
+  } as const;
+  const _v2Meta = endRun(_v2RunBegin, districtId);
+  const _v2Summary = buildPostRunSummary({
+    meta: _v2Meta,
+    districtName: district?.name ?? null,
+    alreadySeeded: false,
+    result: _v2Result,
+    scenarioCounts: _v2ScenarioCounts,
+  });
+  return { ..._v2Result, summary: _v2Summary };
 
   } catch (err) {
     // Deterministic rollback: always tear down the partial seed so the

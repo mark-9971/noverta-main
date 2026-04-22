@@ -5,7 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./v2": "./src/v2/index.ts",
+    "./v2/platform": "./src/v2/platform/index.ts",
+    "./v2/scenarios": "./src/v2/scenarios/index.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

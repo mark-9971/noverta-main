@@ -124,14 +124,24 @@ describe("sample-data size profiles render dashboards", () => {
       profile: "small" as const,
       userId: "u_size_small",
       expectedStudents: 20,
-      expectedStaff: 3,
+      // PRE-1 hardening: load-aware floor adds +1 each to BCBA and Speech
+      // for the 20-student small profile (1 CM + 2 BCBA + 2 SLP = 5).
+      // Was 3 before the floor existed, but at 20 students × 0.40 share ×
+      // 360 worst-case min the single BCBA was already over the
+      // PROVIDER_MONTHLY_MIN_CAPACITY (≈8473 min/mo) envelope.
+      expectedStaff: 5,
       expectedCaseManagers: 1,
     },
     {
       profile: "large" as const,
       userId: "u_size_large",
       expectedStudents: 120,
-      expectedStaff: 18,
+      // PRE-1 hardening: load-aware floor lifts BCBA (2→4, +2), Speech
+      // (2→5, +3), OT (2→4, +2), PT (1→3, +2), Counselor (2→4, +2) at
+      // 120 students with worst-case 360 min/mo. Net +11 over the unsafe
+      // pre-PRE-1 baseline of 18 → 29. Case manager / para / admin slots
+      // are unchanged because they have no SPECIALTY_LOAD_SHARE entry.
+      expectedStaff: 29,
       // SCENARIO_COUNTS_BY_PROFILE.large maps to 6 case managers in
       // STAFF_BY_PROFILE.large — caseload-balancing UI groups by CM.
       expectedCaseManagers: 6,

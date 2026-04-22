@@ -1,0 +1,245 @@
+# T-V2-01 — Wave 1 Platform Extraction for Seed Overhaul V2
+
+Use the actual current codebase and the completed `.local/plans/seed-overhaul-v2.md` packet as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is the first implementation slice of Seed Overhaul V2.
+- This is NOT a greenfield rewrite.
+- Preserve the current seeder’s working behavior while extracting stable platform boundaries.
+- Do NOT start the full simulator rewrite yet.
+- Do NOT delete legacy/demo overlay seeders yet; deprecate/contain them if needed, but removal happens only after later parity validation.
+- Keep the work tightly bounded to Wave 1 platform extraction.
+- Be explicit about what was extracted, what still remains in the monolith, and what is intentionally deferred.
+
+Before declaring COMPLETE, verify:
+1. the current sample-data flow still works
+2. no intentional product/output behavior changed beyond extraction-safe plumbing and observability scaffolding
+3. the extracted modules are real and reused
+4. rollback semantics are preserved
+5. tests/build status are clearly stated
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. ARCHITECTURE / MODEL IMPACT
+5. TEST / BUILD STATUS
+6. REMAINING GAPS
+7. EXACT NEXT TASKS
+
+Also include:
+- W1 SCOPE COMPLETION
+- LEGACY VS NEW BOUNDARY
+- BEFORE / AFTER STRUCTURE
+- FINAL ARTIFACT
+
+## Objective
+
+Implement **T-V2-01 / Wave 1 Platform Extraction** from the Seed Overhaul V2 packet.
+
+This wave should extract the stable seed platform substrate from the current monolith without intentionally changing the seeded district’s behavior.
+
+The goal is to create the reusable structure that later waves will build on:
+- deterministic config handling
+- seed run metadata / batch identity
+- extraction-safe utility modules
+- scenario registry boundary
+- event-loop boundary scaffolding
+- post-run summary artifact scaffolding
+- cleaner separation between:
+  - platform
+  - domain setup
+  - scenarios
+  - simulator
+  - overlay
+
+## Why now
+
+The current seeder is already rich and valuable.
+Wave 1 should not throw it away.
+Wave 1 should make it decomposable.
+
+This is the safest first implementation slice because it:
+- reduces future complexity
+- preserves current usefulness
+- prepares the codebase for the real simulator and overlay work in later waves
+
+## Scope
+
+### In scope
+Implement the first extraction layer for Seed Overhaul V2.
+
+At minimum, create the target structural boundaries for:
+- `v2/platform/`
+- `v2/domain/`
+- `v2/scenarios/`
+- `v2/simulator/`
+- `v2/overlay/`
+
+You do not need to fully populate every later-wave module yet, but the boundary must be real, not placeholder-only.
+
+Expected Wave 1 work:
+1. extract deterministic seed config / profile handling into a reusable module
+2. extract reusable RNG / seeded-run utilities into platform
+3. extract run metadata / batch identity / summary-artifact scaffolding
+4. extract scenario registry/archetype definitions into a clear boundary
+5. introduce an explicit event-loop boundary/module, even if later-wave logic still lives partly in the monolith
+6. preserve current sample-data entrypoint and rollback semantics
+7. wire a minimal post-run summary artifact that reports key seed run facts
+
+### In scope for summary artifact
+A minimal first version is enough, but it must exist and be real.
+At minimum include:
+- district id
+- district name if available
+- students created/seeded
+- staff created/seeded
+- seeded scenario counts or archetype counts if available
+- timestamp / seed run marker
+- whether run was fresh vs already-seeded
+
+### Out of scope
+- no full 9-month simulator rewrite yet
+- no full demo overlay rewrite yet
+- no deletion of legacy demo/compliance/handling seeders yet
+- no broad long-tail emitter overhaul
+- no major product-facing UI rollout beyond minimal summary artifact wiring if clearly required
+- no new report math
+- no full cutover away from existing seeder
+
+## Required deliverables
+
+By the end:
+1. the platform/module boundaries exist and are real
+2. the current seeder uses the extracted platform pieces
+3. sample-data flow still works
+4. rollback semantics still work
+5. a minimal post-run summary artifact exists
+6. the monolith is meaningfully smaller / cleaner
+7. later waves now have a stable substrate to build on
+
+## Specific corrections to honor from planning review
+
+You must explicitly honor these corrections:
+
+### A. Do not delete “cheating” overlay seeders yet
+If the packet flagged files such as:
+- `seed-demo-handling-state`
+- `seed-demo-compliance-variety`
+- `seed-demo-modules`
+- `seed-realistic-data`
+
+as eventual removals, treat them as:
+- deprecated / contained now
+- removed only in later waves after parity validation
+
+### B. Preserve behavior, don’t promise literal zero change
+Target:
+> no intentional product/output behavior change beyond extraction-safe plumbing and observability scaffolding
+
+Do not contort the implementation around an unrealistic “zero-change” slogan.
+But also do not sneak later-wave product behavior into W1.
+
+### C. Fix any packet inconsistency you discover
+If the V2 packet has an inconsistency (for example survivor-seeder counts vs listed files), note it and normalize the implementation to the most coherent interpretation. Call this out in the final output.
+
+### D. Strengthen overlay integrity thinking
+If you add any hash/check scaffolding, define it around preserving seeded/simulated fact tables from later overlay mutation. Do not leave this vague.
+
+## Architectural anchors / constraints
+
+Respect:
+- current sample-data entrypoint
+- current rollback/teardown behavior
+- current scenario/archetype richness
+- current seed determinism
+- current product-facing sample-data flow
+
+Do not:
+- rewrite the product around the new modules yet
+- turn W1 into a full simulator wave
+- start flattening or deleting useful scenario logic
+- start changing wedge numbers/reports in this wave
+
+## Likely files
+
+Expected touch points likely include:
+- `lib/db/src/seed-sample-data.ts`
+- newly created `lib/db/src/v2/platform/*`
+- newly created `lib/db/src/v2/domain/*`
+- newly created `lib/db/src/v2/scenarios/*`
+- newly created `lib/db/src/v2/simulator/*`
+- newly created `lib/db/src/v2/overlay/*`
+- sample-data orchestration wiring if needed
+- summary artifact path / helper if needed
+
+Keep the changes disciplined and structural.
+
+## Testing / verification requirements
+
+Minimum required proof:
+1. existing sample-data path still runs successfully
+2. any relevant PRE-3 regression test still passes
+3. build/typecheck status is reported honestly
+4. the new module boundaries are actually used
+5. minimal summary artifact exists and is demonstrated
+6. unrelated pre-existing failures clearly separated
+
+If useful, compare:
+- before extraction
+- after extraction
+for:
+- file/module layout
+- entrypoint behavior
+- sample-data output shape
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- Wave 1 boundaries are real
+- current seeder behavior is materially preserved
+- summary artifact exists
+- sample-data flow still works
+- no later-wave rewrite was accidentally pulled in
+
+### PARTIAL
+Use PARTIAL if:
+- modules were created but not truly wired
+- summary artifact is missing
+- monolith was barely reduced
+- sample-data flow works but the structural extraction is weak
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- this turns into a broad simulator rewrite
+- legacy seeders are prematurely deleted
+- product/output behavior changes materially without justification
+- the new boundaries are mostly fake placeholders
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. W1 SCOPE COMPLETION
+3. EXACT CHANGES MADE
+4. BEFORE / AFTER STRUCTURE
+5. LEGACY VS NEW BOUNDARY
+6. USER-VISIBLE IMPACT
+7. ARCHITECTURE / MODEL IMPACT
+8. TEST / BUILD STATUS
+9. REMAINING GAPS
+10. EXACT NEXT TASKS
+11. FINAL ARTIFACT
+
+In `EXACT CHANGES MADE`, list exact file paths and what changed in each.
+In `LEGACY VS NEW BOUNDARY`, state clearly:
+- what remains in `seed-sample-data.ts`
+- what moved out
+- what is intentionally deferred to later waves
+
+Do not claim the simulator rewrite has started unless it actually has.
+Do not claim legacy overlay seeders were removed unless they actually were.
