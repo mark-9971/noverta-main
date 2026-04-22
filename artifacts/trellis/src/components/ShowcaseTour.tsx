@@ -61,7 +61,7 @@ const STEPS: TourStep[] = [
   },
   {
     selector: '[data-tour-id="cost-risk"]',
-    path: "/compliance-risk-report",
+    path: "/compliance?tab=risk-report",
     title: "Compliance & exposure",
     body:
       "Drill in to the compliance-risk view: every shortfall is translated into projected compensatory dollars so leadership can prioritize.",
