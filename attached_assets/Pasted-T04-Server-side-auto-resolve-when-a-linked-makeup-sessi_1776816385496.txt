@@ -1,0 +1,299 @@
+T04 — Server-side auto-resolve when a linked makeup session is logged
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+
+Do not assume prior summaries are correct if the codebase contradicts them.
+Reuse canonical helpers/models/components/routes/hooks.
+Do not duplicate logic around architectural anchors.
+Do not broaden scope casually.
+Be explicit about what is persisted vs derived vs local-only vs shared.
+If this task overlaps another likely lane or hot file, say so explicitly.
+If any part of the requested behavior is a bad idea in the current architecture, say so.
+
+Before declaring COMPLETE, verify:
+
+the user-visible behavior actually exists
+the correct canonical anchors were reused
+no competing duplicate logic was introduced
+tests/build status are clearly stated
+remaining gaps are honestly listed
+unrelated pre-existing failures are separated from regressions
+
+Required final output:
+
+EXECUTIVE VERDICT
+EXACT CHANGES MADE
+USER-VISIBLE IMPACT
+ARCHITECTURE / MODEL IMPACT
+TEST / BUILD STATUS
+REMAINING GAPS
+EXACT NEXT TASKS
+
+Also include:
+
+BEFORE / AFTER WORKFLOW IMPACT
+RETURN-TO-QUEUE BEHAVIOR
+STORAGE / SHARING MODEL
+EXECUTION PATH
+
+At the end, include a clean plain-text FINAL ARTIFACT block that is easy to copy into a project doc.
+
+Objective
+
+Complete T04 in the active closed-loop makeup chain:
+
+When a user logs a makeup session against a linked schedule block, the server must:
+
+copy / persist the originating source_action_item_id onto the new session_logs row if it is not already being carried through
+resolve the matching shared handling-state item server-side
+write the appropriate audit trail
+make the wedge reflect the closed loop without requiring a second manual resolve action
+
+This is the next task after T03. T03 is already accepted as complete and now distinguishes deliveredMinutes, scheduledPendingMinutes, and stillAtRiskMinutes, but it explicitly left a bounded seam that T04 must close: until the session log is linked back to the originating action item, a manually logged makeup can briefly remain visible as pending instead of fully resolving.
+
+Why now
+
+This is the next correct move in the current execution chain:
+
+T01 schema link
+T02 deep-link / prefilled block-create
+T03 split minute math
+T04 auto-resolve on linked makeup log
+T05 visible pending-state rollout across wedge surfaces
+
+Without T04, the product still depends on a second manual action to close the loop, which means the marquee recovery workflow is still not truly closed. That is the biggest remaining functional wedge gap.
+
+This task belongs on the main agent because it touches shared handling-state backend behavior, session logging, and closed-loop scheduling semantics. Those are explicitly high-conflict / main-agent areas.
+
+Scope
+
+Implement the smallest correct server-side closed-loop behavior for linked makeup logging.
+
+In scope
+A. Persist the originating action-item link on session log creation
+
+When a session is logged from / against a makeup schedule block that has source_action_item_id:
+
+ensure the newly created session_logs row stores that same source_action_item_id
+do this in the canonical server-side logging path
+do not rely on the client to supply or preserve this linkage correctly
+
+If the current logging flow already passes a scheduleBlockId or equivalent linkage, use that canonical relationship rather than inventing a new one.
+
+B. Resolve the matching handling-state row server-side
+
+After the session log is successfully written:
+
+find the matching action_item_handling row for that source_action_item_id
+transition it to the canonical resolved state on the server
+preserve district scoping / tenant safety
+do not require the user to separately click resolve in Action Center or another surface
+C. Write audit trail for the resolution
+
+The server-side transition must be auditable.
+
+At minimum, the result should make it possible to prove:
+
+which session log caused the resolution
+which action item was resolved
+who performed the session log action / resolution
+when it happened
+
+If a canonical audit fan-out already exists, reuse it.
+If the canonical handling-state transition path already records history, call through it rather than duplicating equivalent writes.
+
+D. Preserve correct closed-loop behavior for T03 math
+
+T03 already introduced the no-double-counting model:
+
+delivered = authoritative session log minutes
+scheduledPending = linked makeup blocks not yet represented by a session log carrying the same source_action_item_id
+stillAtRisk = residual gap
+
+T04 must make that model operational by ensuring the linkage exists at session-create time, so the block drops out of pending and the minutes count once, as delivered.
+
+E. Add proof
+
+Add or update automated coverage for this exact behavior.
+
+At minimum:
+
+targeted server/integration/unit coverage for the new logging → resolve path
+keep the staged T07 e2e in mind, but do not broaden into full T07/T08 unless needed
+Non-goals
+
+Do not broaden into any of the following:
+
+no notifications
+no email / bell / digest work
+no T05 UI badge rollout
+no new client-side state machine
+no new scheduling engine
+no general task engine
+no comp-obligation lifecycle work
+no nav / home-surface cleanup
+no broad audit-log platform redesign
+no broad wedge-primitives changes unless absolutely required for test selectors or tiny compatibility work
+no fake “resolve locally in the client after success” shortcut
+
+This task is specifically about server-side linkage and server-side resolution.
+
+Required deliverables
+
+By the end of this task, all of the following should be true:
+
+A makeup schedule block with source_action_item_id can be logged through the canonical session logging path.
+The resulting session_logs row is linked back to that same source_action_item_id.
+The matching handling-state item is resolved automatically on the server.
+The resolution is audit-trailed / historically visible through the canonical path.
+The loop no longer depends on a second manual resolve click.
+T03’s pending-vs-delivered model is now actually closed for this path.
+Tests/build status are reported honestly.
+Architectural anchors that must be reused
+
+Reuse these exact canonical anchors where applicable:
+
+artifacts/api-server/src/routes/sessions/logging.ts
+artifacts/api-server/src/routes/actionItemHandling.ts
+artifacts/api-server/src/lib/minuteCalc.ts
+any canonical handling-state transition helper already used by actionItemHandling.ts
+canonical tenant/auth boundary middleware and district-scoped server behavior
+existing session_logs.source_action_item_id model / schema if already present
+existing schedule-block linkage from T01/T02 if present in current codebase
+
+Do not:
+
+duplicate handling-state transition logic in a second ad hoc place
+create a parallel “resolved because of makeup” state system outside the canonical handling layer
+recreate trust math outside minuteCalc.ts
+Likely files / surfaces
+
+Expected touch points are likely in this group:
+
+artifacts/api-server/src/routes/sessions/logging.ts
+artifacts/api-server/src/routes/actionItemHandling.ts
+relevant schema / model files only if needed for missing linkage fields
+audit-log write path / handling-history persistence path
+targeted tests around session logging + handling-state resolution
+
+Keep file changes as tight as possible.
+
+Workflow expectations
+Before
+
+User schedules / has a linked makeup block, then logs the makeup session.
+The minutes may become delivered, but the originating handling item can remain pending until someone manually resolves it. The loop is not truly closed.
+
+After
+
+User logs the makeup session against the linked block.
+The server:
+
+writes the session log
+mirrors the source_action_item_id
+resolves the matching handling item
+preserves audit/history
+allows the wedge to reflect the issue as closed without a second manual step
+
+This is the functional close of the server-side recovery loop. T05 will make it visible consistently across surfaces later.
+
+Return-to-queue behavior
+
+Be explicit in the output about what happens after logging:
+
+does the Action Center item disappear immediately on next fetch?
+does the row move to resolved history / no longer appear as active?
+what surface refresh assumptions exist?
+what, if anything, still waits for T05 to become visible?
+
+Do not overclaim UI parity if T05 is still pending.
+
+Storage / sharing model
+
+Be explicit about:
+
+what is persisted to session_logs
+what is persisted to action_item_handling / related history
+what is derived afterward by server-side minute math
+what remains local/client-only, if anything
+district scoping / ownership implications
+
+This is a shared-state workflow task, so the storage model needs to be spelled out clearly in the final output.
+
+Testing / verification requirements
+
+Minimum required proof:
+
+targeted automated tests for the server-side logging → auto-resolve path
+verification that the created session log carries the source_action_item_id
+verification that the corresponding handling item is resolved
+verification that audit/history exists through the canonical path
+build/typecheck/test status reported honestly
+unrelated pre-existing failures clearly separated
+
+If there is a known pre-existing harness or typing issue unrelated to this task, say so explicitly and do not misattribute it.
+
+If a broader e2e is not added yet, that is acceptable as long as the task-level proof is real and the remaining gap is called out honestly.
+
+Complete / Partial / Incorrectly Implemented rules
+COMPLETE
+
+Use COMPLETE only if all of the following are true:
+
+server-side session logging carries the source link
+server-side handling resolution occurs automatically for the linked makeup path
+audit/history is preserved through canonical behavior
+no duplicate transition logic was introduced
+tests/build/manual verification are clearly reported
+remaining gap is only downstream visibility / broader e2e, not core workflow absence
+PARTIAL
+
+Use PARTIAL if, for example:
+
+the session log gets linked but handling does not auto-resolve
+handling resolves but audit/history is missing or ad hoc
+the behavior only works through one narrow path and not the canonical linked makeup path
+proof is too weak
+INCORRECTLY IMPLEMENTED
+
+Use INCORRECTLY IMPLEMENTED if, for example:
+
+resolution is client-side only
+duplicate handling-state logic was introduced
+the task claims closure but still requires a second manual resolve action
+the solution bypasses tenant/auth canonical behavior
+delivered/pending math can now drift because linkage is not reliably persisted
+Required final output format
+
+Return exactly this structure:
+
+EXECUTIVE VERDICT
+EXACT CHANGES MADE
+USER-VISIBLE IMPACT
+BEFORE / AFTER WORKFLOW IMPACT
+RETURN-TO-QUEUE BEHAVIOR
+STORAGE / SHARING MODEL
+ARCHITECTURE / MODEL IMPACT
+EXECUTION PATH
+TEST / BUILD STATUS
+REMAINING GAPS
+EXACT NEXT TASKS
+FINAL ARTIFACT
+
+In EXACT CHANGES MADE, list exact file paths and what changed in each.
+
+In TEST / BUILD STATUS, separate:
+
+task-specific green proof
+unrelated pre-existing failures/noise
+
+In REMAINING GAPS, be honest about what still belongs to:
+
+T05 UI rollout
+T07/T08 broader proof
+later notifications work
+
+Do not claim the whole Phase 2 chain is complete if only T04 is complete.

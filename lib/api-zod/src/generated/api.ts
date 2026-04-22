@@ -1586,6 +1586,8 @@ export const ListSessionsResponse = zod
 /**
  * @summary Log a session
  */
+export const createSessionBodySourceActionItemIdMax = 200;
+
 export const CreateSessionBody = zod.object({
   studentId: zod.number(),
   serviceRequirementId: zod.number().nullish(),
@@ -1633,6 +1635,13 @@ export const CreateSessionBody = zod.object({
       }),
     )
     .optional(),
+  sourceActionItemId: zod
+    .string()
+    .max(createSessionBodySourceActionItemIdMax)
+    .nullish()
+    .describe(
+      'Optional Action-Center item id (e.g. \"alert:123\", \"service-gap:42:19\")\nthat this session log resolves. When present and the session status is\n\"completed\" or \"makeup\", the server auto-transitions the matching\nshared handling row to state=\"resolved\" so the closed-loop wedge\nstops re-surfacing it. See T04 in the wedge spec.\n',
+    ),
 });
 
 /**
@@ -1839,6 +1848,8 @@ export const DeleteSessionParams = zod.object({
 /**
  * @summary Bulk log sessions
  */
+export const bulkCreateSessionsBodySessionsItemSourceActionItemIdMax = 200;
+
 export const BulkCreateSessionsBody = zod.object({
   sessions: zod.array(
     zod.object({
@@ -1888,6 +1899,13 @@ export const BulkCreateSessionsBody = zod.object({
           }),
         )
         .optional(),
+      sourceActionItemId: zod
+        .string()
+        .max(bulkCreateSessionsBodySessionsItemSourceActionItemIdMax)
+        .nullish()
+        .describe(
+          'Optional Action-Center item id (e.g. \"alert:123\", \"service-gap:42:19\")\nthat this session log resolves. When present and the session status is\n\"completed\" or \"makeup\", the server auto-transitions the matching\nshared handling row to state=\"resolved\" so the closed-loop wedge\nstops re-surfacing it. See T04 in the wedge spec.\n',
+        ),
     }),
   ),
 });

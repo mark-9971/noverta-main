@@ -1106,6 +1106,17 @@ export interface CreateSessionBody {
   /** @nullable */
   notes?: string | null;
   goalData?: SessionGoalEntry[];
+  /**
+   * Optional Action-Center item id (e.g. "alert:123", "service-gap:42:19")
+that this session log resolves. When present and the session status is
+"completed" or "makeup", the server auto-transitions the matching
+shared handling row to state="resolved" so the closed-loop wedge
+stops re-surfacing it. See T04 in the wedge spec.
+
+   * @maxLength 200
+   * @nullable
+   */
+  sourceActionItemId?: string | null;
 }
 
 export interface UpdateSessionBody {

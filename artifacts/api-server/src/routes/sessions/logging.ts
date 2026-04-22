@@ -22,6 +22,7 @@ import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { isTrainingMode, trainingWriterUserId } from "../../lib/trainingMode";
 import { validateGoalData, type GoalEntry } from "./shared";
+import { autoResolveActionItemFromSession } from "../../lib/autoResolveActionItem";
 
 const router: IRouter = Router();
 
@@ -220,6 +221,17 @@ router.post("/sessions", async (req, res): Promise<void> => {
           summary: `Logged compensatory session for student #${session.studentId} on ${session.sessionDate}`,
           newValues: { sessionDate: session.sessionDate, durationMinutes: session.durationMinutes, status: session.status } as Record<string, unknown>,
         });
+        if (session.sourceActionItemId && session.studentId) {
+          await autoResolveActionItemFromSession({
+            sessionId: session.id,
+            studentId: session.studentId,
+            sourceActionItemId: session.sourceActionItemId,
+            status: session.status,
+            callerRole: authedReq.trellisRole ?? null,
+            actorUserId: authedReq.userId ?? null,
+            actorDisplayName: authedReq.displayName ?? null,
+          });
+        }
         res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
       } catch (err) {
         await client.query("ROLLBACK");
@@ -292,6 +304,18 @@ router.post("/sessions", async (req, res): Promise<void> => {
         summary: `Logged session for student #${result.studentId} on ${result.sessionDate}`,
         newValues: { sessionDate: result.sessionDate, durationMinutes: result.durationMinutes, status: result.status } as Record<string, unknown>,
       });
+
+      if (result.sourceActionItemId && result.studentId) {
+        await autoResolveActionItemFromSession({
+          sessionId: result.id,
+          studentId: result.studentId,
+          sourceActionItemId: result.sourceActionItemId,
+          status: result.status,
+          callerRole: authedReq.trellisRole ?? null,
+          actorUserId: authedReq.userId ?? null,
+          actorDisplayName: authedReq.displayName ?? null,
+        });
+      }
 
       if (result.status === "missed" && result.studentId) {
         (async () => {
