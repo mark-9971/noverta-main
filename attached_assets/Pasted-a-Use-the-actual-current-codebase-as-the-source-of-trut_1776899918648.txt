@@ -1,0 +1,235 @@
+a
+Use the actual current codebase as the source of truth. Do the work, not just a plan.
+This is T-V2-06 — V1 vs V2 Parity Bake + Overlay Integration.
+Hard rules
+* Keep this narrow.
+* Do not build a generic parity framework if a narrow comparison runner is enough.
+* Do not run the full repo suite.
+* Do not rerun large failing suites without first stating the likely cause.
+* Do not change product logic, UI, nav, or wedge behavior in this task.
+* If you hit a blocker that prevents trustworthy completion, stop and return the blocker instead of exploring broadly.
+Before declaring COMPLETE, verify:
+1. overlay is actually wired into the V2 seed path
+2. parity is measured at the correct layers
+3. must-match metrics pass
+4. allowed-to-improve differences are explained
+5. determinism is proven
+6. tests/build status are clearly stated
+7. remaining gaps are explicit
+8. pre-existing failures are separated from regressions
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. PARITY RESULTS TABLE
+6. MUST-MATCH VS ALLOWED-TO-IMPROVE DIFFERENCES
+7. SHOWCASE VALIDATION
+8. DETERMINISM RESULT
+9. USER-VISIBLE IMPACT
+10. DEMO FLOW IMPACT
+11. ARCHITECTURE / MODEL IMPACT
+12. TEST / BUILD STATUS
+13. EXACT REMAINING GAPS
+14. CUTOVER READINESS DECISION
+15. EXACT NEXT TASKS
+16. FINAL ARTIFACT
+Objective
+Complete the final proof gate before V2 cutover.
+This task must:
+1. wire runDemoReadinessOverlay(...) into the V2 seed path
+2. run a narrow V1 vs V2 comparison
+3. prove whether V2 is ready for cutover
+Important:
+* V2 does not need to clone V1 exactly
+* V2 is allowed to improve where the improvement is intentional, honest, and explained
+Scope
+In scope
+* wire overlay into V2 seed path
+* pass showcase output into buildPostRunSummary(...)
+* build one narrow parity comparison runner
+* run V2 determinism checks
+* write one parity report artifact
+Out of scope
+* UI changes
+* nav changes
+* new features
+* wedge logic changes
+* long-tail module work
+* deleting V1
+* cutover itself
+Exact execution order
+Step 1 — wire overlay into V2 seed path
+In the V2 sample-data path:
+* run runDemoReadinessOverlay(...) after persistence
+* keep the same run/orchestration context
+* pass showcase result into buildPostRunSummary(...)
+* ensure the summary reflects real overlay execution
+Step 2 — verify the wiring with the smallest possible proof
+Run one narrow seed-path check proving:
+* overlay runs
+* summary contains showcase fields
+* no-mutation invariant still holds
+Do this before building the parity runner.
+Step 3 — build a narrow parity runner
+Create one comparison runner that:
+1. seeds with V1
+2. captures outputs
+3. resets/cleans
+4. seeds with V2 + overlay
+5. captures outputs
+6. compares outputs
+7. writes a parity report
+Do not generalize beyond what this task needs.
+Step 4 — run determinism checks
+Run V2 at least 3 times for the same seed input and verify:
+* identical core fact counts
+* identical showcase selection
+* identical summary output
+Step 5 — write report + decide cutover readiness
+Produce a structured report and a clear yes/no cutover recommendation.
+Comparison layers
+Compare these layers explicitly.
+Layer 1 — persisted fact layer
+At minimum:
+* total session_logs
+* total alerts
+* total compensatory obligations
+* handling-state distribution
+* showcase row counts (V2 only)
+Layer 2 — summary artifact layer
+At minimum:
+* postRunSummary fields
+* compliance distribution
+* showcase counts
+* example showcase IDs
+Layer 3 — smallest faithful operational output layer
+Only compare the smallest derived outputs needed to judge wedge truth.
+At minimum include:
+* Action Center item count / category shape if easily accessible
+* Compliance/risk distribution shape
+* Today-facing operational counts only if current harness can reach them cleanly
+If a surface is too expensive to compare directly, say so explicitly and compare the closest faithful underlying output.
+Must-match vs allowed-to-improve
+MUST MATCH
+* seed path completes successfully
+* overlay wiring is real
+* deterministic reruns are stable
+* no-mutation / no-cheating invariants still hold
+* summary artifact shape is valid
+ALLOWED TO IMPROVE
+* showcase density
+* showcase category spread
+* realism of historical data
+* handling-state diversity
+* summary richness
+MUST EXPLAIN
+Any difference in:
+* total alerts
+* total sessions
+* comp totals
+* handling distribution
+* risk distribution
+Classify each as:
+* expected improvement
+* expected modeling difference
+* suspicious / needs follow-up
+No unexplained differences.
+Report artifact
+Create:
+.local/reports/parity-bake-v2.md
+
+The report must include:
+
+* executive verdict
+* V1 vs V2 comparison table
+* difference analysis
+* showcase validation
+* determinism result
+* cutover recommendation
+
+Testing rules
+
+Run only:
+
+1. targeted typecheck for touched modules/packages
+2. targeted parity/seed-v2 tests
+3. determinism checks
+
+Do not run broad repo tests.
+
+If a test fails:
+
+* state likely cause
+* say whether it is new, pre-existing, or environment-related
+* fix the likely cause before rerunning
+
+Stop conditions
+
+Stop and return PARTIAL instead of wandering if:
+
+* overlay cannot be wired cleanly without unrelated refactors
+* comparison runner requires broad framework work
+* determinism fails and root cause is not isolated
+* parity cannot be judged honestly from available layers
+
+COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+COMPLETE
+
+Use COMPLETE only if:
+
+* overlay is wired into V2 seed path
+* parity bake is real
+* determinism is proven
+* must-match metrics pass
+* all differences are classified honestly
+* a real cutover recommendation is produced
+
+PARTIAL
+
+Use PARTIAL if:
+
+* overlay wiring lands but parity is weak
+* parity runner exists but compares too little
+* determinism is incomplete
+* key differences remain unexplained
+
+INCORRECTLY IMPLEMENTED
+
+Use INCORRECTLY IMPLEMENTED if:
+
+* this becomes a broad framework task
+* parity is hand-waved
+* differences are ignored
+* V2 is declared cutover-ready without real proof
+
+Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. PARITY RESULTS TABLE
+6. MUST-MATCH VS ALLOWED-TO-IMPROVE DIFFERENCES
+7. SHOWCASE VALIDATION
+8. DETERMINISM RESULT
+9. USER-VISIBLE IMPACT
+10. DEMO FLOW IMPACT
+11. ARCHITECTURE / MODEL IMPACT
+12. TEST / BUILD STATUS
+13. EXACT REMAINING GAPS
+14. CUTOVER READINESS DECISION
+15. EXACT NEXT TASKS
+16. FINAL ARTIFACT
+
+Rules:
+
+* no skipped sections
+* no vague summaries
+* include exact file paths
+* include exact tests run and pass/fail counts
+* separate regressions from pre-existing failures
+    :::

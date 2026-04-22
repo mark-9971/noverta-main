@@ -68,6 +68,7 @@ import { setSeed, srand, rand, randf, pick, sshuffle } from "./v2/platform/rng";
 import { chunkedInsert } from "./v2/platform/tx";
 import { loadAwareFloor } from "./v2/platform/capacity";
 import { beginRun, endRun } from "./v2/platform/runMetadata";
+import { runDemoReadinessOverlay, buildShowcaseSummaryArg } from "./v2/overlay";
 import {
   type Scenario, type Intensity, COMPLETION_RATE_RANGES,
 } from "./v2/scenarios";
@@ -2081,6 +2082,29 @@ export async function seedSampleDataForDistrict(
     compensatoryObligations: compRows.length,
     sizeProfile,
   } as const;
+  // T-V2-06 — wire the W5 Demo Readiness Overlay into the V2 seed
+  // path. The overlay reads the just-persisted primitive facts and
+  // tags showcase rows in `demo_showcase_cases`. It enforces a
+  // SHA-256 no-mutation invariant on the source tables, so any
+  // accidental write here would throw. We then derive the
+  // `showcase` arg for buildPostRunSummary so `layers.overlay`
+  // flips true and the dashboard Demo Readiness panel can render
+  // honest counts.
+  //
+  // Failures here are non-fatal for the seed: the structural seed
+  // already succeeded, and we don't want to roll back students/staff
+  // because of an overlay glitch. We log the error and ship a
+  // summary without showcase enrichment.
+  let _v2ShowcaseArg: Awaited<ReturnType<typeof buildShowcaseSummaryArg>> | undefined;
+  try {
+    await runDemoReadinessOverlay(db, districtId);
+    _v2ShowcaseArg = await buildShowcaseSummaryArg(db, districtId);
+  } catch (overlayErr) {
+    console.error(
+      `[seed-sample-data] V2 demo overlay failed for district ${districtId} (non-fatal):`,
+      overlayErr,
+    );
+  }
   const _v2Meta = endRun(_v2RunBegin, districtId);
   const _v2Summary = buildPostRunSummary({
     meta: _v2Meta,
@@ -2088,6 +2112,7 @@ export async function seedSampleDataForDistrict(
     alreadySeeded: false,
     result: _v2Result,
     scenarioCounts: _v2ScenarioCounts,
+    showcase: _v2ShowcaseArg,
   });
   return { ..._v2Result, summary: _v2Summary };
 

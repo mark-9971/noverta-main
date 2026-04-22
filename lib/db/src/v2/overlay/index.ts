@@ -734,3 +734,60 @@ export async function listShowcaseCases(
     .orderBy(asc(demoShowcaseCasesTable.category), asc(demoShowcaseCasesTable.selectionOrder));
   return rows;
 }
+
+/**
+ * T-V2-06 — derive the `showcase` argument for `buildPostRunSummary`
+ * from the persisted demo overlay rows + sample-scoped alert severity
+ * distribution. Read-only; safe to call after `runDemoReadinessOverlay`.
+ *
+ * Returns three blocks:
+ *   - complianceDistribution : sample-scoped alert severity buckets
+ *                              (resolved alerts collapse into the
+ *                              `resolved` bucket regardless of severity).
+ *   - showcaseCaseCounts     : per-category demo_showcase_cases counts
+ *                              including `__fallback__`.
+ *   - exampleShowcaseIds     : up to 3 subjectIds per category for the
+ *                              dashboard demo flow to deep-link into.
+ */
+export async function buildShowcaseSummaryArg(
+  db: typeof Db,
+  districtId: number,
+): Promise<{
+  complianceDistribution: { critical: number; high: number; medium: number; low: number; resolved: number };
+  showcaseCaseCounts: Record<ShowcaseCategory | "__fallback__", number>;
+  exampleShowcaseIds: Partial<Record<ShowcaseCategory | "__fallback__", number[]>>;
+}> {
+  const sampleStudentIds = await fetchSampleStudentIds(db, districtId);
+
+  const complianceDistribution = { critical: 0, high: 0, medium: 0, low: 0, resolved: 0 };
+  if (sampleStudentIds.length > 0) {
+    const severityRows = await db
+      .select({ severity: alertsTable.severity, resolved: alertsTable.resolved })
+      .from(alertsTable)
+      .where(inArray(alertsTable.studentId, sampleStudentIds));
+    for (const r of severityRows) {
+      if (r.resolved) { complianceDistribution.resolved += 1; continue; }
+      const s = (r.severity ?? "").toLowerCase();
+      if (s === "critical") complianceDistribution.critical += 1;
+      else if (s === "high") complianceDistribution.high += 1;
+      else if (s === "medium") complianceDistribution.medium += 1;
+      else if (s === "low") complianceDistribution.low += 1;
+    }
+  }
+
+  const showcaseCaseCounts: Record<ShowcaseCategory | "__fallback__", number> = {
+    at_risk: 0, scheduled_makeup: 0, recently_resolved: 0, provider_overloaded: 0,
+    evaluation_due: 0, parent_followup: 0, high_progress: 0, chronic_miss: 0, __fallback__: 0,
+  };
+  const exampleShowcaseIds: Partial<Record<ShowcaseCategory | "__fallback__", number[]>> = {};
+  const rows = await listShowcaseCases(db, districtId);
+  for (const r of rows) {
+    const cat = r.category as ShowcaseCategory | "__fallback__";
+    if (!(cat in showcaseCaseCounts)) continue;
+    showcaseCaseCounts[cat] += 1;
+    const bucket = (exampleShowcaseIds[cat] ??= []);
+    if (bucket.length < 3) bucket.push(r.subjectId);
+  }
+
+  return { complianceDistribution, showcaseCaseCounts, exampleShowcaseIds };
+}
