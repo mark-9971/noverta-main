@@ -82,6 +82,17 @@ export interface SeedSampleOptions {
   behaviorIntensity?: Intensity;
   /** Demo story focus — boosts the headline scenarios for that narrative. */
   demoEmphasis?: DemoEmphasis;
+
+  /**
+   * T-V2-06-FOLLOWUP — when true, skips the W5 Demo Readiness Overlay
+   * invocation at the end of the seed run, executing the literal V1
+   * code path (no `runDemoReadinessOverlay`, no `buildShowcaseSummaryArg`,
+   * no `showcase` arg passed into `buildPostRunSummary`). Used by the
+   * real V1↔V2 parity bake to compare both paths against the same
+   * districtId without git-checkout games or synthesized snapshots.
+   * Defaults to undefined → V2 path (overlay runs).
+   */
+  disableV2Overlay?: boolean;
 }
 
 /**

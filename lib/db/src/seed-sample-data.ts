@@ -2095,15 +2095,23 @@ export async function seedSampleDataForDistrict(
   // already succeeded, and we don't want to roll back students/staff
   // because of an overlay glitch. We log the error and ship a
   // summary without showcase enrichment.
+  //
+  // T-V2-06-FOLLOWUP — the entire overlay block is gated by
+  // `options.disableV2Overlay`. Setting that flag executes the
+  // literal V1 code path (no overlay, no showcase enrichment). The
+  // real V1↔V2 parity bake uses this gate to compare both paths
+  // against the same districtId without git-checkout games.
   let _v2ShowcaseArg: Awaited<ReturnType<typeof buildShowcaseSummaryArg>> | undefined;
-  try {
-    await runDemoReadinessOverlay(db, districtId);
-    _v2ShowcaseArg = await buildShowcaseSummaryArg(db, districtId);
-  } catch (overlayErr) {
-    console.error(
-      `[seed-sample-data] V2 demo overlay failed for district ${districtId} (non-fatal):`,
-      overlayErr,
-    );
+  if (!options.disableV2Overlay) {
+    try {
+      await runDemoReadinessOverlay(db, districtId);
+      _v2ShowcaseArg = await buildShowcaseSummaryArg(db, districtId);
+    } catch (overlayErr) {
+      console.error(
+        `[seed-sample-data] V2 demo overlay failed for district ${districtId} (non-fatal):`,
+        overlayErr,
+      );
+    }
   }
   const _v2Meta = endRun(_v2RunBegin, districtId);
   const _v2Summary = buildPostRunSummary({

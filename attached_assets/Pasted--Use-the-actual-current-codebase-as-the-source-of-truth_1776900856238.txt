@@ -1,0 +1,273 @@
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+This is T-V2-06-FOLLOWUP — TRUE V1 vs V2 PARITY BAKE (NO SHORTCUTS).
+
+⸻
+
+CRITICAL RULE (NON-NEGOTIABLE)
+
+You must perform a real V1 vs real V2 comparison.
+
+The following are STRICTLY FORBIDDEN:
+
+* synthesizing a “V1 view” from V2 data
+* deleting overlay rows to simulate V1
+* rebuilding summaries to mimic V1
+* any shortcut that avoids running the actual V1 seed path
+
+If any of the above occur → this task is INCORRECTLY IMPLEMENTED.
+
+⸻
+
+Objective
+
+Produce a trustworthy, auditable, real parity bake between:
+
+* V1 seed path (current production behavior)
+* V2 seed path (with overlay wired)
+
+and determine:
+
+Is V2 safe to replace V1 as the default seed/reset path?
+
+⸻
+
+Scope
+
+In scope
+
+* run V1 seed path
+* capture outputs
+* reset DB cleanly
+* run V2 seed path (with overlay)
+* capture outputs
+* compare outputs across defined layers
+* prove determinism
+* generate parity report
+* produce cutover recommendation
+
+Out of scope
+
+* no UI changes
+* no nav changes
+* no feature work
+* no wedge logic changes
+* no long-tail module work
+* no V1 deletion
+* no cutover flip
+
+⸻
+
+Exact execution order (MANDATORY)
+
+STEP 1 — run REAL V1 seed
+
+* invoke the actual V1 seed path
+* capture outputs into a structured artifact:
+    * fact counts
+    * summary artifact
+    * any derived outputs used for parity
+
+Persist this snapshot:
+
+.local/reports/parity-v1-snapshot.json
+
+STEP 2 — HARD RESET
+
+* fully reset the database
+* verify no residual data remains
+* do NOT reuse any in-memory or derived state
+
+⸻
+
+STEP 3 — run REAL V2 seed (with overlay)
+
+* invoke V2 seed path
+* ensure overlay runs inside the same seed execution
+* capture outputs
+
+Persist:
+
+.local/reports/parity-v2-snapshot.json
+
+Run V2 seed 3 times total (fresh reset each time).
+
+Verify:
+
+* identical core fact counts
+* identical showcase selection
+* identical summary outputs
+
+If not deterministic → STOP and return PARTIAL.
+
+⸻
+
+STEP 5 — build comparison
+
+Compare V1 vs V2 snapshots.
+
+⸻
+
+Comparison layers (REQUIRED)
+
+Layer 1 — persisted facts
+
+* session_logs count
+* alerts count
+* compensatory obligations count
+* handling-state distribution
+
+Layer 2 — summary artifact
+
+* compliance distribution
+* key summary fields
+
+Layer 3 — operational shape (minimal)
+
+* action-center category distribution (if accessible)
+* risk/compliance distribution shape
+
+⸻
+
+Must-match vs allowed-to-improve
+
+MUST MATCH
+
+* seed completes successfully
+* no-mutation invariant holds
+* deterministic V2 output
+* internal consistency of counts
+
+ALLOWED TO IMPROVE
+
+* showcase density
+* category spread
+* realism of historical data
+* handling-state diversity
+* summary richness
+
+MUST EXPLAIN
+
+Any differences in:
+
+* alerts
+* sessions
+* comp totals
+* risk distribution
+* handling distribution
+
+Classify each:
+
+* expected improvement
+* modeling difference
+* suspicious
+
+No unexplained differences allowed.
+
+⸻
+
+INVALID IMPLEMENTATION CONDITIONS
+
+If ANY of the following occur → mark INCORRECTLY IMPLEMENTED:
+
+* V1 is not actually run
+* V1 is reconstructed from V2
+* reset is skipped or partial
+* determinism is not tested
+* differences are not classified
+* report is missing required sections
+
+⸻
+
+Testing rules
+
+Run ONLY:
+
+* targeted typecheck
+* parity runner
+* determinism runs
+
+Do NOT:
+
+* run full repo suite
+* retry failing suites blindly
+
+If failure occurs:
+
+* state cause
+* classify (new / pre-existing / env)
+* fix once before rerun
+
+⸻
+
+Report artifact
+
+Create: .local/reports/parity-bake-v2.md
+
+Required final output (STRICT)
+
+Return EXACTLY:
+
+1. EXECUTIVE VERDICT (COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED)
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. PARITY RESULTS TABLE (V1 vs V2 side-by-side)
+6. MUST-MATCH VS ALLOWED-TO-IMPROVE DIFFERENCES
+7. SHOWCASE VALIDATION
+8. DETERMINISM RESULT
+9. USER-VISIBLE IMPACT
+10. DEMO FLOW IMPACT
+11. ARCHITECTURE / MODEL IMPACT
+12. TEST / BUILD STATUS
+13. EXACT REMAINING GAPS
+14. CUTOVER READINESS DECISION (YES / NO)
+15. EXACT NEXT TASKS
+16. FINAL ARTIFACT (paths + test results)
+
+Rules:
+
+* no skipped sections
+* no vague summaries
+* include exact file paths
+* include exact test counts
+* separate regressions vs pre-existing failures
+
+⸻
+
+Completion criteria
+
+COMPLETE
+
+Only if:
+
+* real V1 vs V2 parity executed
+* determinism proven
+* must-match metrics pass
+* all differences explained
+* cutover recommendation is justified
+
+PARTIAL
+
+If:
+
+* parity exists but incomplete or weak
+* determinism incomplete
+* differences unexplained
+
+INCORRECTLY IMPLEMENTED
+
+If:
+
+* shortcuts used
+* parity simulated
+* proof is not trustworthy
+
+⸻
+
+Do not optimize for speed at the expense of correctness in this task.
+
+This is the final proof gate before cutover.
+:::
