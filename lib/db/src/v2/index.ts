@@ -11,4 +11,5 @@ export * as scenarios from "./scenarios";
 export * as simulator from "./simulator";
 export * as domain from "./domain";
 export * as overlay from "./overlay";
+export * as persistence from "./persistence";
 export * from "./postRunSummary";

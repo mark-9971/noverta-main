@@ -1,0 +1,213 @@
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is T-V2-04.
+- W3 simulator core is accepted.
+- This wave is NOT “role usage profiles only.”
+- This wave is the persistence/derivation bridge between the simulator and the actual seeded district.
+- Keep scope tightly bounded to wiring simulated outputs into persisted seeded data and proving the wedge/report surfaces can consume that truth.
+- Do NOT start the full demo overlay wave yet.
+- Do NOT broaden into long-tail module completion yet.
+- Do NOT run broad suites by default.
+
+Before declaring COMPLETE, verify:
+1. simulator outputs are persisted into real seeded tables through a clear write path
+2. no cheating mutation layer was introduced
+3. current wedge/report truth can be driven from the persisted outputs
+4. tests/build status are clearly stated
+5. remaining gaps are honestly listed
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. USER-VISIBLE IMPACT
+6. ARCHITECTURE / MODEL IMPACT
+7. TEST / BUILD STATUS
+8. EXACT REMAINING GAPS
+9. EXACT NEXT TASKS
+10. FINAL ARTIFACT
+
+Also include:
+- W4 SCOPE COMPLETION
+- BEFORE / AFTER DATA FLOW
+- DIRECTLY PERSISTED VS STILL SIMULATED-ONLY
+- DEMO / RESET IMPACT
+- EXACT PRE-EXISTING FAILURES LEFT UNCHANGED
+
+## Objective
+
+Implement **T-V2-04 — W4 persistence wiring + derived operational emissions**.
+
+Take the deterministic simulator outputs from W3 and wire them into the real seed path so the seeded district is populated through persisted facts rather than static/backfilled shortcuts.
+
+This wave should make the seeded district materially more “used for 9 months” by persisting the simulator’s outputs into the actual operational tables.
+
+## Why now
+
+W1 extracted platform.
+W2 extracted domain foundation.
+W3 created pure deterministic simulator outputs.
+
+The next step is to make those outputs real in the seeded district.
+
+Without this wave:
+- W3 is just a pure engine
+- the seeded district still does not fully reflect simulator truth
+- wedge/report/demo truth is not yet upgraded
+
+## Scope
+
+### In scope
+Wire W3 outputs into persisted seeded data for the core operational spine.
+
+At minimum, handle persistence for:
+- `session_logs`
+- alert/event generation path or persisted alert-ready facts
+- `action_item_handling` and handling history where simulator now owns cadence
+- `schedule_blocks` for simulator-emitted makeup/future block cases where appropriate
+- `compensatory_obligations` only if they are now simulator-emergent in a clean bounded way
+- `compliance_snapshots` or equivalent persisted historical rows if the current architecture treats them as durable artifacts
+
+Also:
+- integrate this into the current seed flow without breaking sample-data entrypoint behavior
+- preserve rollback semantics
+- preserve determinism
+
+### Explicitly in scope if required
+- role usage profiles only insofar as they are necessary to persist realistic historical handling/logging patterns
+- stable mapping from simulator entities to persisted row writes
+- minimal summary artifact expansion if the new persisted outputs should appear there
+
+### Out of scope
+- no full demo overlay implementation
+- no broad long-tail module pass
+- no new UI work unless a tiny summary artifact addition is truly required
+- no broad cutover away from legacy seeders yet
+- no broad route changes
+- no broad reset operator redesign
+- no full report/export polish pass yet
+
+## Architectural requirements
+
+### 1. No cheating
+Do NOT:
+- flip already-generated completed sessions into missed ones
+- patch KPI totals after persistence
+- manually edit derived outputs after the simulator writes facts
+- insert alerts/comp numbers disconnected from simulated facts
+
+### 2. Preserve boundaries
+- `v2/domain/*` stays pure
+- `v2/simulator/*` stays DB-write free
+- persistence/wiring logic belongs in the seeding orchestration layer or a dedicated persistence layer
+- do not collapse W1/W2/W3 boundaries back into the monolith
+
+### 3. Reuse scenario richness
+The existing scenario registry/archetypes must still matter.
+Do not flatten the simulator output into generic volume-only rows.
+
+### 4. Wedge-first truth
+This wave should improve the truth of:
+- Action Center
+- Today
+- Compliance Risk Report
+- Student Detail next-step / handling context
+- Weekly summary / key reports where current data paths depend on persisted facts
+
+## Required deliverables
+
+By the end:
+1. simulator outputs are persisted into the seeded district
+2. the seed path is still deterministic
+3. rollback still works
+4. the seeded district is now materially more historical/operational
+5. wedge/report truth is closer to live-derived reality
+6. the monolith does not re-absorb the new architecture
+7. exact remaining gaps before demo overlay are clearly named
+
+## Testing / verification requirements
+
+Use the smallest possible verification loop.
+
+### Required test ladder
+1. targeted typecheck / touched-package check
+2. targeted W4 unit/integration tests
+3. one narrow seed regression
+4. broader checks only if required
+
+Do NOT:
+- run the full repo suite by default
+- rerun broad failing suites repeatedly without first identifying the likely cause
+
+### Minimum required proof
+- deterministic persistence proof across repeated runs for the same seed
+- at least one golden/vector-style proof that persisted outputs match simulator expectations
+- targeted seed-path regression proving the sample-data flow still works
+- honest statement of what wedge/report surfaces are now materially improved by persisted facts vs what still awaits W5
+
+## Specific final-output discipline
+
+Your final output must obey the project standards and include:
+- exact file paths created
+- exact file paths modified
+- exact reason each file changed
+- exact tests run
+- exact pass/fail counts
+- exact remaining gaps
+- exact next tasks
+
+Do not summarize vaguely.
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- W3 outputs are materially persisted through the real seed path
+- determinism is preserved
+- rollback is preserved
+- no cheating layer was introduced
+- W4 creates a real bridge to later demo overlay work
+
+### PARTIAL
+Use PARTIAL if:
+- only some simulator outputs are persisted
+- key wedge-driving facts are still static/backfilled
+- persistence exists but the architecture boundary is weak
+- sample-data path still works but the seeded district truth is only partly upgraded
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- simulator boundaries collapse back into the monolith
+- outputs are persisted through ad hoc mutation/fixup logic
+- broad unrelated work is pulled in
+- final seeded truth is still mostly fake/static while claiming the simulator is “wired”
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. W4 SCOPE COMPLETION
+3. EXACT FILES CREATED
+4. EXACT FILES MODIFIED
+5. EXACT REASONS FOR EACH CHANGE
+6. BEFORE / AFTER DATA FLOW
+7. DIRECTLY PERSISTED VS STILL SIMULATED-ONLY
+8. USER-VISIBLE IMPACT
+9. DEMO / RESET IMPACT
+10. ARCHITECTURE / MODEL IMPACT
+11. TEST / BUILD STATUS
+12. EXACT REMAINING GAPS
+13. EXACT NEXT TASKS
+14. FINAL ARTIFACT
+
+In the final artifact, explicitly summarize:
+- verdict
+- core persistence bridge landed
+- main files touched
+- what wedge/report truth is now improved
+- what still waits for W5 demo overlay
