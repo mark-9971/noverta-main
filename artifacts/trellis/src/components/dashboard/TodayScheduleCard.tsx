@@ -136,6 +136,9 @@ export function TodayScheduleCard() {
       startTime: block.startTime,
       endTime: block.endTime,
       date: block.date,
+      // T05 — thread schedule_blocks.id so POST /sessions can derive
+      // sourceActionItemId and auto-resolve the linked action item.
+      scheduleBlockId: block.id ?? undefined,
     });
     setQuickLogOpen(true);
   }, []);

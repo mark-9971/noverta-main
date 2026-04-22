@@ -379,6 +379,7 @@ export default function ParaMyDayPage() {
         prefillServiceTypeName={quickLogPrefill.serviceTypeName}
         prefillDurationMinutes={quickLogPrefill.durationMinutes}
         prefillOutcome={quickLogPrefillOutcome}
+        prefillScheduleBlockId={quickLogPrefill.scheduleBlockId ?? null}
         sessionDate={date}
         skipToMissed={quickLogSkipToMissed}
       />

@@ -176,6 +176,12 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
       estimatedExposure: number | null;
       rateConfigured: boolean;
       missedSessions: number;
+      // T05 — surface T03 buckets so the client MakeupMinutesPill can
+      // render a "Scheduled pending" affordance without re-querying
+      // action items.
+      scheduledPendingMinutes: number;
+      pendingMakeupBlocksCount: number;
+      stillAtRiskMinutes: number;
     }[] = [];
 
     let totalRequired = 0;
@@ -233,6 +239,9 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         estimatedExposure: exposureValue,
         rateConfigured: exposureValue != null,
         missedSessions: p.missedSessionsCount,
+        scheduledPendingMinutes: p.scheduledPendingMinutes ?? 0,
+        pendingMakeupBlocksCount: p.pendingMakeupBlocksCount ?? 0,
+        stillAtRiskMinutes: p.stillAtRiskMinutes ?? Math.max(0, shortfall - (p.scheduledPendingMinutes ?? 0)),
       });
 
       const provKey = p.providerName ?? "Unassigned";
@@ -396,7 +405,15 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
 
     const schoolMap = new Map(studentSchoolData.map(s => [s.studentId, { schoolName: s.schoolName ?? "", grade: s.grade ?? "" }]));
 
-    const headers = ["Student", "School", "Grade", "Service", "Interval", "Required Min", "Delivered Min", "Shortfall Min", "% Complete", "Risk Level", "Provider", "Est. Exposure ($)", "Missed Sessions"];
+    const headers = [
+      "Student", "School", "Grade", "Service", "Interval",
+      "Required Min", "Delivered Min", "Shortfall Min",
+      // T05 — surface T03 buckets so admins exporting the report can
+      // see scheduled-pending vs still-at-risk minutes alongside the
+      // raw shortfall.
+      "Scheduled Pending Min", "Still At Risk Min", "Pending Makeup Blocks",
+      "% Complete", "Risk Level", "Provider", "Est. Exposure ($)", "Missed Sessions",
+    ];
     const rows = progress
       .map(p => {
         const info = schoolMap.get(p.studentId);
@@ -405,11 +422,16 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
         const rateInfo: RateInfo = rates?.inHouse ?? { rate: null, source: "unconfigured" };
         const exposure = shortfall > 0 ? minutesToDollars(shortfall, rateInfo) : 0;
         const exposureCell = exposure == null ? "RATE NOT CONFIGURED" : `$${exposure.toFixed(2)}`;
+        const scheduledPending = p.scheduledPendingMinutes ?? 0;
+        const stillAtRisk = p.stillAtRiskMinutes ?? Math.max(0, shortfall - scheduledPending);
+        const pendingBlocks = p.pendingMakeupBlocksCount ?? 0;
         return {
           sort: riskSortOrder(p.riskStatus),
           row: [
             p.studentName, info?.schoolName ?? "", info?.grade ?? "", p.serviceTypeName, p.intervalType,
-            p.requiredMinutes, p.deliveredMinutes, shortfall, `${p.percentComplete}%`,
+            p.requiredMinutes, p.deliveredMinutes, shortfall,
+            scheduledPending, stillAtRisk, pendingBlocks,
+            `${p.percentComplete}%`,
             riskLabel(p.riskStatus), p.providerName ?? "Unassigned", exposureCell, p.missedSessionsCount,
           ],
         };

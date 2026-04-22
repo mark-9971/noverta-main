@@ -174,4 +174,11 @@ export interface QuickLogPrefill {
   serviceTypeName?: string;
   durationMinutes?: number;
   prefillOutcome?: "completed" | "missed";
+  /**
+   * T05 — schedule_blocks.id when the QuickLog was opened from a
+   * scheduled-block context (canonical linked-block path). Plumbed
+   * through to POST /sessions so the server can derive
+   * `sourceActionItemId` and auto-resolve the matching action item.
+   */
+  scheduleBlockId?: number;
 }

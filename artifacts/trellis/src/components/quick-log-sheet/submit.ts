@@ -15,6 +15,17 @@ export interface SubmitArgs {
   prefillStartTime?: string;
   prefillEndTime?: string;
   collectedGoalData?: CollectedGoalEntry[];
+  /**
+   * T05 — when the user is logging from a linked scheduled block
+   * (e.g. a "Log" button on a row in Today, or the makeup block
+   * created via the T02 deep-link), pass the schedule_block id here.
+   * The server uses it to (a) verify cross-student safety and (b)
+   * inherit the block's `source_action_item_id` onto the session log
+   * so the T04 auto-resolve helper can close the wedge loop without
+   * the client knowing the carrier id format. Optional everywhere
+   * else — adhoc / no-context logs simply omit it.
+   */
+  scheduleBlockId?: number | null;
 }
 
 export async function submitSession(args: SubmitArgs): Promise<void> {
@@ -73,6 +84,12 @@ export async function submitSession(args: SubmitArgs): Promise<void> {
     notes: parts.length > 0 ? parts.join(" — ") : null,
     location: null,
   };
+  // T05 — canonical linked-block path. Only attach when the caller
+  // actually opened the sheet from a scheduled-block context, so adhoc
+  // logs stay adhoc.
+  if (args.scheduleBlockId != null) {
+    body.scheduleBlockId = args.scheduleBlockId;
+  }
 
   if (goalData && goalData.length > 0) {
     body.goalData = goalData;

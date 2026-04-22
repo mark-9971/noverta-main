@@ -511,6 +511,15 @@ export interface MinuteProgress {
   /** Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.
    */
   earlyReleaseDayCount?: number;
+  /** T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a "Scheduled pending" affordance distinct from already-delivered minutes.
+   */
+  scheduledPendingMinutes?: number;
+  /** T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.
+   */
+  pendingMakeupBlocksCount?: number;
+  /** T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.
+   */
+  stillAtRiskMinutes?: number;
 }
 
 /**

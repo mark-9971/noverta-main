@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
 import { recommendAction } from "@/lib/action-recommendations";
-import { HandlingStatePill } from "@/components/wedge-primitives";
+import { HandlingStatePill, MakeupMinutesPill } from "@/components/wedge-primitives";
 import { useHandlingState, resolveOwnerDisplay, formatRelativeTime } from "@/lib/use-handling-state";
 import HandlingHistoryPopover from "@/components/handling-history-popover";
 import { useRole } from "@/lib/role-context";
@@ -36,6 +36,11 @@ interface StudentRow {
   estimatedExposure: number | null;
   rateConfigured?: boolean;
   missedSessions: number;
+  // T05 — T03 buckets surfaced from the server so MakeupMinutesPill
+  // can render "Scheduled pending" without re-querying.
+  scheduledPendingMinutes?: number;
+  pendingMakeupBlocksCount?: number;
+  stillAtRiskMinutes?: number;
 }
 
 interface ProviderRow {
@@ -390,10 +395,18 @@ function RiskAttentionRow({
       <td className="px-3 py-2 text-right tabular-nums">{r.requiredMinutes}</td>
       <td className="px-3 py-2 text-right tabular-nums">{r.deliveredMinutes}</td>
       <td className="px-3 py-2 text-right tabular-nums">
-        <span className="font-semibold text-red-700">{r.shortfallMinutes}</span>
-        {r.missedSessions > 0 && (
-          <div className="text-[10px] text-red-400 font-normal leading-none mt-0.5">{r.missedSessions} session{r.missedSessions === 1 ? "" : "s"} missed</div>
-        )}
+        <div className="flex flex-col items-end gap-0.5">
+          <MakeupMinutesPill
+            requiredMinutes={r.requiredMinutes}
+            deliveredMinutes={r.deliveredMinutes}
+            scheduledPendingMinutes={r.scheduledPendingMinutes ?? 0}
+            stillAtRiskMinutes={r.stillAtRiskMinutes ?? r.shortfallMinutes}
+            data-testid={`makeup-pill-${r.serviceRequirementId}`}
+          />
+          {r.missedSessions > 0 && (
+            <div className="text-[10px] text-red-400 font-normal leading-none">{r.missedSessions} session{r.missedSessions === 1 ? "" : "s"} missed</div>
+          )}
+        </div>
       </td>
       <td className="px-3 py-2">{riskBadge(r.riskStatus, r.riskLabel)}</td>
       <td className="px-3 py-2 text-right tabular-nums">

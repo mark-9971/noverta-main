@@ -92,7 +92,7 @@ export const ACTION_LABELS: Record<RecommendedActionType, string> = {
 export const HANDLING_LABELS: Record<HandlingState, string> = {
   needs_action: "Needs action",
   awaiting_confirmation: "Awaiting confirmation",
-  recovery_scheduled: "Recovery scheduled",
+  recovery_scheduled: "Scheduled pending",
   handed_off: "Handed off",
   under_review: "Under review",
   resolved: "Resolved",
@@ -412,7 +412,7 @@ function build(input: {
 export const HANDLING_TRANSITIONS: { state: HandlingState; label: string; help: string }[] = [
   { state: "needs_action",          label: "Mark as needs action",     help: "Back to the default red state — clears handling" },
   { state: "awaiting_confirmation", label: "Awaiting confirmation",    help: "Asked the provider / parent — waiting for reply" },
-  { state: "recovery_scheduled",    label: "Recovery scheduled",       help: "Makeup is on the calendar" },
+  { state: "recovery_scheduled",    label: "Scheduled pending",        help: "Makeup is on the calendar — minutes are pending, not yet delivered" },
   { state: "handed_off",            label: "Handed off",               help: "Passed to scheduler / case manager / admin" },
   { state: "under_review",          label: "Under review",             help: "Looking into the underlying requirement / data" },
   { state: "resolved",              label: "Resolved",                 help: "Done — hide on next refresh" },

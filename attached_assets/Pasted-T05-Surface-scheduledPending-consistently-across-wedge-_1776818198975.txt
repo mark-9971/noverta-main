@@ -1,0 +1,340 @@
+T05 — Surface scheduledPending consistently across wedge surfaces
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+
+Do not assume prior summaries are correct if the codebase contradicts them.
+Reuse canonical helpers/models/components/routes/hooks.
+Do not duplicate logic around architectural anchors.
+Do not broaden scope casually.
+Be explicit about what is persisted vs derived vs local-only vs shared.
+If this task overlaps another likely lane or hot file, say so explicitly.
+If any part of the requested behavior is a bad idea in the current architecture, say so.
+
+Before declaring COMPLETE, verify:
+
+the user-visible behavior actually exists
+the correct canonical anchors were reused
+no competing duplicate logic was introduced
+tests/build status are clearly stated
+remaining gaps are honestly listed
+unrelated pre-existing failures are separated from regressions
+
+Required final output:
+
+EXECUTIVE VERDICT
+EXACT CHANGES MADE
+USER-VISIBLE IMPACT
+ARCHITECTURE / MODEL IMPACT
+TEST / BUILD STATUS
+REMAINING GAPS
+EXACT NEXT TASKS
+
+Also include:
+
+BEFORE / AFTER WORKFLOW IMPACT
+RETURN-TO-QUEUE / SURFACE CONSISTENCY
+DATA / DISPLAY MODEL
+EXECUTION PATH
+
+At the end, include a clean plain-text FINAL ARTIFACT block that is easy to copy into a project doc.
+
+Objective
+
+Complete T05 in the active closed-loop makeup chain.
+
+T03 established the canonical backend minute buckets:
+
+deliveredMinutes
+scheduledPendingMinutes
+stillAtRiskMinutes
+
+T04 is now complete on the server side:
+
+when a makeup session is logged through the canonical linked-block path, the server can derive/persist the source linkage and auto-resolve the matching action item
+
+T05’s job is to make that new backend truth visible, coherent, and actually exercised in the product UI.
+
+Specifically:
+
+surface the scheduled pending state consistently across the main wedge surfaces
+use one canonical badge / pill language and presentation model
+wire the actual makeup-log UI path so it sends scheduleBlockId where appropriate, allowing the T04 server-side closure path to happen through the real product flow
+do all of this without creating client-side math or one-off surface logic
+
+This is the next main-agent task after T04.
+
+Why now
+
+The current chain is:
+
+T01 schema link
+T02 prefilled scheduling launch
+T03 delivered / scheduled-pending / still-at-risk math
+T04 server-side auto-resolve on linked makeup log
+T05 visible pending-state rollout across wedge surfaces
+
+So T05 is now the correct next main-agent move.
+
+Without T05:
+
+the backend truth exists but users cannot see it consistently
+the wedge still does not speak one consistent operational language
+the canonical UI flow may still fail to carry scheduleBlockId into the session logging path even though T04 is now ready to consume it
+
+This task belongs on the main agent because it touches hot wedge surfaces and wedge presentation primitives.
+
+Scope
+
+Implement the smallest correct product/UI rollout of the new pending-vs-delivered model.
+
+In scope
+A. Surface scheduledPending consistently across core wedge surfaces
+
+Update the main wedge surfaces so they show the new pending state coherently wherever the existing handling / risk language already appears.
+
+Target surfaces:
+
+Action Center
+Compliance Risk Report
+Today
+Student Detail
+
+The user should be able to tell:
+
+what has already been delivered
+what is scheduled but not yet delivered
+what is still at risk
+
+Do not invent different phrasing per surface unless there is a strong reason. The visible language should be consistent.
+
+B. Reuse one canonical wedge primitive
+
+If the right move is to extend HandlingStatePill, do that.
+If the right move is to add a tightly related canonical pill such as MakeupStatusPill, do that.
+Either way:
+
+the logic and presentation must live in the canonical wedge primitive layer
+do not create one-off badge components inside individual pages
+do not let surfaces drift
+C. Consume the server-provided T03 data
+
+Use the existing server-side minute-progress buckets.
+Do not recreate or approximate pending math in the client.
+
+The client should derive display state from canonical backend values and/or canonical shared-state signals already produced by the system.
+
+D. Wire the real makeup-log UI flow to send scheduleBlockId
+
+The canonical makeup-log path in the Trellis client should now pass scheduleBlockId when the user is logging from a scheduled makeup block / linked recovery context.
+
+The purpose is:
+
+to exercise the T04 server-side derivation path through the actual UI
+to avoid exposing or depending on raw sourceActionItemId in the client when the linked block already exists
+to keep the client aligned with the canonical linked-block model
+
+This should be a small client wiring task inside T05, not a separate mini-project.
+
+E. Preserve correct closed-loop behavior across surfaces
+
+After this task, the product should communicate the loop honestly:
+
+scheduled makeup appears as scheduled pending
+once the linked session is logged, it falls out of pending
+the underlying action item can resolve through T04
+the surfaces should no longer imply that “scheduled” means “delivered”
+F. Keep the rollout bounded
+
+Only update the core wedge surfaces and the canonical makeup-log client path.
+Do not turn this into a broad sweep across thin/scaffolded pages.
+
+Non-goals
+
+Do not broaden into any of the following:
+
+no notifications
+no email / bell / digest work
+no nav cleanup
+no home-surface strategy changes
+no maturity-badge sweep across scaffolding pages
+no compensatory lifecycle work
+no new reporting surface
+no broad visual redesign
+no general status-chip redesign outside the wedge
+no client-side recreation of minute math
+no new scheduling engine
+no T07 full e2e implementation unless absolutely required for a tiny assertion fix
+no “just show a label on one page” shortcut that leaves cross-surface drift
+Required deliverables
+
+By the end of this task, all of the following should be true:
+
+The core wedge surfaces visibly reflect the distinction between delivered, scheduled-pending, and still-at-risk where appropriate.
+The visible “scheduled pending” language is consistent across those surfaces.
+The UI uses canonical wedge primitives rather than page-local badge copies.
+The client makeup-log path sends scheduleBlockId when logging from linked scheduled makeup context.
+The client does not need to know or generate sourceActionItemId format.
+The rollout relies on canonical server-side data from T03/T04, not duplicated client math.
+The result is tested and reported honestly.
+Architectural anchors that must be reused
+
+Reuse these exact canonical anchors where applicable:
+
+artifacts/trellis/src/components/wedge-primitives.tsx
+artifacts/trellis/src/lib/action-recommendations.ts
+artifacts/trellis/src/lib/use-handling-state.ts
+artifacts/trellis/src/pages/action-center.tsx
+artifacts/trellis/src/pages/compliance-risk-report.tsx
+artifacts/trellis/src/pages/today.tsx
+Student Detail / Recommended Next Step files
+artifacts/trellis/src/components/quick-log-sheet/* if the canonical logging UI lives there
+artifacts/trellis/src/lib/schedule-makeup.ts
+canonical minute-progress payloads already produced by T03
+canonical session logging route contract already updated by T04
+
+Do not:
+
+create page-local copies of the new badge
+build a separate client-side pending calculator
+invent a second wedge status model outside the canonical primitive layer
+bypass the existing logging flow just to sneak scheduleBlockId through
+Likely files / surfaces
+
+Expected touch points are likely in this group:
+
+artifacts/trellis/src/components/wedge-primitives.tsx
+artifacts/trellis/src/pages/action-center.tsx
+artifacts/trellis/src/pages/compliance-risk-report.tsx
+artifacts/trellis/src/pages/today.tsx
+relevant Student Detail files
+artifacts/trellis/src/components/quick-log-sheet/*
+any related API contract/client types only if already regenerated from T04 changes
+small tests covering display state + payload wiring
+
+Keep changes tight and centered on the wedge.
+
+Workflow expectations
+Before
+backend knows the difference between delivered and scheduled-pending
+server can auto-resolve when linked makeup is logged
+users still may not see that state clearly across wedge surfaces
+the canonical UI flow may still not pass scheduleBlockId, leaving the T04 path underused in real interaction
+After
+a coordinator/provider sees a clear “scheduled pending” state in the core wedge surfaces
+the same issue reads consistently in Action Center, Risk Report, Today, and Student Detail
+logging from the linked makeup flow sends scheduleBlockId
+the server handles the rest
+once logged, the issue no longer looks ambiguously “pending” or “still at risk” when it should now be delivered/resolved
+
+This is the visible/UI completion of the T03/T04 work.
+
+Return-to-queue / surface consistency behavior
+
+Be explicit in the output about:
+
+how a row/item looks before the makeup is logged
+how it looks after the makeup is logged
+whether it disappears from active queues immediately or on next fetch
+whether any surface still lags until refresh / refetch
+whether the same item now renders consistently across all four target surfaces
+what still depends on T07 e2e proof rather than already being behaviorally complete
+
+Do not overclaim instantaneous cross-surface updates if they are actually next-fetch semantics.
+
+Data / display model
+
+Be explicit about:
+
+what data comes from server-side minute-progress buckets
+what display state comes from shared handling state
+what the new/extended badge component is actually representing
+what remains derived-only in the client
+whether any surface uses both handling state and minute buckets together, and how you avoided contradictory rendering
+
+If there is tension between:
+
+handling state
+scheduled-pending minute bucket
+recommendation/action language
+
+call that out clearly and explain the chosen precedence.
+
+Testing / verification requirements
+
+Minimum required proof:
+
+targeted tests for the new badge/state rendering logic
+proof that the canonical makeup-log client path sends scheduleBlockId in the intended linked-block flow
+proof that the affected wedge surfaces compile and render correctly with the new bucket model
+honest build/typecheck/test reporting
+unrelated pre-existing failures clearly separated from regressions
+
+You do not need to implement the full T07 end-to-end spec inside this task unless a tiny compatibility change is necessary, but the output should say what T07 will still prove later.
+
+Manual verification is acceptable in addition to automated tests, but not instead of all proof.
+
+Complete / Partial / Incorrectly Implemented rules
+COMPLETE
+
+Use COMPLETE only if all of the following are true:
+
+the core wedge surfaces visibly and consistently surface the scheduled-pending state
+the canonical wedge primitive layer was reused or extended cleanly
+no competing client-side pending math was introduced
+the canonical makeup-log UI path now sends scheduleBlockId where it should
+the rollout is bounded to the wedge and does not sprawl into unrelated truth/nav work
+tests/build/manual verification are clearly reported
+remaining gaps are only downstream proof/polish, not missing core behavior
+PARTIAL
+
+Use PARTIAL if, for example:
+
+only some target surfaces were updated
+the badge exists but wording drifts across surfaces
+the UI rollout landed but the client still does not pass scheduleBlockId
+the logging path was wired but cross-surface rendering is incomplete
+proof is too weak
+INCORRECTLY IMPLEMENTED
+
+Use INCORRECTLY IMPLEMENTED if, for example:
+
+page-local badge logic was duplicated
+client-side math was recreated instead of using T03 buckets
+the task broadened into unrelated nav/home/truth work
+the change only looks right on one surface but creates contradictory behavior elsewhere
+the client starts depending on raw sourceActionItemId generation instead of the linked-block model
+Required final output format
+
+Return exactly this structure:
+
+EXECUTIVE VERDICT
+EXACT CHANGES MADE
+USER-VISIBLE IMPACT
+BEFORE / AFTER WORKFLOW IMPACT
+RETURN-TO-QUEUE / SURFACE CONSISTENCY
+DATA / DISPLAY MODEL
+ARCHITECTURE / MODEL IMPACT
+EXECUTION PATH
+TEST / BUILD STATUS
+REMAINING GAPS
+EXACT NEXT TASKS
+FINAL ARTIFACT
+
+In EXACT CHANGES MADE, list exact file paths and what changed in each.
+
+In TEST / BUILD STATUS, separate:
+
+task-specific green proof
+unrelated pre-existing failures/noise
+
+In REMAINING GAPS, be honest about what still belongs to:
+
+T06 truthful CTA rename
+T07 closed-loop e2e proof
+broader surface-honesty sweep later
+notifications later
+
+Do not claim broader phase completion beyond T05 itself.

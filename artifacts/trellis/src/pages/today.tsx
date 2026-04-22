@@ -130,12 +130,17 @@ export default function TodayPage() {
     studentId?: number; studentName?: string;
     serviceTypeId?: number; serviceTypeName?: string;
     durationMinutes?: number; startTime?: string; endTime?: string; date?: string;
+    scheduleBlockId?: number;
   }>({});
 
   const openQuickLog = useCallback((b: {
     studentId?: number | null; studentName?: string | null;
     serviceTypeId?: number | null; serviceTypeName?: string | null;
     startTime?: string; endTime?: string; date?: string;
+    // T05 — `id` is the schedule_blocks.id when this open was triggered
+    // from a Today row (canonical linked-block path). Optional because
+    // adhoc opens have no block context.
+    id?: number | null;
   }) => {
     const [sh = 0, sm = 0] = (b.startTime ?? "00:00").split(":").map(Number);
     const [eh = 0, em = 0] = (b.endTime ?? "00:00").split(":").map(Number);
@@ -149,6 +154,7 @@ export default function TodayPage() {
       startTime: b.startTime,
       endTime: b.endTime,
       date: b.date,
+      scheduleBlockId: b.id ?? undefined,
     });
     setQuickLogOpen(true);
   }, []);
@@ -689,6 +695,7 @@ export default function TodayPage() {
         prefillStartTime={quickLogPrefill.startTime}
         prefillEndTime={quickLogPrefill.endTime}
         sessionDate={quickLogPrefill.date}
+        prefillScheduleBlockId={quickLogPrefill.scheduleBlockId ?? null}
       />
     </div>
   );

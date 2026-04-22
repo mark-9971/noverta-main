@@ -37,6 +37,7 @@ export function ScheduleBlockCard({
     serviceTypeId: block.serviceTypeId ?? undefined,
     serviceTypeName: block.serviceTypeName ?? undefined,
     durationMinutes: computedDuration,
+    scheduleBlockId: block.id ?? undefined,
   };
 
   const completedPrefill: QuickLogPrefill = { ...basePrefill, prefillOutcome: "completed" };

@@ -27,6 +27,14 @@ interface QuickLogSheetProps {
   skipToMissed?: boolean;
   collectedGoalData?: CollectedGoalEntry[];
   /**
+   * T05 — when the sheet is opened from a scheduled-block context (e.g.
+   * the "Log" button on a Today row, a makeup block's quick-log
+   * affordance), pass the schedule_block id here. It's plumbed through
+   * to `submitSession` and into the POST /sessions body so the server
+   * can derive `sourceActionItemId` from the block (T04 wiring).
+   */
+  prefillScheduleBlockId?: number | null;
+  /**
    * When a supervisor is logging a session on behalf of another provider, this
    * note is prepended to the session notes so the audit trail captures who
    * actually entered the data (the row's staffId is the provider being logged
@@ -74,6 +82,7 @@ export function QuickLogSheet({
   prefillDurationMinutes, prefillOutcome,
   prefillStartTime, prefillEndTime,
   sessionDate, skipToMissed, collectedGoalData,
+  prefillScheduleBlockId,
   onBehalfOfNote,
 }: QuickLogSheetProps) {
   const [step, setStep] = useState<Step>("student");
@@ -283,6 +292,7 @@ export function QuickLogSheet({
         missedReasonId, missedReasonLabel, makeupNeeded, note: finalNote,
         sessionDate: today, prefillStartTime, prefillEndTime,
         collectedGoalData: collectedGoalData,
+        scheduleBlockId: prefillScheduleBlockId ?? null,
       });
       const freshDefaults = loadDefaults(staffId);
       const updatedDefaults: QuickLogDefaults = {

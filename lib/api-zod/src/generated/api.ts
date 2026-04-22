@@ -595,6 +595,24 @@ export const GetStudentResponse = zod.object({
         .describe(
           "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
         ),
+      scheduledPendingMinutes: zod
+        .number()
+        .optional()
+        .describe(
+          'T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a \"Scheduled pending\" affordance distinct from already-delivered minutes.\n',
+        ),
+      pendingMakeupBlocksCount: zod
+        .number()
+        .optional()
+        .describe(
+          "T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.\n",
+        ),
+      stillAtRiskMinutes: zod
+        .number()
+        .optional()
+        .describe(
+          "T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.\n",
+        ),
     }),
   ),
   recentSessions: zod.array(
@@ -782,6 +800,24 @@ export const GetStudentMinuteProgressResponseItem = zod.object({
     .optional()
     .describe(
       "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
+  scheduledPendingMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      'T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a \"Scheduled pending\" affordance distinct from already-delivered minutes.\n',
+    ),
+  pendingMakeupBlocksCount: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.\n",
+    ),
+  stillAtRiskMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.\n",
     ),
 });
 export const GetStudentMinuteProgressResponse = zod.array(
@@ -1082,6 +1118,24 @@ export const GetStaffCaseloadResponseItem = zod.object({
     .optional()
     .describe(
       "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
+  scheduledPendingMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      'T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a \"Scheduled pending\" affordance distinct from already-delivered minutes.\n',
+    ),
+  pendingMakeupBlocksCount: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.\n",
+    ),
+  stillAtRiskMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.\n",
     ),
 });
 export const GetStaffCaseloadResponse = zod.array(GetStaffCaseloadResponseItem);
@@ -1967,6 +2021,24 @@ export const ListMinuteProgressResponseItem = zod.object({
     .describe(
       "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
     ),
+  scheduledPendingMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      'T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a \"Scheduled pending\" affordance distinct from already-delivered minutes.\n',
+    ),
+  pendingMakeupBlocksCount: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.\n",
+    ),
+  stillAtRiskMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.\n",
+    ),
 });
 export const ListMinuteProgressResponse = zod.array(
   ListMinuteProgressResponseItem,
@@ -2278,6 +2350,24 @@ export const GenerateScheduleResponse = zod.object({
         .optional()
         .describe(
           "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+        ),
+      scheduledPendingMinutes: zod
+        .number()
+        .optional()
+        .describe(
+          'T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a \"Scheduled pending\" affordance distinct from already-delivered minutes.\n',
+        ),
+      pendingMakeupBlocksCount: zod
+        .number()
+        .optional()
+        .describe(
+          "T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.\n",
+        ),
+      stillAtRiskMinutes: zod
+        .number()
+        .optional()
+        .describe(
+          "T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.\n",
         ),
     }),
   ),
@@ -2685,6 +2775,24 @@ export const GetComplianceRiskReportResponseItem = zod.object({
     .optional()
     .describe(
       "Slice 3. Number of early-release school-calendar days inside the current evaluation window that contributed (at the conservative 0.5 weight) to the adjusted `expectedMinutesByNow`.\n",
+    ),
+  scheduledPendingMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      'T03. Minutes belonging to action items currently in the `recovery_scheduled` handling state — i.e., a makeup session has been scheduled but not yet delivered. These are tracked separately from `deliveredMinutes` so the UI can render a \"Scheduled pending\" affordance distinct from already-delivered minutes.\n',
+    ),
+  pendingMakeupBlocksCount: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Count of action items in the `recovery_scheduled` handling state contributing to `scheduledPendingMinutes`.\n",
+    ),
+  stillAtRiskMinutes: zod
+    .number()
+    .optional()
+    .describe(
+      "T03. Minutes that are required-but-not-yet-covered after subtracting both `deliveredMinutes` and `scheduledPendingMinutes`. Drives the red precedence on the MakeupMinutesPill primitive.\n",
     ),
 });
 export const GetComplianceRiskReportResponse = zod.array(
