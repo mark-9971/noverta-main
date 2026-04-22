@@ -51,76 +51,59 @@ function storageKeyFor(
   return `${STORAGE_KEY_PREFIX}.${d}.${u}`;
 }
 
+// Wedge-focused tour: Phase A closed-loop makeup. Walks the viewer through
+// the shared multi-user Action Center, the handling-state pills that make
+// triage shared (vs every staffer working a private list), the priced
+// compliance-risk view, the scheduled-pending vs still-at-risk bucket split
+// that prevents a booked makeup from re-alerting, and finally the student
+// detail surface where the same buckets live next to the service line.
+//
+// Other modules (IEP builder, Medicaid, SIS, reports, etc.) are intentionally
+// NOT in this tour. They still exist in the nav and are reachable directly —
+// this tour is specifically the "what makes Trellis different" walkthrough,
+// not a product overview.
 const STEPS: TourStep[] = [
   {
-    selector: '[data-testid="section-overall-compliance"]',
-    path: "/",
-    title: "Dashboard — are we compliant?",
+    selector: '[data-tour-id="wedge-action-center"]',
+    path: "/action-center",
+    title: "Action Center — shared triage",
     body:
-      "The home dashboard answers the leadership question first: what share of mandated minutes have we delivered, and which students need attention right now.",
+      "One queue for everything off-track today: missed sessions, late docs, parent contacts, signatures. Every staffer sees the same list, so two people don't unknowingly chase the same alert.",
+  },
+  {
+    selector: '[data-testid="category-filter-bar"]',
+    path: "/action-center",
+    title: "Filter by what's slipping",
+    body:
+      "Slice the queue by category — missed services, doc-lag, parent contact — to focus your team on the wedge that matters this hour.",
+  },
+  {
+    selector: '[data-testid^="work-item-"]',
+    path: "/action-center",
+    title: "Shared handling state",
+    body:
+      "Pick up an item and the whole team sees it: \"awaiting confirmation\", \"recovery scheduled\", \"under review\", \"handed off\". That's how triage stays coordinated instead of duplicated.",
   },
   {
     selector: '[data-tour-id="cost-risk"]',
     path: "/compliance?tab=risk-report",
-    title: "Compliance & exposure",
+    title: "Risk priced as comp-ed exposure",
     body:
-      "Drill in to the compliance-risk view: every shortfall is translated into projected compensatory dollars so leadership can prioritize.",
+      "Every minute shortfall is translated into projected compensatory-services dollars so leadership can prioritize the students whose risk is largest.",
   },
   {
-    selector: '[data-tour-id="showcase-iep-builder"]',
-    path: "/iep-builder",
-    title: "IEP draft builder",
+    selector: '[data-tour-id="wedge-makeup-buckets"]',
+    path: "/compliance?tab=risk-report",
+    title: "Scheduled-pending vs still-at-risk",
     body:
-      "A guided, multi-step IEP draft your team can collaborate on — context, parent input, teacher input, transition, and AI-assisted generation.",
+      "The shortfall column splits into minutes already booked as a makeup (scheduled-pending) and minutes nobody has covered yet (still-at-risk). Booking a makeup moves minutes out of the at-risk bucket — the alert stops nagging.",
   },
   {
-    selector: '[data-tour-id="showcase-progress-reports"]',
-    path: "/progress-reports",
-    title: "Progress reports",
+    selector: null,
+    path: "/action-center",
+    title: "Closing the loop",
     body:
-      "Quarterly progress reports auto-generated from logged sessions and goal data — review, edit, and send to families in minutes instead of hours.",
-  },
-  {
-    selector: '[data-tour-id="showcase-parent-portal"]',
-    path: "/parent-communication",
-    title: "Parent communication",
-    body:
-      "All parent contacts, follow-ups, and required notifications in one log so the district can prove engagement and never miss a mandated touchpoint.",
-  },
-  {
-    selector: '[data-tour-id="showcase-protective-measures"]',
-    path: "/protective-measures",
-    title: "Restraint & seclusion incidents",
-    body:
-      "Compliant incident capture with state-reportable fields, quick-report mode for the field, and DESE bulk export for monthly filings.",
-  },
-  {
-    selector: '[data-tour-id="showcase-compensatory"]',
-    path: "/compensatory",
-    title: "Compensatory obligations",
-    body:
-      "Track owed minutes per student, calculate shortfalls, and log make-up sessions — the workflow that closes the loop on compliance exposure.",
-  },
-  {
-    selector: '[data-tour-id="showcase-medicaid"]',
-    path: "/medicaid-billing",
-    title: "Medicaid claim queue",
-    body:
-      "Build claim drafts from logged sessions, review them in the queue, and export a CSV for upload to your district's Medicaid billing system.",
-  },
-  {
-    selector: '[data-tour-id="showcase-sis-sync"]',
-    path: "/settings?tab=sis",
-    title: "SIS sync",
-    body:
-      "CSV roster upload works today; PowerSchool, Infinite Campus, Skyward, and SFTP connectors are in early pilot. Configure your roster source here.",
-  },
-  {
-    selector: '[data-tour-id="showcase-reports"]',
-    path: "/reports",
-    title: "Reports & exports",
-    body:
-      "Executive summary, minute summary, missed sessions, parent summary, audit package — every report your team needs for board meetings or audits.",
+      "Log a makeup session from anywhere — the Action Center, the floating timer, the Today schedule — and Trellis auto-resolves the source alert when the minutes match. No second click to mark something \"done\".",
   },
 ];
 

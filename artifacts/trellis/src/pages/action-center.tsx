@@ -1248,7 +1248,7 @@ export default function ActionCenter() {
   const firstName = user?.name?.split(" ")[0] ?? "";
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[900px] mx-auto space-y-5 md:space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[900px] mx-auto space-y-5 md:space-y-6" data-tour-id="wedge-action-center">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">

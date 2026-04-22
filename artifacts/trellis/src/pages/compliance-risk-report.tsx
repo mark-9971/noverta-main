@@ -679,7 +679,7 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                   <h2 className="text-sm font-bold text-red-800">Needs Attention This Period ({data.needsAttention.length})</h2>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" data-tour-id="wedge-makeup-buckets">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 text-xs text-muted-foreground uppercase tracking-wide">
