@@ -1,15 +1,52 @@
 /**
- * Seed Overhaul V2 — Simulator boundary (W1 placeholder).
+ * Seed Overhaul V2 — Simulator barrel (W3).
  *
- * The 9-month event-loop simulator (W3 in the V2 plan) lives behind
- * this boundary. W1 only stakes the import path; the day-by-day clock,
- * session resolver, alert engine, comp engine, and IEP lifecycle code
- * are NOT here yet. The seeder still emits sessions/alerts via its
- * pre-V2 cadence + back-derivation path inside seed-sample-data.ts.
+ * Public surface for the W3 9-month event-loop simulator. This module
+ * was a placeholder marker in W1; W3 promotes it into a real surface:
  *
- * Adding logic here in W1 would breach the "no later-wave behavior in
- * W1" rule. Real simulator code lands in W3.
+ *   - `runSimulation()` — single deterministic entry point
+ *   - event vocabulary types (SimulatedSession, SimulatedAlert,
+ *     SimulatedHandlingEvent, SimulatedMakeupBlock, SimulatedCompEvent,
+ *     SimulationResult)
+ *   - `buildStudentPlans()` — pure plan-derivation helper, exposed so
+ *     tests and W4 role-profile code can introspect cadence shaping
+ *   - threshold policies (alert / comp / handling) — exposed so tests
+ *     can pin no-cheating invariants in isolation
+ *   - calendar helpers (SIMULATION_DAYS, isSchoolDay, dateForDay)
+ *
+ * Not in scope (deferred):
+ *   - DB persistence — handled by the seeder when it consumes a
+ *     SimulationResult in W4+
+ *   - role-profile usage layer (logger fingerprints, paraprofessional
+ *     check-ins) — W4
+ *   - demo overlay tagging (pinned showcase cases) — W5
  */
 
-/** Marker so the simulator boundary is importable without errors. */
-export const SIMULATOR_LAYER_VERSION = "w1-placeholder";
+export const SIMULATOR_LAYER_VERSION = "w3";
+
+export * from "./events";
+export {
+  SIMULATION_DAYS,
+  defaultEpochDate,
+  dateForDay,
+  isSchoolDay,
+  weekIdxForDay,
+  toIsoDate,
+} from "./time";
+export {
+  buildStudentPlans,
+  type ServicePlan,
+  type StudentPlan,
+} from "./studentPlan";
+export {
+  evaluateBehindOnMinutes,
+  evaluateMissedSessions,
+  evaluateCompObligation,
+  evaluateHandlingTransition,
+  buildMakeupBlock,
+  type ServiceAggregate,
+} from "./policies";
+export {
+  runSimulation,
+  type RunSimulationInput,
+} from "./runSimulation";
