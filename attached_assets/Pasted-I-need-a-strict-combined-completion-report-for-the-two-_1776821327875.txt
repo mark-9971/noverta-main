@@ -1,0 +1,111 @@
+I need a strict combined completion report for the two tasks you just finished:
+- T06 — truthful rename of the misleading “Follow up with provider” CTA
+- T07 — e2e schedule-makeup-loop.spec.ts
+
+Use the actual current codebase as the source of truth.
+Do not give me a casual recap.
+Do not give me a marketing summary.
+Do not tell me what you intended.
+Tell me exactly what is now true in the product and in the test suite.
+
+Important:
+- Be explicit about what is COMPLETE vs PARTIAL.
+- If one task is complete and the other is partial, say that directly.
+- If either task required product-code changes beyond its intended scope, say so explicitly.
+- Separate real regressions from unrelated pre-existing failures/noise.
+- Do not hide missing behavior inside “future work.”
+
+Return one combined report in exactly this structure:
+
+1. EXECUTIVE VERDICT
+- Give a verdict for T06:
+  - COMPLETE
+  - PARTIAL
+  - INCORRECTLY IMPLEMENTED
+- Give a verdict for T07:
+  - COMPLETE
+  - PARTIAL
+  - INCORRECTLY IMPLEMENTED
+- Then give a short paragraph explaining why for each.
+
+2. EXACT CHANGES MADE
+For T06 and T07 separately, list:
+- exact file paths changed
+- exact component/page/hook/spec/fixture/selector changed
+- exact reason for each change
+
+3. USER-VISIBLE IMPACT
+For T06:
+- what the user now sees
+- exact old label/copy vs new label/copy
+- whether any tooltip/helper text changed
+- whether any other surface still shows the old misleading promise
+
+For T07:
+- what real workflow is now proven by e2e
+- what user-visible moments the spec actually asserts
+
+4. BEFORE / AFTER WORKFLOW IMPACT
+For each task, explain what was true before and what is true now.
+
+5. COPY / PROMISE CORRECTION (T06)
+Be explicit about:
+- what promise was misleading before
+- why the new language is more truthful
+- whether the action still only updates internal handling state / bookkeeping
+- whether any real provider notification is sent now (this should be answered plainly)
+
+6. SCENARIO COVERAGE (T07)
+Describe the exact chain the spec covers:
+- launch source
+- schedule step
+- pending-state assertion
+- logging step
+- resolved / removed-from-active assertion
+- any refresh / refetch assumptions
+
+7. ARCHITECTURE / MODEL IMPACT
+State:
+- what canonical anchors were reused
+- whether any duplicate logic was introduced
+- whether T07 stayed in test/fixture land or required product-code changes
+- whether any such product-code changes were tiny selector/testability tweaks only, or something broader
+
+8. TEST / BUILD STATUS
+Include exact results for:
+- T06-related tests or manual verification
+- T07 spec result
+- any regression suites rerun
+- typecheck/build/codegen status if touched
+- unrelated pre-existing failures/noise clearly separated
+
+9. REMAINING GAPS
+List only real remaining gaps.
+Examples:
+- another surface still shows the old CTA label
+- T07 still does not prove one part of the intended loop
+- selector fragility
+- known seeded-data assumptions
+
+Do not list filler like “more polish may help.”
+
+10. EXACT NEXT TASKS
+Give the next 3–6 tasks in priority order, based on the actual results of T06 and T07.
+Be explicit about whether we are now clear to move on to the next phase/work block.
+
+11. GO / NO-GO RECOMMENDATION
+Answer this directly:
+“Are T06 and T07 complete enough that planning can move into the next track?”
+Then explain:
+- GO
+or
+- NO-GO
+
+12. FINAL ARTIFACT
+End with a clean plain-text block that includes:
+- T06 verdict
+- T07 verdict
+- exact files changed
+- main user-visible impact
+- main remaining gaps
+- whether planning should move forward now

@@ -1,0 +1,117 @@
+# T07 — e2e: schedule-makeup-loop.spec.ts
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a proof lane, not a product-redesign lane.
+- Stay in e2e / fixtures / setup unless a tiny selector or testability tweak is absolutely required.
+- If the spec requires product-code changes beyond tiny selector/test-id support, stop and report the missing behavior instead of implementing it inside this lane.
+- If a product behavior is missing, say so instead of silently implementing it here.
+- Do not broaden into T08, nav work, notifications, or surface-honesty work.
+- Be explicit about what this test proves vs what it does not yet prove.
+
+Before declaring COMPLETE, verify:
+1. the user-visible behavior actually exists
+2. the test exercises the real closed-loop path
+3. no product logic was duplicated in the test
+4. tests/build status are clearly stated
+5. remaining gaps are honestly listed
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. EXACT CHANGES MADE
+3. USER-VISIBLE IMPACT
+4. ARCHITECTURE / MODEL IMPACT
+5. TEST / BUILD STATUS
+6. REMAINING GAPS
+7. EXACT NEXT TASKS
+
+Also include:
+- SCENARIO COVERAGE
+- EXECUTION PATH
+- FINAL ARTIFACT
+
+## Objective
+
+Complete T07:
+Add a deterministic e2e spec that proves the closed-loop makeup chain through the real wedge flow:
+
+click Schedule Makeup -> save linked block -> visible scheduled-pending state -> log the linked makeup -> item resolves / leaves active handling state
+
+This is proof work only.
+
+## Why now
+
+T07 is the approved background lane after the T01–T05 chain.
+Its job is to lock the chain against regression without reopening hot-file implementation work.
+
+## Scope
+
+In scope:
+- add e2e/tests/schedule-makeup-loop.spec.ts
+- use the seeded wedge baseline / realistic demo scenario already documented
+- prove the real flow through actual UI surfaces
+- assert the important visible moments:
+  1. launch path works
+  2. scheduled-pending appears after scheduling
+  3. logging from the linked block path works
+  4. the item resolves / no longer appears active after logging
+
+Out of scope:
+- no product-feature implementation
+- no broad fixture rewrite unless required
+- no T08 parity assertions across all wedge surfaces
+- no nav cleanup
+- no notifications
+- no comp lifecycle work
+- no silent product patches inside the test lane
+
+## Required deliverables
+
+By the end:
+1. a deterministic spec exists for the closed-loop makeup chain
+2. it runs against the seeded baseline
+3. it proves the real linked-block path, not a mocked shortcut
+4. it clearly states any still-manual refresh / refetch semantics if relevant
+5. CI / local test status is reported honestly
+
+## Architectural anchors to respect
+
+Respect the existing canonical wedge flow:
+- schedule-makeup helper / launch path
+- shared handling-state behavior
+- canonical session logging flow
+- seeded demo / wedge baseline
+
+Do not hardcode a fake path just to make the test green.
+
+## Likely files
+
+- e2e/tests/schedule-makeup-loop.spec.ts
+- e2e fixtures / support / setup only if necessary
+- possibly tiny selector/test-id additions if absolutely required
+
+## Testing / verification
+
+Minimum:
+- spec runs green deterministically
+- describe exact assertions
+- clearly separate product regressions from pre-existing harness noise
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+COMPLETE only if:
+- the spec proves the real closed-loop makeup chain end to end
+- it is deterministic
+- it does not depend on ad hoc hidden setup
+
+PARTIAL if:
+- it covers only part of the chain
+- it relies on unstable fixtures
+- it proves scheduling but not resolution
+
+INCORRECTLY IMPLEMENTED if:
+- it quietly patches product behavior inside the test lane
+- it uses a fake shortcut that bypasses the real linked-block / logging path

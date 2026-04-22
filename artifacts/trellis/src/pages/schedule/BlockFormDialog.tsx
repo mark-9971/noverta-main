@@ -38,7 +38,7 @@ export function BlockFormDialog({
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" data-testid="dialog-block-form">
         <DialogHeader>
           <DialogTitle className="text-[15px] font-semibold text-gray-800">
             {editingBlock ? "Edit Schedule Block" : "Add Schedule Block"}
@@ -49,10 +49,10 @@ export function BlockFormDialog({
             <div className="space-y-1.5">
               <Label className="text-[12px] font-medium text-gray-600">Staff</Label>
               <Select value={blockForm.staffId} onValueChange={v => setBlockForm(f => ({ ...f, staffId: v }))} disabled={!!editingBlock}>
-                <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                <SelectTrigger className="h-9 text-[13px] bg-white" data-testid="select-staff-trigger"><SelectValue placeholder="Select staff..." /></SelectTrigger>
                 <SelectContent>
                   {staffList.map((s: any) => (
-                    <SelectItem key={s.id} value={String(s.id)} className="text-[13px]">{s.firstName} {s.lastName}</SelectItem>
+                    <SelectItem key={s.id} value={String(s.id)} className="text-[13px]" data-testid={`option-staff-${s.id}`}>{s.firstName} {s.lastName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -175,7 +175,7 @@ export function BlockFormDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button size="sm" onClick={onSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button size="sm" onClick={onSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="button-save-block">
             {saving ? "Saving…" : editingBlock ? "Update Block" : "Create Block"}
           </Button>
         </DialogFooter>
