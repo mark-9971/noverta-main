@@ -120,14 +120,25 @@ export function MakeupMinutesPill({
         : "px-1.5 py-0.5 text-[10px] gap-1";
 
   let bg: string, fg: string, ring: string, Icon: typeof CalendarClock, label: string;
-  if (stillAtRisk > 0) {
+  // T05 — when ANY makeup intent exists, the pill leads with the
+  // in-flight acknowledgement so the wedge user sees that something is
+  // being done about the shortfall. Color still leans red when there's
+  // residual stillAtRisk so the row keeps the appropriate alarm hue;
+  // when the makeup fully covers the gap we relax to blue.
+  if (pending > 0) {
+    if (stillAtRisk > 0) {
+      bg = "bg-red-50"; fg = "text-red-700"; ring = "ring-red-200";
+    } else {
+      bg = "bg-blue-50"; fg = "text-blue-700"; ring = "ring-blue-200";
+    }
+    Icon = CalendarClock;
+    label = stillAtRisk > 0
+      ? `Scheduled pending · ${pending} min · ${stillAtRisk} min still at risk`
+      : `Scheduled pending · ${pending} min`;
+  } else if (stillAtRisk > 0) {
     bg = "bg-red-50"; fg = "text-red-700"; ring = "ring-red-200";
     Icon = AlertTriangle;
     label = `Still at risk · ${stillAtRisk} min`;
-  } else if (pending > 0) {
-    bg = "bg-blue-50"; fg = "text-blue-700"; ring = "ring-blue-200";
-    Icon = CalendarClock;
-    label = `Scheduled pending · ${pending} min`;
   } else if (deliveredMinutes >= requiredMinutes) {
     bg = "bg-emerald-50"; fg = "text-emerald-700"; ring = "ring-emerald-200";
     Icon = CheckCircle2;

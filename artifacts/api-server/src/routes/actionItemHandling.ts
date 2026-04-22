@@ -112,6 +112,20 @@ router.get("/action-item-handling", requireHandlingStateAccess, async (req, res)
   res.json({ data: rows.map(rowToJson) });
 });
 
+// Single-id read. Convenience wrapper around `readByIds` so callers
+// (Action Center detail polls, e2e specs, etc.) don't have to build a
+// querystring just to fetch one row. Returns the row JSON directly, or
+// 404 when no handling row exists yet for that itemId in this district.
+router.get("/action-item-handling/:itemId", requireHandlingStateAccess, async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (districtId == null) { res.status(403).json({ error: "no district scope" }); return; }
+  const idCheck = ItemIdSchema.safeParse(req.params.itemId);
+  if (!idCheck.success) { res.status(400).json({ error: "invalid item id" }); return; }
+  const rows = await readByIds(districtId, [idCheck.data]);
+  if (rows.length === 0) { res.status(404).json({ error: "not found" }); return; }
+  res.json(rowToJson(rows[0]));
+});
+
 router.post("/action-item-handling/batch", requireHandlingStateAccess, async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (districtId == null) { res.status(403).json({ error: "no district scope" }); return; }

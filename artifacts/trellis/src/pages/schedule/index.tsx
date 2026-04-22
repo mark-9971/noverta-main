@@ -337,6 +337,15 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
         });
         toast.success("Schedule block updated");
       } else {
+        // T03 — anchor one-shot makeup blocks to a real date so the
+        // Risk Report's pending-bucket reducer (blockOverlapsInterval)
+        // can credit them against the requirement's interval. Mirrors
+        // the same fix in MinutesOversightTab.handleSaveBlock — without
+        // a weekOf anchor the reducer rejects the block and the
+        // "Scheduled pending" pill never lights up. See minuteCalc.ts
+        // (blockOverlapsInterval at ~233, reducePendingMakeupMinutes at
+        // ~262).
+        const isMakeupOneShot = blockForm.blockType === "makeup" && !blockForm.isRecurring;
         await createScheduleBlock({
           staffId: Number(blockForm.staffId),
           studentId: blockForm.studentId && blockForm.studentId !== "__none" ? Number(blockForm.studentId) : null,
@@ -349,6 +358,7 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
           notes: blockForm.notes || null,
           isRecurring: blockForm.isRecurring,
           rotationDay: blockForm.rotationDay || null,
+          weekOf: isMakeupOneShot ? new Date().toISOString().substring(0, 10) : null,
         });
         toast.success("Schedule block created");
       }

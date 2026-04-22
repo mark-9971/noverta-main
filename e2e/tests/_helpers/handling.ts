@@ -52,6 +52,10 @@ export async function signInAs(page: Page, email: string): Promise<void> {
   // browser SDK refuses to load when the page request carries both
   // Origin and Authorization (see incident-lifecycle gotcha in README).
   await page.context().setExtraHTTPHeaders({});
+  // Drop any /api/** route handler from a previous signInAs call so we can
+  // re-install one keyed to the new user's JWT below. Idempotent — no-op
+  // on first invocation.
+  await page.context().unrouteAll({ behavior: "ignoreErrors" }).catch(() => {});
 
   await page.goto("/setup");
   await page.waitForFunction(
@@ -91,8 +95,23 @@ export async function signInAs(page: Page, email: string): Promise<void> {
     { timeout: 30_000 },
   );
   const sessionJwt = (await token.jsonValue()) as string;
-  await page.context().setExtraHTTPHeaders({
-    Authorization: `Bearer ${sessionJwt}`,
+
+  // Inject the Bearer token ONLY on same-origin requests to /api/**. Doing
+  // this via page.context().route — instead of setExtraHTTPHeaders — keeps
+  // the Authorization header off cross-origin requests (notably Clerk's own
+  // browser-side fetches to *.clerk.accounts.dev). When Authorization rides
+  // along on those cross-origin fetches the browser also auto-sets Origin,
+  // and Clerk responds 400 ("only one of the 'Origin' and 'Authorization'
+  // headers should be provided"), which silently breaks Clerk session
+  // restoration on the next page navigation — AppLayout then never finishes
+  // rendering /action-center and tests hang on a blank page. Mirrors the
+  // canonical pattern in incident.ts.
+  await page.context().route(/\/api\//, async (route) => {
+    const headers = {
+      ...route.request().headers(),
+      authorization: `Bearer ${sessionJwt}`,
+    };
+    await route.continue({ headers });
   });
 
   // Accept any required legal documents so /api/* requests aren't blocked

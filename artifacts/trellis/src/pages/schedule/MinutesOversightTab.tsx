@@ -202,6 +202,12 @@ export default function MinutesOversightTab() {
     if (!blockForm.staffId) { toast.error("Staff is required"); return; }
     setBlockSaving(true);
     try {
+      // T03 — anchor one-shot makeup blocks to a real date so the
+      // Risk Report's pending-bucket reducer (blockOverlapsInterval)
+      // can credit them against the requirement's interval. Without a
+      // weekOf / effectiveFrom anchor the reducer rejects the block
+      // and the "Scheduled pending" pill never lights up.
+      const isMakeupOneShot = blockForm.blockType === "makeup" && !blockForm.isRecurring;
       const payload: CreateScheduleBlockBody = {
         staffId: Number(blockForm.staffId),
         studentId: blockForm.studentId && blockForm.studentId !== "__none" ? Number(blockForm.studentId) : null,
@@ -214,6 +220,7 @@ export default function MinutesOversightTab() {
         notes: blockForm.notes || null,
         isRecurring: blockForm.isRecurring,
         rotationDay: blockForm.rotationDay || null,
+        weekOf: isMakeupOneShot ? new Date().toISOString().substring(0, 10) : null,
         // T02 — Phase A wedge linkage. Persisted on schedule_blocks
         // .source_action_item_id so a created makeup block can be
         // traced back to the originating Action Center / Risk Report

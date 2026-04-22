@@ -2768,6 +2768,40 @@ export async function seedSampleDataForDistrict(
       .where(inArray(iepGoalsTable.id, ids));
   }
 
+  // ── 15.5. Force a deterministic at-risk shortfall on a few requirements ──
+  //
+  // The default seed delivers enough sessions per requirement that every
+  // student lands on `on_track` (projection ≥ 95% of required). The wedge
+  // demos and several e2e specs (shared-handling-state, schedule-makeup-loop)
+  // assume the Action Center surfaces at least a couple of `risk:<sid>:<reqId>`
+  // rows on a fresh tenant. To keep this guarantee without rewriting the
+  // delivery-rate model, we deterministically pick the first 3 inserted
+  // service requirements (sorted by id) and mark the most recent ~80% of
+  // their completed sessions as `missed`. That drops their delivered minutes
+  // well below `expectedByNow * 0.85`, tripping `at_risk` (or worse) in
+  // computeRiskStatus and surfacing the rows in needsAttention[].
+  if (insertedSrs.length > 0) {
+    const targetSrIds = [...insertedSrs]
+      .sort((a, b) => a.id - b.id)
+      .slice(0, Math.min(3, insertedSrs.length))
+      .map(sr => sr.id);
+    for (const srId of targetSrIds) {
+      const completed = await db.execute(sql`
+        SELECT id FROM session_logs
+        WHERE service_requirement_id = ${srId}
+          AND status = 'completed'
+        ORDER BY session_date DESC, id DESC
+      `);
+      const ids = (completed.rows as Array<{ id: number }>).map(r => r.id);
+      if (ids.length === 0) continue;
+      const cutCount = Math.max(1, Math.floor(ids.length * 0.8));
+      const toMiss = ids.slice(0, cutCount);
+      await db.update(sessionLogsTable)
+        .set({ status: "missed" })
+        .where(inArray(sessionLogsTable.id, toMiss));
+    }
+  }
+
   // ── 16. Mark district ──
 
   await db.update(districtsTable)

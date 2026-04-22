@@ -1,0 +1,197 @@
+# Fix Action Center headless Playwright render regression blocking T07 and shared-handling proof
+
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+Important:
+- This is a narrow unblock / proof-restoration task.
+- Do not broaden into seed overhaul, alerts enrichment, nav work, notifications, or unrelated UI cleanup.
+- The goal is to restore headless Playwright rendering for /action-center so the existing reference spec and T07 can actually run green.
+- If the root cause turns out to be environment-only rather than product code, say so explicitly and fix only what is necessary to make the test lane reliable.
+- If multiple candidate causes exist, prove which one is real before changing product code.
+
+Before declaring COMPLETE, verify:
+1. /action-center actually mounts and renders under headless Playwright
+2. the pre-existing reference spec that was failing on the same blank-page symptom is green again
+3. T07 schedule-makeup-loop.spec.ts is green
+4. no unrelated product behavior was silently changed
+5. tests/build status are clearly stated
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. ROOT CAUSE
+3. EXACT CHANGES MADE
+4. USER-VISIBLE IMPACT
+5. ARCHITECTURE / MODEL IMPACT
+6. TEST / BUILD STATUS
+7. REMAINING GAPS
+8. EXACT NEXT TASKS
+
+Also include:
+- FAILURE REPRO PATH
+- BEFORE / AFTER TEST BEHAVIOR
+- ENVIRONMENT VS PRODUCT DIAGNOSIS
+- FINAL ARTIFACT
+
+## Objective
+
+Diagnose and fix the regression where `/action-center` renders blank under headless Playwright in this workspace, blocking:
+
+- the pre-existing reference spec `shared-handling-state.spec.ts`
+- the new T07 `schedule-makeup-loop.spec.ts`
+
+The task is only complete when the Action Center renders in headless Playwright and both the reference spec and T07 can be observed green.
+
+## Why now
+
+Planning cannot move into the next track yet because T07 is still PARTIAL. The current wedge chain needs its proof lane restored before broader adjacent work starts.
+
+This task is now the gating unblock between:
+- finished T01–T06 product work
+and
+- being allowed to move on
+
+## Known context
+
+Current observed symptom from the combined T06/T07 report:
+- `/action-center` renders blank under headless Playwright
+- `pickActionCenterItemIds(...)` times out because no items ever appear
+- the same blank-page failure reproduces against the unmodified reference spec `shared-handling-state.spec.ts`
+- API traffic suggests the Action Center page subtree/data hooks do not mount in headless mode
+- there may also be workspace/browser-environment quirks around Playwright chromium launch path
+
+Treat these as hypotheses to confirm, not assumptions to blindly code against.
+
+## Scope
+
+In scope:
+- reproduce the blank Action Center render under headless Playwright
+- identify the real cause
+- fix only what is needed so Action Center renders correctly in the test environment
+- prove the fix by getting both:
+  1. `shared-handling-state.spec.ts`
+  2. `schedule-makeup-loop.spec.ts`
+  green
+- make any tiny testability/support changes needed if they are truly required
+
+Possible real causes to investigate honestly:
+- route/provider bootstrap issue
+- auth/bootstrap race
+- headless-only rendering path bug
+- missing browser dependency / env configuration
+- Vite/dev-server/module graph issue
+- stale Fast Refresh / HMR artifact
+- selector waiting problem masking a page-mount failure
+- sample-data/setup precondition failure
+- Suspense/error boundary swallowing a render crash
+
+Out of scope:
+- no seed overhaul
+- no Action Center product redesign
+- no new wedge feature work
+- no broad e2e harness rewrite unless absolutely required
+- no unrelated dashboard/nav cleanup
+- no “just skip the Action Center and start the test elsewhere” shortcut
+- no broad conversion of T07 into an API-only test
+
+## Required deliverables
+
+By the end:
+1. the real root cause is identified and explained
+2. `/action-center` renders in headless Playwright in this workspace
+3. `shared-handling-state.spec.ts` is green
+4. `schedule-makeup-loop.spec.ts` is green
+5. any changes made are tightly scoped to the actual cause
+6. unrelated failures/noise are clearly separated
+
+## Architectural anchors to respect
+
+Reuse / respect:
+- existing Playwright helpers (`signInAs`, `ensureSampleData`, `pickActionCenterItemIds`, etc.)
+- Action Center’s real route and mounting path
+- current auth/provider/bootstrap setup
+- existing sample-data/reset path
+- current wedge behavior
+
+Do not:
+- replace the real Action Center flow with mocked data
+- bypass the page by jumping directly to backend assertions
+- duplicate product logic in the tests
+- “fix” this by weakening the test into something less meaningful
+
+## Likely files
+
+Unknown until diagnosis, but likely candidates may include:
+- `e2e/tests/shared-handling-state.spec.ts`
+- `e2e/tests/schedule-makeup-loop.spec.ts`
+- Playwright config / helpers / setup
+- Action Center page and any providers/bootstrap wrappers it depends on
+- route/bootstrap/auth files
+- tiny environment wiring if browser path/runtime setup is the real issue
+
+Keep the actual fix set as small as possible.
+
+## Testing / verification requirements
+
+Minimum required proof:
+1. exact repro steps for the original failure
+2. exact root cause explanation
+3. green run for the reference spec:
+   - `shared-handling-state.spec.ts`
+4. green run for:
+   - `schedule-makeup-loop.spec.ts`
+5. if relevant, one additional targeted verification showing `/action-center` data hooks now execute in headless mode
+6. honest statement of any remaining unrelated pre-existing failures
+
+If the fix is environment/config only, say so plainly and avoid unnecessary product changes.
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- the root cause is actually identified
+- `/action-center` renders under headless Playwright
+- both the reference spec and T07 run green
+- the fix is tightly scoped
+- no unrelated product behavior was silently changed
+
+### PARTIAL
+Use PARTIAL if:
+- the cause is narrowed down but not fully fixed
+- only one of the two blocked specs is green
+- the page renders but the meaningful Action Center flow still fails
+- the fix works only through a brittle workaround
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- the task avoids the real issue by weakening/skipping the Action Center flow
+- product behavior is broadly changed without proving the cause
+- tests are modified to pass without restoring the real render path
+- the reported cause is speculation rather than demonstrated diagnosis
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. ROOT CAUSE
+3. FAILURE REPRO PATH
+4. ENVIRONMENT VS PRODUCT DIAGNOSIS
+5. EXACT CHANGES MADE
+6. USER-VISIBLE IMPACT
+7. BEFORE / AFTER TEST BEHAVIOR
+8. ARCHITECTURE / MODEL IMPACT
+9. TEST / BUILD STATUS
+10. REMAINING GAPS
+11. EXACT NEXT TASKS
+12. FINAL ARTIFACT
+
+In TEST / BUILD STATUS, include:
+- exact command(s) used
+- exact results for the reference spec
+- exact results for T07
+- any environment/path requirements needed to run them
+- unrelated pre-existing failures clearly separated
+
+Do not claim COMPLETE unless both blocked specs are actually green.

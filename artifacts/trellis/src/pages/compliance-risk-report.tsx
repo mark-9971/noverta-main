@@ -401,7 +401,7 @@ function RiskAttentionRow({
             deliveredMinutes={r.deliveredMinutes}
             scheduledPendingMinutes={r.scheduledPendingMinutes ?? 0}
             stillAtRiskMinutes={r.stillAtRiskMinutes ?? r.shortfallMinutes}
-            data-testid={`makeup-pill-${r.serviceRequirementId}`}
+            testId={`makeup-pill-${r.serviceRequirementId}`}
           />
           {r.missedSessions > 0 && (
             <div className="text-[10px] text-red-400 font-normal leading-none">{r.missedSessions} session{r.missedSessions === 1 ? "" : "s"} missed</div>
