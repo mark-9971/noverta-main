@@ -1,0 +1,254 @@
+# T-V2-02 — Wave 2 Domain Foundation for Seed Overhaul V2
+
+Use the actual current codebase and the accepted Seed Overhaul V2 packet as the source of truth.
+Build on the completed W1 platform extraction.
+Do the work, not just a plan.
+
+Important:
+- This is Wave 2 of Seed Overhaul V2.
+- W1 is accepted; do not redo W1.
+- This is still NOT the full 9-month simulator wave yet.
+- Focus on extracting and formalizing the stable domain foundation that the later event-loop simulator will run on.
+- Preserve current useful behavior where possible.
+- Do not broaden into full historical simulation, full long-tail cadence, or full demo overlay implementation yet.
+- Be explicit about what moved, what stayed, and what is intentionally deferred to later waves.
+
+Before declaring COMPLETE, verify:
+1. the new domain modules are real and actually wired
+2. current sample-data flow still works
+3. no major product/output behavior was intentionally changed beyond extraction-safe normalization
+4. W1 platform boundaries remain intact
+5. tests/build status are clearly stated
+6. unrelated pre-existing failures are separated from regressions
+
+Required final output:
+1. EXECUTIVE VERDICT
+2. W2 SCOPE COMPLETION
+3. EXACT CHANGES MADE
+4. BEFORE / AFTER STRUCTURE
+5. DOMAIN FOUNDATION BOUNDARY
+6. USER-VISIBLE IMPACT
+7. ARCHITECTURE / MODEL IMPACT
+8. TEST / BUILD STATUS
+9. REMAINING GAPS
+10. EXACT NEXT TASKS
+11. FINAL ARTIFACT
+
+Also include:
+- IN-SCOPE VS DEFERRED
+- LEGACY VS NEW BOUNDARY
+- FINAL ARTIFACT
+
+## Objective
+
+Implement **T-V2-02 / Wave 2 Domain Foundation**.
+
+This wave should extract and formalize the stable domain-building layer that sits above platform and below the later 9-month simulation engine.
+
+The goal is to stop keeping core district/roster/IEP/reference setup as a giant monolith inside `seed-sample-data.ts`.
+
+Wave 2 should create a clearer boundary for:
+
+- district / school-year / school setup
+- reference catalogs
+- staff / guardian / student base creation
+- scenario registry / assignment foundation
+- IEP / goals / accommodations / service requirement base layer
+- baseline schedule substrate inputs (not the full event-loop yet)
+
+## Why now
+
+W1 created the stable platform substrate.
+W2 should now extract the **stable domain foundation** so later waves can build the simulator and demo overlay without continuing to rely on one giant file.
+
+This is the correct next move because:
+- it preserves the current seeder’s good domain richness
+- it avoids premature simulator complexity
+- it creates a cleaner seam for later event-loop and overlay work
+
+## Scope
+
+### In scope
+At minimum, extract and formalize boundaries for the following:
+
+1. **District / school structure**
+   - district record shaping
+   - school years
+   - schools
+   - school metadata
+
+2. **Reference/catalog domain**
+   - service catalog inputs
+   - rate config inputs
+   - programs / placements / supporting reference objects as appropriate
+
+3. **Roster domain**
+   - staff seeds
+   - guardian/emergency contact seeds
+   - student seeds
+   - assignments / caseload-linking foundation
+
+4. **Scenario foundation**
+   - scenario archetype registry or definitions
+   - assignment of scenarios to students
+   - scenario metadata that later waves will consume
+   - preserve the current valuable scenario richness; do not flatten it into generic randomness
+
+5. **Clinical contract foundation**
+   - IEP document base layer
+   - goals
+   - accommodations
+   - service requirements
+   - service-linked primitives needed later by simulation
+
+6. **Baseline schedule substrate inputs**
+   - enough extracted structure that later schedule/history simulation can be built cleanly
+   - but do NOT do the full 9-month event-loop yet
+
+### Out of scope
+- no full 9-month simulator
+- no full cadence emission for history tables
+- no full demo overlay
+- no full long-tail module pass
+- no broad UI changes
+- no cutover away from current seeder path
+- no deletion of legacy seeders yet
+
+## Required deliverables
+
+By the end:
+1. the stable domain foundation is extracted into real reusable modules
+2. scenario archetypes are preserved and formalized rather than flattened
+3. current sample-data flow still works
+4. the monolith is meaningfully reduced again
+5. later waves now have a clear seam between:
+   - platform
+   - domain foundation
+   - simulator
+   - overlay
+
+## Specific requirements
+
+### A. Preserve scenario richness
+The current seeder already has valuable scenario/archetype logic.
+Do NOT discard it.
+Do NOT replace it with generic statistical generation.
+
+Instead:
+- formalize a scenario registry/boundary
+- make it reusable for later simulation and demo-overlay eligibility
+- preserve current meaningful distinctions
+
+### B. Keep domain extraction separate from simulation
+This wave should not yet become “the simulator wave.”
+You may prepare simulator-facing interfaces, but the main job is domain extraction and boundary creation.
+
+### C. Keep current outputs broadly stable
+Do not intentionally change:
+- wedge truth shape
+- sample-data entrypoint behavior
+- route contract shape
+- rollback semantics
+
+Small normalization/refactor-safe changes are acceptable.
+Large behavior shifts are not.
+
+### D. Improve final reporting discipline
+Your final output for this wave must include:
+- exact file paths changed
+- exact reason each file changed
+- which changes were in-scope
+- which changes were incidental but necessary
+- which pre-existing unrelated failures remain untouched
+
+## Architectural anchors / constraints
+
+Respect:
+- W1 platform extraction
+- current sample-data entrypoint
+- current rollback flow
+- current scenario richness
+- current deterministic seed behavior
+- accepted V2 packet principles
+
+Do not:
+- flatten domain richness just to make extraction easier
+- delete useful legacy logic before later parity validation
+- start the full simulator prematurely
+- turn this into a broad “cleanup everything” sweep
+
+## Likely files
+
+Expected touch points likely include:
+- `lib/db/src/seed-sample-data.ts`
+- `lib/db/src/v2/domain/*`
+- `lib/db/src/v2/scenarios/*`
+- possibly small updates to `lib/db/src/v2/platform/*` only if clearly needed
+- orchestration wiring inside the main seed entrypoint
+
+Keep changes disciplined and structural.
+
+## Testing / verification requirements
+
+Minimum required proof:
+1. current sample-data flow still runs
+2. W1 tests still pass
+3. any new domain/scenario unit tests pass
+4. existing relevant seed regression tests still pass
+5. build/typecheck status is reported honestly
+6. unrelated pre-existing failures clearly separated
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- Wave 2 domain boundaries are real and wired
+- scenario richness is preserved/formalized
+- current seeder behavior is materially preserved
+- sample-data flow still works
+- later waves now have a genuine seam to build on
+
+### PARTIAL
+Use PARTIAL if:
+- domain modules exist but are weakly wired
+- scenario registry is still mostly implicit
+- monolith barely shrank
+- sample-data still works but the structural extraction is shallow
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- scenario richness was flattened/lost
+- this turned into the full simulator wave
+- major product/output behavior shifted without justification
+- boundaries are mostly fake placeholders
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. W2 SCOPE COMPLETION
+3. EXACT CHANGES MADE
+4. BEFORE / AFTER STRUCTURE
+5. DOMAIN FOUNDATION BOUNDARY
+6. IN-SCOPE VS DEFERRED
+7. LEGACY VS NEW BOUNDARY
+8. USER-VISIBLE IMPACT
+9. ARCHITECTURE / MODEL IMPACT
+10. TEST / BUILD STATUS
+11. REMAINING GAPS
+12. EXACT NEXT TASKS
+13. FINAL ARTIFACT
+
+In `EXACT CHANGES MADE`, list:
+- exact file path
+- exact change
+- exact reason
+
+In `LEGACY VS NEW BOUNDARY`, state clearly:
+- what still remains in `seed-sample-data.ts`
+- what moved out in W2
+- what is intentionally deferred to W3+
+
+Do not claim the full simulator rewrite has started unless it actually has.
+Do not claim demo overlay is implemented in this wave.

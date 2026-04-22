@@ -48,6 +48,66 @@ export type Intensity = "low" | "medium" | "high";
  * specify their *recent* portion — the early-window override is applied
  * inside the session generator.
  */
+/**
+ * Per-profile breakdown of "narrative" students (the canonical scenarios
+ * that drive dashboard storylines). Healthy students fill the remainder
+ * up to the profile's total student count.
+ *
+ * Small profiles only get one of each scenario so storylines remain
+ * recognizable without overflowing the small roster. Large profiles
+ * scale specials modestly so dashboards still show a meaningful mix
+ * even with 90+ healthy students.
+ *
+ * Promoted out of `seed-sample-data.ts` into the scenario registry in W2
+ * so the future event-loop simulator (W3) and the demo-overlay layer
+ * (W5) can share a single source of truth for scenario distributions
+ * without re-importing from the legacy seeder file.
+ */
+export const SCENARIO_COUNTS_BY_PROFILE: Record<
+  "small" | "medium" | "large",
+  Partial<Record<Exclude<Scenario, "healthy">, number>>
+> = {
+  small: {
+    shortfall: 2,
+    urgent: 1,
+    compensatory_risk: 1,
+    recovered: 1,
+    sliding: 1,
+    crisis: 1,
+    transition: 1,
+    behavior_plan: 1,
+    incident_history: 1,
+    annual_review_due: 1,
+    esy_eligible: 1,
+  },
+  medium: {
+    shortfall: 8,
+    urgent: 3,
+    compensatory_risk: 4,
+    recovered: 2,
+    sliding: 2,
+    crisis: 2,
+    transition: 1,
+    behavior_plan: 2,
+    incident_history: 1,
+    annual_review_due: 3,
+    esy_eligible: 2,
+  },
+  large: {
+    shortfall: 12,
+    urgent: 4,
+    compensatory_risk: 6,
+    recovered: 3,
+    sliding: 3,
+    crisis: 3,
+    transition: 2,
+    behavior_plan: 3,
+    incident_history: 2,
+    annual_review_due: 4,
+    esy_eligible: 3,
+  },
+};
+
 export const COMPLETION_RATE_RANGES: Record<Scenario, readonly [number, number]> = {
   healthy:           [0.78, 0.98],
   shortfall:         [0.45, 0.78],
