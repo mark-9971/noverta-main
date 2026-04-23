@@ -1,17 +1,17 @@
-# Trellis Admin Quickstart Guide
+# Noverta Admin Quickstart Guide
 
 **For District Administrators**  
 **Version:** 1.0  
 **Date:** April 15, 2026
 
-This guide covers the 10 most important things to do in your first week with Trellis.
+This guide covers the 10 most important things to do in your first week with Noverta.
 
 ---
 
 ## Before You Start
 
 You need:
-- Your Trellis admin login (email + password, or Google SSO if your district uses it)
+- Your Noverta admin login (email + password, or Google SSO if your district uses it)
 - Your district's current IEP roster (a spreadsheet is fine)
 - A list of staff to invite (name, email, role)
 
@@ -58,7 +58,7 @@ Optional but recommended:
 - Parent/guardian name, email, and phone
 - Primary language
 
-Add students one at a time, or ask Trellis support about CSV import if you have more than 20 students.
+Add students one at a time, or ask Noverta support about CSV import if you have more than 20 students.
 
 ---
 
@@ -105,7 +105,7 @@ The system will track whether a written report has been sent and whether DESE no
 
 ## 7. Invite a Parent
 
-**During the pilot period**, parents do not have their own login to Trellis. The parent invitation and communication workflow is:
+**During the pilot period**, parents do not have their own login to Noverta. The parent invitation and communication workflow is:
 
 **Step 1 — Add the parent's contact information to the student record:**
 1. Open the student's profile → **Edit Student**.

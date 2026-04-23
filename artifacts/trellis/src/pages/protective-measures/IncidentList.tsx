@@ -220,7 +220,7 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
               <EmptyStateStep number={2}><strong>Seclusion</strong> — involuntary confinement in a room the student cannot leave.</EmptyStateStep>
               <EmptyStateStep number={3}><strong>Time-out</strong> — removal from the classroom to a separate area.</EmptyStateStep>
               <EmptyStateDetail>
-                Trellis tracks parent notification deadlines, DESE reporting requirements, and helps ensure your district meets the 24-hour verbal and 5-day written notice timelines.
+                Noverta tracks parent notification deadlines, DESE reporting requirements, and helps ensure your district meets the 24-hour verbal and 5-day written notice timelines.
               </EmptyStateDetail>
             </EmptyState>
           </DemoEmptyState>

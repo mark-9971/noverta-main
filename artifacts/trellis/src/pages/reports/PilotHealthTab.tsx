@@ -117,7 +117,7 @@ function MetricDetail({ metricKey, metric }: { metricKey: MetricKey; metric: Pil
     case "iepRosterCoverage":
       return (
         <p className="text-[11px] text-gray-400 mt-1">
-          {detail.studentsWithIep} of {detail.totalStudents} active students have an IEP (proxy — official district roster not in Trellis)
+          {detail.studentsWithIep} of {detail.totalStudents} active students have an IEP (proxy — official district roster not in Noverta)
         </p>
       );
     case "serviceLoggingAdoption":

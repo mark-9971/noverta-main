@@ -15,7 +15,7 @@ const router: IRouter = Router();
 
 /**
  * Pilot status read access: district admins (own district) and platform
- * admins / Trellis support (any district via ?districtId=). All other
+ * admins / Noverta support (any district via ?districtId=). All other
  * roles (providers, paras, coordinators, students, parents) are denied
  * server-side so this can't be probed by lower-privilege staff.
  */

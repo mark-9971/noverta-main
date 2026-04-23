@@ -318,7 +318,7 @@ export function buildPilotScorecardEmail(opts: {
 
   const link = (path: string) => appBaseUrl ? `${appBaseUrl}${path}` : path;
 
-  const subject = `This week on Trellis — ${districtName} — ${weekLabel}`;
+  const subject = `This week on Noverta — ${districtName} — ${weekLabel}`;
 
   const metricRow = (m: PilotScorecardMetric, accent: string) => `
     <tr>
@@ -333,7 +333,7 @@ export function buildPilotScorecardEmail(opts: {
 
   const unsubscribeFooter = unsubscribeUrl
     ? `You can opt out of this weekly scorecard at any time — <a href="${escapeHtml(unsubscribeUrl)}" style="color:#0f766e">manage email preferences</a>.`
-    : `To opt out, ask your Trellis administrator to disable the weekly pilot scorecard in district notification settings.`;
+    : `To opt out, ask your Noverta administrator to disable the weekly pilot scorecard in district notification settings.`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -345,12 +345,12 @@ export function buildPilotScorecardEmail(opts: {
 <body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;font-size:14px;color:#111">
 <div style="max-width:640px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
   <div style="background:#0f766e;color:#fff;padding:22px 28px">
-    <h1 style="margin:0 0 4px;font-size:19px">This week on Trellis</h1>
+    <h1 style="margin:0 0 4px;font-size:19px">This week on Noverta</h1>
     <p style="margin:0;font-size:12px;opacity:.85">${escapeHtml(districtName)} &mdash; ${escapeHtml(weekLabel)}</p>
   </div>
   <div style="padding:20px 24px">
     <p style="margin:0 0 16px;font-size:13px;color:#374151">
-      Here is the value Trellis surfaced for ${escapeHtml(districtName)} during the past week.
+      Here is the value Noverta surfaced for ${escapeHtml(districtName)} during the past week.
       Each metric links to the in-app view where you can dig deeper.
     </p>
     <table style="width:100%;border-collapse:collapse;font-size:14px">
@@ -369,7 +369,7 @@ export function buildPilotScorecardEmail(opts: {
   </div>
   <div style="background:#f3f4f6;padding:14px 28px;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb">
     <p style="margin:0">${unsubscribeFooter}</p>
-    <p style="margin:6px 0 0">Trellis SPED Compliance Platform &mdash; Confidential</p>
+    <p style="margin:6px 0 0">Noverta SPED Compliance Platform &mdash; Confidential</p>
   </div>
 </div>
 </body>
@@ -389,7 +389,7 @@ export function buildPilotScorecardEmail(opts: {
     ``,
     unsubscribeUrl
       ? `Opt out: ${unsubscribeUrl}`
-      : `To opt out, ask your Trellis administrator to disable the weekly pilot scorecard in district notification settings.`,
+      : `To opt out, ask your Noverta administrator to disable the weekly pilot scorecard in district notification settings.`,
   ];
 
   return { subject, html, text: lines.join("\n") };

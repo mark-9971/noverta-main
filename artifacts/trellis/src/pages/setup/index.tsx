@@ -200,7 +200,7 @@ function SetupPageInner() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[900px] mx-auto space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Set Up Trellis</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Set Up Noverta</h1>
         <p className="text-sm text-gray-500 mt-1">Get your district up and running in a few steps.</p>
       </div>
 
@@ -496,7 +496,7 @@ function SampleDataCta() {
         </div>
         <div className="flex-1">
           <h2 className="text-sm font-semibold text-gray-900">
-            See Trellis with realistic data — in 10 seconds
+            See Noverta with realistic data — in 10 seconds
           </h2>
           <p className="text-xs text-gray-600 mt-0.5">
             We'll seed a realistic SPED roster (~50–100 students, full staff

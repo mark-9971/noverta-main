@@ -2,7 +2,7 @@
  * Demo / e2e Clerk-test identities.
  *
  * These emails are the canonical Clerk "+clerk_test@example.com" accounts the
- * Trellis demo path, sales walkthrough, and Playwright e2e suite all sign in
+ * Noverta demo path, sales walkthrough, and Playwright e2e suite all sign in
  * with. Without a matching `staff` row in some district, `requireDistrictScope`
  * 403s any of these users — which is the trap task #526 set out to fix.
  *

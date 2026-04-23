@@ -55,7 +55,7 @@ function buildDemoWelcomeEmail(opts: {
 }): { subject: string; html: string; text: string } {
   const { name, districtName, role, tempPassword, loginUrl } = opts;
   const roleLabel = ROLE_LABEL[role];
-  const subject = `Your Trellis demo is ready — log in now`;
+  const subject = `Your Noverta demo is ready — log in now`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -79,7 +79,7 @@ function buildDemoWelcomeEmail(opts: {
 <div class="wrapper">
   <div class="header">
     <h1>Your demo is ready, ${name.split(" ")[0]}!</h1>
-    <p>Trellis SPED Compliance Platform</p>
+    <p>Noverta SPED Compliance Platform</p>
   </div>
   <div class="body">
     <p>We've created a fully-populated demo district — <strong>${districtName}</strong> — seeded with real-looking IEPs, session logs, compliance data, and more so you can explore the product immediately.</p>
@@ -95,12 +95,12 @@ function buildDemoWelcomeEmail(opts: {
       Questions? Reply to this email or reach us at <a href="mailto:hello@trellis.education">hello@trellis.education</a>.
     </p>
   </div>
-  <div class="footer">Trellis SPED Compliance Platform — Automated demo provisioning</div>
+  <div class="footer">Noverta SPED Compliance Platform — Automated demo provisioning</div>
 </div>
 </body>
 </html>`;
 
-  const text = `Your Trellis demo is ready, ${name.split(" ")[0]}!\n\nWe've created a fully-populated demo district: ${districtName}.\n\nLogin URL: ${loginUrl}\nEmail: ${opts.email}\nTemporary password: ${tempPassword}\nYour role: ${roleLabel}\n\nThis demo expires in 7 days.\n\nQuestions? Reply to this email or reach hello@trellis.education`;
+  const text = `Your Noverta demo is ready, ${name.split(" ")[0]}!\n\nWe've created a fully-populated demo district: ${districtName}.\n\nLogin URL: ${loginUrl}\nEmail: ${opts.email}\nTemporary password: ${tempPassword}\nYour role: ${roleLabel}\n\nThis demo expires in 7 days.\n\nQuestions? Reply to this email or reach hello@trellis.education`;
   return { subject, html, text };
 }
 

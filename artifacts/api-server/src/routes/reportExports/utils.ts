@@ -150,7 +150,7 @@ export function pdfFooters(doc: InstanceType<typeof PDFDocument>, reportName: st
   for (let i = 0; i < pageCount; i++) {
     doc.switchToPage(i);
     doc.fontSize(7).fillColor(PDF_COLORS.GRAY_MID)
-      .text(`Trellis — ${reportName} | Page ${i + 1} of ${pageCount} | Confidential`, 60, 762, { align: "center", width: 492 });
+      .text(`Noverta — ${reportName} | Page ${i + 1} of ${pageCount} | Confidential`, 60, 762, { align: "center", width: 492 });
   }
 }
 

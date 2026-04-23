@@ -50,7 +50,7 @@ test.describe("Sample data onboarding flow", () => {
   }) => {
     await page.goto("/setup");
     await expect(
-      page.getByRole("heading", { name: "Set Up Trellis" }),
+      page.getByRole("heading", { name: "Set Up Noverta" }),
     ).toBeVisible();
 
     // Defensive cleanup: query the server (not the DOM) for ground truth so
@@ -65,7 +65,7 @@ test.describe("Sample data onboarding flow", () => {
       await expect(banner).toHaveCount(0, { timeout: 120_000 });
       await page.reload();
       await expect(
-        page.getByRole("heading", { name: "Set Up Trellis" }),
+        page.getByRole("heading", { name: "Set Up Noverta" }),
       ).toBeVisible();
     }
 

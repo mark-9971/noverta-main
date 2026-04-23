@@ -191,14 +191,14 @@ async function projectSubscriptionToTenant(event: StripeEvent): Promise<void> {
     await sendBillingNotification({
       districtId: existing.districtId,
       notificationType: 'subscription_canceled',
-      subject: 'Your Trellis subscription has been canceled',
+      subject: 'Your Noverta subscription has been canceled',
       html: buildBillingEmailHtml({
         heading: 'Subscription canceled',
-        body: '<p>Your Trellis subscription has been canceled. Access to the platform has been suspended.</p><p>If this was unintentional, you can resubscribe from the billing page.</p>',
+        body: '<p>Your Noverta subscription has been canceled. Access to the platform has been suspended.</p><p>If this was unintentional, you can resubscribe from the billing page.</p>',
         ctaLabel: 'Reactivate subscription',
         ctaUrl: 'https://trellis.education/billing',
       }),
-      text: 'Your Trellis subscription has been canceled. Visit the billing page to resubscribe.',
+      text: 'Your Noverta subscription has been canceled. Visit the billing page to resubscribe.',
     }).catch((err) => console.error('[Webhook] cancellation email failed:', err));
   }
 
@@ -278,16 +278,16 @@ export async function handleInvoicePaymentFailed(event: StripeEvent): Promise<vo
     await sendBillingNotification({
       districtId: existing.districtId,
       notificationType: 'payment_failed',
-      subject: 'Action required: payment failed for your Trellis subscription',
+      subject: 'Action required: payment failed for your Noverta subscription',
       html: buildBillingEmailHtml({
         heading: 'Your card was declined',
-        body: `<p>We were unable to charge the payment method on file for your Trellis subscription.</p>
+        body: `<p>We were unable to charge the payment method on file for your Noverta subscription.</p>
 <p><strong>Reason:</strong> ${reason}</p>
-<p>You have until <strong>${graceText}</strong> to update your payment method before access to Trellis is restricted. We'll keep retrying the charge on Stripe's standard schedule until then.</p>`,
+<p>You have until <strong>${graceText}</strong> to update your payment method before access to Noverta is restricted. We'll keep retrying the charge on Stripe's standard schedule until then.</p>`,
         ctaLabel: 'Update payment method',
         ctaUrl: 'https://trellis.education/billing',
       }),
-      text: `Your Trellis subscription payment failed (${reason}). Please update your payment method by ${graceText}.`,
+      text: `Your Noverta subscription payment failed (${reason}). Please update your payment method by ${graceText}.`,
     }).catch((err) => console.error('[Webhook] payment_failed email failed:', err));
   }
 
@@ -356,15 +356,15 @@ export async function handleTrialWillEnd(event: StripeEvent): Promise<void> {
   await sendBillingNotification({
     districtId: existing.districtId,
     notificationType: 'trial_ending',
-    subject: 'Your Trellis trial ends soon',
+    subject: 'Your Noverta trial ends soon',
     html: buildBillingEmailHtml({
       heading: 'Your trial ends soon',
-      body: `<p>Your Trellis trial ends on <strong>${dateText}</strong>. Your card will be charged automatically on that date for the plan you selected at signup.</p>
+      body: `<p>Your Noverta trial ends on <strong>${dateText}</strong>. Your card will be charged automatically on that date for the plan you selected at signup.</p>
 <p>If you'd like to switch plans, update billing details, or cancel before the charge, visit your billing page.</p>`,
       ctaLabel: 'Manage subscription',
       ctaUrl: 'https://trellis.education/billing',
     }),
-    text: `Your Trellis trial ends on ${dateText}. Your card will be charged automatically.`,
+    text: `Your Noverta trial ends on ${dateText}. Your card will be charged automatically.`,
   }).catch((err) => console.error('[Webhook] trial_will_end email failed:', err));
 }
 
@@ -390,14 +390,14 @@ export async function handlePaymentMethodDetached(event: StripeEvent): Promise<v
   await sendBillingNotification({
     districtId: existing.districtId,
     notificationType: 'payment_method_removed',
-    subject: 'A payment method was removed from your Trellis account',
+    subject: 'A payment method was removed from your Noverta account',
     html: buildBillingEmailHtml({
       heading: 'Payment method removed',
-      body: `<p>The ${cardDesc} on your Trellis account was just removed. If you don't have another card on file, your next renewal charge will fail.</p>`,
+      body: `<p>The ${cardDesc} on your Noverta account was just removed. If you don't have another card on file, your next renewal charge will fail.</p>`,
       ctaLabel: 'Add a payment method',
       ctaUrl: 'https://trellis.education/billing',
     }),
-    text: `The ${cardDesc} on your Trellis account was removed. Add a new payment method before your next renewal.`,
+    text: `The ${cardDesc} on your Noverta account was removed. Add a new payment method before your next renewal.`,
   }).catch((err) => console.error('[Webhook] payment_method.detached email failed:', err));
 }
 

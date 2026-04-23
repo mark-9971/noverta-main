@@ -2,7 +2,7 @@
  * Per-tenant sample data seeder.
  *
  * Generates a rich, scenario-driven sample district inside an EXISTING tenant
- * so a brand-new admin can experience Trellis's value within minutes of signup.
+ * so a brand-new admin can experience Noverta's value within minutes of signup.
  * Every row created here is tagged via `students.is_sample` / `staff.is_sample`
  * (or descended from one of those rows) so it can be cleanly removed with
  * `teardownSampleData()`.

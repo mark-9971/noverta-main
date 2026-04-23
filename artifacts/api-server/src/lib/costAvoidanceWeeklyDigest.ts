@@ -345,14 +345,14 @@ export function buildWeeklyRiskDigestEmail(opts: {
     ${topRisksHtml}
 
     <p style="margin:24px 0 0;font-size:13px;color:#6b7280">
-      Log in to Trellis to view all risks, resolve items, and track week-over-week trends on the Cost Avoidance Dashboard.
+      Log in to Noverta to view all risks, resolve items, and track week-over-week trends on the Cost Avoidance Dashboard.
     </p>
 
   </div>
 
   <div style="background:#f3f4f6;padding:14px 28px;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb">
-    <p style="margin:0">This is a weekly digest sent to district administrators. To opt out, contact your Trellis administrator or ask them to disable weekly risk summaries in district settings.</p>
-    <p style="margin:6px 0 0">Trellis SPED Compliance Platform &mdash; Confidential</p>
+    <p style="margin:0">This is a weekly digest sent to district administrators. To opt out, contact your Noverta administrator or ask them to disable weekly risk summaries in district settings.</p>
+    <p style="margin:6px 0 0">Noverta SPED Compliance Platform &mdash; Confidential</p>
   </div>
 
 </div>
@@ -388,9 +388,9 @@ export function buildWeeklyRiskDigestEmail(opts: {
     `TOP RISKS THIS WEEK`,
     topRisksText,
     ``,
-    `Log in to Trellis to view all risks and manage the Cost Avoidance Dashboard.`,
+    `Log in to Noverta to view all risks and manage the Cost Avoidance Dashboard.`,
     ``,
-    `To opt out of weekly summaries, ask your Trellis administrator to update district notification settings.`,
+    `To opt out of weekly summaries, ask your Noverta administrator to update district notification settings.`,
   ].join("\n");
 
   return { subject, html, text };

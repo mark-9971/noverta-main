@@ -912,7 +912,7 @@ function ShowcaseTourButton() {
       onClick={() => startShowcaseTour()}
       data-testid="button-launch-showcase-tour"
       className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"
-      title="Walks through the strongest screen of every Trellis module"
+      title="Walks through the strongest screen of every Noverta module"
     >
       <Compass className="w-3.5 h-3.5" />
       Take the showcase tour

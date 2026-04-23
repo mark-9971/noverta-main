@@ -1,5 +1,5 @@
 /**
- * Task #425: audited Trellis-support read-only session.
+ * Task #425: audited Noverta-support read-only session.
  *
  * Coverage:
  *   1. Non-trellis_support callers cannot open/end/list sessions or hit /districts.

@@ -118,7 +118,7 @@ export default function PilotFeedbackPage() {
       <div className="p-8 max-w-2xl mx-auto">
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-6">
           <h2 className="font-semibold text-amber-900">Platform admin required</h2>
-          <p className="text-sm text-amber-800 mt-1">This page is reserved for Trellis support staff.</p>
+          <p className="text-sm text-amber-800 mt-1">This page is reserved for Noverta support staff.</p>
         </div>
       </div>
     );

@@ -53,7 +53,7 @@ export default function S08_Traction() {
 
           <div className="border-l-[0.4vw] border-accent pl-[2vw] max-w-[40vw]">
             <p className="font-display italic text-[1.6vw] text-primary leading-snug">
-              "Trellis is the first tool my providers actually open on a Monday morning."
+              "Noverta is the first tool my providers actually open on a Monday morning."
             </p>
             <p className="font-body uppercase tracking-[0.25em] text-[0.85vw] text-muted mt-[1.5vh]">
               Assistant Superintendent · pilot district · MA

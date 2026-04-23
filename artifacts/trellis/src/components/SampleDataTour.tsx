@@ -49,7 +49,7 @@ const STEPS: TourStep[] = [
     path: "/compliance-risk-report",
     title: "One student already falling behind",
     body:
-      "Trellis surfaces students whose delivered minutes lag their IEP requirement. This is the shortfall that triggers compensatory time if it isn't addressed.",
+      "Noverta surfaces students whose delivered minutes lag their IEP requirement. This is the shortfall that triggers compensatory time if it isn't addressed.",
   },
   {
     selector: '[data-tour-id="cost-risk"]',
@@ -324,7 +324,7 @@ export function SampleDataTour() {
   return createPortal(
     <div
       role="dialog"
-      aria-label="Trellis sample data tour"
+      aria-label="Noverta sample data tour"
       data-testid="sample-data-tour"
       className="fixed inset-0 z-[80]"
       style={{ pointerEvents: "none" }}

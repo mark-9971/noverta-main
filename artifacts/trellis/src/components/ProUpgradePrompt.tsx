@@ -44,12 +44,12 @@ export function ProUpgradePrompt({ featureKey, featureName }: ProUpgradePromptPr
 
             <div className="px-6 py-5">
               <p className="text-sm text-gray-600 mb-5">
-                {benefit ?? "This feature is available on the Trellis PRO plan."}
+                {benefit ?? "This feature is available on the Noverta PRO plan."}
               </p>
 
               <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3 mb-5">
                 <p className="text-xs text-emerald-700 font-medium">
-                  Upgrade to <strong>Trellis PRO</strong> to unlock ABA data, clinical workflows, parent engagement tools, and more — all in one platform.
+                  Upgrade to <strong>Noverta PRO</strong> to unlock ABA data, clinical workflows, parent engagement tools, and more — all in one platform.
                 </p>
               </div>
 

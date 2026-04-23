@@ -26,7 +26,7 @@ async function signIn(page: Page): Promise<void> {
     signInParams: { strategy: "password", identifier: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   });
   await page.goto("/setup");
-  await expect(page.getByRole("heading", { name: "Set Up Trellis" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Set Up Noverta" })).toBeVisible({ timeout: 60_000 });
 }
 
 function interceptAlerts(page: Page, body: unknown) {

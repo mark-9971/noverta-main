@@ -31,8 +31,8 @@ const DOC_PATHS: Record<string, string> = {
 };
 
 const DOC_DESCRIPTIONS: Record<string, string> = {
-  tos: "Governs how you may use the Trellis platform as an authorized staff member.",
-  dpa: "Describes how Trellis processes your district's student data and your FERPA obligations.",
+  tos: "Governs how you may use the Noverta platform as an authorized staff member.",
+  dpa: "Describes how Noverta processes your district's student data and your FERPA obligations.",
 };
 
 /** Minimal markdown → HTML for trusted local legal docs. Handles headings, bold, lists, paragraphs. */
@@ -155,7 +155,7 @@ export function LegalAcceptanceGate({ children, exemptRoles = ["sped_parent", "s
       <div className="flex items-center justify-center min-h-screen bg-white">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-          <p className="text-sm text-gray-400 font-medium">Loading Trellis...</p>
+          <p className="text-sm text-gray-400 font-medium">Loading Noverta...</p>
         </div>
       </div>
     );
@@ -170,7 +170,7 @@ export function LegalAcceptanceGate({ children, exemptRoles = ["sped_parent", "s
           <Shield className="w-8 h-8 text-red-400 mx-auto mb-3" />
           <h2 className="font-semibold text-gray-900 mb-1">Unable to verify acceptance status</h2>
           <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-            Trellis could not confirm your legal acceptance status. Please reload to try again.
+            Noverta could not confirm your legal acceptance status. Please reload to try again.
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -233,11 +233,11 @@ export function LegalAcceptanceGate({ children, exemptRoles = ["sped_parent", "s
             </div>
             <div>
               <h1 className="text-lg font-semibold text-gray-900 leading-tight">Review and accept to continue</h1>
-              <p className="text-sm text-gray-500">Required before accessing Trellis</p>
+              <p className="text-sm text-gray-500">Required before accessing Noverta</p>
             </div>
           </div>
           <p className="text-sm text-gray-600 leading-relaxed">
-            Your district requires all staff to acknowledge Trellis's legal documents before accessing student data.
+            Your district requires all staff to acknowledge Noverta's legal documents before accessing student data.
             Please read each document carefully and check the box to confirm you have read and agree.
           </p>
         </div>

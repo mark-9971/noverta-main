@@ -1,5 +1,5 @@
 /**
- * Audited Trellis-support session helpers.
+ * Audited Noverta-support session helpers.
  *
  * - A `trellis_support` user opens a session pinned to ONE district by calling
  *   POST /api/support-session/open { districtId, reason }.

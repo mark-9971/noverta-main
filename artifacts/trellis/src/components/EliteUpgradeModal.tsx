@@ -43,7 +43,7 @@ export function EliteUpgradeModal({ open, onClose, featureName }: EliteUpgradeMo
             <Crown className="w-6 h-6 text-white" />
           </div>
           <DialogTitle className="text-xl">
-            Upgrade to Trellis ELITE
+            Upgrade to Noverta ELITE
           </DialogTitle>
           <DialogDescription>
             {featureName

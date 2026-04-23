@@ -293,7 +293,7 @@ export default function DistrictDataPage() {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Restore from an Archive</h2>
-            <p className="text-xs text-gray-500">Re-importing a downloaded archive ZIP back into Trellis.</p>
+            <p className="text-xs text-gray-500">Re-importing a downloaded archive ZIP back into Noverta.</p>
           </div>
         </div>
 

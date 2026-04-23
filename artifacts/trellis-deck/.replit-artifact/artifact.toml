@@ -1,6 +1,6 @@
 kind = "slides"
 previewPath = "/trellis-deck/"
-title = "Trellis — 10-Slide Pitch"
+title = "Noverta — 10-Slide Pitch"
 version = "1.0.0"
 id = "artifacts/trellis-deck"
 router = "path"

@@ -346,10 +346,10 @@ router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), asy
       syncStatus: "connected",
       // Honest about what just happened: only CSV is automatically synced today.
       // Other providers are early pilots — the connection record is saved but a
-      // first sync requires Trellis engineering to validate field mappings.
+      // first sync requires Noverta engineering to validate field mappings.
       message: provider === "csv"
         ? `CSV roster connection saved. Use the import wizard to upload your roster file.`
-        : `${provider} connection details saved. This connector is in early pilot — Trellis support will reach out to schedule a verified first sync. In the meantime, you can upload a CSV roster to start using Trellis today.`,
+        : `${provider} connection details saved. This connector is in early pilot — Noverta support will reach out to schedule a verified first sync. In the meantime, you can upload a CSV roster to start using Noverta today.`,
     });
   } catch (err) {
     console.error("SIS connect error:", err);

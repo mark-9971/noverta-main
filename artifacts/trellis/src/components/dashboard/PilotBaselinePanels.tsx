@@ -150,7 +150,7 @@ export default function PilotBaselinePanels() {
             <div className="flex items-center gap-2 text-xs font-medium text-indigo-700 uppercase tracking-wide">
               <Lock className="w-3.5 h-3.5" /> Day 0 baseline
             </div>
-            <h2 className="text-base font-semibold text-gray-900 mt-1">Pre-Trellis snapshot</h2>
+            <h2 className="text-base font-semibold text-gray-900 mt-1">Pre-Noverta snapshot</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Captured {baselineDate} · immutable · used by the Pilot Readout to compute ROI
             </p>

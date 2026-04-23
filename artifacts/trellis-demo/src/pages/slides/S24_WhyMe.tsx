@@ -9,7 +9,7 @@ export default function S24_WhyMe() {
           <div className="flex-1">
             <div className="w-[3vw] h-[0.4vh] bg-primary rounded-full mb-[2vh]" />
             <p className="font-body text-[1.6vw] text-text leading-relaxed mb-[3vh]">I have seen firsthand how broken the systems are that SPED teams rely on. Teachers and clinicians spend more time fighting their tools than helping students.</p>
-            <p className="font-body text-[1.6vw] text-text leading-relaxed">Trellis is built by someone who understands both the compliance paperwork and the clinical workflows -- not a generic EdTech team guessing at what schools need.</p>
+            <p className="font-body text-[1.6vw] text-text leading-relaxed">Noverta is built by someone who understands both the compliance paperwork and the clinical workflows -- not a generic EdTech team guessing at what schools need.</p>
           </div>
           <div className="flex-1">
             <div className="bg-white rounded-[1vw] p-[2.5vw] border border-gray-100 shadow-sm">

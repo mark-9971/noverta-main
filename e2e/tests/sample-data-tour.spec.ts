@@ -88,7 +88,7 @@ test.describe("Sample data guided tour", () => {
     // signed-in session before we hit /api/sample-data.
     await page.goto("/setup");
     await expect(
-      page.getByRole("heading", { name: "Set Up Trellis" }),
+      page.getByRole("heading", { name: "Set Up Noverta" }),
     ).toBeVisible({ timeout: 60_000 });
 
     await teardownSampleDataIfPresent(page);

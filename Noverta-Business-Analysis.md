@@ -1,10 +1,10 @@
-# Trellis — Business Extraction & Sales Positioning
+# Noverta — Business Extraction & Sales Positioning
 
 ---
 
 ## 1. Executive Summary
 
-Trellis is a production-grade, all-in-one school management platform purpose-built for Massachusetts special education compliance (603 CMR 28.00/46.00). It merges IEP case management, ABA/behavior data collection, academic class management, protective measures documentation, and compliance automation into a single web application with five role-based views (Admin, SPED Teacher, Gen Ed Teacher, SPED Student, Gen Ed Student).
+Noverta is a production-grade, all-in-one school management platform purpose-built for Massachusetts special education compliance (603 CMR 28.00/46.00). It merges IEP case management, ABA/behavior data collection, academic class management, protective measures documentation, and compliance automation into a single web application with five role-based views (Admin, SPED Teacher, Gen Ed Teacher, SPED Student, Gen Ed Student).
 
 The platform is not a prototype — it has a relational data model spanning 35 database tables, 100+ API endpoints, 40+ frontend pages, realistic seeded demo data (1,300+ lines), automated compliance alerting, restraint/seclusion incident tracking with multi-party signature workflows and PDF reporting, service minute delivery tracking with risk calculation, and a full academic layer (classes, assignments, gradebook, student portal).
 
@@ -15,10 +15,10 @@ It is strongest as a **therapeutic school / specialized SPED program** product t
 ## 2. Product Summary
 
 ### What it is
-Trellis is a web-based SaaS platform that gives special education teams a single place to manage IEPs, track service delivery minutes, collect ABA/behavior data, handle restraint/seclusion incident documentation, manage academic classwork, and monitor compliance — all in real time.
+Noverta is a web-based SaaS platform that gives special education teams a single place to manage IEPs, track service delivery minutes, collect ABA/behavior data, handle restraint/seclusion incident documentation, manage academic classwork, and monitor compliance — all in real time.
 
 ### What problem it solves
-Special education departments drown in paperwork, disconnected spreadsheets, and manual compliance tracking. Teachers log sessions on paper. Case managers manually calculate service minute delivery. Restraint incidents require hand-written reports that take days to complete and route for signatures. Compliance gaps are discovered only during audits — by then, schools face legal liability and reimbursement clawbacks. Trellis eliminates all of that with automated tracking, real-time dashboards, and built-in compliance workflows.
+Special education departments drown in paperwork, disconnected spreadsheets, and manual compliance tracking. Teachers log sessions on paper. Case managers manually calculate service minute delivery. Restraint incidents require hand-written reports that take days to complete and route for signatures. Compliance gaps are discovered only during audits — by then, schools face legal liability and reimbursement clawbacks. Noverta eliminates all of that with automated tracking, real-time dashboards, and built-in compliance workflows.
 
 ### Who it's for
 - Therapeutic day schools (primary target)
@@ -35,14 +35,14 @@ Special education departments drown in paperwork, disconnected spreadsheets, and
 5. **Real ABA data collection** — not placeholder fields, but actual trial-by-trial and interval recording with prompt hierarchies and auto-progression
 
 ### Why someone would buy it vs. spreadsheets
-Spreadsheets can't auto-calculate whether a student is on track for their IEP minute requirements at any point in the school year. They can't generate compliance alerts. They can't route restraint incident reports for multi-party signatures. They can't show a parent their child's IEP goal progress in real time. They can't prevent a school from failing a DESE compliance review. Trellis does all of this without any manual data aggregation.
+Spreadsheets can't auto-calculate whether a student is on track for their IEP minute requirements at any point in the school year. They can't generate compliance alerts. They can't route restraint incident reports for multi-party signatures. They can't show a parent their child's IEP goal progress in real time. They can't prevent a school from failing a DESE compliance review. Noverta does all of this without any manual data aggregation.
 
 ---
 
 ## 3. User / Buyer Analysis
 
 ### End Users
-| Role | What They Do in Trellis |
+| Role | What They Do in Noverta |
 |------|------------------------|
 | **SPED Teacher / BCBA** | Log sessions, collect ABA data, write IEP goals, manage caseloads, document restraint incidents, send parent notifications |
 | **Gen Ed Teacher** | Manage classes, create assignments, grade student work, view class rosters |
@@ -77,37 +77,37 @@ Spreadsheets can't auto-calculate whether a student is on track for their IEP mi
 - **Pain**: IEPs require specific minutes of service delivery per week/month. Schools must prove they delivered these minutes. Currently tracked on spreadsheets that are rarely accurate and only reconciled quarterly.
 - **Who feels it**: Case managers, SPED coordinators, directors of SPED
 - **Why it matters**: Failure to deliver mandated minutes can result in compensatory service obligations, DESE sanctions, and legal action from parents
-- **Without Trellis**: Staff manually log sessions, then case managers manually tally minutes against IEP requirements at the end of each reporting period — by which point deficits are too large to recover
+- **Without Noverta**: Staff manually log sessions, then case managers manually tally minutes against IEP requirements at the end of each reporting period — by which point deficits are too large to recover
 
 ### Problem 2: Restraint/Seclusion Incident Documentation
 - **Pain**: Massachusetts requires extensive documentation for every physical restraint or seclusion, including verbal and written parent notification within strict timelines, multi-party signatures, and DESE reporting for injuries
 - **Who feels it**: Teachers who administered the restraint, case managers, school administrators
 - **Why it matters**: Non-compliant documentation exposes schools to lawsuits, DESE investigations, and loss of program approval
-- **Without Trellis**: Paper forms that take 45-60 minutes to complete, no automated signature routing, no way to ensure parent notification deadlines are met, no PDF report generation
+- **Without Noverta**: Paper forms that take 45-60 minutes to complete, no automated signature routing, no way to ensure parent notification deadlines are met, no PDF report generation
 
 ### Problem 3: Behavior/ABA Data Collection
 - **Pain**: BCBAs and behavior therapists need to collect trial-by-trial and interval-based data during sessions, track prompt levels, and measure skill acquisition — but most do this on paper clipboards
 - **Who feels it**: BCBAs, ABA therapists, clinical directors
 - **Why it matters**: Without accurate data, clinical decisions about IEP goals are uninformed, progress reports are subjective, and schools can't demonstrate evidence-based practice
-- **Without Trellis**: Paper data sheets, manual graphing in Excel, hours spent digitizing data each week
+- **Without Noverta**: Paper data sheets, manual graphing in Excel, hours spent digitizing data each week
 
 ### Problem 4: IEP Goal Progress Reporting
 - **Pain**: Schools must report progress on IEP goals to parents at regular intervals. Assembling these reports requires input from multiple providers.
 - **Who feels it**: Case managers, related service providers, parents
 - **Why it matters**: Missing or late progress reports violate IDEA requirements
-- **Without Trellis**: Emailing Word documents between providers, manually compiling narratives, no central view of goal progress
+- **Without Noverta**: Emailing Word documents between providers, manually compiling narratives, no central view of goal progress
 
 ### Problem 5: Scheduling and Caseload Management
 - **Pain**: SPED coordinators must build schedules that ensure every student receives their mandated services without conflicts
 - **Who feels it**: SPED coordinators, related service providers
 - **Why it matters**: Schedule conflicts mean missed sessions, which compound into compliance gaps
-- **Without Trellis**: Manual scheduling with Google Sheets, no conflict detection, no visibility into provider utilization
+- **Without Noverta**: Manual scheduling with Google Sheets, no conflict detection, no visibility into provider utilization
 
 ### Problem 6: Academic and SPED System Fragmentation
 - **Pain**: General education data (grades, assignments) lives in one system; SPED data (IEPs, sessions, behavior) lives in another; administrators have no unified view
 - **Who feels it**: Principals, administrators, parents
 - **Why it matters**: Fragmented systems mean duplicate data entry, information gaps, and inability to see the whole student
-- **Without Trellis**: Two or three separate systems that don't talk to each other
+- **Without Noverta**: Two or three separate systems that don't talk to each other
 
 ---
 
@@ -279,7 +279,7 @@ Spreadsheets can't auto-calculate whether a student is on track for their IEP mi
 
 ### 3 Strongest Differentiators
 1. **Built for MA DESE compliance from day one** — not a generic platform with compliance bolted on. The data model, workflows, and exports are designed around 603 CMR 28.00/46.00 requirements.
-2. **Unified SPED + Gen Ed in one platform** — most competitors are either an IEP system OR a school management system. Trellis is both, so the student record isn't split across systems.
+2. **Unified SPED + Gen Ed in one platform** — most competitors are either an IEP system OR a school management system. Noverta is both, so the student record isn't split across systems.
 3. **Real ABA data collection** — trial-by-trial recording, prompt hierarchies, auto-progression, mastery criteria, program templates. This is clinical-grade, not a simple checkbox.
 
 ### 3 Most Impressive Workflows
@@ -289,7 +289,7 @@ Spreadsheets can't auto-calculate whether a student is on track for their IEP mi
 
 ### 3 Most Buyer-Relevant Outcomes
 1. **Audit readiness** — When DESE reviews your school, everything is documented, signed, and exportable
-2. **Time savings** — A single restraint incident report that takes 45-60 minutes on paper takes 10 minutes in Trellis
+2. **Time savings** — A single restraint incident report that takes 45-60 minutes on paper takes 10 minutes in Noverta
 3. **Risk prevention** — Compliance gaps are caught in real time, not discovered during annual audits
 
 ### 3 Most Pitch-Worthy Features Right Now
@@ -328,7 +328,7 @@ Spreadsheets can't auto-calculate whether a student is on track for their IEP mi
 
 1. **Open the Admin Dashboard** (30 seconds)
    - Show the compliance ring, active alerts, session delivery trend
-   - Point out "this is what you see every morning when you open Trellis"
+   - Point out "this is what you see every morning when you open Noverta"
 
 2. **Navigate to Protective Measures** (15 seconds)
    - Show the incident list with status badges
@@ -406,13 +406,13 @@ Spreadsheets can't auto-calculate whether a student is on track for their IEP mi
 ## 11. Reusable Sales Content Block
 
 ### A. 1-Sentence Product Description
-Trellis is a compliance-first school management platform that automates IEP tracking, service delivery, behavior data collection, and restraint documentation for Massachusetts special education programs.
+Noverta is a compliance-first school management platform that automates IEP tracking, service delivery, behavior data collection, and restraint documentation for Massachusetts special education programs.
 
 ### B. 3-Sentence Product Description
-Trellis gives special education teams a single platform to manage IEPs, track service minutes, collect ABA data, and document restraint incidents — all designed around Massachusetts DESE compliance requirements. The platform automatically calculates whether students are on track for their mandated services and alerts staff before compliance gaps become audit findings. With five role-based views for administrators, teachers, and students, Trellis replaces spreadsheets, paper forms, and disconnected tools with one unified system.
+Noverta gives special education teams a single platform to manage IEPs, track service minutes, collect ABA data, and document restraint incidents — all designed around Massachusetts DESE compliance requirements. The platform automatically calculates whether students are on track for their mandated services and alerts staff before compliance gaps become audit findings. With five role-based views for administrators, teachers, and students, Noverta replaces spreadsheets, paper forms, and disconnected tools with one unified system.
 
 ### C. 1-Paragraph Product Overview
-Trellis is a purpose-built school management platform for Massachusetts special education compliance. It combines IEP case management, real-time service minute tracking with automated risk calculation, clinical-grade ABA data collection with program templates and prompt hierarchies, and a comprehensive restraint/seclusion incident module with multi-signature workflows, auto-generated parent notification letters, and DESE-compliant PDF reporting — all in one system. Trellis also includes full academic class management (assignments, gradebook, student portals), staff caseload management, scheduling with conflict detection, and district-level dashboards. Five role-based views serve administrators, SPED teachers, general education teachers, and students. The platform is designed to keep schools audit-ready at all times by continuously monitoring compliance status and proactively alerting staff to emerging risks.
+Noverta is a purpose-built school management platform for Massachusetts special education compliance. It combines IEP case management, real-time service minute tracking with automated risk calculation, clinical-grade ABA data collection with program templates and prompt hierarchies, and a comprehensive restraint/seclusion incident module with multi-signature workflows, auto-generated parent notification letters, and DESE-compliant PDF reporting — all in one system. Noverta also includes full academic class management (assignments, gradebook, student portals), staff caseload management, scheduling with conflict detection, and district-level dashboards. Five role-based views serve administrators, SPED teachers, general education teachers, and students. The platform is designed to keep schools audit-ready at all times by continuously monitoring compliance status and proactively alerting staff to emerging risks.
 
 ### D. Key Benefits (Bullet List)
 - Eliminate manual service minute tracking and compliance calculations
@@ -443,7 +443,7 @@ Trellis is a purpose-built school management platform for Massachusetts special 
 A therapeutic day school or public school SPED department in Massachusetts serving 30-200 students on IEPs, with at least 2-3 BCBAs or behavior therapists, regular use of physical restraint/seclusion (5+ incidents per year), and current reliance on spreadsheets and paper forms for compliance tracking. The school has experienced or fears DESE compliance findings. The decision-maker is the Director of Special Education, Clinical Director, or Executive Director. The internal champion is a frustrated case manager or BCBA who spends 5+ hours per week on manual documentation.
 
 ### G. Top Buyer Objections the Product May Face
-1. **"We already have an IEP system"** — Response: Trellis isn't just IEP management. It's compliance automation + clinical data collection + incident documentation. Your current IEP system doesn't auto-calculate service minute delivery or generate restraint report PDFs.
+1. **"We already have an IEP system"** — Response: Noverta isn't just IEP management. It's compliance automation + clinical data collection + incident documentation. Your current IEP system doesn't auto-calculate service minute delivery or generate restraint report PDFs.
 2. **"How do we get our data in?"** — Response: CSV import is built in. We'd work with you on initial data migration during the pilot.
 3. **"Is student data secure?"** — Response: This is a valid concern. The platform currently needs an authentication layer before handling real student data. A pilot would begin with de-identified or test data.
 4. **"We need it to work on mobile"** — Response: The web app is responsive and works on tablets. A native mobile experience for hallway data collection is on the roadmap.
@@ -451,10 +451,10 @@ A therapeutic day school or public school SPED department in Massachusetts servi
 6. **"This seems like a lot — can we start small?"** — Response: Absolutely. Most schools start with the Protective Measures module and expand from there.
 
 ### H. Best-Case Sales Positioning Statement
-"Trellis is the only school management platform built specifically for Massachusetts special education compliance. While other tools make you track IEP minutes in spreadsheets and document restraint incidents on paper, Trellis automates compliance monitoring, generates DESE-ready reports, and routes incident documentation for signatures — so your team spends time with students instead of filling out forms."
+"Noverta is the only school management platform built specifically for Massachusetts special education compliance. While other tools make you track IEP minutes in spreadsheets and document restraint incidents on paper, Noverta automates compliance monitoring, generates DESE-ready reports, and routes incident documentation for signatures — so your team spends time with students instead of filling out forms."
 
 ### I. Strongest Pilot Use Case
-**60-day pilot at a single therapeutic school focused on the Protective Measures module.** The school uses Trellis to document all restraint/seclusion incidents during the pilot period. Success is measured by: (1) time saved per incident report (target: 50%+ reduction), (2) parent notification compliance rate (target: 100% within 3 days), and (3) staff satisfaction with the documentation process. The pilot expands to session logging and compliance tracking in month 2.
+**60-day pilot at a single therapeutic school focused on the Protective Measures module.** The school uses Noverta to document all restraint/seclusion incidents during the pilot period. Success is measured by: (1) time saved per incident report (target: 50%+ reduction), (2) parent notification compliance rate (target: 100% within 3 days), and (3) staff satisfaction with the documentation process. The pilot expands to session logging and compliance tracking in month 2.
 
 ### J. What NOT to Claim Yet
 - Do not claim the product is "secure" or "FERPA-compliant" — there is no authentication, no encryption at rest, no audit logging, no access control beyond demo role-switching

@@ -6,7 +6,7 @@ export default function DemoSlide() {
       <div className="relative z-10 flex flex-col h-full px-[7vw] py-[5vh]">
         <p className="font-body text-[1.3vw] font-semibold text-primary tracking-[0.15em] uppercase mb-[1vh]">Live Platform</p>
         <h2 className="font-display text-[3.5vw] font-bold text-text tracking-tight leading-[1.1]">
-          See Trellis in action
+          See Noverta in action
         </h2>
         <p className="font-body text-[1.5vw] text-muted mt-[1vh] max-w-[55vw]">
           A unified dashboard gives every role -- from BCBA to district admin -- exactly what they need.

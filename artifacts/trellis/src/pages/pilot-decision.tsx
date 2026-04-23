@@ -76,7 +76,7 @@ interface SurveyQuestion {
 const SURVEY: SurveyQuestion[] = [
   {
     id: "value",
-    prompt: "How much value did Trellis deliver for your team during the pilot?",
+    prompt: "How much value did Noverta deliver for your team during the pilot?",
     type: "rating",
     helper: "1 = no value, 5 = transformative",
   },

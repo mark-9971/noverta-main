@@ -1,7 +1,7 @@
-# Trellis end-to-end tests
+# Noverta end-to-end tests
 
 Playwright suite that exercises critical first-run flows against a running
-Trellis dev environment.
+Noverta dev environment.
 
 ## What's covered
 
@@ -192,7 +192,7 @@ The suite runs automatically on every pull request targeting `main` via
 
 1. Spins up a Postgres 16 service container.
 2. Installs deps with pnpm, builds the workspace libs, the API server,
-   and the Trellis web app.
+   and the Noverta web app.
 3. Pushes the Drizzle schema to the Postgres service.
 4. Starts the API server (`PORT=8090`) and the Vite preview of the web
    app (`PORT=5173`) in the background.

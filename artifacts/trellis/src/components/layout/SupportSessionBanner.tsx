@@ -40,7 +40,7 @@ export function SupportSessionBanner() {
     >
       <div className="flex items-center gap-2 min-w-0">
         <LifeBuoy className="h-4 w-4 flex-shrink-0" />
-        <span className="font-semibold whitespace-nowrap">Trellis Support read-only:</span>
+        <span className="font-semibold whitespace-nowrap">Noverta Support read-only:</span>
         <span className="truncate" data-testid="support-session-district">
           District #{session.districtId}
         </span>

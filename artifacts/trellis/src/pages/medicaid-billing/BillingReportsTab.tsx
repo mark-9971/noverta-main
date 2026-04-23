@@ -1121,7 +1121,7 @@ export function BillingReportsTab() {
     <div className="space-y-6">
       <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
         <b>Estimated values, not booked revenue.</b> All dollar figures are calculated from CPT/HCPCS mappings × units on
-        prepared claim drafts. Trellis does not file claims and cannot show actual reimbursement.
+        prepared claim drafts. Noverta does not file claims and cannot show actual reimbursement.
       </div>
 
       <div className="flex items-center gap-3">

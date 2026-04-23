@@ -201,7 +201,7 @@ export function SampleDataBanner() {
       <span className="text-amber-800">
         Your workspace includes <span className="font-medium">{data.sampleStudents}</span> sample
         student{data.sampleStudents === 1 ? "" : "s"} and {data.sampleStaff} sample staff so you
-        can explore Trellis with realistic numbers. Replace with your real roster anytime.
+        can explore Noverta with realistic numbers. Replace with your real roster anytime.
       </span>
       <div className="ml-auto flex items-center gap-2">
         {!confirming && (

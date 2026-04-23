@@ -297,13 +297,13 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
     doc.moveDown(0.6);
     doc.fontSize(10).font("Helvetica").fillColor(GRAY_MID)
       .text(
-        `Generated ${fmtDateLong(new Date().toISOString())} for ${data.district.name}. The numbers on the following pages are pulled live from your Trellis instance.`,
+        `Generated ${fmtDateLong(new Date().toISOString())} for ${data.district.name}. The numbers on the following pages are pulled live from your Noverta instance.`,
         LEFT, doc.y, { width: PAGE_W, lineGap: 2 },
       );
   } else {
     doc.fontSize(11).font("Helvetica").fillColor(GRAY_MID)
       .text(
-        "No pre-Trellis baseline was captured for this district, so this readout shows current-state metrics only.",
+        "No pre-Noverta baseline was captured for this district, so this readout shows current-state metrics only.",
         LEFT, doc.y, { width: PAGE_W },
       );
   }
@@ -389,7 +389,7 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
   const exposureNow = data.current.exposureDollars;
   const recovered = exposureBaseline != null ? Math.max(0, exposureBaseline - exposureNow) : null;
   paragraph(doc,
-    `At the start of the pilot, Trellis surfaced ${fmtMoney(exposureBaseline)} of compensatory-education exposure from undelivered mandated minutes in the trailing 30 days. ` +
+    `At the start of the pilot, Noverta surfaced ${fmtMoney(exposureBaseline)} of compensatory-education exposure from undelivered mandated minutes in the trailing 30 days. ` +
     `As of ${fmtDateLong(data.pilotEndOrToday)}, that figure stands at ${fmtMoney(exposureNow)}.`,
   );
   if (recovered != null && recovered > 0) {
@@ -410,7 +410,7 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
   if (compReduced != null && compReduced > 0) {
     bullet(doc, `Worked down: ${fmtNum(compReduced)} minutes (${compBaseline! > 0 ? Math.round((compReduced / compBaseline!) * 100) : 0}% reduction).`);
   }
-  bullet(doc, "Every active obligation now has an owner, a target completion date, and live burndown reporting in Trellis.");
+  bullet(doc, "Every active obligation now has an owner, a target completion date, and live burndown reporting in Noverta.");
 
   // ── Section: Adoption stats ───────────────────────────────────────────────
   sectionHeader(doc, "Adoption");
@@ -429,7 +429,7 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
   doc.addPage();
   sectionHeader(doc, "What's next");
   paragraph(doc,
-    "The pilot has proven Trellis can surface exposure, structure comp-ed work, and put compliance data in front of the team that owns it. To convert pilot wins into ongoing protection, we recommend:",
+    "The pilot has proven Noverta can surface exposure, structure comp-ed work, and put compliance data in front of the team that owns it. To convert pilot wins into ongoing protection, we recommend:",
   );
   numberedItem(doc, 1,
     "Convert to a full subscription so baseline tracking, comp-ed burndown, and weekly compliance reporting continue without interruption.",
@@ -447,7 +447,7 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
   doc.moveDown(1.2);
   doc.fontSize(9).font("Helvetica-Oblique").fillColor(GRAY_MID)
     .text(
-      "Prepared by Trellis. Figures reflect the live state of your Trellis instance at the moment this PDF was generated and may shift as new data is logged.",
+      "Prepared by Noverta. Figures reflect the live state of your Noverta instance at the moment this PDF was generated and may shift as new data is logged.",
       LEFT, doc.y, { width: PAGE_W, align: "left" },
     );
 
@@ -492,7 +492,7 @@ function numberedItem(doc: InstanceType<typeof PDFDocument>, n: number, text: st
  *
  * One-click ROI readout for the superintendent / director-of-SPED conversion
  * meeting. Pulls baseline and live metrics for the caller's district (or, for
- * platform admins, an explicit ?districtId=) and renders a Trellis-branded PDF.
+ * platform admins, an explicit ?districtId=) and renders a Noverta-branded PDF.
  */
 router.get(
   "/reports/exports/pilot-readout.pdf",

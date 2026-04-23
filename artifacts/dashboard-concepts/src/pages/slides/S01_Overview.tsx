@@ -131,7 +131,7 @@ export default function S01_Overview() {
           <div className="flex-1 mx-[5%] mb-[5%] rounded-lg overflow-hidden min-h-0"
             style={{ background: "#fafafa", border: "1px solid #e5e7eb" }}>
             <div style={{ background: "#ffffff", borderBottom: "1px solid #f3f4f6", padding: "3% 5%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ color: "#374151", fontSize: "0.65vw", fontWeight: 600 }}>Trellis</div>
+              <div style={{ color: "#374151", fontSize: "0.65vw", fontWeight: 600 }}>Noverta</div>
               <div style={{ color: "#9ca3af", fontSize: "0.55vw" }}>Mon Apr 14</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "6% 8%", gap: "4%" }}>

@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
  * End-to-end coverage for the cross-module showcase tour
  * (artifacts/trellis/src/components/ShowcaseTour.tsx).
  *
- * The tour visits the strongest screen of each major Trellis module —
+ * The tour visits the strongest screen of each major Noverta module —
  * dashboard, compliance, IEP, progress reports, parent communication,
  * restraint incidents, comp obligations, Medicaid claims, SIS sync, and
  * reports — using `data-tour-id="showcase-..."` anchors. This spec

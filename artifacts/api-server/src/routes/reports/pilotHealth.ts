@@ -51,7 +51,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
 
     // ── M1: IEP Roster Coverage (proxy mode) ─────────────────────────────
     // Active students with an active IEP doc / all active students.
-    // The official district IEP count is external and not stored in Trellis;
+    // The official district IEP count is external and not stored in Noverta;
     // active students serve as a proxy. Exposed as "proxyMode: true" in detail.
     const studConds: ReturnType<typeof eq>[] = [eq(studentsTable.status, "active") as ReturnType<typeof eq>];
     if (districtId !== null) studConds.push(sql`${studentsTable.schoolId} ${districtSchoolSubquery}` as ReturnType<typeof eq>);
@@ -257,7 +257,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
       metrics: {
         iepRosterCoverage: {
           label: "IEP Roster Coverage",
-          description: "Active students with an IEP entered in Trellis vs all active students. (Proxy mode: official district IEP count is external and not stored in Trellis.)",
+          description: "Active students with an IEP entered in Noverta vs all active students. (Proxy mode: official district IEP count is external and not stored in Noverta.)",
           value: m1Val,
           previousValue: null,
           trend: null,

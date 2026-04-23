@@ -1,6 +1,6 @@
 # Restoring a District from an Archive ZIP
 
-**Trellis — Manual Restoration Guide**
+**Noverta — Manual Restoration Guide**
 
 ---
 
@@ -8,14 +8,14 @@
 
 When a district downloads its full archive from **Settings → Data & Privacy**, the resulting ZIP contains a CSV for every table in that district's data: districts, schools, students, IEPs, session logs, compliance records, documents, and more.
 
-Trellis does **not** offer a one-click "restore from archive" button. Restoration is a **manual, supervised process** because:
+Noverta does **not** offer a one-click "restore from archive" button. Restoration is a **manual, supervised process** because:
 
 - The order in which tables are re-imported matters — child rows reference parent rows by ID
 - Auto-generated columns (primary keys, timestamps) must be regenerated, not preserved
 - Tenant scoping (`district_id`) must match the destination district, which may be new
 - Foreign key relationships must be re-mapped if the original IDs are no longer valid
 
-For most districts the fastest, safest path is to **contact Trellis support** and we will run the restoration for you. The rest of this guide is for districts or partners who need to perform the restoration themselves.
+For most districts the fastest, safest path is to **contact Noverta support** and we will run the restoration for you. The rest of this guide is for districts or partners who need to perform the restoration themselves.
 
 ---
 

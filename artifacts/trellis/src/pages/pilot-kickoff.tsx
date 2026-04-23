@@ -57,7 +57,7 @@ const STEPS: StepDef[] = [
     icon: UserPlus,
     templateKey: "staff",
     importPath: "/api/imports/staff",
-    blurb: "Upload providers, paras, case managers, and admins who will use Trellis.",
+    blurb: "Upload providers, paras, case managers, and admins who will use Noverta.",
     requiredCols: "first_name, last_name, role",
   },
   {
@@ -257,7 +257,7 @@ export default function PilotKickoffWizard() {
       </Card>
 
       <p className="text-xs text-gray-400 mt-4 text-center">
-        Rows you've already imported are persisted in Trellis — re-uploading a
+        Rows you've already imported are persisted in Noverta — re-uploading a
         corrected CSV won't create duplicates.{" "}
         <Link href="/onboarding" className="underline hover:text-gray-600">Back to onboarding hub</Link>
       </p>

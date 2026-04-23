@@ -141,7 +141,7 @@ export async function runApprovalReminders(): Promise<void> {
           await sendEmail({
             studentId: wf.studentId,
             type: "approval_pending_reminder",
-            subject: `Trellis REMINDER: Approval still pending (${daysIdle}d) — ${stageLabel}`,
+            subject: `Noverta REMINDER: Approval still pending (${daysIdle}d) — ${stageLabel}`,
             bodyHtml: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
               <div style="background:#d97706;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
                 <h2 style="margin:0;font-size:18px">Approval Reminder — Action Needed</h2>
@@ -155,7 +155,7 @@ export async function runApprovalReminders(): Promise<void> {
                   <li><strong>Stage:</strong> ${stageLabel}</li>
                   <li><strong>Days idle:</strong> ${daysIdle}</li>
                 </ul>
-                <p style="color:#6b7280;font-size:13px">Log in to Trellis to review and take action.</p>
+                <p style="color:#6b7280;font-size:13px">Log in to Noverta to review and take action.</p>
               </div>
             </div>`,
             toEmail: email,

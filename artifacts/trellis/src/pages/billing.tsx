@@ -494,7 +494,7 @@ function BillingPageInner() {
               <p className="text-sm text-red-700 mt-1">
                 {subscription.status === "canceled"
                   ? "Your subscription has been canceled. Choose a plan below to reactivate."
-                  : "Your payment is overdue. Please update your payment method to continue using Trellis."}
+                  : "Your payment is overdue. Please update your payment method to continue using Noverta."}
               </p>
             </div>
           </div>

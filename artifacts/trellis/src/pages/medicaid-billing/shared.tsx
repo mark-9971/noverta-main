@@ -9,14 +9,14 @@ export const STATUS_COLORS: Record<ClaimStatus, string> = {
 };
 
 // Honest, non-Medicaid-implying labels. None of these statuses reflect any
-// communication with Medicaid — Trellis never files claims or receives
+// communication with Medicaid — Noverta never files claims or receives
 // adjudication. Every status describes only what happened inside this tool.
 export const STATUS_LABELS: Record<ClaimStatus, { label: string; title: string }> = {
   pending: { label: "Draft", title: "Generated from session logs. Awaiting internal review by your billing admin." },
-  approved: { label: "Internal OK", title: "An admin in Trellis approved this draft for export. This is NOT a Medicaid approval — Medicaid has not seen it." },
-  rejected: { label: "Internal Reject", title: "An admin in Trellis rejected or flagged this draft. It will not be included in the next export." },
-  exported: { label: "Exported", title: "The CSV/JSON file containing this draft was downloaded from Trellis. Trellis does not know whether it has been uploaded to or accepted by Medicaid." },
-  void: { label: "Voided", title: "Marked void in Trellis (e.g. duplicate or no longer billable). Not exported and not filed." },
+  approved: { label: "Internal OK", title: "An admin in Noverta approved this draft for export. This is NOT a Medicaid approval — Medicaid has not seen it." },
+  rejected: { label: "Internal Reject", title: "An admin in Noverta rejected or flagged this draft. It will not be included in the next export." },
+  exported: { label: "Exported", title: "The CSV/JSON file containing this draft was downloaded from Noverta. Noverta does not know whether it has been uploaded to or accepted by Medicaid." },
+  void: { label: "Voided", title: "Marked void in Noverta (e.g. duplicate or no longer billable). Not exported and not filed." },
 };
 
 export const STATUS_FILTERS: { value: string; label: string; title: string }[] = [

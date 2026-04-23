@@ -9,7 +9,7 @@ import { Compass, X, ArrowRight, ArrowLeft } from "lucide-react";
 
 /**
  * Showcase Tour — a longer, cross-module guided walkthrough that visits
- * the strongest screen of each major Trellis module so a viewer can see
+ * the strongest screen of each major Noverta module so a viewer can see
  * "everything" without clicking around. Designed to live alongside the
  * shorter SampleDataTour: that tour orients a new admin to the freshly
  * seeded sample district, and this one points at the breadth of the
@@ -60,7 +60,7 @@ function storageKeyFor(
 //
 // Other modules (IEP builder, Medicaid, SIS, reports, etc.) are intentionally
 // NOT in this tour. They still exist in the nav and are reachable directly —
-// this tour is specifically the "what makes Trellis different" walkthrough,
+// this tour is specifically the "what makes Noverta different" walkthrough,
 // not a product overview.
 const STEPS: TourStep[] = [
   {
@@ -103,7 +103,7 @@ const STEPS: TourStep[] = [
     path: "/action-center",
     title: "Closing the loop",
     body:
-      "Log a makeup session from anywhere — the Action Center, the floating timer, the Today schedule — and Trellis auto-resolves the source alert when the minutes match. No second click to mark something \"done\".",
+      "Log a makeup session from anywhere — the Action Center, the floating timer, the Today schedule — and Noverta auto-resolves the source alert when the minutes match. No second click to mark something \"done\".",
   },
 ];
 
@@ -361,7 +361,7 @@ export function ShowcaseTour() {
   return createPortal(
     <div
       role="dialog"
-      aria-label="Trellis showcase tour"
+      aria-label="Noverta showcase tour"
       data-testid="showcase-tour"
       className="fixed inset-0 z-[80]"
       style={{ pointerEvents: "none" }}

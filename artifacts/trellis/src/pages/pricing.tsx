@@ -148,14 +148,14 @@ const TIERS: TierConfig[] = [
 const ADD_ONS = [
   {
     title: "Medicaid Claim Prep",
-    description: "Turns logged service minutes into a Medicaid-ready claim queue: CPT/HCPCS code mapping, unit calculation, diagnosis validation, and admin review. Exports a CSV your district (or your billing vendor / clearinghouse) uploads to your state Medicaid system. Trellis does not file claims, generate true X12 837P EDI, or follow up on adjudication.",
+    description: "Turns logged service minutes into a Medicaid-ready claim queue: CPT/HCPCS code mapping, unit calculation, diagnosis validation, and admin review. Exports a CSV your district (or your billing vendor / clearinghouse) uploads to your state Medicaid system. Noverta does not file claims, generate true X12 837P EDI, or follow up on adjudication.",
     pricing: "Included in Professional and Enterprise",
     detail: "No revenue share. Filing, clearinghouse fees, and reimbursement remain with the district or its billing vendor.",
     icon: "💰",
   },
   {
     title: "SIS Integrations",
-    description: "CSV roster upload is fully supported today and is the recommended path for every district. Direct PowerSchool, Infinite Campus, and Skyward connectors are in early pilot — built but not yet validated against a live tenant of those vendors, so first-time setup is hands-on with Trellis engineering. Other systems (Aspen, Synergy, Aeries, Genesis, etc.) do not have a live API connector — bring your roster as a CSV export.",
+    description: "CSV roster upload is fully supported today and is the recommended path for every district. Direct PowerSchool, Infinite Campus, and Skyward connectors are in early pilot — built but not yet validated against a live tenant of those vendors, so first-time setup is hands-on with Noverta engineering. Other systems (Aspen, Synergy, Aeries, Genesis, etc.) do not have a live API connector — bring your roster as a CSV export.",
     pricing: "Per connector",
     detail: "One-time setup + annual maintenance fee.",
     icon: "🔗",
@@ -176,11 +176,11 @@ const FAQS = [
   },
   {
     q: "What about data migration from our current system?",
-    a: "Migration today is CSV-based. Trellis ships generic CSV templates with a column-mapping wizard and row-level validation for students, staff, service requirements, session logs, and goals data, plus IEP PDF ingestion that auto-extracts goals, services, and accommodations. Two vendor-specific column presets are included out of the box today: Aspen X2 student rosters and eSPED service-grid exports. Any other system that can export to CSV — Frontline, SpedTrack, EasyIEP, SEIS, and similar — can be loaded through the generic templates, with column mapping done interactively in the wizard; we'll add a saved preset for your source system on request during onboarding. There are no live API connectors to those special-ed vendors today — those are roadmap items.",
+    a: "Migration today is CSV-based. Noverta ships generic CSV templates with a column-mapping wizard and row-level validation for students, staff, service requirements, session logs, and goals data, plus IEP PDF ingestion that auto-extracts goals, services, and accommodations. Two vendor-specific column presets are included out of the box today: Aspen X2 student rosters and eSPED service-grid exports. Any other system that can export to CSV — Frontline, SpedTrack, EasyIEP, SEIS, and similar — can be loaded through the generic templates, with column mapping done interactively in the wizard; we'll add a saved preset for your source system on request during onboarding. There are no live API connectors to those special-ed vendors today — those are roadmap items.",
   },
   {
-    q: "How does Trellis handle student data privacy and security?",
-    a: "Trellis is built to operate as a \u201cschool official\u201d under FERPA's legitimate educational interest provision and signs a Data Processing Agreement with every district (DPA, not a HIPAA BAA — Trellis does not process Protected Health Information). Data in transit is protected by TLS 1.2+; data at rest is encrypted by our managed PostgreSQL provider (AES-256). All data stays in the United States. Authentication is handled by Clerk, with optional MFA and SSO. Role-based access and district isolation are enforced server-side, and every change to student records is written to an append-only audit log. SOC 2 Type II is on the roadmap but not yet obtained, and no third-party penetration test has been performed on the current production environment yet — both are planned before broad enterprise rollout. Full details are in the Security Overview document on the Legal & Compliance page.",
+    q: "How does Noverta handle student data privacy and security?",
+    a: "Noverta is built to operate as a \u201cschool official\u201d under FERPA's legitimate educational interest provision and signs a Data Processing Agreement with every district (DPA, not a HIPAA BAA — Noverta does not process Protected Health Information). Data in transit is protected by TLS 1.2+; data at rest is encrypted by our managed PostgreSQL provider (AES-256). All data stays in the United States. Authentication is handled by Clerk, with optional MFA and SSO. Role-based access and district isolation are enforced server-side, and every change to student records is written to an append-only audit log. SOC 2 Type II is on the roadmap but not yet obtained, and no third-party penetration test has been performed on the current production environment yet — both are planned before broad enterprise rollout. Full details are in the Security Overview document on the Legal & Compliance page.",
   },
   {
     q: "What is the minimum contract length?",
@@ -192,7 +192,7 @@ const FAQS = [
   },
   {
     q: "Do you support Massachusetts state reporting requirements?",
-    a: "Trellis is purpose-built against the Massachusetts SPED framework (603 CMR 28.00 and 46.00) and ships export templates structured around the fields DESE submissions require. The exports are designed to be uploaded into your district's existing state-reporting workflow — Trellis itself does not transmit data to DESE.",
+    a: "Noverta is purpose-built against the Massachusetts SPED framework (603 CMR 28.00 and 46.00) and ships export templates structured around the fields DESE submissions require. The exports are designed to be uploaded into your district's existing state-reporting workflow — Noverta itself does not transmit data to DESE.",
   },
 ];
 
@@ -461,7 +461,7 @@ export default function PricingPage() {
               <Sprout className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="text-lg font-semibold text-gray-900">Trellis</span>
+              <span className="text-lg font-semibold text-gray-900">Noverta</span>
               <span className="text-xs text-gray-400 ml-2 hidden sm:inline">Service-minute compliance for SPED.</span>
             </div>
           </div>
@@ -481,7 +481,7 @@ export default function PricingPage() {
             Make sure every IEP minute gets delivered.
           </h1>
           <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-            Trellis helps Massachusetts SPED teams track whether mandated services are actually being delivered, flag compliance gaps early, and reduce compensatory exposure before it grows.
+            Noverta helps Massachusetts SPED teams track whether mandated services are actually being delivered, flag compliance gaps early, and reduce compensatory exposure before it grows.
           </p>
         </div>
       </section>
@@ -503,7 +503,7 @@ export default function PricingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold text-gray-900">Add-ons & Services</h2>
-            <p className="text-sm text-gray-500 mt-2">Extend Trellis with additional capabilities for your district.</p>
+            <p className="text-sm text-gray-500 mt-2">Extend Noverta with additional capabilities for your district.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {ADD_ONS.map((addon) => (
@@ -596,11 +596,11 @@ export default function PricingPage() {
             <div className="w-7 h-7 bg-emerald-600 rounded-md flex items-center justify-center">
               <Sprout className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm font-medium text-gray-700">Trellis</span>
+            <span className="text-sm font-medium text-gray-700">Noverta</span>
             <span className="text-xs text-gray-400">Service-minute compliance for SPED.</span>
           </div>
           <p className="text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Trellis. FERPA-aligned. US-hosted. Data Processing Agreement available on request.
+            &copy; {new Date().getFullYear()} Noverta. FERPA-aligned. US-hosted. Data Processing Agreement available on request.
           </p>
         </div>
       </footer>

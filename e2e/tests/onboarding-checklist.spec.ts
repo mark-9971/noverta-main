@@ -514,7 +514,7 @@ test.describe("Onboarding wizard endpoints (real API round-trip)", () => {
     // signed-in Clerk session before we hit /api/onboarding/*.
     await page.goto("/setup");
     await expect(
-      page.getByRole("heading", { name: "Set Up Trellis" }),
+      page.getByRole("heading", { name: "Set Up Noverta" }),
     ).toBeVisible({ timeout: 60_000 });
   });
 

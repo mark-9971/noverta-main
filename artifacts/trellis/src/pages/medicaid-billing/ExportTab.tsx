@@ -66,14 +66,14 @@ export function ExportTab() {
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
           <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
-            <b>This is a data export, not a Medicaid submission.</b> Trellis does not transmit claims to Medicaid,
+            <b>This is a data export, not a Medicaid submission.</b> Noverta does not transmit claims to Medicaid,
             does not produce true X12 837P EDI, and does not receive adjudication responses. Download the file
             and upload it through your district's Medicaid billing system or clearinghouse.
           </div>
           <p className="text-[13px] text-gray-500">
             Export all <b className="text-gray-800">{approvedCount} internally-approved</b> claim drafts.
-            Once exported, drafts are marked <b className="text-gray-800">exported</b> in Trellis so the same
-            draft is not exported twice — this status reflects what Trellis sent to you, not what Medicaid received.
+            Once exported, drafts are marked <b className="text-gray-800">exported</b> in Noverta so the same
+            draft is not exported twice — this status reflects what Noverta sent to you, not what Medicaid received.
           </p>
 
           <div>
@@ -114,7 +114,7 @@ export function ExportTab() {
         <CardContent className="pt-4">
           <div className="text-[12px] text-gray-500 space-y-2">
             <p><b className="text-gray-700">CSV columns:</b> ClaimID, PatientMedicaidID, PatientLastName, PatientFirstName, PatientDOB, ProviderNPI, ProviderMedicaidID, ServiceDate, CPTCode, Modifier, PlaceOfService, Units, BilledAmount, DiagnosisCode, ServiceDescription</p>
-            <p><b className="text-gray-700">837P field mapping (not EDI):</b> Columns line up with the common professional-claim fields used by 837P, so a billing analyst or vendor can map them into their import template. Trellis does not generate the X12 837P EDI envelope itself; the conversion to EDI and the actual transmission to Medicaid happen in your billing system or at your clearinghouse.</p>
+            <p><b className="text-gray-700">837P field mapping (not EDI):</b> Columns line up with the common professional-claim fields used by 837P, so a billing analyst or vendor can map them into their import template. Noverta does not generate the X12 837P EDI envelope itself; the conversion to EDI and the actual transmission to Medicaid happen in your billing system or at your clearinghouse.</p>
             <p><b className="text-gray-700">Audit trail:</b> Each export creates a batch ID linking the exported drafts to the export event so you can reconcile internally. This batch ID is <b>not</b> a Medicaid claim control number.</p>
           </div>
         </CardContent>

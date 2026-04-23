@@ -22,7 +22,7 @@ export default function S04_Solution() {
               <span className="block italic text-accent">Three jobs done.</span>
             </h2>
             <p className="font-body text-[1.4vw] text-text/85 leading-relaxed mt-[4vh] max-w-[40vw]">
-              Trellis replaces the SPED director's spreadsheet, the related-service provider's notebook, and the superintendent's dashboard — with a single source of truth.
+              Noverta replaces the SPED director's spreadsheet, the related-service provider's notebook, and the superintendent's dashboard — with a single source of truth.
             </p>
           </div>
 

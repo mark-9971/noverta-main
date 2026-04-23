@@ -35,7 +35,7 @@ export function SisStep(p: SisStepProps) {
           Connect Your Student Information System
         </CardTitle>
         <p className="text-sm text-gray-500 mt-1">
-          Choose how Trellis gets your roster. CSV upload is fully supported today; direct SIS API connectors are in early pilot.
+          Choose how Noverta gets your roster. CSV upload is fully supported today; direct SIS API connectors are in early pilot.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -46,16 +46,16 @@ export function SisStep(p: SisStepProps) {
           <Info className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
           <div className="text-xs text-emerald-900 leading-relaxed space-y-1.5">
             <p>
-              <span className="font-semibold">How Trellis fits with your SIS.</span>{" "}
+              <span className="font-semibold">How Noverta fits with your SIS.</span>{" "}
               Your SIS stays the system of record for student demographics,
-              enrollment, and IEP metadata. Trellis reads roster data from
+              enrollment, and IEP metadata. Noverta reads roster data from
               your SIS on a schedule and layers service-delivery tracking,
               minutes-at-risk calculations, and compliance reporting on top.
             </p>
             <p>
-              <span className="font-semibold">Trellis flags gaps; it does not
+              <span className="font-semibold">Noverta flags gaps; it does not
               replace your SIS.</span> Edits to demographics or enrollment still
-              happen in your SIS and flow into Trellis on the next sync.
+              happen in your SIS and flow into Noverta on the next sync.
             </p>
           </div>
         </div>
@@ -66,7 +66,7 @@ export function SisStep(p: SisStepProps) {
             The PowerSchool, Infinite Campus, Skyward, and SFTP connectors are
             built but have not yet been validated against a live tenant of those
             vendors. Picking one will save your credentials and queue a first
-            sync — Trellis support will reach out to verify field mappings with
+            sync — Noverta support will reach out to verify field mappings with
             you before relying on it. Aspen, Synergy, Aeries, Genesis, and
             others have no live API connector — export your roster as CSV and
             upload it here.

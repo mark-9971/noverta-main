@@ -32,7 +32,7 @@ export interface AuthedRequest extends Request {
   viewAsSessionId?: number;
 
   /**
-   * Trellis-support session context. When the authenticated user has the
+   * Noverta-support session context. When the authenticated user has the
    * `trellis_support` role AND has an active support_sessions row, the
    * request is pinned to that district (tenantDistrictId) and tagged with
    * supportSessionId so audit log rows can be filtered by session. The
@@ -157,7 +157,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   (req as unknown as AuthedRequest).userId = auth.userId;
   const role = extractRole(req);
   if (!role) {
-    recordAccessDenial(req, "no_role", 403, "Authenticated user has no Trellis role in token metadata");
+    recordAccessDenial(req, "no_role", 403, "Authenticated user has no Noverta role in token metadata");
     res.status(403).json({ error: "No role assigned. Contact your administrator." });
     return;
   }
@@ -236,7 +236,7 @@ export function enforceSupportReadOnly(req: Request, res: Response, next: NextFu
   const m = req.method.toUpperCase();
   if (m === "GET" || m === "HEAD" || m === "OPTIONS") { next(); return; }
   recordAccessDenial(req, "support_session_readonly", 403, `trellis_support attempted ${m} ${req.path} during read-only session ${authed.supportSessionId}`);
-  res.status(403).json({ error: "Trellis support sessions are read-only. Writes are not permitted while a support session is active." });
+  res.status(403).json({ error: "Noverta support sessions are read-only. Writes are not permitted while a support session is active." });
 }
 
 /**
@@ -271,7 +271,7 @@ export function logSupportSessionReads(req: Request, res: Response, next: NextFu
         action: "read",
         targetTable: "support_session_view",
         targetId: String(authed.supportSessionId),
-        summary: `Trellis support read ${req.method} ${req.originalUrl || req.url}`,
+        summary: `Noverta support read ${req.method} ${req.originalUrl || req.url}`,
         metadata: {
           path: req.path,
           query: req.query,

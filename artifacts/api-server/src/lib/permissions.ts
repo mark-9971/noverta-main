@@ -20,7 +20,7 @@ export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   para: 30,
   sped_student: 10,
   sped_parent: 5,
-  // Trellis-employee read-only support role. Outside the district staff
+  // Noverta-employee read-only support role. Outside the district staff
   // hierarchy entirely; ranking is set low so it never satisfies a minRole
   // check by accident. Read access is granted only when an active
   // support_sessions row pins the request to a specific district (see

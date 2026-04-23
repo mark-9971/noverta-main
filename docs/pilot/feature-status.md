@@ -1,12 +1,12 @@
-# Trellis — Pilot Feature Status
+# Noverta — Pilot Feature Status
 
 > **Decision rule:** "If a district pilot would not fail, stall, or become materially less valuable without this feature in the next 60 days, archive it for now."
 
 ## Executive Summary
 
-Trellis is a **SPED operations, service delivery, and compliance risk platform** — not a full SIS replacement. The strongest pilot wedge is:
+Noverta is a **SPED operations, service delivery, and compliance risk platform** — not a full SIS replacement. The strongest pilot wedge is:
 
-> *"Trellis helps SPED teams deliver required services, document what happened, and spot compliance risk before it becomes an audit or parent problem."*
+> *"Noverta helps SPED teams deliver required services, document what happened, and spot compliance risk before it becomes an audit or parent problem."*
 
 The product story centers on: students → IEP snapshots → session logging → schedule → compliance monitoring → alerts → reporting → parent communication. Everything else is either demo/sales value or future expansion.
 
@@ -156,7 +156,7 @@ Features removed from active sidebar (still URL-accessible):
 
 1. Run pilot demo with 3 target districts using focused nav
 2. Record 5-minute Loom walkthrough of core workflow
-3. Write one-pager: "Trellis vs. spreadsheet compliance tracking"
+3. Write one-pager: "Noverta vs. spreadsheet compliance tracking"
 4. Get letter of intent from one pilot district
 5. Define "pilot success" metrics (sessions logged, compliance %)
 6. Create onboarding checklist for pilot district setup

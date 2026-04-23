@@ -406,7 +406,7 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
     const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#065f46;color:#fff;padding:20px 24px}.body{padding:24px}.detail-row{margin:6px 0;font-size:14px}.label{font-weight:bold;color:#374151;display:inline-block;width:110px}.notes-box{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:12px 16px;margin-top:16px;font-size:13px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style>
 </head><body><div class="wrapper">
-<div class="header"><h1 style="margin:0;font-size:17px">Coverage Assignment</h1><p style="margin:4px 0 0;font-size:11px;opacity:.8">Trellis SPED Platform</p></div>
+<div class="header"><h1 style="margin:0;font-size:17px">Coverage Assignment</h1><p style="margin:4px 0 0;font-size:11px;opacity:.8">Noverta SPED Platform</p></div>
 <div class="body">
 <p>Hi ${subName},</p>
 <p>You have been assigned to cover a session. Please review the details below and prepare accordingly.</p>
@@ -415,11 +415,11 @@ ${timeLabel ? `<div class="detail-row"><span class="label">Time:</span> ${timeLa
 ${locationLabel ? `<div class="detail-row"><span class="label">Location:</span> ${locationLabel}</div>` : ""}
 ${studentName ? `<div class="detail-row"><span class="label">Student:</span> ${studentName}</div>` : ""}
 ${notesLabel ? `<div class="notes-box"><strong>Special Notes:</strong><br>${notesLabel.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>` : ""}
-<p style="margin-top:20px;color:#6b7280;font-size:13px">Please log in to Trellis to view full session details.</p>
+<p style="margin-top:20px;color:#6b7280;font-size:13px">Please log in to Noverta to view full session details.</p>
 </div>
-<div class="footer"><p>Trellis SPED Compliance Platform — Confidential. This message was sent because you were assigned as a substitute provider.</p></div>
+<div class="footer"><p>Noverta SPED Compliance Platform — Confidential. This message was sent because you were assigned as a substitute provider.</p></div>
 </div></body></html>`;
-    const text = `Hi ${subName},\n\nYou have been assigned to cover a session.\n\nDate: ${dateLabel}${timeLabel ? `\nTime: ${timeLabel}` : ""}${locationLabel ? `\nLocation: ${locationLabel}` : ""}${studentName ? `\nStudent: ${studentName}` : ""}${notesLabel ? `\nSpecial Notes: ${notesLabel}` : ""}\n\nPlease log in to Trellis to view full session details.\n\nTrellis SPED Compliance Platform`;
+    const text = `Hi ${subName},\n\nYou have been assigned to cover a session.\n\nDate: ${dateLabel}${timeLabel ? `\nTime: ${timeLabel}` : ""}${locationLabel ? `\nLocation: ${locationLabel}` : ""}${studentName ? `\nStudent: ${studentName}` : ""}${notesLabel ? `\nSpecial Notes: ${notesLabel}` : ""}\n\nPlease log in to Noverta to view full session details.\n\nTrellis SPED Compliance Platform`;
     let sendResult: Awaited<ReturnType<typeof sendAdminEmail>>;
     try {
       sendResult = await sendAdminEmail({ to: [sub.email], subject, html, text, notificationType: "coverage_assignment" });

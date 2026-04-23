@@ -52,7 +52,7 @@ export function logAudit(req: Request, entry: AuditEntry): void {
       },
     };
   }
-  // Trellis-support session tag. Captures which support session the action
+  // Noverta-support session tag. Captures which support session the action
   // happened under so a district admin can later filter audit history by
   // session id and see exactly what was viewed during a given support call.
   if (authed.supportSessionId) {

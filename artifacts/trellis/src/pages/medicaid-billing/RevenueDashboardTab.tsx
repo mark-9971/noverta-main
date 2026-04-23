@@ -32,7 +32,7 @@ export function RevenueDashboardTab() {
   const fmt = (v: string) => parseFloat(v || "0").toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // Honesty note: every dollar figure here is the *prepared* claim amount
-  // (units × rate from CPT mappings). Trellis does not file claims with
+  // (units × rate from CPT mappings). Noverta does not file claims with
   // Medicaid and never receives an adjudication or remittance, so we cannot
   // and do not display actual reimbursement, payment, or revenue. "Approved"
   // = an admin clicked Approve in this tool; "Exported" = the CSV was
@@ -50,7 +50,7 @@ export function RevenueDashboardTab() {
     <div className="space-y-6">
       <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
         <b>Estimated values, not booked revenue.</b> All amounts below are calculated from CPT/HCPCS mappings × units on
-        Trellis-prepared claim drafts. Trellis does not file claims, does not receive Medicaid adjudication or
+        Noverta-prepared claim drafts. Noverta does not file claims, does not receive Medicaid adjudication or
         remittance, and cannot show actual reimbursement. Use this to forecast and to prioritize internal review,
         not to recognize revenue.
       </div>

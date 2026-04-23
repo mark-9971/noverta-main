@@ -111,7 +111,7 @@ export async function computePilotBaselineMetrics(districtId: number): Promise<P
   // Estimate the dollar value of mandated minutes that have NOT been
   // delivered in the trailing 30-day window, priced at the service type's
   // default billing rate. We deliberately avoid pulling in the projected
-  // 90-day risk surface — the baseline is a snapshot of pre-Trellis state,
+  // 90-day risk surface — the baseline is a snapshot of pre-Noverta state,
   // not a forward forecast.
   const serviceTypes = await db.select({
     id: serviceTypesTable.id,

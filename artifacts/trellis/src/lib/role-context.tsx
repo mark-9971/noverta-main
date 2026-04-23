@@ -32,7 +32,7 @@ export const ROLE_SUBTITLES: Record<UserRole, string> = {
   direct_provider: "Direct Provider",
   sped_student: "Student",
   sped_parent: "Parent / Guardian",
-  trellis_support: "Trellis Support (read-only)",
+  trellis_support: "Noverta Support (read-only)",
 };
 
 // Phase 2C-3: bcba and sped_teacher land on /today (matches their

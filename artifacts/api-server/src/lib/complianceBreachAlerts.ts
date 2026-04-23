@@ -294,11 +294,11 @@ export function buildRestraintBreachEmail(opts: {
 <tr><td style="padding:6px 0;color:#6b7280">Parent notified</td><td style="padding:6px 0;color:#dc2626"><strong>${w.parentNotifiedCount} of ${w.incidentCount}</strong></td></tr>
 <tr><td style="padding:6px 0;color:#6b7280">SASID</td><td style="padding:6px 0">${escapeHtml(w.externalId ?? "—")}</td></tr>
 </table>
-<p style="margin:16px 0 0">Required action: contact the student's parent/guardian for each incident missing notification and document the contact in Trellis.</p>
+<p style="margin:16px 0 0">Required action: contact the student's parent/guardian for each incident missing notification and document the contact in Noverta.</p>
 ${linkHtml}
 </div>
 <div style="background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb">
-Sent by Trellis SPED Compliance Platform on behalf of ${escapeHtml(districtName)}.
+Sent by Noverta SPED Compliance Platform on behalf of ${escapeHtml(districtName)}.
 </div>
 </div></body></html>`;
 
@@ -309,9 +309,9 @@ Sent by Trellis SPED Compliance Platform on behalf of ${escapeHtml(districtName)
     `Window: ${w.windowStart} → ${w.windowEnd}\n` +
     `Incidents: ${w.incidentCount} (${w.restraintTypesSummary})\n` +
     `Parent notified: ${w.parentNotifiedCount} of ${w.incidentCount}\n\n` +
-    `Required action: contact the student's parent/guardian for each incident missing notification and document in Trellis.\n` +
+    `Required action: contact the student's parent/guardian for each incident missing notification and document in Noverta.\n` +
     (link ? `\nReview student record: ${link}\n` : "") +
-    `\nSent by Trellis SPED Compliance Platform on behalf of ${districtName}.`;
+    `\nSent by Noverta SPED Compliance Platform on behalf of ${districtName}.`;
 
   return { subject, html, text };
 }
@@ -373,7 +373,7 @@ ${phase.breachDate ? `<tr><td style="padding:6px 0;color:#6b7280">${status === "
 ${linkHtml}
 </div>
 <div style="background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb">
-Sent by Trellis SPED Compliance Platform on behalf of ${escapeHtml(districtName)}.
+Sent by Noverta SPED Compliance Platform on behalf of ${escapeHtml(districtName)}.
 </div>
 </div></body></html>`;
 
@@ -392,7 +392,7 @@ Sent by Trellis SPED Compliance Platform on behalf of ${escapeHtml(districtName)
       ? `Required action: issue a corrective action letter and complete the ${isPl1 ? "evaluation" : "IEP"} immediately.\n`
       : `Required action: confirm the ${isPl1 ? "evaluation" : "IEP team meeting"} is on schedule before the deadline.\n`) +
     (link ? `\nReview student record: ${link}\n` : "") +
-    `\nSent by Trellis SPED Compliance Platform on behalf of ${districtName}.`;
+    `\nSent by Noverta SPED Compliance Platform on behalf of ${districtName}.`;
 
   return { subject, html, text };
 }

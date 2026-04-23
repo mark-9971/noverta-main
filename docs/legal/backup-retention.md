@@ -1,20 +1,20 @@
 # Backup and Data Retention Policy
 
-**Trellis — Backup and Data Retention Policy**
+**Noverta — Backup and Data Retention Policy**
 *Last updated: [DATE]*
 
 ---
 
 ## Summary
 
-This document describes how Trellis backs up district data, how long data is retained, and how districts can request data export or deletion.
+This document describes how Noverta backs up district data, how long data is retained, and how districts can request data export or deletion.
 
 ---
 
 ## 1. Database Backup
 
 ### Backup Provider
-The Trellis PostgreSQL database is hosted on **Neon** (managed PostgreSQL), which performs automated backups as part of the platform.
+The Noverta PostgreSQL database is hosted on **Neon** (managed PostgreSQL), which performs automated backups as part of the platform.
 
 ### Backup Frequency
 - **Continuous WAL (Write-Ahead Log) streaming** with point-in-time recovery available for the previous 7 days
@@ -25,7 +25,7 @@ The Trellis PostgreSQL database is hosted on **Neon** (managed PostgreSQL), whic
 - Backups are encrypted at rest (AES-256) and are not accessible to application users
 
 ### Recovery
-- In the event of data loss or corruption, Trellis can restore from backup to any point within the previous 7 days, or from a daily snapshot within the previous 30 days
+- In the event of data loss or corruption, Noverta can restore from backup to any point within the previous 7 days, or from a daily snapshot within the previous 30 days
 - Recovery time objective (RTO): **4 hours** for full restoration
 - Recovery point objective (RPO): **1 hour** maximum data loss
 
@@ -37,9 +37,9 @@ If a district admin accidentally deletes data and needs it restored:
 
 1. Submit a support request to **[SUPPORT EMAIL]** with the subject line: `Data Restore Request — [DISTRICT NAME]`
 2. Include: the type of records affected, approximate date of deletion, and the district name
-3. Trellis will confirm receipt within **1 business day** and complete the restore within **3 business days** if the data falls within the backup window
+3. Noverta will confirm receipt within **1 business day** and complete the restore within **3 business days** if the data falls within the backup window
 
-Note: Trellis provides a built-in "Recently Deleted" recovery page that allows admins to restore soft-deleted student and staff records within 90 days without needing to contact support.
+Note: Noverta provides a built-in "Recently Deleted" recovery page that allows admins to restore soft-deleted student and staff records within 90 days without needing to contact support.
 
 ---
 
@@ -73,12 +73,12 @@ Any admin-role user can soft-delete individual student or staff records within t
 When a district's subscription is terminated:
 
 1. The district has **90 days** to export all data using the built-in export tools
-2. At the end of the 90-day window, Trellis will permanently delete all production data associated with the district
+2. At the end of the 90-day window, Noverta will permanently delete all production data associated with the district
 3. Backup copies will be purged within **90 days** after production deletion (following the natural backup expiry cycle)
-4. Trellis will provide written confirmation of deletion upon request
+4. Noverta will provide written confirmation of deletion upon request
 
 **Early Deletion Request**
-To request deletion of district data before subscription termination, submit a written request to **[SUPPORT EMAIL]**. Trellis will complete deletion within **30 days** of receiving a verified request from an authorized district representative.
+To request deletion of district data before subscription termination, submit a written request to **[SUPPORT EMAIL]**. Noverta will complete deletion within **30 days** of receiving a verified request from an authorized district representative.
 
 ---
 
@@ -90,13 +90,13 @@ Districts can export their data at any time using the built-in reporting tools:
 - **State Reporting exports** — available on the State Reports page
 - **Session logs, IEP goals, student records** — exportable via the Reports page as CSV files
 
-For a full database export (all tables), contact Trellis support. Full exports are provided within **10 business days** of a verified request.
+For a full database export (all tables), contact Noverta support. Full exports are provided within **10 business days** of a verified request.
 
 ---
 
 ## 6. Legal Holds
 
-If a district notifies Trellis of pending litigation or a state compliance investigation involving specific student records, Trellis will place those records on a legal hold, suspending any automated deletion until the hold is lifted in writing by the district.
+If a district notifies Noverta of pending litigation or a state compliance investigation involving specific student records, Noverta will place those records on a legal hold, suspending any automated deletion until the hold is lifted in writing by the district.
 
 To place a legal hold: Email **[SUPPORT EMAIL]** with the subject line: `Legal Hold Request — [DISTRICT NAME]`.
 
@@ -106,5 +106,5 @@ To place a legal hold: Email **[SUPPORT EMAIL]** with the subject line: `Legal H
 
 For questions about data retention or to request deletion or export:
 
-**Trellis Support:** [SUPPORT EMAIL]
+**Noverta Support:** [SUPPORT EMAIL]
 **Response SLA:** 1 business day acknowledgment; 10 business days for full requests.

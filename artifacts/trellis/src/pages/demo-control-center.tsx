@@ -1,5 +1,5 @@
 /**
- * Demo Control Center — internal admin console for running smooth Trellis
+ * Demo Control Center — internal admin console for running smooth Noverta
  * demos.
  *
  * Panels currently filled in:
@@ -147,7 +147,7 @@ function PanelHeader({ num, title, icon: Icon }: {
 // ---------------------------------------------------------------------------
 // Panel 7 — Import / Spreadsheet Conversion Preview.
 // Lets the demo operator paste a CSV/TSV blob (or load a small sample) and
-// see how Trellis would parse it into student/IEP rows BEFORE committing to
+// see how Noverta would parse it into student/IEP rows BEFORE committing to
 // an import. Strictly preview-only; never writes to the database. Used in
 // the live demo to show "we'll handle your messy export" without risking
 // anything to the demo district's data.
@@ -207,7 +207,7 @@ function ImportPreviewPanel({ districtId }: { districtId: number }) {
       </CardHeader>
       <CardContent className="p-4 space-y-3">
         <p className="text-xs text-gray-500">
-          Paste a CSV/TSV export from the prospect's SIS. Trellis will infer column mappings and
+          Paste a CSV/TSV export from the prospect's SIS. Noverta will infer column mappings and
           show the first parsed rows. This is preview-only — nothing is written to the demo
           district.
         </p>
@@ -275,7 +275,7 @@ function ImportPreviewPanel({ districtId }: { districtId: number }) {
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
                       <th className="text-left px-2 py-1 font-medium">Source column</th>
-                      <th className="text-left px-2 py-1 font-medium">Trellis field</th>
+                      <th className="text-left px-2 py-1 font-medium">Noverta field</th>
                       <th className="text-right px-2 py-1 font-medium">Confidence</th>
                     </tr>
                   </thead>
@@ -968,7 +968,7 @@ export default function DemoControlCenterPage() {
             Demo Control Center
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Internal console for running flawless Trellis demos. All actions are scoped to demo districts only.
+            Internal console for running flawless Noverta demos. All actions are scoped to demo districts only.
             {" "}Targeting <span className="font-medium text-gray-700">{demoDistrict.name}</span>.
           </p>
         </div>

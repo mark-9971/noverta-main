@@ -50,7 +50,7 @@ export default function S03_FocusMode() {
             <div style={{ background: "#ffffff", borderBottom: "1px solid #f3f4f6", padding: "1.2% 4%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "2%" }}>
                 <div style={{ width: "0.8vw", height: "0.8vw", borderRadius: "3px", background: "#1d4ed8" }} />
-                <div style={{ color: "#111827", fontSize: "0.85vw", fontWeight: 700 }}>Trellis</div>
+                <div style={{ color: "#111827", fontSize: "0.85vw", fontWeight: 700 }}>Noverta</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "3%", fontSize: "0.7vw", color: "#6b7280" }}>
                 <div>Jennifer M.</div>

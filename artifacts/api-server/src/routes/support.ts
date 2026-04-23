@@ -792,7 +792,7 @@ router.get("/support/access-denials", async (req: Request, res: Response) => {
 
 /**
  * GET /api/support/users/lookup?q=...
- * Resolves a Trellis user by email or Clerk userId. Returns:
+ * Resolves a Noverta user by email or Clerk userId. Returns:
  *  - matching staff rows (with district + school + role)
  *  - Clerk public metadata (role / districtId / platformAdmin) if available
  *  - recent audit log entries by the actor
@@ -964,7 +964,7 @@ async function maybeSendDemoReadinessFailAlert(p: DemoReadinessFailAlertParams):
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-  const subject = `[Trellis] Demo readiness FAILING — ${failing.length} check(s) red on ${esc(p.demoDistrict.name)}`;
+  const subject = `[Noverta] Demo readiness FAILING — ${failing.length} check(s) red on ${esc(p.demoDistrict.name)}`;
   const failingHtml = failing.map(c =>
     `<li><strong>${esc(c.label)}</strong>: ${esc(c.message)}${c.remediation ? `<br><span style="color:#6b7280;font-size:12px">Remediation: ${esc(c.remediation)}</span>` : ""}</li>`
   ).join("");
@@ -982,7 +982,7 @@ async function maybeSendDemoReadinessFailAlert(p: DemoReadinessFailAlertParams):
 <ul>${failingHtml}</ul>
 <p style="color:#6b7280;font-size:12px">Open the Pre-Flight page in Support to investigate. Further alerts will be suppressed for 4 hours.</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Internal Operations</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Internal Operations</div>
 </div>`;
   const text = [
     `Demo readiness regressed to FAILING for ${p.demoDistrict.name} (id ${p.demoDistrict.id}).`,

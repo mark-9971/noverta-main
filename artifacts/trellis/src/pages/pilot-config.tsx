@@ -65,7 +65,7 @@ export default function PilotConfigPage() {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
         <p className="text-sm text-amber-800">
-          Only district administrators and Trellis support staff can edit pilot configuration.
+          Only district administrators and Noverta support staff can edit pilot configuration.
         </p>
       </div>
     );
@@ -124,7 +124,7 @@ export default function PilotConfigPage() {
           <h2 className="text-lg font-semibold text-gray-900">Pilot Configuration</h2>
           <p className="text-sm text-gray-500">
             Set the pilot dates, stage, and account manager for {districtName}. These power
-            the Pilot Status page shown to admins and the Trellis team.
+            the Pilot Status page shown to admins and the Noverta team.
           </p>
         </div>
       </div>

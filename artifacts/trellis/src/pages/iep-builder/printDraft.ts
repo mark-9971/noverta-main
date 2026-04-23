@@ -104,7 +104,7 @@ export async function printDraft(draft: GeneratedDraft, studentId: number) {
       "Parent/Guardian / Date",
       "Special Education Director / Date",
     ],
-    footerHtml: `<p style="margin:3px 0">This document is a DRAFT assembled by the Trellis IEP Annual Review Draft Builder from existing IEP goals, services, and progress data. It is a starting point only — it requires review, edits, and approval by the full IEP team before becoming a final document. Do not distribute to families without team review.</p>`,
+    footerHtml: `<p style="margin:3px 0">This document is a DRAFT assembled by the Noverta IEP Annual Review Draft Builder from existing IEP goals, services, and progress data. It is a starting point only — it requires review, edits, and approval by the full IEP team before becoming a final document. Do not distribute to families without team review.</p>`,
   });
 
   openPrintWindow(html);

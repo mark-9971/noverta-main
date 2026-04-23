@@ -106,7 +106,7 @@ export default function ComplianceSnapshotPage() {
         <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">Compliance Snapshot — shared via Trellis</span>
+              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">Compliance Snapshot — shared via Noverta</span>
             </div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-800">{data.districtName}</h1>
             <p className="text-sm text-gray-400 mt-0.5">School Year: {data.schoolYear}</p>
@@ -229,7 +229,7 @@ export default function ComplianceSnapshotPage() {
             <div className="text-xs font-semibold text-gray-500 mb-1">This is a read-only view</div>
             <p className="text-sm text-gray-600">
               This snapshot was generated on {fmtDate(data.generatedAt)} and reflects compliance data at that point in time.
-              To explore the full dashboard, drill into individual students, or manage service delivery, request a Trellis demo account.
+              To explore the full dashboard, drill into individual students, or manage service delivery, request a Noverta demo account.
             </p>
           </div>
           <a
@@ -246,7 +246,7 @@ export default function ComplianceSnapshotPage() {
         </div>
 
         <div className="mt-6 text-center text-[11px] text-gray-300">
-          Powered by Trellis — SPED compliance management · This link expires {fmtDate(data.expiresAt)}
+          Powered by Noverta — SPED compliance management · This link expires {fmtDate(data.expiresAt)}
         </div>
       </div>
     </div>

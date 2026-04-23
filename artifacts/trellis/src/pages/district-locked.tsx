@@ -34,8 +34,8 @@ export default function DistrictLockedPage() {
 
   const subject = encodeURIComponent("District deletion — please cancel");
   const body = encodeURIComponent(
-    "Hi Trellis support,\n\nMy district has been scheduled for deletion. " +
-      "Please cancel the deletion so we can keep using Trellis.\n\nThanks.",
+    "Hi Noverta support,\n\nMy district has been scheduled for deletion. " +
+      "Please cancel the deletion so we can keep using Noverta.\n\nThanks.",
   );
 
   return (
@@ -52,7 +52,7 @@ export default function DistrictLockedPage() {
             <p className="text-sm text-gray-600 leading-relaxed">{message}</p>
             <div className="w-full border-t border-gray-200 my-2" />
             <p className="text-sm text-gray-700">
-              Contact Trellis support to cancel the deletion and restore access.
+              Contact Noverta support to cancel the deletion and restore access.
             </p>
             <Button asChild className="gap-2">
               <a href={`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`}>
