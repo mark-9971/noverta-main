@@ -1,0 +1,228 @@
+Use the actual current codebase as the source of truth.  
+Do the work, not just a plan.
+
+This is T-V2-10 — Full UI E2E sample-generation check (demo-user path).
+
+## Execution priorities
+1. actual completion  
+2. correctness  
+3. thoroughness  
+4. trustworthy proof  
+5. efficiency only after the above  
+
+Do not optimize for speed if it reduces correctness or proof quality.
+
+For this task, you are explicitly allowed to inspect and scope first.  
+If you find a blocker or design gap, ask for permission before making changes.
+
+Do not silently “help” by changing code before reporting the findings.
+
+---
+
+## Objective
+
+Verify the canonical sample-generation / reset experience through the actual UI, as if a normal demo/operator user were experimenting on the site without my assistance.
+
+This is not a seed-internals task.  
+This is a real user-path verification task.
+
+You must prove:
+- the user can find the relevant UI entrypoint(s)
+- the user can request sample generation / reset
+- the size controls work through the UI if exposed there
+- the operation completes successfully
+- the resulting seeded district is visible/usable in the product
+- summary / overlay / showcase behavior appears consistently with the current V2 design
+
+---
+
+## Hard rules
+
+- Start with inspection / scoping only
+- Do not make code changes until you have reported:
+  - the actual UI flow
+  - blockers
+  - missing controls
+  - confusing UX
+  - any mismatch between backend capabilities and UI exposure
+- After that, if changes are needed, ask for permission before changing anything
+- Do not run broad unrelated e2e suites
+- Do not shortcut with direct route calls only; this must be a real UI-path check
+- Do not broaden into redesign unless explicitly approved
+
+Before declaring COMPLETE, verify:
+1. the UI path was actually exercised end-to-end
+2. the flow is understandable to a demo/operator user
+3. the seed/reset action actually succeeds through the UI
+4. the seeded result is inspectable through the product
+5. any blockers or UX gaps are explicitly listed
+6. if changes were needed, permission was requested first
+7. tests/build status are clearly stated
+
+Required final output:
+1. EXECUTIVE VERDICT  
+2. UI ENTRYPOINTS FOUND  
+3. ACTUAL USER FLOW  
+4. BLOCKERS / UX GAPS FOUND  
+5. PERMISSION REQUEST (if changes are needed)  
+6. EXACT FILES INSPECTED  
+7. USER-VISIBLE IMPACT  
+8. DEMO / RESET IMPACT  
+9. ARCHITECTURE / MODEL IMPACT  
+10. TEST / E2E STATUS  
+11. EXACT REMAINING GAPS  
+12. EXACT NEXT TASKS  
+13. FINAL ARTIFACT  
+
+---
+
+## Scope
+
+### In scope
+- inspect the actual UI path(s) for:
+  - sample generation
+  - district reset
+  - demo reset
+- run a real UI-driven sample/reset flow
+- confirm whether size controls are exposed, missing, or confusing
+- confirm whether the resulting district looks usable to a demo/operator user
+- identify friction, ambiguity, missing feedback, missing controls, or broken expectations
+- if changes are needed, stop and ask for permission before implementing them
+
+### Out of scope
+- silent code changes before reporting findings
+- broad product redesign
+- unrelated wedge work
+- backend-only proof without UI exercise
+- mass e2e suite expansion
+
+---
+
+## Exact execution order
+
+### Step 1 — inspect and map the real UI flow
+Find the actual user-facing entrypoint(s) for:
+- Add Sample Data
+- Reset District
+- Demo Reset
+- any equivalent operator controls
+
+You must identify:
+- where the user clicks
+- what forms/options exist
+- what feedback is shown
+- whether size controls are visible
+- whether the flow is understandable without insider knowledge
+
+### Step 2 — execute one real UI path end-to-end
+Using the real UI, perform one end-to-end sample/reset action as a normal user would.
+
+Record:
+- entrypoint used
+- inputs used
+- what happened
+- whether it succeeded
+- what was shown after completion
+
+### Step 3 — verify resulting state in the product
+After the action completes, verify through the UI/product that:
+- the district was actually seeded/reset
+- data is visible
+- seeded district feels usable
+- overlay/showcase impact is present where naturally expected
+- summary/feedback matches reality as much as current UI exposes it
+
+### Step 4 — identify blockers / UX gaps
+Be explicit about:
+- missing size controls
+- confusing labels
+- missing progress feedback
+- unclear completion state
+- mismatch between backend capability and UI exposure
+- any places where a normal demo user would get stuck
+
+### Step 5 — STOP if changes are needed
+If the UI flow is incomplete, confusing, or missing required controls:
+- do not implement immediately
+- return the findings
+- ask for permission before changing code
+
+Only proceed to implementation if permission is explicitly granted.
+
+---
+
+## Required proof
+
+At minimum, prove:
+- one real UI path works end-to-end
+- one real user can trigger seed/reset without backend/manual assistance
+- current UI either does or does not expose size controls
+- current UI either does or does not provide enough operator feedback
+- resulting seeded district is visible and plausible
+
+---
+
+## Testing / verification rules
+
+Run only:
+1. focused UI/e2e exercise for the actual sample/reset path
+2. minimal supporting checks if needed
+3. no broad unrelated suites
+
+Do not run the full e2e suite unless absolutely necessary.
+
+If something fails:
+- state likely cause
+- classify as new / pre-existing / environment-related
+- stop broad exploration and report clearly
+
+---
+
+## COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+### COMPLETE
+Use COMPLETE only if:
+- the real UI path was exercised end-to-end
+- the result is clearly usable by a demo/operator user
+- blockers are documented
+- no unapproved code changes were made
+
+### PARTIAL
+Use PARTIAL if:
+- some inspection was done but the flow could not be fully exercised
+- blockers prevent end-to-end completion
+- UI path exists but is too incomplete/confusing to count as usable
+
+### INCORRECTLY IMPLEMENTED
+Use INCORRECTLY IMPLEMENTED if:
+- no real UI path was exercised
+- task was reduced to backend calls only
+- code changes were made before asking permission
+- the report hand-waves the user experience
+
+---
+
+## Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT  
+2. UI ENTRYPOINTS FOUND  
+3. ACTUAL USER FLOW  
+4. BLOCKERS / UX GAPS FOUND  
+5. PERMISSION REQUEST (if changes are needed)  
+6. EXACT FILES INSPECTED  
+7. USER-VISIBLE IMPACT  
+8. DEMO / RESET IMPACT  
+9. ARCHITECTURE / MODEL IMPACT  
+10. TEST / E2E STATUS  
+11. EXACT REMAINING GAPS  
+12. EXACT NEXT TASKS  
+13. FINAL ARTIFACT  
+
+Rules:
+- no skipped sections
+- no vague summaries
+- include exact UI entrypoints used
+- include exact result of the real UI run
+- if changes are needed, ask permission instead of changing code
