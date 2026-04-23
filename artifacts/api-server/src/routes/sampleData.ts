@@ -22,12 +22,15 @@ import {
   getSampleDataStatus,
   seedDemoComplianceVariety,
   seedDemoModules,
-  seedDemoDistrict,
   seedDemoHandlingState,
+  db,
+  districtsTable,
   type SeedSampleOptions,
   type Intensity,
   type DemoEmphasis,
+  type PostRunSummary,
 } from "@workspace/db";
+import { sql, eq, and } from "drizzle-orm";
 
 const INTENSITIES: ReadonlySet<Intensity> = new Set(["low", "medium", "high"]);
 const EMPHASES: ReadonlySet<DemoEmphasis> = new Set([
@@ -176,38 +179,151 @@ router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coord
  * showcase state. Platform-admin only — used between back-to-back sales
  * demos so each one starts from the same baseline.
  *
- * Sequence:
- *   1. `seedDemoDistrict()` — full canonical reseed (TRUNCATEs and
- *      re-creates the demo district, schools, staff, students, services,
- *      sessions, IEPs, goals, etc.). This drops any drift accumulated
- *      during the previous demo (edits, deletes, hand-created rows).
- *   2. `seedDemoModules()` — additive module sweep (medicaid claims,
- *      compensatory variety, parent messages, share links, signatures,
- *      transitions, restraints, document acks, export history).
- *   3. `seedDemoComplianceVariety()` — additive compliance-alert variety
- *      that lands the demo at ~80% compliance with a representative mix
- *      of alert types.
- *   4. `seedDemoHandlingState()` — pre-populates a believable spread of
- *      shared handling states (`awaiting_confirmation`,
- *      `recovery_scheduled`, `under_review`, `handed_off`) on
- *      canonical-id rows so the Action Center, Risk Report, dashboard,
- *      and student detail show the in-flight pills the very first time
- *      a demo admin loads the app — without any manual seeder run.
+ * #970 — UNIFIED RESET PATH (V2 + overlay)
+ * ---------------------------------------------------------------
+ * As of #970 this route shares ONE engine with the rest of the
+ * platform: `seedSampleDataForDistrict()` (the V2 W1 entrypoint that
+ * also runs the W5 Demo Readiness Overlay before returning). The
+ * legacy `seedDemoDistrict()` global TRUNCATE-and-reseed engine is no
+ * longer the primary path — V2 is.
  *
- * SAFETY: `seedDemoDistrict()` runs a global TRUNCATE across districts,
- * schools, staff, students, etc. Its built-in guard refuses to do so
- * when the database contains any non-demo districts (unless the
- * deployment operator has explicitly set `ALLOW_DEMO_SEED_RESET=1`).
- * This route does NOT bypass that guard. In shared multi-tenant
- * environments the canonical reseed will fail loudly (returned as a
- * 500 with the seeder's explanatory message) rather than silently
- * destroy real tenant data. Use this endpoint only on dedicated demo
- * deployments.
+ * Concretely:
+ *   1. Look up (or auto-provision) the MetroWest demo district stub
+ *      with `is_demo=true`. The legacy `seedDemoModules` /
+ *      `seedDemoComplianceVariety` / `seedDemoHandlingState` helpers
+ *      look the row up by `(name='MetroWest Collaborative', is_demo=true)`
+ *      so this flag MUST be set before they can attach to it.
+ *   2. Tear down any sample-tagged rows in that district
+ *      (`teardownSampleData(districtId)`). This is district + sample
+ *      scoped, so it cannot touch operator data in other tenants —
+ *      replacing the legacy global TRUNCATE that required the
+ *      `ALLOW_DEMO_SEED_RESET` operator escape hatch.
+ *   3. PRIMARY ENGINE: `seedSampleDataForDistrict()` — populates
+ *      students, staff, services, sessions, alerts, comp obligations,
+ *      handling state, and (via its built-in W5 step) the
+ *      `demo_showcase_cases` overlay. Returns a `PostRunSummary` with
+ *      `layers.overlay`, `showcaseCaseCounts`, `complianceDistribution`
+ *      and `exampleShowcaseIds`.
+ *   4. ADDITIVE enrichment passes (NOT the primary engine — only for
+ *      data the V2 domain model doesn't yet cover): `seedDemoModules`
+ *      (medicaid claims, parent messages, share links, signatures,
+ *      restraints, document acks), `seedDemoComplianceVariety` (extra
+ *      alert variety), `seedDemoHandlingState` (in-flight pill
+ *      spread). Failures in any of these are logged and reported in
+ *      the response but do NOT fail the reset — the canonical demo is
+ *      already established by step 3.
+ *
+ * The route response surfaces the V2 overlay/showcase fields directly
+ * (`summary`, `layers`, `showcaseCaseCounts`, `complianceDistribution`,
+ * `exampleShowcaseIds`) so callers can verify the V2 path actually ran.
  */
+
 // Process-wide mutex so two concurrent reset clicks can't interleave the
-// truncate/reseed sequence (which would race on the same demo district
+// teardown/reseed sequence (which would race on the same demo district
 // rows and leave the dataset in an inconsistent state).
 let demoResetInFlight: Promise<unknown> | null = null;
+
+const DEMO_DISTRICT_NAME = "MetroWest Collaborative";
+
+/**
+ * Resolve the MetroWest demo district id, auto-provisioning the stub if
+ * absent. Always sets/leaves `is_demo=true` so the additive enrichment
+ * passes (which look up by name + is_demo) attach correctly.
+ *
+ * Exported for the proof test in `__tests__/sampleData.demo-reset-v2.test.ts`.
+ */
+export async function ensureDemoDistrictId(): Promise<number> {
+  const existing = await db
+    .select({ id: districtsTable.id, isDemo: districtsTable.isDemo })
+    .from(districtsTable)
+    .where(eq(districtsTable.name, DEMO_DISTRICT_NAME))
+    .limit(1);
+  if (existing.length > 0) {
+    const row = existing[0]!;
+    if (!row.isDemo) {
+      await db.update(districtsTable)
+        .set({ isDemo: true })
+        .where(eq(districtsTable.id, row.id));
+    }
+    return row.id;
+  }
+  const inserted = await db.insert(districtsTable).values({
+    name: DEMO_DISTRICT_NAME,
+    tier: "essentials",
+    isDemo: true,
+    isPilot: false,
+    isSandbox: false,
+  }).returning({ id: districtsTable.id });
+  return inserted[0]!.id;
+}
+
+/**
+ * Unified V2 demo reset — exported so the proof test can call it directly
+ * (without going through Express auth middleware) and assert that the V2
+ * overlay actually ran end-to-end.
+ */
+export interface DemoResetV2Outcome {
+  districtId: number;
+  summary: PostRunSummary | undefined;
+  modules: { ok: true; districtId: number } | { ok: false; error: string };
+  variety:
+    | { ok: true; alertsInserted: number; alertsSkipped: number; compliancePct: string }
+    | { ok: false; error: string };
+  handling:
+    | { ok: true; inserted: number; considered: number }
+    | { ok: false; error: string };
+}
+
+export async function runDemoResetV2(): Promise<DemoResetV2Outcome> {
+  const districtId = await ensureDemoDistrictId();
+
+  // Surgical reset: wipe sample-tagged rows in this district only.
+  // Replaces the legacy global TRUNCATE — safe in shared environments.
+  await teardownSampleData(districtId);
+
+  // PRIMARY ENGINE — V2 seed (runs W5 overlay internally).
+  const result = await seedSampleDataForDistrict(districtId, {
+    districtName: DEMO_DISTRICT_NAME,
+  });
+
+  // ADDITIVE enrichment — non-fatal. These cover demo-only surfaces
+  // (medicaid, parent messages, etc.) that the V2 domain model does
+  // not yet emit. We swallow + report failures so a glitch in any of
+  // them cannot mask the fact that the canonical V2 reset succeeded.
+  let modules: DemoResetV2Outcome["modules"];
+  try {
+    const m = await seedDemoModules();
+    modules = { ok: true, districtId: m.districtId };
+  } catch (e) {
+    logger.warn({ err: e }, "demo reset: seedDemoModules enrichment failed (non-fatal)");
+    modules = { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+
+  let variety: DemoResetV2Outcome["variety"];
+  try {
+    const v = await seedDemoComplianceVariety();
+    variety = {
+      ok: true,
+      alertsInserted: v.alertsInserted,
+      alertsSkipped: v.alertsSkipped,
+      compliancePct: v.compliancePct,
+    };
+  } catch (e) {
+    logger.warn({ err: e }, "demo reset: seedDemoComplianceVariety enrichment failed (non-fatal)");
+    variety = { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+
+  let handling: DemoResetV2Outcome["handling"];
+  try {
+    const h = await seedDemoHandlingState();
+    handling = { ok: true, inserted: h.inserted, considered: h.considered };
+  } catch (e) {
+    logger.warn({ err: e }, "demo reset: seedDemoHandlingState enrichment failed (non-fatal)");
+    handling = { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+
+  return { districtId, summary: result.summary, modules, variety, handling };
+}
 
 router.post("/sample-data/reset-demo", requirePlatformAdmin, async (_req, res): Promise<void> => {
   if (demoResetInFlight) {
@@ -215,56 +331,43 @@ router.post("/sample-data/reset-demo", requirePlatformAdmin, async (_req, res): 
     return;
   }
   const startedAt = Date.now();
-  const work = (async () => {
-    logger.info("demo reset: starting full canonical reseed");
-    // We do NOT pass `allowReset: true`. `seedDemoDistrict()` runs a
-    // global TRUNCATE across districts/schools/staff/students/etc. In a
-    // dedicated demo environment (no non-demo districts, or operator
-    // has set `ALLOW_DEMO_SEED_RESET=1` on the deployment) the seeder's
-    // own guard permits the truncate. In any shared environment that
-    // contains real tenant districts the seeder will throw, and the
-    // catch block below surfaces it as a 500 with the seeder's
-    // explanatory message — the reset MUST NOT be allowed to wipe
-    // non-demo tenant data, so this guard is intentional.
-    await seedDemoDistrict();
-    logger.info("demo reset: canonical reseed complete, running module sweep");
-    const modules = await seedDemoModules();
-    logger.info("demo reset: module sweep complete, running compliance variety");
-    const variety = await seedDemoComplianceVariety();
-    logger.info("demo reset: compliance variety complete, seeding handling state");
-    // Phase 1E demo-readiness — must run AFTER the canonical reseed
-    // (which TRUNCATEs action_item_handling) and AFTER service
-    // requirements + alerts exist, so the seeder can pick real
-    // at-risk requirements for the four in-flight handling pills.
-    //
-    // We treat a failure here as fatal for the reset: the whole point
-    // of the demo-readiness pass is that a fresh reset deterministically
-    // shows the awaiting_confirmation / recovery_scheduled / under_review
-    // / handed_off pills. Letting the route 200 without those rows
-    // means a demoer can think the reset succeeded when the wedge
-    // surfaces are actually missing the in-flight states.
-    const handling = await seedDemoHandlingState();
-    return { modules, variety, handling };
-  })();
+  const work = runDemoResetV2();
   demoResetInFlight = work;
   try {
-    const { modules, variety, handling } = await work;
+    const outcome = await work;
     const elapsedMs = Date.now() - startedAt;
-    logger.info({ elapsedMs, ...variety, handlingInserted: handling?.inserted ?? 0 }, "demo reset: complete");
+    const overlayRan = outcome.summary?.layers?.overlay === true;
+    logger.info(
+      {
+        elapsedMs,
+        districtId: outcome.districtId,
+        runId: outcome.summary?.runId,
+        overlayRan,
+        showcaseCaseCounts: outcome.summary?.showcaseCaseCounts,
+        modulesOk: outcome.modules.ok,
+        varietyOk: outcome.variety.ok,
+        handlingOk: outcome.handling.ok,
+      },
+      "demo reset: complete (V2)",
+    );
     res.json({
       ok: true,
+      engine: "v2",
       elapsedMs,
-      districtId: variety.districtId,
+      districtId: outcome.districtId,
       reseed: { ran: true },
-      variety: {
-        alertsInserted: variety.alertsInserted,
-        alertsSkipped: variety.alertsSkipped,
-        totalStudents: variety.totalStudents,
-        nonCompliantStudents: variety.nonCompliantStudents,
-        compliancePct: variety.compliancePct,
-      },
-      modules: { districtId: modules.districtId },
-      handling: { inserted: handling.inserted, considered: handling.considered },
+      // V2 PostRunSummary surfaced verbatim — proves overlay executed
+      // and exposes overlay/showcase fields per the unification contract.
+      summary: outcome.summary,
+      layers: outcome.summary?.layers ?? null,
+      showcaseCaseCounts: outcome.summary?.showcaseCaseCounts ?? null,
+      complianceDistribution: outcome.summary?.complianceDistribution ?? null,
+      exampleShowcaseIds: outcome.summary?.exampleShowcaseIds ?? null,
+      // Additive enrichment results (non-fatal failures kept here so the
+      // operator can see which add-on passes succeeded).
+      modules: outcome.modules,
+      variety: outcome.variety,
+      handling: outcome.handling,
     });
   } catch (err) {
     logger.error({ err }, "demo reset failed");

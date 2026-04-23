@@ -1,0 +1,179 @@
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+This is #970 — Unify hard reset onto V2 + overlay.
+
+⸻
+
+Execution priorities (strict)
+
+1. actual completion
+2. correctness of behavior (not just wiring)
+3. verifiable proof
+4. minimal scope (no drift)
+
+If any part cannot be completed cleanly, return PARTIAL with the exact blocker.
+Do NOT substitute shortcuts or synthetic behavior.
+
+⸻
+
+Objective
+
+Unify the hard reset path:
+
+* POST /api/sample-data/reset-demo
+
+onto the same canonical V2 seed + overlay pipeline used by:
+
+* POST /api/sample-data
+* POST /demo-control/reset-district
+
+After this task, there must be one real seed/reset engine, not parallel systems.
+
+⸻
+
+Non-negotiable requirements
+
+MUST be true at completion:
+
+* reset-demo uses V2 seed path
+* overlay actually runs in reset-demo
+* postRunSummary includes overlay/showcase fields
+* legacy seedDemo* helpers are not the primary engine
+* behavior is proven with real execution (not inferred)
+
+⸻
+
+Hard constraints (do NOT violate)
+
+* Do NOT start T-V2-08 (no deletion of V1 yet)
+* Do NOT add UI changes
+* Do NOT change wedge logic
+* Do NOT create wrapper functions that still rely on legacy internals
+* Do NOT synthesize or fake parity
+* Do NOT run full repo tests
+
+⸻
+
+Execution steps (exact)
+
+Step 1 — Inspect current reset-demo path
+
+Locate:
+
+* route handler
+* helper(s) used
+* any seedDemo* usage
+
+Return:
+
+* exact file path(s)
+* exact function chain
+
+No guessing.
+
+⸻
+
+Step 2 — Replace legacy engine with V2
+
+Refactor reset-demo so it calls:
+
+* seedSampleDataForDistrict(...) (V2 path)
+
+If demo-specific behavior exists:
+
+* pass it as options/config
+* NOT via legacy seeders
+
+⸻
+
+Step 3 — Ensure overlay execution
+
+Verify in reset-demo flow:
+
+* overlay runs
+* layers.overlay === true
+* showcase rows exist
+* summary includes:
+    * showcaseCaseCounts
+    * complianceDistribution
+    * exampleShowcaseIds
+
+⸻
+
+Step 4 — Add proof (REQUIRED)
+
+Add a targeted test or execution proof that:
+
+1. reset-demo triggers V2 path
+2. overlay executes
+3. summary includes overlay fields
+4. legacy helpers are bypassed
+
+No synthetic tests. Must hit real route or function.
+
+⸻
+
+Step 5 — Preserve demo semantics (if needed)
+
+If reset-demo requires:
+
+* specific district
+* special naming
+* fixed seed shape
+
+Preserve ONLY as:
+
+* input to V2 path
+
+NOT as separate logic trees.
+
+⸻
+
+Required output format (STRICT)
+
+Return EXACTLY this:
+
+1. EXECUTIVE VERDICT (COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED)
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. RESET PATH UNIFICATION MECHANISM
+6. FALLBACK / TEMPORARY LEGACY PATHS
+7. USER-VISIBLE IMPACT
+8. DEMO / RESET IMPACT
+9. ARCHITECTURE / MODEL IMPACT
+10. TEST / BUILD STATUS
+11. EXACT REMAINING GAPS
+12. EXACT NEXT TASKS
+13. FINAL ARTIFACT
+
+Rules:
+
+* no skipped sections
+* no vague summaries
+* include exact file paths
+* include test results (counts, pass/fail)
+* clearly separate new vs pre-existing issues
+
+⸻
+
+Completion criteria
+
+Use COMPLETE only if:
+
+* reset-demo fully runs on V2 + overlay
+* legacy seeder is not primary anymore
+* proof exists and is correct
+
+Use PARTIAL if:
+
+* partial unification
+* legacy still active
+* proof incomplete
+
+Use INCORRECTLY IMPLEMENTED if:
+
+* V2 path is bypassed
+* overlay missing
+* logic duplicated instead of unified

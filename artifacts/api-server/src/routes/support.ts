@@ -26,7 +26,7 @@ import { deriveDistrictMode } from "../lib/districtMode";
 import { getRecentAccessDenials } from "../lib/accessDenials";
 import { isSisWorkerRunning } from "../lib/sis/worker";
 import { clerkClient } from "@clerk/express";
-import { seedDemoDistrict } from "../../../../lib/db/src/seed-demo-district";
+import { runDemoResetV2 } from "./sampleData";
 import { seedDemoComplianceVariety } from "../../../../lib/db/src/seed-demo-compliance-variety";
 
 const router: IRouter = Router();
@@ -1378,13 +1378,16 @@ interface ReseedJob {
   status: ReseedJobStatus;
   startedAt: string;
   finishedAt?: string;
+  // #970: Reseed jobs now run through the unified V2 reset chain, so the
+  // job result mirrors the slice of DemoResetV2Outcome that callers care
+  // about (engine marker + districtId + variety enrichment numbers, when
+  // the additive variety pass succeeded).
   result?: {
+    engine: "v2";
     districtId: number;
-    alertsInserted: number;
-    alertsSkipped: number;
-    totalStudents: number;
-    nonCompliantStudents: number;
-    compliancePct: string;
+    variety:
+      | { ok: true; alertsInserted: number; alertsSkipped: number; compliancePct: string }
+      | { ok: false; error: string };
   };
   error?: string;
 }
@@ -1439,15 +1442,21 @@ router.post("/support/demo-reseed", async (_req: Request, res: Response) => {
 
   (async () => {
     try {
-      console.log(`[demo-reseed] Job ${jobId}: starting seed-demo-district…`);
-      // Do NOT pass allowReset: true — let the seeder's own guard serve as a
-      // second line of defence against accidental data loss.
-      await seedDemoDistrict();
-      console.log(`[demo-reseed] Job ${jobId}: starting seed-demo-compliance-variety…`);
-      const result = await seedDemoComplianceVariety();
+      console.log(`[demo-reseed] Job ${jobId}: starting V2 demo reset (unified engine)…`);
+      // #970: route the legacy /support/demo-reseed HTTP path through the same
+      // V2 + overlay reset chain used by /sample-data/reset-demo. The legacy
+      // global-TRUNCATE seedDemoDistrict() is no longer called from any HTTP
+      // path. runDemoResetV2 already runs seedDemoComplianceVariety as a
+      // non-fatal additive enrichment pass, so we no longer need to call it
+      // again here — its result is surfaced via outcome.variety.
+      const outcome = await runDemoResetV2();
       job.status = "done";
       job.finishedAt = new Date().toISOString();
-      job.result = result;
+      job.result = {
+        engine: "v2",
+        districtId: outcome.districtId,
+        variety: outcome.variety,
+      };
       console.log(`[demo-reseed] Job ${jobId}: done.`);
     } catch (err: unknown) {
       job.status = "failed";
