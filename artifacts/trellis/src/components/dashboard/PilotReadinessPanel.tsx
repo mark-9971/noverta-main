@@ -138,20 +138,36 @@ interface SampleStatus {
 }
 
 /**
- * Roster-size presets exposed to the admin. `null` means "let the seeder
- * pick its default" (~63 students for the small profile). Custom values
- * are clamped to 60–1000 — the seeder accepts up to 5000 but the wizard
- * surface caps at 1000 to keep demo turn-around reasonable. Staff /
- * providers / paras / case managers / schools auto-scale via the
- * seeder's existing `staffStudentCount` plumbing.
+ * T-V2-09 size-contract presets. Mid-points of the documented profile
+ * bands in `lib/db/src/v2/domain/reference.ts::SIZE_PROFILES` — the
+ * seeder's `resolveSizeContract` resolver guarantees the same values.
+ * When a preset is active the UI sends BOTH `targetStudents` and
+ * `sizeProfile` so the canonical profile drives scenario distribution
+ * + staff composition; the custom input sends `targetStudents` only.
+ * Custom range is 60–2000 to cover small through xl.
  */
-const ROSTER_PRESETS: { label: string; value: number | null; blurb: string }[] = [
-  { label: "Small",   value: null, blurb: "~63 students · default" },
-  { label: "Medium",  value: 140,  blurb: "Multi-school caseload" },
-  { label: "Large",   value: 220,  blurb: "District-wide demo" },
-  { label: "XL",      value: 500,  blurb: "Stress-test charts" },
-  { label: "Stress",  value: 1000, blurb: "Peak-load preview" },
+type SizeProfile = "small" | "medium" | "large" | "xl";
+const ROSTER_PRESETS: { profile: SizeProfile; label: string; value: number; blurb: string }[] = [
+  { profile: "small",  label: "Small",  value: 90,   blurb: "60–120 students" },
+  { profile: "medium", label: "Medium", value: 350,  blurb: "200–500 · default" },
+  { profile: "large",  label: "Large",  value: 1000, blurb: "800–1200 students" },
+  { profile: "xl",     label: "XL",     value: 1750, blurb: "1500–2000 students" },
 ];
+const DEFAULT_PROFILE: SizeProfile = "medium";
+const CUSTOM_MIN = 60;
+const CUSTOM_MAX = 2000;
+
+interface SizeContractDTO {
+  requestedTargetStudents: number | null;
+  requestedSizeProfile: SizeProfile | "random" | null;
+  resolvedSizeProfile: SizeProfile;
+  resolvedTargetStudents: number;
+  contractRange: { min: number; max: number };
+  withinContract: boolean;
+  actualStudentsCreated: number;
+  actualStaffCreated: number;
+  honoredTargetStudents: boolean;
+}
 
 function approxStaff(students: number): { providers: number; paras: number; cms: number } {
   // Mirrors the seeder's per-specialty STAFF_RATIOS (lib/db roster/staff.ts):
@@ -184,9 +200,17 @@ function SampleDataRestoreFooter() {
   const [, navigate] = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [alreadySeededNotice, setAlreadySeededNotice] = useState<string | null>(null);
-  // null  = use default (small profile)
-  // 60-1000 = explicit targetStudents passed to the seeder
-  const [targetStudents, setTargetStudents] = useState<number | null>(null);
+  // T-V2-09 size contract: either a named preset (sends both
+  // targetStudents + sizeProfile) or a custom number (sends
+  // targetStudents only). Default = medium per the contract.
+  type Selection =
+    | { kind: "preset"; profile: SizeProfile; value: number }
+    | { kind: "custom"; value: number };
+  const [selection, setSelection] = useState<Selection>(() => {
+    const m = ROSTER_PRESETS.find((p) => p.profile === DEFAULT_PROFILE)!;
+    return { kind: "preset", profile: m.profile, value: m.value };
+  });
+  const [lastContract, setLastContract] = useState<SizeContractDTO | null>(null);
   const isAdmin = role === "admin" || role === "coordinator";
 
   const { data, isLoading } = useQuery<SampleStatus>({
@@ -212,11 +236,18 @@ function SampleDataRestoreFooter() {
           throw new Error(body?.error || "Failed to remove existing sample data");
         }
       }
-      const body = targetStudents != null ? { targetStudents } : undefined;
+      // T-V2-09: presets send BOTH targetStudents + sizeProfile so the
+      // canonical profile drives scenario distribution + staff
+      // composition. Custom values send targetStudents only, letting
+      // the seeder default the profile (medium) per the contract.
+      const body: { targetStudents: number; sizeProfile?: SizeProfile } =
+        selection.kind === "preset"
+          ? { targetStudents: selection.value, sizeProfile: selection.profile }
+          : { targetStudents: selection.value };
       const r = await authFetch("/api/sample-data", {
         method: "POST",
-        headers: body ? { "Content-Type": "application/json" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
       const respBody = await r.json().catch(() => ({}));
       if (!r.ok) {
@@ -234,6 +265,8 @@ function SampleDataRestoreFooter() {
     },
     onSuccess: (body, vars) => {
       queryClient.invalidateQueries();
+      const contract = (body?.summary?.sizeContract ?? null) as SizeContractDTO | null;
+      if (contract) setLastContract(contract);
       if (body?.alreadySeeded) {
         const students = body?.sampleStudents ?? 0;
         const staff = body?.sampleStaff ?? 0;
@@ -264,7 +297,7 @@ function SampleDataRestoreFooter() {
   if (!isAdmin || isLoading || !data) return null;
 
   const hasData = data.hasSampleData;
-  const previewN = targetStudents ?? 63;
+  const previewN = selection.value;
   const staffPreview = approxStaff(previewN);
 
   return (
@@ -288,24 +321,22 @@ function SampleDataRestoreFooter() {
 
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Roster size presets">
         {ROSTER_PRESETS.map((p) => {
-          const active = p.value === targetStudents;
+          const active = selection.kind === "preset" && selection.profile === p.profile;
           return (
             <button
-              key={p.label}
+              key={p.profile}
               type="button"
-              onClick={() => setTargetStudents(p.value)}
+              onClick={() => setSelection({ kind: "preset", profile: p.profile, value: p.value })}
               className={`text-[11px] font-medium px-2 py-1 rounded border transition-colors ${
                 active
                   ? "bg-emerald-600 text-white border-emerald-600"
                   : "bg-white text-gray-700 border-gray-200 hover:border-emerald-300"
               }`}
               title={p.blurb}
-              data-testid={`button-roster-preset-${p.label.toLowerCase()}`}
+              data-testid={`button-roster-preset-${p.profile}`}
             >
               {p.label}
-              <span className="ml-1 text-[10px] opacity-70">
-                {p.value ?? 63}
-              </span>
+              <span className="ml-1 text-[10px] opacity-70">{p.value}</span>
             </button>
           );
         })}
@@ -313,16 +344,20 @@ function SampleDataRestoreFooter() {
           <span>or</span>
           <input
             type="number"
-            min={60}
-            max={1000}
+            min={CUSTOM_MIN}
+            max={CUSTOM_MAX}
             step={10}
-            value={targetStudents ?? ""}
+            value={selection.kind === "custom" ? selection.value : ""}
             placeholder="custom"
             onChange={(e) => {
               const v = e.target.value.trim();
-              if (v === "") { setTargetStudents(null); return; }
-              const n = Math.max(60, Math.min(1000, Math.round(Number(v))));
-              if (Number.isFinite(n)) setTargetStudents(n);
+              if (v === "") {
+                const m = ROSTER_PRESETS.find((p) => p.profile === DEFAULT_PROFILE)!;
+                setSelection({ kind: "preset", profile: m.profile, value: m.value });
+                return;
+              }
+              const n = Math.max(CUSTOM_MIN, Math.min(CUSTOM_MAX, Math.round(Number(v))));
+              if (Number.isFinite(n)) setSelection({ kind: "custom", value: n });
             }}
             className="w-16 px-1.5 py-0.5 text-[11px] border border-gray-200 rounded focus:outline-none focus:border-emerald-400"
             data-testid="input-roster-custom"
@@ -330,11 +365,38 @@ function SampleDataRestoreFooter() {
         </label>
       </div>
 
-      <p className="text-[10px] text-gray-400">
+      <p className="text-[10px] text-gray-400" data-testid="text-roster-preview">
         Will provision ≈{previewN} students, ≈{staffPreview.providers} providers,
         ≈{staffPreview.paras} paras, ≈{staffPreview.cms} case managers
-        (server applies the canonical scaling clamp).
+        {selection.kind === "preset" && (
+          <> · profile <span className="font-medium text-gray-500">{selection.profile}</span></>
+        )}
+        {" "}(server applies the canonical scaling clamp).
       </p>
+
+      {lastContract && (
+        <p
+          className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-100 rounded px-2 py-1"
+          data-testid="text-size-contract-summary"
+        >
+          Requested{" "}
+          <span className="font-medium">{lastContract.resolvedTargetStudents}</span>
+          {lastContract.requestedSizeProfile && (
+            <> ({lastContract.requestedSizeProfile})</>
+          )}
+          {!lastContract.requestedSizeProfile && (
+            <> (resolved to {lastContract.resolvedSizeProfile})</>
+          )}
+          , generated{" "}
+          <span className="font-medium">{lastContract.actualStudentsCreated}</span>
+          {" "}students and{" "}
+          <span className="font-medium">{lastContract.actualStaffCreated}</span>
+          {" "}staff. Within contract:{" "}
+          <span className="font-medium">{lastContract.withinContract ? "yes" : "no"}</span>
+          {" "}· honored target:{" "}
+          <span className="font-medium">{lastContract.honoredTargetStudents ? "yes" : "no"}</span>.
+        </p>
+      )}
 
       {error && <p className="text-[11px] text-red-600">{error}</p>}
       {alreadySeededNotice && (
