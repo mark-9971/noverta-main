@@ -1434,6 +1434,14 @@ export async function seedSampleDataForDistrict(
   // ── 12. Compensatory obligations (urgent + compensatory_risk + crisis) ──
 
   const compRows: (typeof compensatoryObligationsTable.$inferInsert)[] = [];
+  // Track delivered comp sessions to insert alongside the obligation rows.
+  // The Compensatory Burndown chart (compensatoryFinance/burndown.ts) reads
+  // its "Delivered" line from session_logs WHERE is_compensatory=true; if we
+  // only set the obligation row's minutes_delivered field the Overview KPI
+  // shows delivered $ but the burndown delivered line stays flat at zero.
+  // Emit one or two completed comp sessions per partially-delivered
+  // obligation so both surfaces agree.
+  const compSessionRows: (typeof sessionLogsTable.$inferInsert)[] = [];
   for (const spec of studentSpecs) {
     if (!["urgent", "compensatory_risk", "crisis"].includes(spec.scenario)) continue;
     const srs = srByStudent.get(spec.id) ?? [];
@@ -1452,15 +1460,16 @@ export async function seedSampleDataForDistrict(
       const periodStart = addDays(today, -rand(30, 75));
       const periodEnd = addDays(periodStart, periodLength - 1);
       const [delivLo, delivHi] = SAMPLE_BOUNDS.compensatoryDeliveredFraction;
+      const minutesDelivered = spec.scenario === "urgent" || spec.scenario === "crisis"
+        ? 0
+        : Math.round(minutesOwed * randf(delivLo, delivHi));
       compRows.push({
         studentId: spec.id,
         serviceRequirementId: sr.id,
         periodStart,
         periodEnd,
         minutesOwed,
-        minutesDelivered: spec.scenario === "urgent" || spec.scenario === "crisis"
-          ? 0
-          : Math.round(minutesOwed * randf(delivLo, delivHi)),
+        minutesDelivered,
         status: "pending",
         notes: spec.scenario === "crisis"
           ? "Critical shortfall — compensatory plan required; financial exposure exceeds $3,000."
@@ -1469,9 +1478,47 @@ export async function seedSampleDataForDistrict(
             : "Partial gap identified during monthly compliance review.",
         source: "system",
       });
+
+      // Emit matching session_logs for the delivered minutes, so the
+      // burndown chart's "Delivered" line moves in lockstep with the
+      // obligation row's minutes_delivered field. Split across 1-2
+      // sessions inside the obligation period at 30/45/60-minute lengths.
+      if (minutesDelivered > 0) {
+        let remaining = minutesDelivered;
+        const periodStartTs = new Date(periodStart + "T00:00:00Z").getTime();
+        const periodEndTs   = new Date(periodEnd   + "T00:00:00Z").getTime();
+        while (remaining > 0) {
+          const chunk = Math.min(remaining, pick([30, 45, 60] as const));
+          const dayMs = periodStartTs + Math.floor(srand() * Math.max(1, periodEndTs - periodStartTs));
+          const sessionDate = new Date(dayMs).toISOString().slice(0, 10);
+          const startMin = 9 * 60 + (rand(0, 6) * 30);
+          const startHH = String(Math.floor(startMin / 60)).padStart(2, "0");
+          const startMM = String(startMin % 60).padStart(2, "0");
+          const endTotal = startMin + chunk;
+          const endHH = String(Math.floor(endTotal / 60)).padStart(2, "0");
+          const endMM = String(endTotal % 60).padStart(2, "0");
+          compSessionRows.push({
+            studentId: spec.id,
+            serviceRequirementId: sr.id,
+            serviceTypeId: sr.serviceTypeId,
+            staffId: sr.providerId,
+            sessionDate,
+            startTime: `${startHH}:${startMM}`,
+            endTime: `${endHH}:${endMM}`,
+            durationMinutes: chunk,
+            status: "completed",
+            isMakeup: false,
+            isCompensatory: true,
+            notes: "Compensatory makeup session (seeded).",
+            schoolYearId: schoolYear.id,
+          });
+          remaining -= chunk;
+        }
+      }
     }
   }
   if (compRows.length > 0) await chunkedInsert(compensatoryObligationsTable, compRows);
+  if (compSessionRows.length > 0) await chunkedInsert(sessionLogsTable, compSessionRows);
 
   // ── 13. Restraint incidents for incident_history student ──
 
