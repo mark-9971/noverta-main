@@ -15,7 +15,7 @@
 
 ## 2. Demo / sandbox artifacts only
 
-These appear to be non-production artifacts for demos, pitches, design exploration, or isolated experiments:
+`replit.md` calls these out as additional non-production artifacts in the monorepo:
 
 - `artifacts/trellis-demo`
 - `artifacts/trellis-deck`
@@ -29,36 +29,38 @@ Install dependencies:
 
 - `pnpm install`
 
-Run the frontend only (`artifacts/trellis`):
+Frontend dev (`artifacts/trellis/package.json` and `artifacts/trellis/.replit-artifact/artifact.toml`):
 
 - `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/trellis run dev`
 
-Run the backend only (`artifacts/api-server`):
+Backend dev (`artifacts/api-server/package.json` and `artifacts/api-server/.replit-artifact/artifact.toml`):
 
-- `PORT=8090 pnpm --filter @workspace/api-server run dev`
+- `PORT=8090 DATABASE_URL=postgres://USER:PASS@HOST:5432/DB pnpm --filter @workspace/api-server run dev`
 
-Run both behind one origin for browser/E2E work (matches the CI/Replit shape more closely than separate origins):
+Single-origin browser / E2E shape proven by `.github/workflows/e2e.yml` and `scripts/ci-proxy.mjs`:
 
+- `pnpm run typecheck:libs`
+- `pnpm --filter @workspace/db run push`
 - `PORT=8090 pnpm --filter @workspace/api-server run build`
 - `PORT=8090 pnpm --filter @workspace/api-server run start`
 - `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/trellis run build`
 - `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/trellis run serve`
-- `PROXY_PORT=8080 API_TARGET=http://127.0.0.1:8090 WEB_TARGET=http://127.0.0.1:5173 node scripts/ci-proxy.mjs`
+- `node scripts/ci-proxy.mjs`
 
-Run E2E:
+Run E2E (`e2e/package.json` and `e2e/README.md`):
 
-- `pnpm --filter @workspace/e2e exec playwright install chromium`
 - `pnpm --filter @workspace/e2e test`
 
 Notes:
 
-- The web app uses relative `/api` requests, so single-origin access via the proxy is the safest default for browser/E2E testing.
+- `pnpm --filter @workspace/e2e test` already runs `ensure-browser`; the separate `playwright install chromium` command exists in `e2e/README.md` and CI but is not required before every run.
+- The web app uses relative `/api` requests, so the proxy-backed single-origin shape is the only browser/E2E setup explicitly proven by repo files.
 - Backend tests auto-sync the test DB schema:
   - `pnpm --filter @workspace/api-server test`
 
 ## 4. Environment variables
 
-### Required for local app startup / E2E
+### Proven required by startup scripts / config
 
 #### Core runtime
 
@@ -66,80 +68,38 @@ Notes:
 - `BASE_PATH` — required by `artifacts/trellis` Vite config
 - `DATABASE_URL` — required by `lib/db` and Drizzle tooling
 
-#### Auth
+### Proven required by E2E docs / CI
 
-- `CLERK_SECRET_KEY` — required for real backend auth; production startup fails without it
-- `VITE_CLERK_PUBLISHABLE_KEY` — frontend Clerk publishable key
-
-#### E2E
-
-- `E2E_ADMIN_EMAIL`
-- `E2E_ADMIN_PASSWORD`
 - `CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
+- `E2E_ADMIN_EMAIL` — CI requires it; local specs also define a default
+- `E2E_ADMIN_PASSWORD` — CI requires it; local specs also define a default
 
-### Optional / environment-specific
+### Conditional / optional
 
 #### Dev / local convenience
 
 - `NODE_ENV` — Replit defaults this to `test` in development
 - `DEV_AUTH_BYPASS` — enables backend dev auth bypass outside production
 - `VITE_DEV_AUTH_BYPASS` — enables frontend dev auth bypass outside production
-- `TRELLIS_DEV_FORCE_DISTRICT_ID` — non-production override to pin requests to one district
 - `E2E_PROVISION_KEY` — overrides the default E2E provisioning secret
 - `E2E_TEACHER_EMAIL`
 - `E2E_TEACHER_PASSWORD`
 - `E2E_BASE_URL`
 - `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
+- `TRELLIS_DEV_FORCE_DISTRICT_ID` — non-production override to pin requests to one district
 
-#### URLs / proxy / request handling
+#### Uncertain / runtime-dependent
 
-- `APP_URL`
-- `APP_BASE_URL`
-- `APP_ORIGIN`
-- `CORS_ALLOWED_ORIGINS`
-- `TRUST_PROXY`
+- `VITE_CLERK_PUBLISHABLE_KEY` — `artifacts/trellis/src/App.tsx` passes it to `ClerkProvider`, but the repo does not hard-fail at build/startup when it is missing. Treat it as likely needed for a usable auth UI, not as a proven startup requirement.
 
-#### Monitoring / release metadata
+#### Feature-specific env vars not proven required for a basic local trial
 
-- `SENTRY_DSN`
-- `VITE_SENTRY_DSN`
-- `SENTRY_AUTH_TOKEN`
-- `SENTRY_ORG`
-- `SENTRY_PROJECT`
-- `SENTRY_RELEASE`
-- `VITE_APP_VERSION`
-- `APP_VERSION`
-- `LOG_LEVEL`
-- `SENTRY_TEST_ENABLED`
-
-#### Email
-
-- `RESEND_API_KEY`
-- `RESEND_WEBHOOK_SECRET`
-- `DEMO_READINESS_ALERT_EMAIL`
-- `PILOT_ACCOUNT_MANAGER_EMAIL`
-
-#### Storage / files
-
-- `PUBLIC_OBJECT_SEARCH_PATHS`
-- `PRIVATE_OBJECT_DIR`
-
-#### AI integrations
-
-- `AI_INTEGRATIONS_OPENAI_BASE_URL`
-- `AI_INTEGRATIONS_OPENAI_API_KEY`
-
-#### Replit / deployment-provided
-
-- `REPL_ID`
-- `REPLIT_DEV_DOMAIN`
-- `REPLIT_DOMAINS`
-- `REPLIT_GIT_COMMIT_SHA`
-- `REPLIT_DEPLOYMENT`
-- `REPLIT_CONNECTORS_HOSTNAME`
-- `REPL_IDENTITY`
-- `WEB_REPL_RENEWAL`
+- App/runtime URLs: `APP_URL`, `APP_BASE_URL`, `APP_ORIGIN`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`
+- Monitoring: `SENTRY_DSN`, `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_RELEASE`, `VITE_APP_VERSION`, `APP_VERSION`, `LOG_LEVEL`, `SENTRY_TEST_ENABLED`
+- Email: `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`
+- Storage/files: `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR`
+- AI: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`
 
 ## 5. Replit-specific pieces to watch in a future migration
 
