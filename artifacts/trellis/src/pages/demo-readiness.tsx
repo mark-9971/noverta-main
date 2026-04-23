@@ -14,6 +14,7 @@ import {
   History,
   RotateCcw,
   Save,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,6 +79,155 @@ interface DemoResetSchedule {
   cadence: Cadence;
   updatedAt: string | null;
   updatedBy: string | null;
+}
+
+interface SpotlightStudent {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  grade: string | null;
+}
+
+interface SpotlightCase {
+  id: number;
+  category: string;
+  subjectKind: string;
+  subjectId: number;
+  headline: string | null;
+  payload: Record<string, unknown>;
+  selectionOrder: number;
+  student: SpotlightStudent | null;
+}
+
+interface SpotlightResponse {
+  generatedAt: string | null;
+  runId: string | null;
+  totalRows: number;
+  categories: string[];
+  byCategory: Record<string, SpotlightCase[]>;
+}
+
+const SPOTLIGHT_CATEGORY_META: Record<string, { label: string; tone: string; blurb: string }> = {
+  at_risk: {
+    label: "At-risk students",
+    tone: "border-red-200 bg-red-50/30",
+    blurb: "Open critical / high-severity alerts",
+  },
+  scheduled_makeup: {
+    label: "Scheduled makeups",
+    tone: "border-emerald-200 bg-emerald-50/30",
+    blurb: "Recovery sessions on the calendar",
+  },
+  recently_resolved: {
+    label: "Recently resolved",
+    tone: "border-sky-200 bg-sky-50/30",
+    blurb: "Closed alerts (last cohort)",
+  },
+  provider_overloaded: {
+    label: "Provider overloaded",
+    tone: "border-amber-200 bg-amber-50/30",
+    blurb: "Caseload-strain handling rows",
+  },
+  evaluation_due: {
+    label: "Evaluation due",
+    tone: "border-violet-200 bg-violet-50/30",
+    blurb: "Most-pending comp obligations",
+  },
+  parent_followup: {
+    label: "Awaiting parent",
+    tone: "border-pink-200 bg-pink-50/30",
+    blurb: "Family confirmation pending",
+  },
+  high_progress: {
+    label: "High progress",
+    tone: "border-lime-200 bg-lime-50/30",
+    blurb: "Top completion-rate students",
+  },
+  chronic_miss: {
+    label: "Chronic miss",
+    tone: "border-orange-200 bg-orange-50/30",
+    blurb: "Highest miss-rate students",
+  },
+  __fallback__: {
+    label: "Fallback rows",
+    tone: "border-gray-200 bg-gray-50/40",
+    blurb: "Categories that ran out of candidates",
+  },
+};
+
+function studentDisplay(s: SpotlightStudent | null): string | null {
+  if (!s) return null;
+  const name = [s.firstName, s.lastName].filter(Boolean).join(" ").trim();
+  if (!name) return null;
+  return s.grade ? `${name} · ${s.grade}` : name;
+}
+
+function payloadHighlights(c: SpotlightCase): string[] {
+  const out: string[] = [];
+  const p = c.payload ?? {};
+  const num = (k: string): number | null =>
+    typeof p[k] === "number" ? (p[k] as number) : null;
+  const str = (k: string): string | null =>
+    typeof p[k] === "string" ? (p[k] as string) : null;
+
+  switch (c.category) {
+    case "at_risk": {
+      const sev = str("severity");
+      const t = str("type");
+      const cp = num("completionPct");
+      if (sev) out.push(sev.toUpperCase());
+      if (t) out.push(t);
+      if (cp != null) out.push(`${Math.round(cp)}% complete`);
+      break;
+    }
+    case "scheduled_makeup": {
+      const dow = num("dayOfWeek");
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      if (dow != null && days[dow]) out.push(days[dow]);
+      break;
+    }
+    case "evaluation_due": {
+      const m = num("minutesOwed");
+      const o = num("pendingObligations");
+      if (m != null) out.push(`${m} min owed`);
+      if (o != null) out.push(`${o} obligation${o === 1 ? "" : "s"}`);
+      break;
+    }
+    case "high_progress": {
+      const total = num("totalSessions");
+      const missed = num("missedSessions");
+      const rate = num("completionRate");
+      if (rate != null) out.push(`${Math.round(rate * 100)}% complete`);
+      if (total != null && missed != null) out.push(`${missed}/${total} missed`);
+      break;
+    }
+    case "chronic_miss": {
+      // Overlay payload uses `missRate` (not `completionRate`) for this
+      // category — see lib/db/src/v2/overlay/index.ts chronic_miss selector.
+      const total = num("totalSessions");
+      const missed = num("missedSessions");
+      const rate = num("missRate");
+      if (rate != null) out.push(`${Math.round(rate * 100)}% missed`);
+      if (total != null && missed != null) out.push(`${missed}/${total} missed`);
+      break;
+    }
+    case "provider_overloaded":
+    case "parent_followup": {
+      const role = str("assignedToRole");
+      const state = str("state");
+      if (state) out.push(state);
+      if (role) out.push(role);
+      break;
+    }
+    case "recently_resolved": {
+      const t = str("type");
+      const sev = str("severity");
+      if (t) out.push(t);
+      if (sev) out.push(sev);
+      break;
+    }
+  }
+  return out;
 }
 
 interface DemoResetAuditRow {
@@ -472,6 +622,13 @@ export default function DemoReadinessPage() {
     refetchInterval: 30_000,
   });
 
+  const { data: spotlightData, isLoading: spotlightLoading } = useQuery<SpotlightResponse>({
+    queryKey: ["demo-showcase-cases"],
+    queryFn: () => apiGet<SpotlightResponse>("/api/admin/demo/showcase-cases"),
+    enabled: isPlatformAdmin,
+    refetchInterval: 60_000,
+  });
+
   const [selectedCadence, setSelectedCadence] = useState<Cadence | null>(null);
   const effectiveCadence: Cadence = selectedCadence ?? scheduleData?.cadence ?? "off";
 
@@ -719,6 +876,117 @@ export default function DemoReadinessPage() {
           ))}
         </ul>
       )}
+
+      {/* ── Spotlight Cases (V2 Demo Overlay) ─────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-600" />
+            Spotlight cases
+            {spotlightData && (
+              <Badge variant="outline" className="ml-1 font-normal">
+                {spotlightData.totalRows} curated
+              </Badge>
+            )}
+          </CardTitle>
+          <p className="text-xs text-gray-500 mt-0.5">
+            The seed overlay picks up to 3 representative rows per category so the
+            demo flow always lands on the same teaching moments. Generated{" "}
+            {spotlightData?.generatedAt
+              ? new Date(spotlightData.generatedAt).toLocaleString()
+              : "— never (run a reseed)"}
+            .
+          </p>
+        </CardHeader>
+        <CardContent>
+          {spotlightLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-36 rounded-lg bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : !spotlightData || spotlightData.totalRows === 0 ? (
+            <p className="text-sm text-gray-400 py-4">
+              No spotlight cases yet. Reseed the demo district to populate the
+              overlay.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="spotlight-cases-grid">
+              {Object.entries(spotlightData.byCategory)
+                .filter(([cat, items]) => items.length > 0 || cat !== "__fallback__")
+                .map(([cat, items]) => {
+                  const meta = SPOTLIGHT_CATEGORY_META[cat] ?? {
+                    label: cat,
+                    tone: "border-gray-200 bg-gray-50/30",
+                    blurb: "",
+                  };
+                  return (
+                    <div
+                      key={cat}
+                      className={`border rounded-lg p-3 ${meta.tone}`}
+                      data-testid={`spotlight-card-${cat}`}
+                    >
+                      <div className="flex items-baseline justify-between gap-2 mb-1">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {meta.label}
+                        </p>
+                        <span className="text-[11px] font-medium text-gray-500">
+                          {items.length}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mb-2">{meta.blurb}</p>
+                      {items.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">
+                          No matching rows in this run.
+                        </p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {items.slice(0, 3).map((c) => {
+                            const display = studentDisplay(c.student);
+                            const tags = payloadHighlights(c);
+                            return (
+                              <li key={c.id} className="text-xs">
+                                <div className="flex items-start gap-1.5">
+                                  <ArrowRight className="w-3 h-3 text-gray-400 mt-0.5 shrink-0" />
+                                  <div className="min-w-0">
+                                    {display && (
+                                      <span className="font-medium text-gray-800">
+                                        {c.student ? (
+                                          <Link
+                                            href={`/students/${c.student.id}`}
+                                            className="hover:text-emerald-700"
+                                          >
+                                            {display}
+                                          </Link>
+                                        ) : (
+                                          display
+                                        )}
+                                      </span>
+                                    )}
+                                    {c.headline && (
+                                      <p className="text-gray-600 break-words">
+                                        {c.headline}
+                                      </p>
+                                    )}
+                                    {tags.length > 0 && (
+                                      <p className="text-[11px] text-gray-500 mt-0.5">
+                                        {tags.join(" · ")}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Auto-Reset Schedule ─────────────────────────────────────────── */}
       <Card>
