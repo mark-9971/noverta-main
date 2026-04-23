@@ -1,0 +1,324 @@
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+This is T-V2-07 — Seed V2 Cutover.
+
+Execution priority for this task
+
+1. actual completion
+2. accuracy
+3. thoroughness
+4. trustworthy proof
+5. efficiency only after the above
+
+Do not optimize for speed if it reduces correctness or proof quality.
+
+Do not simulate, reconstruct, or approximate a required real workflow/proof unless the prompt explicitly allows it.
+If the task calls for a real path, run the real path.
+If the task calls for a cutover, perform the actual cutover.
+If the work cannot be completed honestly as requested, return PARTIAL with the blocker instead of substituting a shortcut.
+
+⸻
+
+Hard rules
+
+* This is a real cutover task, not a planning task.
+* Do not broaden into V1 deletion yet.
+* Do not broaden into dashboard/showcase UI work.
+* Do not reopen parity bake unless a blocker is discovered.
+* Keep the V1 path available behind a fallback/operator knob if needed for forensic comparison.
+* Do not run full repo tests by default.
+* Do not rerun broad failing suites without first stating the likely cause.
+* Separate regressions from pre-existing failures and environment noise.
+
+Before declaring COMPLETE, verify:
+
+1. the default seed/reset path now uses V2
+2. overlay runs as part of the normal V2 seed/reset flow
+3. postRunSummary reflects real overlay execution
+4. V1 remains available only as an explicit fallback/operator path if retained
+5. targeted cutover proof exists
+6. tests/build status are clearly stated
+7. remaining gaps are explicitly listed
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. CUTOVER MECHANISM
+6. FALLBACK / ROLLBACK PATH
+7. USER-VISIBLE IMPACT
+8. DEMO / RESET IMPACT
+9. ARCHITECTURE / MODEL IMPACT
+10. TEST / BUILD STATUS
+11. EXACT REMAINING GAPS
+12. EXACT NEXT TASKS
+13. FINAL ARTIFACT
+
+⸻
+
+Objective
+
+Make Seed V2 the default seed/reset path.
+
+This task must:
+
+1. flip the normal seed/reset entrypoint(s) to V2
+2. ensure the Demo Readiness Overlay runs in the default V2 flow
+3. preserve an explicit fallback/operator path to V1 only if needed for rollback/forensics
+4. prove the default reset flow now produces the expected V2 summary/output
+
+This is the real cutover from V1-default to V2-default.
+
+⸻
+
+Why now
+
+T-V2-06 parity bake is complete and cutover-ready.
+
+That means the remaining step is not more comparison.
+It is to make the actual default behavior use V2.
+
+This is the final step before:
+
+* retiring V1 sprawl
+* updating project source docs
+* returning to the main product roadmap
+
+⸻
+
+Scope
+
+In scope
+
+A. Default seed/reset cutover
+
+Change the normal seed/reset entrypoint(s) so they use V2 by default.
+
+B. Overlay in default flow
+
+Ensure the default V2 seed/reset flow:
+
+* runs persistence
+* runs Demo Readiness Overlay
+* passes showcase into buildPostRunSummary(...)
+* returns the enriched summary
+
+C. Fallback / rollback path
+
+Keep a minimal, explicit V1 fallback only if necessary.
+This may be:
+
+* a flag
+* an operator option
+* a temporary internal path
+
+But it must be explicit and not remain the default.
+
+D. Cutover proof
+
+Add the smallest trustworthy proof that:
+
+* default reset now yields V2 outputs
+* overlay is included
+* summary shows overlay/showcase fields
+* fallback path still works if retained
+
+Out of scope
+
+* deleting V1 files
+* dashboard/showcase surfacing work
+* migration tooling cleanup (#971)
+* broader demo polish
+* roadmap/product work outside seed/reset cutover
+
+⸻
+
+Exact execution order
+
+Step 1 — identify the real default entrypoint(s)
+
+Find the actual normal reset/seed entrypoint(s) used by:
+
+* sample-data route
+* reset/demo path
+* operator-triggered seed path
+
+Do not guess. Use the real codepath.
+
+Step 2 — flip default behavior to V2
+
+Make V2 the default implementation.
+
+If a V1 fallback remains, it must be:
+
+* explicit
+* non-default
+* clearly bounded
+
+Step 3 — ensure overlay is part of default flow
+
+Confirm the default V2 path includes:
+
+* overlay execution
+* showcase summary arg
+* enriched postRunSummary
+* layers.overlay = true when showcase rows exist
+
+Step 4 — add cutover proof
+
+Add targeted proof covering:
+
+* default path = V2
+* overlay included
+* summary enriched
+* fallback path still works if retained
+
+Step 5 — generate/update final cutover artifact
+
+Write a small artifact/report showing:
+
+* default path now cut over
+* fallback status
+* proof results
+
+⸻
+
+Cutover mechanism requirements
+
+Be explicit about:
+
+* where the default is flipped
+* whether this uses a flag/env/operator switch
+* whether V1 still exists
+* how rollback would work if needed
+
+Do not leave this implicit.
+
+If using a flag:
+
+* default must now resolve to V2
+* V1 must be opt-in only
+
+If removing the flag and hard-switching:
+
+* say so clearly
+
+⸻
+
+Testing / verification requirements
+
+Run only:
+
+1. targeted typecheck for touched modules/packages
+2. targeted seed/reset tests
+3. targeted cutover proof tests
+
+Do not run full repo tests.
+
+Required proof
+
+At minimum prove:
+
+* default reset path executes V2
+* overlay executes in the default path
+* postRunSummary includes showcase/additive overlay fields
+* fallback path works if retained
+* no-mutation invariant is not broken by cutover wiring
+
+If a test fails:
+
+* state the likely cause
+* classify as new / pre-existing / environment-related
+* fix once before rerunning broadly
+
+⸻
+
+Invalid implementation conditions
+
+If any of these occur, mark INCORRECTLY IMPLEMENTED:
+
+* V1 remains the default path
+* overlay is not actually part of the default V2 flow
+* cutover is claimed without real proof
+* fallback path becomes ambiguous or undocumented
+* task broadens into V1 deletion or unrelated cleanup
+
+⸻
+
+COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+COMPLETE
+
+Use COMPLETE only if:
+
+* default path is truly V2
+* overlay runs in the default flow
+* summary reflects real overlay execution
+* fallback/rollback path is explicit
+* targeted proof exists
+
+PARTIAL
+
+Use PARTIAL if:
+
+* cutover is only partly wired
+* V2 is default in one path but not all real reset paths
+* fallback path is unclear
+* proof is incomplete
+
+INCORRECTLY IMPLEMENTED
+
+Use INCORRECTLY IMPLEMENTED if:
+
+* V1 still remains default
+* overlay is missing from default flow
+* cutover is asserted without proof
+* scope broadens into V1 retirement or unrelated work
+
+⸻
+
+Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. CUTOVER MECHANISM
+6. FALLBACK / ROLLBACK PATH
+7. USER-VISIBLE IMPACT
+8. DEMO / RESET IMPACT
+9. ARCHITECTURE / MODEL IMPACT
+10. TEST / BUILD STATUS
+11. EXACT REMAINING GAPS
+12. EXACT NEXT TASKS
+13. FINAL ARTIFACT
+
+Rules:
+
+* no skipped sections
+* no vague summaries
+* include exact file paths
+* include exact tests run and pass/fail counts
+* separate regressions from pre-existing failures
+
+⸻
+
+Success criteria
+
+This task is successful when:
+
+* a normal reset/seed now uses V2 by default
+* overlay is included
+* summary reflects it
+* fallback is explicit
+* proof is real
+* V1 deletion is still deferred to the next task
+
+Do not start the next task automatically.
+Stop after cutover and wait for review.
+:::

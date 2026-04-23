@@ -84,13 +84,32 @@ export interface SeedSampleOptions {
   demoEmphasis?: DemoEmphasis;
 
   /**
-   * T-V2-06-FOLLOWUP — when true, skips the W5 Demo Readiness Overlay
-   * invocation at the end of the seed run, executing the literal V1
-   * code path (no `runDemoReadinessOverlay`, no `buildShowcaseSummaryArg`,
-   * no `showcase` arg passed into `buildPostRunSummary`). Used by the
-   * real V1↔V2 parity bake to compare both paths against the same
-   * districtId without git-checkout games or synthesized snapshots.
-   * Defaults to undefined → V2 path (overlay runs).
+   * T-V2-07 — explicit forensic-only fallback to the legacy V1 codepath.
+   *
+   * As of T-V2-07 (Seed V2 Cutover), V2 is the official default seed/reset
+   * path: the W5 Demo Readiness Overlay runs at the end of every normal
+   * `seedSampleDataForDistrict` call, populates `demo_showcase_cases`, and
+   * enriches `buildPostRunSummary` with `showcase` (so `layers.overlay`
+   * flips true). Production routes
+   *   - `POST /api/sample-data`
+   *   - `POST /api/sample-data/reset-demo` (via downstream calls)
+   *   - `POST /demo-control/reset-district`
+   * never set this flag and therefore always exercise the V2 default.
+   *
+   * Setting `disableV2Overlay: true` skips the overlay invocation and
+   * causes `buildPostRunSummary` to ship without the W5 `showcase` arg
+   * (so `layers.overlay` resolves false and `showcaseCaseCounts` is
+   * empty). It is RESERVED for two operator/forensic uses only:
+   *   1) the V1↔V2 parity bake
+   *      (`artifacts/api-server/tests/seed-v2/parity-bake-v2.test.ts`)
+   *   2) the cutover-proof regression test
+   *      (`artifacts/api-server/tests/seed-v2/cutover-v2.test.ts`)
+   *
+   * Do NOT wire this flag into any user-facing UI, route, or env var.
+   * If a regression in the V2 default is suspected, set this temporarily
+   * in a script/repl invocation to confirm the V1 baseline still works,
+   * then unset it. Removal of this flag is tracked under T-V2-08
+   * (V1 sprawl retirement).
    */
   disableV2Overlay?: boolean;
 }

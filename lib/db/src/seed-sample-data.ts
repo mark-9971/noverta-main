@@ -2082,25 +2082,35 @@ export async function seedSampleDataForDistrict(
     compensatoryObligations: compRows.length,
     sizeProfile,
   } as const;
-  // T-V2-06 — wire the W5 Demo Readiness Overlay into the V2 seed
-  // path. The overlay reads the just-persisted primitive facts and
-  // tags showcase rows in `demo_showcase_cases`. It enforces a
-  // SHA-256 no-mutation invariant on the source tables, so any
-  // accidental write here would throw. We then derive the
-  // `showcase` arg for buildPostRunSummary so `layers.overlay`
-  // flips true and the dashboard Demo Readiness panel can render
-  // honest counts.
+  // T-V2-07 — DEFAULT V2 SEED PATH.
+  //
+  // As of T-V2-07 (Seed V2 Cutover), this overlay block is the
+  // OFFICIAL DEFAULT behavior of `seedSampleDataForDistrict`. Every
+  // production entrypoint (POST /api/sample-data,
+  // POST /demo-control/reset-district, demo-reset module helpers,
+  // operator scripts) calls into this function without setting
+  // `disableV2Overlay`, so the W5 Demo Readiness Overlay runs as
+  // part of the normal seed/reset flow. There is no env var or
+  // feature flag — V2 is hard-wired as the default.
+  //
+  // The overlay reads the just-persisted primitive facts and tags
+  // showcase rows in `demo_showcase_cases`. It enforces a SHA-256
+  // no-mutation invariant on the source tables, so any accidental
+  // write here would throw. We then derive the `showcase` arg for
+  // `buildPostRunSummary` so `layers.overlay` flips true and the
+  // dashboard Demo Readiness panel can render honest counts.
   //
   // Failures here are non-fatal for the seed: the structural seed
   // already succeeded, and we don't want to roll back students/staff
   // because of an overlay glitch. We log the error and ship a
-  // summary without showcase enrichment.
+  // summary without showcase enrichment (operators can rerun via
+  // /demo-control/reset-district to recover).
   //
-  // T-V2-06-FOLLOWUP — the entire overlay block is gated by
-  // `options.disableV2Overlay`. Setting that flag executes the
-  // literal V1 code path (no overlay, no showcase enrichment). The
-  // real V1↔V2 parity bake uses this gate to compare both paths
-  // against the same districtId without git-checkout games.
+  // FORENSIC FALLBACK — `options.disableV2Overlay = true` skips this
+  // block and ships the literal V1 code path (no overlay, no showcase
+  // enrichment). RESERVED for the parity bake + cutover-proof tests
+  // only; see the JSDoc on `SeedSampleOptions.disableV2Overlay` for
+  // rules. Removal of this knob is tracked under T-V2-08.
   let _v2ShowcaseArg: Awaited<ReturnType<typeof buildShowcaseSummaryArg>> | undefined;
   if (!options.disableV2Overlay) {
     try {
