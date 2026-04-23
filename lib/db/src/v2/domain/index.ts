@@ -29,5 +29,8 @@ export * from "./roster/staff";
 export * from "./roster/students";
 export * from "./clinical";
 export * from "./shape";
+// T-V2-09 — size-control contract resolver. Pure; depends on reference +
+// roster/students only.
+export * from "./sizeContract";
 
 export const DOMAIN_LAYER_VERSION = "w2";

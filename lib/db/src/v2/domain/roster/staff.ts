@@ -114,6 +114,19 @@ export const STAFF_BY_PROFILE: Record<
     { role: "provider", titleIncludes: "Paraprofessional", count: 2 },
     { role: "admin",        count: 1 },
   ],
+  // T-V2-09 — `xl` baseline slot counts. These are floors only: with
+  // ~1750 students and a 22:1 case-manager ratio, buildStaffSeeds
+  // auto-scales to ~80 case managers, ~22 SLPs, etc. via STAFF_RATIOS.
+  xl: [
+    { role: "case_manager", count: 6 },
+    { role: "bcba",         count: 2 },
+    { role: "provider", titleIncludes: "Speech",       count: 2 },
+    { role: "provider", titleIncludes: "Occupational", count: 2 },
+    { role: "provider", titleIncludes: "Physical",     count: 1 },
+    { role: "provider", titleIncludes: "Counselor",    count: 2 },
+    { role: "provider", titleIncludes: "Paraprofessional", count: 2 },
+    { role: "admin",        count: 1 },
+  ],
 };
 
 /**

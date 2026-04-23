@@ -119,7 +119,9 @@ export async function runSimulationOverlayForDistrict(
   }
 
   const sizeProfileOpt: SizeProfile = options.sizeProfile ?? "small";
-  const sizeProfile: "small" | "medium" | "large" =
+  // T-V2-09 — `xl` is now a first-class profile; collapse "random" to
+  // "small" here (overlay rebuilds a stable subset, doesn't need stress scale).
+  const sizeProfile: "small" | "medium" | "large" | "xl" =
     sizeProfileOpt === "random" ? "small" : sizeProfileOpt;
   setSeed(districtId);
   const studentDefs = buildStudentDefs(sizeProfile, 5);

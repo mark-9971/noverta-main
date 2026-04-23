@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import {
   SAMPLE_BOUNDS,
   SIZE_PROFILES,
+  SIZE_PROFILE_RANGES,
   DEFAULT_RANDOM_ROSTER_RANGE,
   DISABILITY_MAP,
   DISABILITY_POOL,
@@ -25,14 +26,34 @@ describe("v2/domain/reference — bounds + size profiles", () => {
     expect(SAMPLE_BOUNDS.requiredMinutes).toEqual([60, 360]);
   });
 
-  it("SIZE_PROFILES exposes small/medium/large with correct student counts", () => {
-    expect(SIZE_PROFILES.small.students).toBe(20);
-    expect(SIZE_PROFILES.medium.students).toBe(60);
-    expect(SIZE_PROFILES.large.students).toBe(120);
+  it("SIZE_PROFILES exposes small/medium/large/xl with T-V2-09 contract counts", () => {
+    // T-V2-09 — defaults are the mid-points of SIZE_PROFILE_RANGES so the
+    // canonical V2 path lands inside the documented band for every profile.
+    expect(SIZE_PROFILES.small.students).toBe(90);
+    expect(SIZE_PROFILES.medium.students).toBe(350);
+    expect(SIZE_PROFILES.large.students).toBe(1000);
+    expect(SIZE_PROFILES.xl.students).toBe(1750);
     expect(SIZE_PROFILES.large.staff).toBeGreaterThan(SIZE_PROFILES.small.staff);
+    expect(SIZE_PROFILES.xl.staff).toBeGreaterThan(SIZE_PROFILES.large.staff);
   });
 
-  it("DEFAULT_RANDOM_ROSTER_RANGE covers the three named profiles", () => {
+  it("SIZE_PROFILE_RANGES match the brief: 60-120 / 200-500 / 800-1200 / 1500-2000", () => {
+    expect(SIZE_PROFILE_RANGES.small).toEqual({ min: 60, max: 120 });
+    expect(SIZE_PROFILE_RANGES.medium).toEqual({ min: 200, max: 500 });
+    expect(SIZE_PROFILE_RANGES.large).toEqual({ min: 800, max: 1200 });
+    expect(SIZE_PROFILE_RANGES.xl).toEqual({ min: 1500, max: 2000 });
+  });
+
+  it("Each profile's default students value sits inside its contract range", () => {
+    for (const key of ["small", "medium", "large", "xl"] as const) {
+      const def = SIZE_PROFILES[key].students;
+      const range = SIZE_PROFILE_RANGES[key];
+      expect(def).toBeGreaterThanOrEqual(range.min);
+      expect(def).toBeLessThanOrEqual(range.max);
+    }
+  });
+
+  it("DEFAULT_RANDOM_ROSTER_RANGE remains exported for back-compat (T-V2-09 retired the implicit override)", () => {
     const [lo, hi] = DEFAULT_RANDOM_ROSTER_RANGE;
     expect(lo).toBe(50);
     expect(hi).toBe(100);

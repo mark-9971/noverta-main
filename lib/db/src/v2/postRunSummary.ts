@@ -22,6 +22,7 @@
  */
 import type { SeedRunMetadata } from "./platform/runMetadata";
 import type { ShowcaseCategory } from "./overlay";
+import type { SizeContractOutcome } from "./domain/sizeContract";
 
 export interface SeedSampleResultLite {
   studentsCreated: number;
@@ -120,6 +121,19 @@ export interface PostRunSummary {
     simulator: boolean;
     overlay: boolean;
   };
+
+  /**
+   * T-V2-09 — Honest requested-vs-resolved size record. Reports both
+   * what the operator asked for (`requestedTargetStudents` /
+   * `requestedSizeProfile`) and what the seeder actually produced
+   * (`actualStudentsCreated`, `actualStaffCreated`) against the
+   * documented contract band (`contractRange`). `honoredTargetStudents`
+   * is the truthful "did the data match the request?" boolean.
+   *
+   * Always populated for V2 runs; `null` only when the seeder is in the
+   * `alreadySeeded` no-op branch (where no contract was resolved).
+   */
+  sizeContract: SizeContractOutcome | null;
 }
 
 const ZERO_COMPLIANCE_DISTRIBUTION: ComplianceDistribution = {
@@ -154,6 +168,12 @@ export interface BuildPostRunSummaryArgs {
     showcaseCaseCounts: ShowcaseCaseCounts;
     exampleShowcaseIds: Partial<Record<ShowcaseCategory | "__fallback__", number[]>>;
   };
+  /**
+   * T-V2-09 — Resolved size contract + actual counts. Built by the
+   * seeder via `buildSizeContractOutcome(...)` after the inserts
+   * complete so the summary reflects truthful requested-vs-resolved.
+   */
+  sizeContract?: SizeContractOutcome;
 }
 
 export function buildPostRunSummary(args: BuildPostRunSummaryArgs): PostRunSummary {
@@ -186,5 +206,6 @@ export function buildPostRunSummary(args: BuildPostRunSummaryArgs): PostRunSumma
       simulator: false,
       overlay: overlayLit,
     },
+    sizeContract: args.sizeContract ?? null,
   };
 }

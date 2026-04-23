@@ -55,8 +55,12 @@ export function resolveSizeProfile(
 ): Exclude<SizeProfile, "random"> {
   if (!profile || profile === "random") {
     if (profile === "random") {
-      return pick(["small", "medium", "large"] as const);
+      // T-V2-09 — random now spans all four profiles including xl, so a
+      // pilot district can intentionally land on a stress-scale roster.
+      return pick(["small", "medium", "large", "xl"] as const);
     }
+    // T-V2-09 — operator default is "medium" (~350 students). The
+    // contract explicitly retired the implicit ~50–100 random override.
     return "medium";
   }
   return profile;

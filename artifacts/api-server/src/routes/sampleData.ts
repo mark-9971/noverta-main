@@ -26,12 +26,18 @@ import {
   type Intensity,
   type DemoEmphasis,
   type PostRunSummary,
+  type SizeProfile,
 } from "@workspace/db";
 import { sql, eq, and } from "drizzle-orm";
 
 const INTENSITIES: ReadonlySet<Intensity> = new Set(["low", "medium", "high"]);
 const EMPHASES: ReadonlySet<DemoEmphasis> = new Set([
   "compliance", "comp_ed", "caseload", "behavior", "executive",
+]);
+// T-V2-09 — accepted size profile values on the wire. `random` is honored
+// by the seeder (mapped via the seeded RNG to small/medium/large/xl).
+const SIZE_PROFILES_WIRE: ReadonlySet<SizeProfile> = new Set([
+  "small", "medium", "large", "xl", "random",
 ]);
 
 /**
@@ -54,6 +60,11 @@ function parseSeedOptions(body: unknown): SeedSampleOptions {
     typeof v === "string" && INTENSITIES.has(v as Intensity) ? (v as Intensity) : undefined;
 
   if (typeof b.districtName === "string" && b.districtName.trim()) out.districtName = b.districtName.trim().slice(0, 120);
+  // T-V2-09 — sizeProfile now accepted on the wire (was previously
+  // dropped, so operators couldn't pin a profile via HTTP).
+  if (typeof b.sizeProfile === "string" && SIZE_PROFILES_WIRE.has(b.sizeProfile as SizeProfile)) {
+    out.sizeProfile = b.sizeProfile as SizeProfile;
+  }
   const sc = intInRange(b.schoolCount, 1, 12);              if (sc !== undefined) out.schoolCount = sc;
   const ts = intInRange(b.targetStudents, 1, 5000);         if (ts !== undefined) out.targetStudents = ts;
   const cm = intInRange(b.caseManagerCount, 0, 200);        if (cm !== undefined) out.caseManagerCount = cm;
@@ -277,7 +288,19 @@ export interface DemoResetV2Outcome {
   summary: PostRunSummary | undefined;
 }
 
-export async function runDemoResetV2(): Promise<DemoResetV2Outcome> {
+/**
+ * T-V2-09 — Optional size-control inputs the canonical demo reset can
+ * pass through to `seedSampleDataForDistrict`. Both fields default to
+ * "let the seeder pick" (medium, ~350 students) when omitted.
+ */
+export interface DemoResetV2Inputs {
+  sizeProfile?: SizeProfile;
+  targetStudents?: number;
+}
+
+export async function runDemoResetV2(
+  inputs: DemoResetV2Inputs = {},
+): Promise<DemoResetV2Outcome> {
   const districtId = await ensureDemoDistrictId();
 
   // Surgical reset: wipe sample-tagged rows in this district only.
@@ -285,21 +308,37 @@ export async function runDemoResetV2(): Promise<DemoResetV2Outcome> {
   await teardownSampleData(districtId);
 
   // CANONICAL ENGINE — V2 seed (runs W5 overlay + summary internally).
-  // Nothing else executes after this: no legacy additive shaping passes.
+  // T-V2-09 — size knobs are forwarded verbatim so the reset path can
+  // produce small (60–120), medium (200–500), large (800–1200), or xl
+  // (1500–2000) demo districts on demand. The seeder records both the
+  // request and the actual seeded counts in `summary.sizeContract`.
   const result = await seedSampleDataForDistrict(districtId, {
     districtName: DEMO_DISTRICT_NAME,
+    ...(inputs.sizeProfile !== undefined ? { sizeProfile: inputs.sizeProfile } : {}),
+    ...(inputs.targetStudents !== undefined ? { targetStudents: inputs.targetStudents } : {}),
   });
 
   return { districtId, summary: result.summary };
 }
 
-router.post("/sample-data/reset-demo", requirePlatformAdmin, async (_req, res): Promise<void> => {
+router.post("/sample-data/reset-demo", requirePlatformAdmin, async (req, res): Promise<void> => {
   if (demoResetInFlight) {
     res.status(409).json({ error: "A demo reset is already in progress; please wait for it to finish." });
     return;
   }
   const startedAt = Date.now();
-  const work = runDemoResetV2();
+  // T-V2-09 — accept optional sizeProfile + targetStudents on the demo
+  // reset body so operators can intentionally produce stress-scale
+  // (~2000-student) demos without dropping into the CLI.
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const inputs: DemoResetV2Inputs = {};
+  if (typeof body.sizeProfile === "string" && SIZE_PROFILES_WIRE.has(body.sizeProfile as SizeProfile)) {
+    inputs.sizeProfile = body.sizeProfile as SizeProfile;
+  }
+  if (typeof body.targetStudents === "number" && Number.isFinite(body.targetStudents)) {
+    inputs.targetStudents = Math.max(1, Math.min(5000, Math.round(body.targetStudents)));
+  }
+  const work = runDemoResetV2(inputs);
   demoResetInFlight = work;
   try {
     const outcome = await work;

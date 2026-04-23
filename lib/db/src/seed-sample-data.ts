@@ -154,6 +154,9 @@ import {
   buildStudentDefs,
   resolveSizeProfile,
   DEFAULT_RANDOM_ROSTER_RANGE,
+  // T-V2-09 — size-control contract
+  resolveSizeContract,
+  buildSizeContractOutcome,
 } from "./v2/domain";
 import { SCENARIO_COUNTS_BY_PROFILE } from "./v2/scenarios";
 
@@ -338,15 +341,24 @@ export async function seedSampleDataForDistrict(
   try {
 
   const shape = resolveSeedShape(options);
-  const sizeProfile = resolveSizeProfile(options.sizeProfile);
-  // When the caller does not specify a profile, randomize the roster size
-  // in the 50–100 range so each of the ~30 pilot districts looks unique
-  // out of the box. Explicit small/medium/large keep their fixed counts.
-  const rosterOverride = options.targetStudents !== undefined
-    ? options.targetStudents
-    : options.sizeProfile === undefined
-      ? rand(DEFAULT_RANDOM_ROSTER_RANGE[0], DEFAULT_RANDOM_ROSTER_RANGE[1])
-      : undefined;
+  // T-V2-09 — formal size-control contract. `sizeContract` records the
+  // requested vs resolved values and is surfaced verbatim in the
+  // post-run summary so operators can see whether the seeder honored
+  // the request. Precedence: targetStudents > sizeProfile > "medium".
+  // The implicit ~50–100 random override (legacy) was removed here:
+  // omitting both inputs now resolves deterministically to "medium".
+  const sizeContract = resolveSizeContract({
+    sizeProfile: options.sizeProfile,
+    targetStudents: options.targetStudents,
+  });
+  const sizeProfile = sizeContract.resolvedSizeProfile;
+  // Always pass the resolved target into the roster + staff builders so
+  // both layers see the same student count (no implicit random fallback).
+  const rosterOverride: number | undefined = sizeContract.resolvedTargetStudents;
+  // Reference DEFAULT_RANDOM_ROSTER_RANGE so the legacy export does not
+  // become unused (it is still re-exported from @workspace/db barrel).
+  void DEFAULT_RANDOM_ROSTER_RANGE;
+  void rand;
   // ── 1. Prerequisites: district, schools, school year, service types ──
 
   // Auto-provision a minimal district stub if the caller's enforced district
@@ -2124,6 +2136,11 @@ export async function seedSampleDataForDistrict(
     }
   }
   const _v2Meta = endRun(_v2RunBegin, districtId);
+  // T-V2-09 — pair the resolved contract with the actual created counts.
+  const _v2SizeOutcome = buildSizeContractOutcome(sizeContract, {
+    studentsCreated: _v2Result.studentsCreated,
+    staffCreated: _v2Result.staffCreated,
+  });
   const _v2Summary = buildPostRunSummary({
     meta: _v2Meta,
     districtName: district?.name ?? null,
@@ -2131,6 +2148,7 @@ export async function seedSampleDataForDistrict(
     result: _v2Result,
     scenarioCounts: _v2ScenarioCounts,
     showcase: _v2ShowcaseArg,
+    sizeContract: _v2SizeOutcome,
   });
   return { ..._v2Result, summary: _v2Summary };
 

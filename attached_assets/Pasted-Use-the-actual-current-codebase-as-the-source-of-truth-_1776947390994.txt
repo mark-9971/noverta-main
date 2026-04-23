@@ -1,0 +1,347 @@
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+This is T-V2-09 — Seed Size / Scale Profiles.
+
+Execution priorities
+
+1. actual completion
+2. correctness
+3. thoroughness
+4. trustworthy proof
+5. efficiency only after the above
+
+Do not optimize for speed if it reduces correctness or proof quality.
+
+If the work cannot be completed honestly as requested, return PARTIAL with the exact blocker instead of substituting a shortcut.
+
+⸻
+
+Objective
+
+Make seeded district size explicit, configurable, and actually honored across the canonical V2 seed/reset paths.
+
+Right now the seed size is too implicit and too small for real demo/stress use.
+The canonical V2 seed/reset system must intentionally support useful district sizes from ~60 to ~2000 students.
+
+This task should establish a real size-control contract and ensure it is honored end-to-end by:
+
+* student generation
+* staffing generation
+* scenario distribution
+* overlay/showcase generation
+* summary/report output
+* real operator-facing entrypoints where size should matter
+
+⸻
+
+Why now
+
+The canonical reset backbone is now V2-only in runtime.
+
+Before updating project docs and before moving fully back to the main roadmap, the seed/reset system should support the actual sizes you need for:
+
+* small demos
+* standard demos
+* large validation/stress runs
+* enterprise-scale demos
+
+A seed that quietly lands around ~62 students by default is no longer sufficient.
+
+⸻
+
+Hard rules
+
+* Do not fake student counts after generation.
+* Do not patch summary counts without the rows actually existing.
+* Do not leave size control as an internal accident or undocumented trick.
+* Do not broaden into UI redesign.
+* Do not run full repo tests by default.
+* Separate regressions from pre-existing failures and environment noise.
+* If entrypoints cannot yet expose the size controls cleanly, say so explicitly and still make the canonical programmatic contract real.
+
+Before declaring COMPLETE, verify:
+
+1. requested size is actually honored
+2. staffing scales with size
+3. scenario distribution still works
+4. overlay/showcase still works
+5. summary reports the truth
+6. canonical entrypoints honor the contract where appropriate
+7. tests/build status are clearly stated
+8. remaining gaps are explicitly listed
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. SIZE CONTROL CONTRACT
+6. ENTRYPOINT COVERAGE
+7. USER-VISIBLE IMPACT
+8. DEMO / RESET IMPACT
+9. ARCHITECTURE / MODEL IMPACT
+10. TEST / BUILD STATUS
+11. EXACT REMAINING GAPS
+12. EXACT NEXT TASKS
+13. FINAL ARTIFACT
+
+⸻
+
+Scope
+
+In scope
+
+A. Canonical size-control contract
+
+Define and implement the real V2 size-control contract using:
+
+* sizeProfile
+* exact targetStudents
+* precedence rules
+* deterministic behavior
+
+B. End-to-end propagation
+
+Ensure the size request is honored by:
+
+* student creation
+* staff creation
+* scenario/archetype counts
+* overlay/showcase generation
+* postRunSummary
+
+C. Canonical entrypoint coverage
+
+Ensure the real V2 seed/reset entrypoints can honor the size contract where appropriate, including:
+
+* standard sample-data path
+* canonical demo/reset path(s)
+* operator-triggered paths that are still part of the canonical runtime backbone
+
+D. Honest summary/reporting
+
+The resulting summary must clearly report:
+
+* requested size input
+* resolved size profile
+* actual seeded student count
+* actual seeded staff count
+
+Out of scope
+
+* deleting legacy code
+* dashboard/showcase UI changes
+* migration tooling cleanup
+* closed-loop scheduling work
+* shell/nav cleanup
+* long-tail module expansion
+
+⸻
+
+Exact execution order
+
+Step 1 — inspect current size behavior
+
+Find the real current V2 behavior for:
+
+* where student count is chosen
+* where sizeProfile is resolved
+* where targetStudents / roster override is honored or ignored
+* which canonical entrypoints can or cannot pass size
+
+Return this understanding internally before editing. Do not guess.
+
+Step 2 — define the canonical size contract
+
+Implement a clear rule set:
+
+* supported size profiles
+* exact target precedence
+* deterministic output rule
+* summary shape rule
+
+Step 3 — wire size through the actual V2 path
+
+Ensure the canonical V2 path honors the contract end-to-end.
+
+Step 4 — verify scaling behavior
+
+Prove that size is not changing only the student row count in isolation.
+At minimum validate:
+
+* staff count changes appropriately
+* scenario/archetype distribution still makes sense
+* showcase/overlay still functions
+
+Step 5 — add targeted proof
+
+Add targeted proof for at least:
+
+* one small run
+* one medium run
+* one large or xl run
+
+Step 6 — write/update an artifact
+
+Produce a small artifact/report showing:
+
+* requested size
+* actual size
+* whether each run stayed within contract
+* whether staffing and overlay scaled appropriately
+
+⸻
+
+Size contract requirements
+
+At minimum support these effective ranges:
+
+* small → 60–120
+* medium → 200–500
+* large → 800–1200
+* xl → 1500–2000
+
+If the codebase already uses different names, adapt carefully, but preserve these business ranges in effect.
+
+Rules:
+
+* exact targetStudents overrides profile
+* sizeProfile provides the default/range behavior
+* same districtId + same size inputs → deterministic result
+* summary must report both requested and actual values
+
+If you narrow or widen a range for a codebase-specific reason, say so explicitly.
+
+⸻
+
+Entry point expectations
+
+Be explicit about which paths now honor size and how:
+
+At minimum address:
+
+* POST /api/sample-data
+* canonical runtime demo reset path(s)
+* operator scripts or internal entrypoints that still matter for demo/reset operations
+
+If a path cannot yet honor exact size, say so explicitly and mark it as a remaining gap rather than silently ignoring it.
+
+⸻
+
+Testing / verification requirements
+
+Run only:
+
+1. targeted typecheck for touched modules/packages
+2. targeted seed-v2 tests
+3. focused size-control tests
+
+Do not run full repo tests.
+
+Required proof
+
+At minimum prove:
+
+* size request is honored
+* results are deterministic
+* staffing scales
+* overlay still populates
+* summary reflects truth
+* at least one canonical entrypoint accepts and honors the size request
+
+If a test fails:
+
+* state likely cause
+* classify as new / pre-existing / environment-related
+* fix once before broad reruns
+
+⸻
+
+Invalid implementation conditions
+
+If any of these occur, mark INCORRECTLY IMPLEMENTED:
+
+* requested size is not actually honored
+* only the summary changes while the data does not
+* only one low-level path honors size but canonical entrypoints ignore it
+* counts are patched after generation
+* task broadens into unrelated UI or roadmap work
+
+⸻
+
+COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+
+COMPLETE
+
+Use COMPLETE only if:
+
+* the V2 path has a real size-control contract
+* actual output matches the requested size or documented range
+* staffing/scenario/overlay scale appropriately
+* canonical entrypoints honor it where appropriate
+* targeted proof exists
+
+PARTIAL
+
+Use PARTIAL if:
+
+* size control exists but only for some paths
+* counts change but staffing/overlay scaling is weak
+* summary is incomplete
+* proof is incomplete
+
+INCORRECTLY IMPLEMENTED
+
+Use INCORRECTLY IMPLEMENTED if:
+
+* size is not really controlled
+* counts are faked
+* entrypoints still ignore the size contract
+* scope broadens into unrelated work
+
+⸻
+
+Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. SIZE CONTROL CONTRACT
+6. ENTRYPOINT COVERAGE
+7. USER-VISIBLE IMPACT
+8. DEMO / RESET IMPACT
+9. ARCHITECTURE / MODEL IMPACT
+10. TEST / BUILD STATUS
+11. EXACT REMAINING GAPS
+12. EXACT NEXT TASKS
+13. FINAL ARTIFACT
+
+Rules:
+
+* no skipped sections
+* no vague summaries
+* include exact file paths
+* include exact tests run and pass/fail counts
+* separate regressions from pre-existing failures
+
+⸻
+
+Completion goal
+
+This task is successful when:
+
+* the canonical V2 seed/reset path can intentionally produce useful district sizes from ~60 to ~2000
+* the actual seeded district size is no longer an accident
+* staffing/scenario/showcase behavior scales appropriately
+* summary and operator behavior reflect the real output
+
+Stop after completion.
+Do not start the next task automatically.
+:::
+
+After this lands, the next prompt should be the proper UI e2e sample-generation check

@@ -62,7 +62,9 @@ describe("v2/domain — back-compat surface", () => {
     expect(typeof resolveSeedShape).toBe("function");
     expect(typeof resolveSizeProfile).toBe("function");
     expect(SAMPLE_BOUNDS.requiredMinutes).toEqual([60, 360]);
-    expect(SIZE_PROFILES.medium.students).toBe(60);
+    // T-V2-09 — medium default is now 350 students (mid-point of the
+    // 200-500 contract range). Pre-T-V2-09 value was 60.
+    expect(SIZE_PROFILES.medium.students).toBe(350);
     expect(GOAL_BANK).toBeTypeOf("object");
     expect(ACCOM_BANK.length).toBeGreaterThan(0);
     expect(DOMAIN_LAYER_VERSION).toBe("w2");

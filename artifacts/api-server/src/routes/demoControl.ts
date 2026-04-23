@@ -1215,13 +1215,29 @@ router.get("/demo-control/exec-packet.pdf", async (req: Request, res: Response) 
 // re-seeds it. Never touches other districts. Refuses non-demo districts.
 // ---------------------------------------------------------------------------
 router.post("/demo-control/reset-district", async (req: Request, res: Response) => {
-  const { districtId } = (req.body ?? {}) as { districtId?: number };
+  const body = (req.body ?? {}) as {
+    districtId?: number;
+    sizeProfile?: string;
+    targetStudents?: number;
+  };
+  const { districtId } = body;
   const r = await requireDemoDistrict(districtId);
   if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
+  // T-V2-09 — accept the same size knobs the canonical sample-data path
+  // honors so a per-district demo reset can intentionally produce a
+  // small / medium / large / xl roster (60–2000 students).
+  const SIZE_WIRE = new Set(["small", "medium", "large", "xl", "random"]);
+  const seedOpts: { sizeProfile?: "small" | "medium" | "large" | "xl" | "random"; targetStudents?: number } = {};
+  if (typeof body.sizeProfile === "string" && SIZE_WIRE.has(body.sizeProfile)) {
+    seedOpts.sizeProfile = body.sizeProfile as "small" | "medium" | "large" | "xl" | "random";
+  }
+  if (typeof body.targetStudents === "number" && Number.isFinite(body.targetStudents)) {
+    seedOpts.targetStudents = Math.max(1, Math.min(5000, Math.round(body.targetStudents)));
+  }
   const start = Date.now();
   try {
     const teardown = await teardownSampleData(r.district.id);
-    const seed = await seedSampleDataForDistrict(r.district.id, {});
+    const seed = await seedSampleDataForDistrict(r.district.id, seedOpts);
     res.json({
       ok: true, districtId: r.district.id, districtName: r.district.name,
       elapsedMs: Date.now() - start,
