@@ -27,7 +27,6 @@ import { getRecentAccessDenials } from "../lib/accessDenials";
 import { isSisWorkerRunning } from "../lib/sis/worker";
 import { clerkClient } from "@clerk/express";
 import { runDemoResetV2 } from "./sampleData";
-import { seedDemoComplianceVariety } from "../../../../lib/db/src/seed-demo-compliance-variety";
 
 const router: IRouter = Router();
 
@@ -1378,16 +1377,15 @@ interface ReseedJob {
   status: ReseedJobStatus;
   startedAt: string;
   finishedAt?: string;
-  // #970: Reseed jobs now run through the unified V2 reset chain, so the
-  // job result mirrors the slice of DemoResetV2Outcome that callers care
-  // about (engine marker + districtId + variety enrichment numbers, when
-  // the additive variety pass succeeded).
+  // T-V2-08: Reseed jobs run through the canonical V2 reset chain. The
+  // result is the slice of DemoResetV2Outcome operators need to confirm
+  // the canonical engine ran (engine marker, target district, and the
+  // overlay-ran flag from the V2 PostRunSummary).
   result?: {
     engine: "v2";
     districtId: number;
-    variety:
-      | { ok: true; alertsInserted: number; alertsSkipped: number; compliancePct: string }
-      | { ok: false; error: string };
+    overlayRan: boolean;
+    runId: string | undefined;
   };
   error?: string;
 }
@@ -1442,20 +1440,20 @@ router.post("/support/demo-reseed", async (_req: Request, res: Response) => {
 
   (async () => {
     try {
-      console.log(`[demo-reseed] Job ${jobId}: starting V2 demo reset (unified engine)…`);
-      // #970: route the legacy /support/demo-reseed HTTP path through the same
-      // V2 + overlay reset chain used by /sample-data/reset-demo. The legacy
-      // global-TRUNCATE seedDemoDistrict() is no longer called from any HTTP
-      // path. runDemoResetV2 already runs seedDemoComplianceVariety as a
-      // non-fatal additive enrichment pass, so we no longer need to call it
-      // again here — its result is surfaced via outcome.variety.
+      console.log(`[demo-reseed] Job ${jobId}: starting V2 demo reset (canonical engine)…`);
+      // T-V2-08: this HTTP-triggered reseed runs the canonical V2 + W5
+      // overlay path and nothing else. No legacy additive shaping
+      // (seedDemoModules / seedDemoComplianceVariety / seedDemoHandlingState)
+      // executes here; the legacy global-TRUNCATE seedDemoDistrict()
+      // remains retired from every HTTP path.
       const outcome = await runDemoResetV2();
       job.status = "done";
       job.finishedAt = new Date().toISOString();
       job.result = {
         engine: "v2",
         districtId: outcome.districtId,
-        variety: outcome.variety,
+        overlayRan: outcome.summary?.layers?.overlay === true,
+        runId: outcome.summary?.runId,
       };
       console.log(`[demo-reseed] Job ${jobId}: done.`);
     } catch (err: unknown) {

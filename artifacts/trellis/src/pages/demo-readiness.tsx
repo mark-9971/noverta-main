@@ -61,13 +61,16 @@ interface ReseedJob {
   status: "running" | "done" | "failed";
   startedAt: string;
   finishedAt?: string;
+  // T-V2-08: /support/demo-reseed now runs the canonical V2 + W5 overlay
+  // engine and surfaces the V2 PostRunSummary slice operators need to
+  // confirm the canonical engine ran. Legacy variety-shaped fields
+  // (alertsInserted, alertsSkipped, totalStudents, nonCompliantStudents,
+  // compliancePct) are no longer returned by the backend.
   result?: {
+    engine: "v2";
     districtId: number;
-    alertsInserted: number;
-    alertsSkipped: number;
-    totalStudents: number;
-    nonCompliantStudents: number;
-    compliancePct: string;
+    overlayRan: boolean;
+    runId?: string;
   };
   error?: string;
 }
@@ -762,8 +765,12 @@ export default function DemoReadinessPage() {
                 <>
                   <p className="text-sm font-medium text-emerald-800">Reseed complete</p>
                   <p className="text-xs text-emerald-700 mt-1">
-                    {reseedJob.result.totalStudents} students · {reseedJob.result.alertsInserted} new variety alerts
-                    · compliance {reseedJob.result.compliancePct}% · checks refreshed automatically
+                    Canonical V2 engine ran on district {reseedJob.result.districtId}
+                    {reseedJob.result.overlayRan
+                      ? " · W5 spotlight overlay applied"
+                      : " · overlay did not run (no spotlight cases emitted)"}
+                    {reseedJob.result.runId ? ` · run ${reseedJob.result.runId.slice(0, 8)}` : ""}
+                    · checks refreshed automatically
                   </p>
                 </>
               )}
