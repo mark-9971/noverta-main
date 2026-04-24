@@ -233,7 +233,12 @@ export default function ComplianceSnapshotPage() {
             </p>
           </div>
           <a
-            href="https://usetrellis.co/demo"
+            // The marketing demo-request URL is env-driven so it can be
+            // flipped to the Noverta marketing site (e.g.
+            // https://noverta.education/demo) without a code change.
+            // Default preserves the current `usetrellis.co` link until
+            // the new site is live. See NEXT-6 cutover checklist.
+            href={import.meta.env.VITE_DEMO_REQUEST_URL ?? "https://usetrellis.co/demo"}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-shrink-0 inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"

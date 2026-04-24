@@ -1,4 +1,27 @@
 import { getStripeSync } from './stripeClient';
+import { getAppBaseUrl } from './email';
+
+/**
+ * Resolve the customer-facing billing portal URL used in subscription
+ * lifecycle emails (cancellation, payment failure, etc.). Resolution
+ * order, with safe fallback to the legacy production URL so we don't
+ * break running customer emails before the Noverta marketing domain
+ * is live:
+ *   1. BILLING_PORTAL_URL env (full URL)
+ *   2. ${getAppBaseUrl()}/billing — when APP_URL/APP_BASE_URL/REPLIT_DEV_DOMAIN is set
+ *   3. https://trellis.education/billing — current production fallback
+ *
+ * Once `noverta.education` (or chosen marketing domain) is live, set
+ * BILLING_PORTAL_URL=https://noverta.education/billing in production
+ * to flip without code changes. See NEXT-6 cutover checklist.
+ */
+function getBillingPortalUrl(): string {
+  const fromEnv = process.env.BILLING_PORTAL_URL;
+  if (fromEnv && fromEnv.length > 0) return fromEnv;
+  const appBase = getAppBaseUrl();
+  if (appBase) return `${appBase}/billing`;
+  return 'https://trellis.education/billing';
+}
 import {
   db,
   districtSubscriptionsTable,
@@ -196,7 +219,7 @@ async function projectSubscriptionToTenant(event: StripeEvent): Promise<void> {
         heading: 'Subscription canceled',
         body: '<p>Your Noverta subscription has been canceled. Access to the platform has been suspended.</p><p>If this was unintentional, you can resubscribe from the billing page.</p>',
         ctaLabel: 'Reactivate subscription',
-        ctaUrl: 'https://trellis.education/billing',
+        ctaUrl: getBillingPortalUrl(),
       }),
       text: 'Your Noverta subscription has been canceled. Visit the billing page to resubscribe.',
     }).catch((err) => console.error('[Webhook] cancellation email failed:', err));
@@ -285,7 +308,7 @@ export async function handleInvoicePaymentFailed(event: StripeEvent): Promise<vo
 <p><strong>Reason:</strong> ${reason}</p>
 <p>You have until <strong>${graceText}</strong> to update your payment method before access to Noverta is restricted. We'll keep retrying the charge on Stripe's standard schedule until then.</p>`,
         ctaLabel: 'Update payment method',
-        ctaUrl: 'https://trellis.education/billing',
+        ctaUrl: getBillingPortalUrl(),
       }),
       text: `Your Noverta subscription payment failed (${reason}). Please update your payment method by ${graceText}.`,
     }).catch((err) => console.error('[Webhook] payment_failed email failed:', err));
@@ -362,7 +385,7 @@ export async function handleTrialWillEnd(event: StripeEvent): Promise<void> {
       body: `<p>Your Noverta trial ends on <strong>${dateText}</strong>. Your card will be charged automatically on that date for the plan you selected at signup.</p>
 <p>If you'd like to switch plans, update billing details, or cancel before the charge, visit your billing page.</p>`,
       ctaLabel: 'Manage subscription',
-      ctaUrl: 'https://trellis.education/billing',
+      ctaUrl: getBillingPortalUrl(),
     }),
     text: `Your Noverta trial ends on ${dateText}. Your card will be charged automatically.`,
   }).catch((err) => console.error('[Webhook] trial_will_end email failed:', err));
@@ -395,7 +418,7 @@ export async function handlePaymentMethodDetached(event: StripeEvent): Promise<v
       heading: 'Payment method removed',
       body: `<p>The ${cardDesc} on your Noverta account was just removed. If you don't have another card on file, your next renewal charge will fail.</p>`,
       ctaLabel: 'Add a payment method',
-      ctaUrl: 'https://trellis.education/billing',
+      ctaUrl: getBillingPortalUrl(),
     }),
     text: `The ${cardDesc} on your Noverta account was removed. Add a new payment method before your next renewal.`,
   }).catch((err) => console.error('[Webhook] payment_method.detached email failed:', err));

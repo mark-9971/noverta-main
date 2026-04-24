@@ -175,8 +175,16 @@ export interface SendEmailResult {
   notConfigured?: boolean;
 }
 
-const FROM_EMAIL = "Noverta SPED <hello@noreply.trellis.education>";
-const FROM_EMAIL_FALLBACK = "hello@noreply.trellis.education";
+// Sender identity is env-driven so the FROM domain can be flipped to
+// `noreply.noverta.education` once that domain is verified in Resend
+// (and any required SPF/DKIM/DMARC records are live). Until then the
+// defaults keep the current `noreply.trellis.education` sender — the
+// only Resend-verified domain — so production deliverability does NOT
+// silently break during the rename. Set EMAIL_FROM (full RFC-5322
+// "Name <addr>") and/or EMAIL_FROM_ADDRESS (bare addr) once the new
+// domain is verified. See NEXT-6 cutover checklist.
+const FROM_EMAIL = process.env.EMAIL_FROM ?? "Noverta SPED <hello@noreply.trellis.education>";
+const FROM_EMAIL_FALLBACK = process.env.EMAIL_FROM_ADDRESS ?? "hello@noreply.trellis.education";
 
 /**
  * Resolve the base URL for deep links into the app from emails.

@@ -11,7 +11,7 @@ import { getAuth, clerkClient } from "@clerk/express";
 import { getClientIp } from "../lib/clientIp";
 import { SlidingWindowLimiter } from "../lib/rateLimiter";
 import { seedSampleDataForDistrict } from "@workspace/db";
-import { sendAdminEmail } from "../lib/email";
+import { sendAdminEmail, getAppBaseUrl } from "../lib/email";
 import { logger } from "../lib/logger";
 
 // tenant-scope: public
@@ -256,8 +256,15 @@ async function provisionDemoAccount(requestId: number, opts: {
   await db.update(districtsTable).set({ hasSampleData: true }).where(eq(districtsTable.id, district.id));
 
   // 6. Send welcome email
-  const appOrigin = process.env.APP_ORIGIN ??
-    (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://trellis.education");
+  // Resolve the customer-facing app origin used in the demo welcome
+  // email's sign-in deep link. APP_ORIGIN remains the highest-priority
+  // override; otherwise fall back to the standard getAppBaseUrl()
+  // ladder (APP_URL → APP_BASE_URL → REPLIT_DEV_DOMAIN). The legacy
+  // `https://trellis.education` literal is preserved as the final
+  // fallback so existing welcome emails still resolve until the
+  // Noverta marketing domain is live; flip by setting APP_ORIGIN /
+  // APP_URL when noverta.education is configured. See NEXT-6.
+  const appOrigin = process.env.APP_ORIGIN ?? getAppBaseUrl() ?? "https://trellis.education";
   const loginUrl = `${appOrigin}/sign-in`;
 
   const { subject, html, text } = buildDemoWelcomeEmail({
