@@ -1,0 +1,162 @@
+Project: Noverta / former Trellis.
+
+Context:
+We are completing the Trellis → Noverta rename.
+
+Current external setup:
+- Clerk keys are set.
+- Clerk admin login works.
+- Admin user has publicMetadata.role = "admin".
+- Noverta e2e users exist:
+  - noverta-e2e-admin+clerk_test@example.com with role admin
+  - noverta-e2e-teacher+clerk_test@example.com with role sped_teacher
+- The previous teacher email typo has been fixed.
+- Resend DNS is verified.
+- A test email from Noverta SPED <hello@noreply.noverta.app> successfully arrived.
+- Replit email-config verification is currently pending separately.
+- Stripe branding/cutover is intentionally skipped for now.
+- The app is not deployed to noverta.app yet.
+- Do not run NEXT-8.
+- Do not remove Trellis compatibility shims yet.
+
+Task:
+Run a comprehensive Trellis/Noverta rename residue audit only.
+
+Do not change files.
+
+Objective:
+Identify all remaining Trellis/trellis/TRELLIS references and classify them by risk and next action. I especially want to understand whether things like artifacts/trellis are harmless internal package/path names or launch-blocking visible residue.
+
+Search broadly for:
+- Trellis
+- trellis
+- TRELLIS
+- artifacts/trellis
+- @workspace/trellis
+- trellis_support
+- trellisRole
+- TrellisRole
+- trellis_role
+- trellis-e2e
+- TrellisE2E
+- trellis.education
+- usetrellis.co
+- noreply.trellis
+- trellis_nav
+- trellis_quicklog
+- trellis.sampleTour
+- trellis.showcaseTour
+- __TRELLIS
+
+Also search common config/package/workflow places:
+- package.json files
+- pnpm-workspace.yaml
+- tsconfig paths
+- vite configs
+- Replit/workflow config if accessible
+- README/docs/runbooks
+- e2e README/helpers
+- generated clients/specs if relevant
+- deployment/build scripts
+- artifact folder names
+- imports using artifacts/trellis paths
+
+Classification categories:
+1. CUSTOMER-VISIBLE LAUNCH BLOCKER
+   Visible to users, buyers, emails, auth UI, browser title, app copy, screenshots, public pages, generated reports, exports, or external links. Should be fixed before launch.
+
+2. EXTERNAL CUTOVER ITEM
+   Covered by external setup/runbook, e.g. noverta.app deployment, Stripe, Resend, Clerk, DNS, old-domain redirect. Do not change in code unless already env-configured and safe.
+
+3. COMPATIBILITY SHIM — KEEP UNTIL NEXT-8
+   Legacy localStorage/sessionStorage, role, e2e, auth, or migration fallback required during the rename window.
+
+4. INTERNAL PACKAGE/PATH NAME — SAFE BUT HIGH-CHURN
+   Examples may include artifacts/trellis, @workspace/trellis, internal imports, folder names, package names. Not user-visible, but eventually renameable as a dedicated mechanical repo task.
+
+5. INTERNAL TYPE/FIELD NAME — SAFE TO DEFER
+   Examples may include TrellisRole, trellisRole, internal type names, request fields. Not user-visible and not worth touching until a dedicated low-risk refactor.
+
+6. HISTORICAL DOCS / BACKUPS / MIGRATION NOTES
+   Old docs, attached artifacts, runbook history, comments explaining compatibility, _clerk-restore, generated snapshots, old prompts. Low priority unless user-facing.
+
+7. GENERATED / LOCKFILE / TOOLING NOISE
+   pnpm-lock, generated code, source maps, build artifacts, caches. Do not edit manually.
+
+8. TRUE BUG / RISK
+   Any remaining Trellis reference that is not safely explained by categories 1–7.
+
+Important rules:
+- Do not modify files.
+- Do not rename artifacts/trellis yet.
+- Do not remove legacy shims.
+- Do not run NEXT-8.
+- Do not touch product workflow files.
+- Do not touch Action Center, compliance risk, recommendation engine, minute math, school calendar, scheduling, seed/reset, or demo logic.
+- If a reference is internal only, say so plainly.
+- If a reference is visible to users, say exactly where and why it matters.
+- If artifacts/trellis should eventually be renamed, estimate blast radius and propose a separate task.
+
+Required output:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. SEARCH COMMANDS RUN
+List exact commands.
+
+3. SUMMARY COUNTS BY CATEGORY
+Table with category → count → severity.
+
+4. CUSTOMER-VISIBLE LAUNCH BLOCKERS
+List exact files/lines and recommended fix.
+If none, say none.
+
+5. EXTERNAL CUTOVER ITEMS
+List exact files/lines and whether already env-configured or blocked by deployment/Stripe/etc.
+
+6. COMPATIBILITY SHIMS TO KEEP UNTIL NEXT-8
+List exact files/lines and why they must stay.
+
+7. INTERNAL PACKAGE/PATH NAME RESIDUE
+Specifically address:
+- artifacts/trellis
+- @workspace/trellis
+- any package/workspace names
+- any workflow names
+State whether this blocks launch.
+State whether to rename now or later.
+
+8. INTERNAL TYPE/FIELD NAME RESIDUE
+Specifically address:
+- TrellisRole
+- trellisRole
+- trellis_support internal canonical literal
+State whether this blocks launch.
+State whether to rename now or later.
+
+9. HISTORICAL / GENERATED / LOCKFILE NOISE
+List broad buckets, not every irrelevant line unless needed.
+
+10. TRUE BUGS / RISKS
+List exact true gaps, or “None”.
+
+11. RECOMMENDED NEXT TASKS
+Separate:
+- must do before launch
+- should do before public repo/customer handoff
+- can defer indefinitely
+- should not do yet
+
+12. FILES CHANGED
+Should be None.
+
+13. FINAL RECOMMENDATION
+Give a blunt recommendation:
+- Is the rename externally/customer-ready after current external setup?
+- Is artifacts/trellis a launch blocker?
+- Should we run a package/path rename now or defer?
+- What is the very next safest action?
