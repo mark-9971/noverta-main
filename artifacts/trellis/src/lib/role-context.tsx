@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useUser } from "@clerk/react";
 import { useLocation } from "wouter";
 import { setExtraHeaders } from "@workspace/api-client-react";
-import { setAuthFetchExtraHeaders } from "@/lib/auth-fetch";
+import { setAuthFetchExtraHeaders, getDevAuthBypassHeaders } from "@/lib/auth-fetch";
 
 export type UserRole =
   | "admin"
@@ -211,6 +211,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       if (role === "sped_parent") {
         headers["x-demo-guardian-id"] = String(guardianId);
       }
+      // Preserve dev auth bypass headers so RoleProvider doesn't clobber them.
+      Object.assign(headers, getDevAuthBypassHeaders());
       setExtraHeaders(headers);
       setAuthFetchExtraHeaders(headers);
     }
