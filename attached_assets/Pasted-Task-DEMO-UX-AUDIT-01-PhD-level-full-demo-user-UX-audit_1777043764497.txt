@@ -1,0 +1,379 @@
+Task: DEMO-UX-AUDIT-01 — PhD-level full demo-user UX audit, admin role
+
+Do not change code.
+Do not edit files.
+Do not implement fixes.
+This is an audit-only task.
+
+Context:
+Noverta was formerly Trellis. Rename work is parked after NEXT-8. Cursor is working separately on architecture rails. This Replit task is for a comprehensive UX/product/demo audit only.
+
+Objective:
+Perform the most comprehensive possible UX audit of what a real demo user would see if they took over my keyboard right now while signed in as an admin.
+
+Audit every page, route, visible number, card, button, CTA, label, empty state, tooltip/copy block, modal, tab, nav item, table, badge, report, demo/admin surface, and workflow entry point that an admin demo user could reasonably reach.
+
+This should be “PhD dissertation level”:
+- exhaustive
+- brutally honest
+- code-grounded
+- demo-user grounded
+- product-strategy aware
+- page-by-page
+- button-by-button where needed
+- numbers/metrics/copy audited for trust and clarity
+- not a generic UX lecture
+
+Product truth:
+Noverta is strongest today as an operational workflow tool with a compliance reporting backbone.
+
+The real wedge is:
+
+risk → likely cause → owner → recommended next action → shared handling state → recovery → proof
+
+Strongest real surfaces:
+- Action Center
+- Quick Log
+- Compliance Risk Report
+- Today / role-home surfaces
+- Student Detail “Recommended Next Step”
+- shared handling state
+- school-calendar-aware minute math
+
+Not honestly mature yet:
+- full case-management platform
+- full scheduling/recovery platform
+- broad district operating system
+- mature ABA/clinical suite
+- generic task platform
+
+Current demo risk:
+A buyer taking over the keyboard may see surface breadth that overstates product maturity or creates confusion. The audit must identify exactly where that happens.
+
+Critical rule:
+Do not judge by route existence.
+A page existing does not mean the product capability is mature.
+
+Audit scenario:
+Assume a skeptical district admin / SPED coordinator is logged in as an admin and can click freely.
+They are evaluating:
+- Is this useful today?
+- Is this legally/compliance trustworthy?
+- Is the product coherent?
+- Does the app clearly tell me what to do next?
+- Does any page feel fake, thin, confusing, unfinished, or overclaimed?
+- Would this help me manage service delivery and recovery?
+- Would I trust this in front of a superintendent, director, coordinator, provider, or parent?
+
+Primary audit goals:
+1. Find every demo-visible UX weakness.
+2. Find every confusing label, number, CTA, and page.
+3. Identify pages that overstate maturity.
+4. Identify duplicate/overlapping surfaces.
+5. Identify dead-end workflows.
+6. Identify places where the wedge is strong but not communicated clearly.
+7. Identify places where demo data, numbers, states, or copy may undermine trust.
+8. Identify pages that should be hidden, demoted, renamed, reframed, or marked as preview/internal.
+9. Identify the strongest demo path and the safest “do not click here” zones.
+10. Produce prioritized fixes, but do not implement them.
+
+Scope:
+Audit all admin-visible surfaces, including but not limited to:
+- Dashboard / Today / home surfaces
+- Action Center
+- Quick Log
+- Compliance
+- Compliance Risk Report
+- Student Detail
+- Scheduling / makeup-related routes
+- Reports
+- Weekly compliance summary
+- Compensatory services / finance
+- Alerts
+- Audit / history / proof surfaces
+- Demo readiness / sample data / reset / pilot surfaces
+- IEP / document workflow / builder surfaces
+- Behavior / ABA / clinical surfaces
+- Medicaid / billing surfaces
+- Agencies / guardian / student portal entry points if visible
+- Settings / onboarding / setup surfaces
+- Any nav item visible to admin
+- Any modal or CTA reachable from the above
+
+Audit method:
+Use the current codebase as source of truth.
+Use actual routes/components/nav config where possible.
+If you can run the app and inspect pages, do so.
+If auth/demo data prevents live inspection, use code-grounded route/component review and clearly say where live verification was blocked.
+Do not invent pages or behavior not present in code.
+Do not make fake claims about screenshots if you did not actually view them.
+
+For every page/surface, assess:
+
+A. Demo readiness
+- READY
+- USABLE BUT NEEDS CONTEXT
+- RISKY TO DEMO
+- HIDE / DEMOTE
+- INTERNAL ONLY
+- BROKEN / UNKNOWN
+
+B. Product maturity honesty
+- mature operational surface
+- thin but useful
+- scaffold / placeholder
+- misleadingly broad
+- unclear
+- overclaimed
+
+C. UX clarity
+- what is the page for?
+- is the primary job obvious within 5 seconds?
+- does the page tell the user what to do next?
+- are CTAs specific or vague?
+- are labels plain-English?
+- are numbers explainable?
+- are empty states useful?
+- are badges/statuses understandable?
+
+D. Demo buyer risk
+- Could this confuse a buyer?
+- Could this make the product look less mature?
+- Could this make the product seem fake?
+- Could this trigger a hard question?
+- Could it weaken the wedge story?
+
+E. Data/number trust
+For every visible metric/number/card:
+- What does it appear to mean?
+- Is the label clear?
+- Is the denominator clear?
+- Could a user understand where it came from?
+- Is there a mismatch between number precision and product maturity?
+- Is it connected to action?
+- Is it legally/compliance sensitive?
+- Does it need an explanation/trust tooltip?
+
+F. CTA/button audit
+For every important button/CTA:
+- exact label
+- where it appears
+- what user expects it to do
+- what it actually does, if determinable
+- whether it completes a workflow or just routes somewhere
+- whether label should change
+- whether it should be hidden, disabled, reframed, or promoted
+
+G. Copy audit
+For every meaningful label/header/paragraph:
+- does it overclaim?
+- does it use vague SaaS language?
+- does it match the product’s actual maturity?
+- does it reinforce the wedge?
+- suggested replacement copy if needed
+
+H. Workflow audit
+For each user journey:
+- starts where?
+- next click?
+- expected outcome?
+- actual destination?
+- does it close the loop?
+- where does it dead-end?
+- what proof remains?
+- what state changes, if any?
+
+Core workflows to audit deeply:
+1. Admin sees risk → opens Action Center → assigns/handles → follows recommended next step.
+2. Admin sees missed minutes → tries to schedule makeup.
+3. Admin opens Student Detail → understands current risk and next step.
+4. Admin uses Quick Log.
+5. Admin views Compliance Risk Report.
+6. Admin tries to prove what happened.
+7. Admin explores reports/exports.
+8. Admin clicks around non-wedge surfaces.
+9. Admin uses demo/sample data/reset surfaces.
+10. Admin tries to understand role-home / Today page.
+
+Important honesty constraints:
+- Do not say Schedule Makeup is a closed loop unless it truly is.
+- Do not call the product a full scheduler if it is not.
+- Do not call it a full case-management platform if it is not.
+- Do not treat seeded demo strength as full product maturity.
+- Do not recommend broad platform expansion just because a page exists.
+- Do not recommend broad visual redesign as the main fix.
+- Do not recommend generic dashboards as the solution.
+- Do not recommend more top-level nav breadth.
+
+Prioritization framework:
+Every finding should include:
+- Severity: CRITICAL / HIGH / MEDIUM / LOW
+- Demo impact: HIGH / MEDIUM / LOW
+- Buyer trust impact: HIGH / MEDIUM / LOW
+- Fix size: XS / S / M / L / XL
+- Recommended timing:
+  - fix before next serious demo
+  - fix during shell honesty pass
+  - fix after closed-loop recovery
+  - defer
+  - do not fix / hide instead
+
+Output format:
+
+1. EXECUTIVE VERDICT
+Give the honest state of demo UX right now:
+- Is admin demo takeover safe?
+- What is strongest?
+- What is riskiest?
+- What should be avoided?
+- What must be fixed before a serious buyer demo?
+
+2. TOP 25 DEMO UX RISKS
+Ranked.
+Each must include:
+- route/surface
+- exact issue
+- why it matters
+- severity
+- buyer trust impact
+- recommended fix
+- fix size
+- whether to fix now or defer
+
+3. TOP 15 STRENGTHS TO LEAN INTO
+Ranked.
+Explain what already works and how to demo it safely.
+
+4. SAFE DEMO PATH
+Give a click-by-click path:
+- route/page
+- what to say
+- what to show
+- what not to say
+- where to click next
+- where to stop
+
+5. DO-NOT-DEMO / HIGH-RISK CLICK MAP
+List pages/buttons/routes that a skeptical buyer should not freely explore yet.
+For each:
+- why risky
+- hide/demote/reframe recommendation
+
+6. FULL ADMIN NAV INVENTORY
+For every visible admin nav item:
+- label
+- route
+- maturity rating
+- demo readiness
+- product fit
+- recommendation: keep / rename / demote / hide / internal-only / preview badge
+
+7. PAGE-BY-PAGE AUDIT
+For every admin-visible page:
+- route
+- purpose
+- first impression
+- maturity honesty
+- visible metrics/cards/numbers
+- CTAs/buttons
+- confusing copy
+- dead ends
+- demo risk
+- recommended fixes
+- verdict
+
+8. COMPONENT / SURFACE AUDIT
+Audit recurring components:
+- cards
+- badges
+- tables
+- filters
+- tabs
+- modals
+- sheets
+- empty states
+- alerts
+- banners
+- toasts
+- loading states
+- error states
+
+9. NUMBER / METRIC TRUST AUDIT
+List every major metric type shown in the admin demo.
+For each:
+- label
+- likely source
+- user interpretation
+- trust risk
+- explanation needed
+- action linkage
+
+10. BUTTON / CTA AUDIT
+List important buttons/CTAs.
+For each:
+- exact text
+- location
+- expected behavior
+- actual behavior if determinable
+- recommendation
+
+11. COPY / LABEL AUDIT
+List confusing or overclaiming copy.
+Give suggested replacement copy.
+
+12. WORKFLOW LOOP AUDIT
+For each core workflow:
+- current state
+- does it close the loop?
+- where it breaks
+- what state/proof is missing
+- recommended fix
+
+13. SURFACE HONESTY PLAN
+Recommend how to make the shell more honest without broad redesign:
+- rename labels
+- group nav
+- preview/internal badges
+- reduce duplicate home surfaces
+- demote immature modules
+- clarify strongest wedge surfaces
+
+14. QUICK WINS
+Give 20 specific fixes under 1 day each.
+Each with:
+- file likely touched
+- surface
+- exact change
+- risk
+- proof
+
+15. MEDIUM FIXES
+Give 15 fixes that likely take 1–3 days.
+Each with scope and proof.
+
+16. DEFERRED / DO NOT DO YET
+List improvements that are tempting but should wait.
+
+17. BUYER OBJECTION MAP
+List likely buyer questions triggered by the UI:
+- question
+- where it comes from
+- safest answer
+- product fix needed
+
+18. FINAL PRIORITIZED ROADMAP
+Give:
+- before next demo
+- after closed-loop recovery
+- shell honesty phase
+- later maturity phase
+
+19. EXACT FILES / ROUTES REVIEWED
+List all files/routes inspected.
+If any page could not be verified live, say why.
+
+20. FINAL RECOMMENDATION
+State the single highest-value UX move and the single highest-risk visible issue.
+
+Do not make code changes.
+Stop after the audit.
