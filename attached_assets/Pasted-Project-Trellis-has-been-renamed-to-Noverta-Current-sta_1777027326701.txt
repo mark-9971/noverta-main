@@ -1,0 +1,67 @@
+Project: Trellis has been renamed to Noverta.
+
+Current state:
+- NEXT-1 through NEXT-7 are complete for in-repo rename preparation.
+- Do NOT run NEXT-8 yet.
+- Legacy Trellis compatibility must remain until external systems are actually cut over.
+
+Task:
+Create a Noverta External Cutover Runbook and Environment Checklist.
+
+Objective:
+Produce an exact, operator-ready checklist for completing the remaining out-of-repo rename work before legacy shims can be retired.
+
+Scope:
+1. Identify every required external system cutover:
+   - DNS / domain
+   - Resend sender domain
+   - Stripe billing/customer portal URLs
+   - Clerk allowed origins
+   - Clerk publicMetadata role rename
+   - Clerk e2e test users/passwords
+   - Replit/production/CI env vars
+2. List the exact env vars that must be set:
+   - EMAIL_FROM
+   - EMAIL_FROM_ADDRESS
+   - BILLING_PORTAL_URL
+   - APP_ORIGIN and/or APP_URL
+   - VITE_DEMO_REQUEST_URL
+   - NOVERTA_DEV_FORCE_DISTRICT_ID
+   - E2E_ADMIN_EMAIL
+   - E2E_ADMIN_PASSWORD
+   - E2E_TEACHER_EMAIL
+   - E2E_TEACHER_PASSWORD
+3. For each env var, state:
+   - current legacy/default value
+   - target Noverta value
+   - where it must be set
+   - whether redeploy/rebuild/restart is required
+   - how to verify
+   - rollback step
+4. Create a NEXT-8 readiness gate:
+   - exactly what must be true before legacy shims can be removed
+   - what evidence proves it
+   - what should still not be removed
+
+Non-goals:
+- Do not remove legacy shims.
+- Do not rename trellis_support internally yet.
+- Do not remove Trellis localStorage migration fallbacks.
+- Do not change product code unless adding a docs/runbook file is needed.
+- Do not claim DNS, Resend, Stripe, or Clerk changes were made unless actually verified outside the repo.
+
+Required final output:
+1. EXECUTIVE VERDICT — COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT REASONS FOR EACH CHANGE
+5. EXTERNAL CUTOVER CHECKLIST
+6. ENV VAR MAP
+7. VERIFICATION PLAN
+8. ROLLBACK PLAN
+9. NEXT-8 READINESS GATE
+10. REMAINING BLOCKERS
+11. EXACT NEXT TASKS
+12. FINAL ARTIFACT
+
+Stop after creating the runbook/checklist.
