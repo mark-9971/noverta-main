@@ -1,13 +1,13 @@
 import { pgTable, serial, text, integer, timestamp, index } from "drizzle-orm/pg-core";
 
 /**
- * Audited Trellis-support read-only sessions.
+ * Audited Noverta-support read-only sessions.
  *
  * A user with the `trellis_support` role can open a session pinned to one
  * district at a time. While the session is open (and not expired) every
  * authenticated request is scoped to that district AND every audit log row
  * carries the session id so a district admin can later see exactly which
- * Trellis employee viewed which surface and why.
+ * Noverta employee viewed which surface and why.
  *
  * Sessions are time-boxed at 60 minutes. Manual end, automatic expiry, and
  * "superseded by a new session for the same support user" all set ended_at +

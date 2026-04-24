@@ -1,4 +1,4 @@
-# Why an Acquirer Buys Trellis
+# Why an Acquirer Buys Noverta
 
 *Memo for corp dev at PowerSchool, Frontline, Instructure, Renaissance, or a
 PE roll-up.*
@@ -14,7 +14,7 @@ delivery logging, minutes-at-risk compliance, comp-ed tracking, paras' daily
 workflow, and director-level dashboards. The result is that districts buy
 3–5 products to cover what should be one.
 
-Trellis is built sped-first, modern stack, multi-tenant from day one. For an
+Noverta is built sped-first, modern stack, multi-tenant from day one. For an
 acquirer, it slots in as the operations and compliance engine that turns an
 existing IEP forms business (Frontline SEAS, PowerSchool Special Programs,
 Embrace, SameGoal) into a workflow business — which is a meaningfully
@@ -85,7 +85,7 @@ This is not a stack a buyer has to rewrite to integrate.
   rough order of magnitude, not a benchmarked figure), and the buyer's
   own engineering
   team has to learn special-ed compliance domain knowledge that took
-  Trellis founders years.
+  Noverta founders years.
 - **Partner:** Reseller agreements in this category are notoriously
   brittle; districts buy from one vendor or none.
 - **Buy:** Acquirer captures the operations layer, the existing
@@ -119,12 +119,12 @@ lowers credibility and price.
 
 ## The bottom line for corp dev
 
-Trellis is the operations and compliance layer the K-12 special-education
+Noverta is the operations and compliance layer the K-12 special-education
 category has been missing. The architecture is buyer-ready (multi-tenant,
 audit-logged, OpenAPI-typed, codegen-gated). The customer model is
 pilot-validated and Stripe-collected. The honest gaps (SOC 2, native
 mobile, Medicaid direct-submit, scale) are all known and on the roadmap.
 
-Acquired into a forms-incumbent stack, Trellis turns a transactional
+Acquired into a forms-incumbent stack, Noverta turns a transactional
 forms business into a workflow business — which is the strategic
 re-rating most of these incumbents need.

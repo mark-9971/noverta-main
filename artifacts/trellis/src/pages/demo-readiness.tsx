@@ -61,13 +61,16 @@ interface ReseedJob {
   status: "running" | "done" | "failed";
   startedAt: string;
   finishedAt?: string;
+  // T-V2-08: /support/demo-reseed now runs the canonical V2 + W5 overlay
+  // engine and surfaces the V2 PostRunSummary slice operators need to
+  // confirm the canonical engine ran. Legacy variety-shaped fields
+  // (alertsInserted, alertsSkipped, totalStudents, nonCompliantStudents,
+  // compliancePct) are no longer returned by the backend.
   result?: {
+    engine: "v2";
     districtId: number;
-    alertsInserted: number;
-    alertsSkipped: number;
-    totalStudents: number;
-    nonCompliantStudents: number;
-    compliancePct: string;
+    overlayRan: boolean;
+    runId?: string;
   };
   error?: string;
 }
@@ -226,6 +229,149 @@ function payloadHighlights(c: SpotlightCase): string[] {
       if (sev) out.push(sev);
       break;
     }
+  }
+  return out;
+}
+
+// ── Spotlight hero helpers ─────────────────────────────────────────────
+// Pure presentation derivations over the same SpotlightResponse already
+// fetched for the by-category grid below. No new query, no new backend.
+// All copy is deterministic over (category, payload) — we never invent
+// a recommendation or claim auto-action; the CTA always routes into an
+// existing workflow (student detail or Action Center).
+
+const SPOTLIGHT_PRIORITY: string[] = [
+  "at_risk",
+  "evaluation_due",
+  "chronic_miss",
+  "provider_overloaded",
+  "parent_followup",
+  "scheduled_makeup",
+  "high_progress",
+  "recently_resolved",
+];
+
+function caseRiskLabel(c: SpotlightCase): string {
+  const p = c.payload ?? {};
+  switch (c.category) {
+    case "at_risk": {
+      const sev = typeof p.severity === "string" ? (p.severity as string).toUpperCase() : null;
+      const t = typeof p.type === "string" ? (p.type as string) : null;
+      return [sev, t].filter(Boolean).join(" · ") || "At-risk alert";
+    }
+    case "evaluation_due": return "Evaluation due";
+    case "chronic_miss": return "Chronic miss pattern";
+    case "provider_overloaded": return "Provider overloaded";
+    case "parent_followup": return "Awaiting parent";
+    case "scheduled_makeup": return "Makeup on calendar";
+    case "high_progress": return "High progress";
+    case "recently_resolved": return "Recently resolved";
+    default: return c.category;
+  }
+}
+
+function caseCause(c: SpotlightCase): string {
+  const p = c.payload ?? {};
+  switch (c.category) {
+    case "at_risk": {
+      const cp = typeof p.completionPct === "number" ? Math.round(p.completionPct as number) : null;
+      return cp != null
+        ? `Open alert with ${cp}% session completion to date.`
+        : "Open critical / high-severity alert flagged in the last sweep.";
+    }
+    case "evaluation_due": {
+      const m = typeof p.minutesOwed === "number" ? p.minutesOwed : null;
+      const o = typeof p.pendingObligations === "number" ? p.pendingObligations : null;
+      if (m != null && o != null) {
+        return `${m} comp minutes owed across ${o} pending obligation${o === 1 ? "" : "s"}.`;
+      }
+      return "Open compensatory obligations on file.";
+    }
+    case "chronic_miss": {
+      const total = typeof p.totalSessions === "number" ? p.totalSessions : null;
+      const missed = typeof p.missedSessions === "number" ? p.missedSessions : null;
+      const rate = typeof p.missRate === "number" ? Math.round((p.missRate as number) * 100) : null;
+      if (rate != null && total != null && missed != null) {
+        return `${missed} of ${total} sessions missed (${rate}%) — sustained pattern, not a one-off.`;
+      }
+      return "Sustained miss pattern across recent sessions.";
+    }
+    case "provider_overloaded": {
+      const role = typeof p.assignedToRole === "string" ? (p.assignedToRole as string) : "provider";
+      return `Caseload-strain handling row open against a ${role}.`;
+    }
+    case "parent_followup":
+      return "Family confirmation outstanding on a previously triaged item.";
+    case "scheduled_makeup": {
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const dow = typeof p.dayOfWeek === "number" ? days[p.dayOfWeek as number] : null;
+      return dow ? `Recovery slot already on the calendar (${dow}).` : "Recovery slot already on the calendar.";
+    }
+    case "high_progress": {
+      const rate = typeof p.completionRate === "number" ? Math.round((p.completionRate as number) * 100) : null;
+      return rate != null
+        ? `${rate}% session completion — useful proof point in talk-tracks.`
+        : "Top-quartile session completion.";
+    }
+    case "recently_resolved": {
+      const t = typeof p.type === "string" ? (p.type as string) : null;
+      return t ? `Closed ${t} alert in the last review cohort.` : "Closed alert in the last review cohort.";
+    }
+    default:
+      return c.headline ?? "";
+  }
+}
+
+function caseNextStep(c: SpotlightCase): string {
+  switch (c.category) {
+    case "at_risk": return "Triage in Action Center; log the next session.";
+    case "evaluation_due": return "Open student → schedule comp time.";
+    case "chronic_miss": return "Open student → review session log and parent comm.";
+    case "provider_overloaded": return "Already in handling — verify the cover plan, no auto-reassign.";
+    case "parent_followup": return "Send a reminder via the parent comm log.";
+    case "scheduled_makeup": return "Confirm in My Schedule — keep on calendar.";
+    case "high_progress": return "Cite in the district readout / pilot scorecard.";
+    case "recently_resolved": return "Cite as evidence in the audit trail.";
+    default: return "Open student detail.";
+  }
+}
+
+function caseOwner(c: SpotlightCase): { role: string | null; state: string | null } {
+  const p = c.payload ?? {};
+  const role = typeof p.assignedToRole === "string" ? (p.assignedToRole as string) : null;
+  const state = typeof p.state === "string" ? (p.state as string) : null;
+  return { role, state };
+}
+
+function caseProof(c: SpotlightCase): string | null {
+  const p = c.payload ?? {};
+  if (c.category === "chronic_miss") {
+    const t = p.totalSessions, m = p.missedSessions;
+    if (typeof t === "number" && typeof m === "number") return `${m}/${t} sessions in window`;
+  }
+  if (c.category === "high_progress") {
+    const t = p.totalSessions, m = p.missedSessions;
+    if (typeof t === "number" && typeof m === "number") return `${t - m}/${t} on log`;
+  }
+  if (c.category === "evaluation_due") {
+    const m = p.minutesOwed;
+    if (typeof m === "number") return `${m} min in obligations table`;
+  }
+  if (c.category === "at_risk") {
+    const cp = p.completionPct;
+    if (typeof cp === "number") return `${Math.round(cp as number)}% session completion`;
+  }
+  return null;
+}
+
+function pickSpotlight(data: SpotlightResponse | undefined, max: number): SpotlightCase[] {
+  if (!data) return [];
+  const out: SpotlightCase[] = [];
+  for (const cat of SPOTLIGHT_PRIORITY) {
+    const items = data.byCategory[cat] ?? [];
+    if (items.length === 0) continue;
+    out.push(items[0]);
+    if (out.length >= max) break;
   }
   return out;
 }
@@ -762,8 +908,12 @@ export default function DemoReadinessPage() {
                 <>
                   <p className="text-sm font-medium text-emerald-800">Reseed complete</p>
                   <p className="text-xs text-emerald-700 mt-1">
-                    {reseedJob.result.totalStudents} students · {reseedJob.result.alertsInserted} new variety alerts
-                    · compliance {reseedJob.result.compliancePct}% · checks refreshed automatically
+                    Canonical V2 engine ran on district {reseedJob.result.districtId}
+                    {reseedJob.result.overlayRan
+                      ? " · W5 spotlight overlay applied"
+                      : " · overlay did not run (no spotlight cases emitted)"}
+                    {reseedJob.result.runId ? ` · run ${reseedJob.result.runId.slice(0, 8)}` : ""}
+                    · checks refreshed automatically
                   </p>
                 </>
               )}
@@ -877,12 +1027,122 @@ export default function DemoReadinessPage() {
         </ul>
       )}
 
-      {/* ── Spotlight Cases (V2 Demo Overlay) ─────────────────────────── */}
+      {/* ── Spotlight hero rail (3–5 high-signal cases for the demo) ──── */}
+      {spotlightData && spotlightData.totalRows > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              Spotlight cases — what to walk a buyer through
+            </CardTitle>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Seeded rows from the canonical demo overlay. Each card shows the
+              risk, the likely cause, who owns it now, and the next step a SPED
+              team would actually take. CTAs route into existing workflows —
+              no new scheduler, no auto-recovery loop, no AI claims.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3" data-testid="spotlight-hero-list">
+              {pickSpotlight(spotlightData, 5).map((c) => {
+                const display = studentDisplay(c.student);
+                const owner = caseOwner(c);
+                const proof = caseProof(c);
+                const meta = SPOTLIGHT_CATEGORY_META[c.category];
+                return (
+                  <li
+                    key={c.id}
+                    className={`border rounded-lg p-4 ${meta?.tone ?? "border-gray-200 bg-white"}`}
+                    data-testid={`spotlight-hero-${c.category}`}
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[11px]">
+                          {caseRiskLabel(c)}
+                        </Badge>
+                        {display ? (
+                          c.student ? (
+                            <Link
+                              href={`/students/${c.student.id}`}
+                              className="text-sm font-semibold text-gray-900 hover:text-emerald-700"
+                            >
+                              {display}
+                            </Link>
+                          ) : (
+                            <span className="text-sm font-semibold text-gray-900">
+                              {display}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-sm font-semibold text-gray-500">
+                            Case #{c.subjectId}
+                          </span>
+                        )}
+                      </div>
+                      {(owner.state || owner.role) && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-600 flex-wrap">
+                          {owner.state && (
+                            <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+                              in handling · {owner.state}
+                            </Badge>
+                          )}
+                          {owner.role && <span>owner: {owner.role}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
+                          Likely cause
+                        </p>
+                        <p className="text-xs text-gray-800">{caseCause(c)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
+                          Recommended next step
+                        </p>
+                        <p className="text-xs text-gray-800">{caseNextStep(c)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 mt-3">
+                      {proof ? (
+                        <p className="text-[11px] text-gray-500">Proof: {proof}</p>
+                      ) : (
+                        <span />
+                      )}
+                      {c.student ? (
+                        <Link href={`/students/${c.student.id}`}>
+                          <Button size="sm" variant="outline" className="h-7 text-xs">
+                            Open student <ArrowRight className="w-3 h-3 ml-1" />
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Link href="/action-center">
+                          <Button size="sm" variant="outline" className="h-7 text-xs">
+                            Open in Action Center <ArrowRight className="w-3 h-3 ml-1" />
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-[11px] text-gray-400 mt-3">
+              Showing top {pickSpotlight(spotlightData, 5).length} of{" "}
+              {spotlightData.totalRows} curated overlay rows. Full
+              category-by-category breakdown is below for QA.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── By-category breakdown (operator QA view of all overlay rows) ── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-600" />
-            Spotlight cases
+            By-category breakdown
             {spotlightData && (
               <Badge variant="outline" className="ml-1 font-normal">
                 {spotlightData.totalRows} curated
@@ -890,8 +1150,8 @@ export default function DemoReadinessPage() {
             )}
           </CardTitle>
           <p className="text-xs text-gray-500 mt-0.5">
-            The seed overlay picks up to 3 representative rows per category so the
-            demo flow always lands on the same teaching moments. Generated{" "}
+            Up to 3 representative rows per category so the demo flow always
+            lands on the same teaching moments. Generated{" "}
             {spotlightData?.generatedAt
               ? new Date(spotlightData.generatedAt).toLocaleString()
               : "— never (run a reseed)"}

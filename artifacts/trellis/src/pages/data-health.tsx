@@ -398,7 +398,7 @@ export default function DataHealthPage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Data Health Check</h1>
           <p className="text-xs md:text-sm text-gray-400 mt-1">
-            Verify your district's data is complete and ready for Trellis
+            Verify your district's data is complete and ready for Noverta
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -448,7 +448,7 @@ export default function DataHealthPage() {
                   <div>
                     <p className={`text-lg font-bold ${st.text}`}>{st.label}</p>
                     <p className="text-[13px] text-gray-600 mt-0.5">
-                      {result.overallStatus === "good" && "Your district data looks solid. All critical checks pass — you're ready to start using Trellis."}
+                      {result.overallStatus === "good" && "Your district data looks solid. All critical checks pass — you're ready to start using Noverta."}
                       {result.overallStatus === "needs_attention" && "Most data is in place, but some areas need attention before going live. Review the warnings below."}
                       {result.overallStatus === "not_ready" && "Critical data gaps detected. Fix the issues marked in red before starting your pilot."}
                     </p>
@@ -568,7 +568,7 @@ export default function DataHealthPage() {
                     <div>
                       <p className="text-[12px] font-semibold text-amber-700">Review warnings</p>
                       <p className="text-[11px] text-amber-600 mt-0.5">
-                        Missing schedules and unassigned providers won't block your pilot, but they'll limit what Trellis can track automatically.
+                        Missing schedules and unassigned providers won't block your pilot, but they'll limit what Noverta can track automatically.
                       </p>
                     </div>
                   </div>
@@ -579,7 +579,7 @@ export default function DataHealthPage() {
                     <div>
                       <p className="text-[12px] font-semibold text-emerald-700">All checks pass</p>
                       <p className="text-[11px] text-emerald-600 mt-0.5">
-                        Your data is well-structured. You can start using Trellis for daily session logging and compliance tracking.
+                        Your data is well-structured. You can start using Noverta for daily session logging and compliance tracking.
                       </p>
                     </div>
                   </div>

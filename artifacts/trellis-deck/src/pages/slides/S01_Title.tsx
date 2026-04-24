@@ -16,7 +16,7 @@ export default function S01_Title() {
         <div className="flex items-center gap-[1vw]">
           <span className="block w-[3vw] h-[0.25vh] bg-accent" />
           <span className="font-body uppercase tracking-[0.35em] text-[1.1vw] text-bg/80">
-            Trellis · Seed Round · 2026
+            Noverta · Seed Round · 2026
           </span>
         </div>
 
@@ -33,7 +33,7 @@ export default function S01_Title() {
 
         <div className="flex items-end justify-between">
           <div className="font-body text-[1.2vw] text-bg/85 max-w-[34vw] leading-relaxed">
-            Trellis is the compliance, scheduling, and service-delivery platform built specifically for Massachusetts special education teams.
+            Noverta is the compliance, scheduling, and service-delivery platform built specifically for Massachusetts special education teams.
           </div>
           <div className="font-display italic text-[1.4vw] text-bg/70">
             Vol. 01 — Investor brief

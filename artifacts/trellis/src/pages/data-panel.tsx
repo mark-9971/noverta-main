@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { LiveDataPanel } from "@/components/live-data-panel/LiveDataPanel";
 import type { CollectedGoalEntry } from "@/components/live-data-panel/types";
 
-const CHANNEL_NAME = "trellis-data-panel";
+const CHANNEL_NAME = "noverta-data-panel";
+// Compat alias: dual-listen on the legacy name so updates from a parent
+// window that hasn't been refreshed since the rename still arrive.
+const LEGACY_CHANNEL_NAME = "trellis-data-panel";
 
 interface PopupMessage {
   type: "data-update" | "popup-ready" | "popup-closed";
@@ -19,13 +22,16 @@ export default function DataPanelPage() {
 
   const [entries, setEntries] = useState<Map<number, CollectedGoalEntry>>(new Map());
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const legacyChannelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     document.title = `Data: ${studentName}`;
     try {
       const ch = new BroadcastChannel(CHANNEL_NAME);
+      const legacyCh = new BroadcastChannel(LEGACY_CHANNEL_NAME);
       channelRef.current = ch;
-      ch.onmessage = (e: MessageEvent<PopupMessage>) => {
+      legacyChannelRef.current = legacyCh;
+      const handler = (e: MessageEvent<PopupMessage>) => {
         if (e.data.timerId !== timerId) return;
         if (e.data.type === "data-update" && e.data.entries) {
           const map = new Map<number, CollectedGoalEntry>();
@@ -33,11 +39,17 @@ export default function DataPanelPage() {
           setEntries(map);
         }
       };
-      ch.postMessage({ type: "popup-ready", timerId } as PopupMessage);
+      ch.onmessage = handler;
+      legacyCh.onmessage = handler;
+      const ready: PopupMessage = { type: "popup-ready", timerId };
+      ch.postMessage(ready);
+      legacyCh.postMessage(ready);
       window.addEventListener("beforeunload", () => {
-        ch.postMessage({ type: "popup-closed", timerId } as PopupMessage);
+        const closed: PopupMessage = { type: "popup-closed", timerId };
+        ch.postMessage(closed);
+        legacyCh.postMessage(closed);
       });
-      return () => ch.close();
+      return () => { ch.close(); legacyCh.close(); };
     } catch {
       return;
     }
@@ -45,11 +57,12 @@ export default function DataPanelPage() {
 
   const handleEntriesChange = useCallback((newEntries: Map<number, CollectedGoalEntry>) => {
     setEntries(newEntries);
-    if (channelRef.current) {
-      const obj: Record<string, CollectedGoalEntry> = {};
-      newEntries.forEach((v, k) => { obj[String(k)] = v; });
-      channelRef.current.postMessage({ type: "data-update", timerId, entries: obj } as PopupMessage);
-    }
+    const obj: Record<string, CollectedGoalEntry> = {};
+    newEntries.forEach((v, k) => { obj[String(k)] = v; });
+    const msg: PopupMessage = { type: "data-update", timerId, entries: obj };
+    channelRef.current?.postMessage(msg);
+    // Dual-broadcast on legacy channel during the rename transition.
+    legacyChannelRef.current?.postMessage(msg);
   }, [timerId]);
 
   if (!studentId || !timerId) {

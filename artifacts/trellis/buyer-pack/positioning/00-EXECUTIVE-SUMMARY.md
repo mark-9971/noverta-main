@@ -1,12 +1,12 @@
-# Trellis — Executive Summary
+# Noverta — Executive Summary
 
-**One-sentence positioning.** Trellis is the special-education operations
+**One-sentence positioning.** Noverta is the special-education operations
 platform that turns a district's IEP minutes, paperwork, and compliance
 deadlines into a single accountable system — so case managers stop
 drowning, paras stop guessing, and directors stop writing comp-ed checks.
 
 **The wedge.** Most sped software is a filing cabinet (Frontline, PowerSchool
-Special Programs, Embrace). Trellis is the operations layer on top: real-
+Special Programs, Embrace). Noverta is the operations layer on top: real-
 time minutes-at-risk, comp-ed obligations as a first-class object, a para
 tool paras actually use on a Chromebook, and ABA/IEP/dashboards in one
 tenant — so districts stop buying 3–5 products to cover what should be one.

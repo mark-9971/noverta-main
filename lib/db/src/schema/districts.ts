@@ -43,7 +43,7 @@ export const districtsTable = pgTable("districts", {
   approvalReminderDays: integer("approval_reminder_days"),
   defaultHourlyRate: numeric("default_hourly_rate", { precision: 10, scale: 2 }),
   caseloadThresholds: jsonb("caseload_thresholds").$type<Record<string, number>>(),
-  // Email of the Trellis account manager assigned to this district's pilot.
+  // Email of the Noverta account manager assigned to this district's pilot.
   // New pilot feedback submissions are emailed here so the AM can triage immediately.
   pilotAccountManagerEmail: text("pilot_account_manager_email"),
   // IANA timezone used to interpret "school day" boundaries and the 7am local

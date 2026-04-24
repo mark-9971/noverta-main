@@ -1,6 +1,6 @@
 # @workspace/api-zod
 
-Auto-generated Zod validation schemas for the Trellis API.
+Auto-generated Zod validation schemas for the Noverta API.
 
 ## DO NOT hand-edit `src/generated/api.ts`
 

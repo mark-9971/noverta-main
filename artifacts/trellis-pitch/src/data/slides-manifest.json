@@ -3,7 +3,7 @@
     "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "position": 1,
     "filepath": "src/pages/slides/TitleSlide.tsx",
-    "title": "Trellis -- Built to Support",
+    "title": "Noverta -- Built to Support",
     "description": "Title slide with hero imagery and tagline",
     "speakerNotes": ""
   },
@@ -28,7 +28,7 @@
     "position": 4,
     "filepath": "src/pages/slides/SolutionSlide.tsx",
     "title": "The Solution",
-    "description": "Trellis as the single source of truth for SPED compliance and clinical operations",
+    "description": "Noverta as the single source of truth for SPED compliance and clinical operations",
     "speakerNotes": ""
   },
   {
@@ -60,7 +60,7 @@
     "position": 8,
     "filepath": "src/pages/slides/CompetitionSlide.tsx",
     "title": "Competitive Landscape",
-    "description": "Feature comparison matrix showing Trellis vs Generic SIS, SpedTrack, Frontline, and spreadsheets",
+    "description": "Feature comparison matrix showing Noverta vs Generic SIS, SpedTrack, Frontline, and spreadsheets",
     "speakerNotes": ""
   },
   {

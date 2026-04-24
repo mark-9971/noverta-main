@@ -41,12 +41,12 @@ export function EliteUpgradePrompt({ featureKey, featureName }: EliteUpgradeProm
 
             <div className="px-6 py-5">
               <p className="text-sm text-gray-600 mb-5">
-                {benefit ?? "This feature is available on the Trellis ELITE plan — built for district leadership teams."}
+                {benefit ?? "This feature is available on the Noverta ELITE plan — built for district leadership teams."}
               </p>
 
               <div className="bg-violet-50 border border-violet-100 rounded-lg px-4 py-3 mb-5">
                 <p className="text-xs text-violet-700 font-medium">
-                  Upgrade to <strong>Trellis ELITE</strong> to unlock district-wide dashboards, Medicaid billing, agency management, SSO, and more — designed for district administrators and leadership teams.
+                  Upgrade to <strong>Noverta ELITE</strong> to unlock district-wide dashboards, Medicaid billing, agency management, SSO, and more — designed for district administrators and leadership teams.
                 </p>
               </div>
 

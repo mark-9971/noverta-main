@@ -176,7 +176,7 @@ export default function S04_WedgeHub() {
                 Status dots expose cross-pillar issues without requiring attention to every tab
               </div>
               <div className="text-[1.15vw] font-body leading-snug" style={{ color: "#a8d5c2" }}>
-                Matches the five-wedge mental model already embedded in Trellis
+                Matches the five-wedge mental model already embedded in Noverta
               </div>
               <div className="text-[1.15vw] font-body leading-snug" style={{ color: "#a8d5c2" }}>
                 Each stakeholder bookmarks their pillar — finance, compliance, or ops

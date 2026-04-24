@@ -1,5 +1,5 @@
 /**
- * District-admin view of recent Trellis-support sessions affecting this
+ * District-admin view of recent Noverta-support sessions affecting this
  * district. Mounted as a tab inside Settings. Read-only.
  */
 import { useQuery } from "@tanstack/react-query";
@@ -53,9 +53,9 @@ export default function SupportSessionsAdminPage() {
       <div className="flex items-start gap-3">
         <LifeBuoy className="w-5 h-5 text-sky-700 mt-0.5" />
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Trellis support read-only access</h2>
+          <h2 className="text-base font-semibold text-gray-900">Noverta support read-only access</h2>
           <p className="text-sm text-gray-500">
-            When a Trellis support engineer opens a read-only session against your district, it appears here along with the reason they provided and how many records were viewed.
+            When a Noverta support engineer opens a read-only session against your district, it appears here along with the reason they provided and how many records were viewed.
           </p>
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function SupportSessionsAdminPage() {
 
       {data && data.sessions.length === 0 && (
         <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
-          No Trellis support has accessed this district's data.
+          No Noverta support has accessed this district's data.
         </div>
       )}
 

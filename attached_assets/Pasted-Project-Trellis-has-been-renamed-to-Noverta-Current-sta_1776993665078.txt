@@ -1,0 +1,86 @@
+Project: Trellis has been renamed to Noverta.
+
+Current state:
+- NEXT-1 complete: user-facing string rename.
+- NEXT-2 complete: filename/import rename.
+- NEXT-3 PARTIAL: localStorage/sessionStorage migration shims were added for the main scoped key set.
+- NEXT-3 left four active client-side Trellis-prefixed storage keys unmigrated.
+
+Task:
+Complete NEXT-4: finish the remaining client-side storage-key migration cleanup only.
+
+Use the current codebase as source of truth. Do the work, not just a plan.
+
+Execution priority:
+1. actual completion
+2. correctness
+3. non-destructive user-state preservation
+4. proof
+5. speed only after the above
+
+Remaining keys from NEXT-3:
+1. trellis_nav_* in components/layout/AppLayout.tsx
+2. trellis.pilot-decision-banner.dismissed-until in components/PilotDecisionBanner.tsx
+3. trellis_quicklog_v2_${staffId} in components/quick-log-sheet/types.ts
+4. trellis:mobile-setup-progress:dismissed in components/onboarding/MobileSetupProgress.tsx
+
+Objective:
+Migrate these remaining active client-side Trellis-prefixed storage keys to Noverta-prefixed canonical keys using the same safe migration pattern introduced in NEXT-3.
+
+Scope:
+- Reuse artifacts/trellis/src/lib/storage-migration.ts where appropriate.
+- Copy old Trellis key values to new Noverta keys only when the new key is missing.
+- Never overwrite existing Noverta values.
+- Never delete old Trellis keys unless the existing helper already does so only after a successful copy.
+- Ensure clear/remove behavior does not allow stale legacy values to resurface.
+- Keep behavior idempotent.
+- Keep all changes narrow and storage-only.
+
+Special caution:
+Quick Log is a high-value wedge surface. Do not redesign Quick Log. Do not change Quick Log behavior. Only migrate the local draft/default storage key safely.
+
+Non-goals:
+- No generic localStorage cleanup.
+- No storage architecture redesign.
+- No backend changes.
+- No route/nav/product workflow changes.
+- No Action Center, recommendation engine, handling state, compliance risk, minute math, school calendar, scheduling orchestration, or seed/reset changes.
+- No DNS/email/url cutover.
+- No trellis_support DB role rename.
+- No e2e fixture refresh yet.
+
+Required behavior for each key:
+- old exists, new missing → copy old value to new
+- old exists, new exists → preserve new
+- old missing → do nothing
+- clear/remove actions clear both old and new where relevant
+- repeated runs are safe/idempotent
+- unavailable localStorage/sessionStorage does not crash the app
+
+Testing/proof:
+- Run the narrowest relevant typecheck/build command feasible.
+- If unit tests exist for the touched utility or components, add/update narrow tests.
+- If no practical test pattern exists, provide manual verification steps.
+- Report exact commands and exact results.
+- Separate pre-existing failures from regressions.
+
+Required final output:
+1. EXECUTIVE VERDICT — COMPLETE / PARTIAL / INCORRECTLY IMPLEMENTED
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT FILES DELETED
+5. EXACT REASONS FOR EACH CHANGE
+6. USER-VISIBLE IMPACT
+7. ARCHITECTURE / MODEL IMPACT
+8. STORAGE MIGRATION BEHAVIOR
+   - old key
+   - new key
+   - copy rule
+   - overwrite behavior
+   - deletion/clear behavior
+9. TEST / BUILD STATUS
+10. EXACT REMAINING GAPS
+11. EXACT NEXT TASKS
+12. FINAL ARTIFACT
+
+Stop after NEXT-4. Do not start e2e refresh, DNS/URL cutover, DB role rename, or demo/seeder work.

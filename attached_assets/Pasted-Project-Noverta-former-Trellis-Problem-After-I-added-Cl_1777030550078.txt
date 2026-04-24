@@ -1,0 +1,113 @@
+Project: Noverta / former Trellis.
+
+Problem:
+After I added Clerk keys to Replit Secrets, the Replit preview loads blank / nothing shows up.
+
+I suspect Clerk is misconfigured, but do not assume. Diagnose the actual cause from logs/runtime first.
+
+Current known context:
+- I only changed Replit Secrets / env vars.
+- I have not deployed to noverta.app yet.
+- Use the current Replit preview/dev URL, not noverta.app.
+- Product rename work NEXT-1 through NEXT-7 is complete in-repo.
+- Do not run NEXT-8.
+- Do not remove legacy Trellis compatibility shims.
+
+Task:
+Debug the blank Replit preview and make the smallest safe fix needed to get the app loading again.
+
+Execution rules:
+1. Inspect browser console/runtime errors if available.
+2. Inspect API server logs.
+3. Inspect frontend/Vite logs.
+4. Verify Clerk env var names and where they are consumed.
+5. Verify frontend and backend both still start.
+6. Do not make broad auth rewrites.
+7. Do not change product workflows.
+8. Do not touch high-conflict wedge files unless the blank page is directly caused there.
+9. Do not change Action Center, recommendations, compliance risk, minute math, scheduling, seed/reset, or demo logic.
+10. If this is only an env/config issue, tell me exactly what to change in Replit Secrets instead of editing code.
+
+Specific checks:
+- Confirm the frontend expects VITE_CLERK_PUBLISHABLE_KEY, or identify the exact publishable-key env var it actually expects.
+- Confirm the backend expects CLERK_SECRET_KEY, or identify the exact secret-key env var it actually expects.
+- Confirm ClerkProvider is not crashing when the publishable key is missing/malformed.
+- Confirm the publishable key starts with pk_ and is not accidentally the secret key.
+- Confirm the secret key starts with sk_ and is not exposed to frontend code.
+- Confirm the current Replit preview/dev URL is allowed in Clerk settings.
+- Confirm /sign-in and /sign-up routes render.
+- Confirm role metadata is still read from publicMetadata.role.
+- Confirm old trellis_support compatibility is not removed.
+
+Likely root causes to investigate:
+- Wrong Replit secret names.
+- Missing VITE_ prefix for frontend Clerk key.
+- Frontend not restarted/rebuilt after env change.
+- Backend missing CLERK_SECRET_KEY.
+- ClerkProvider throws because key is undefined.
+- Clerk app does not allow the current Replit preview origin.
+- Router/auth guard redirects endlessly.
+- Vite env not injected into the frontend build.
+- Blank page caused by unrelated runtime error exposed after restart.
+
+Required output format:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. ROOT CAUSE
+State the actual cause of the blank preview. Do not guess.
+
+3. EXACT ERRORS FOUND
+Include exact console/log errors.
+
+4. EXACT FILES CREATED
+List exact paths or “None”.
+
+5. EXACT FILES MODIFIED
+List exact paths or “None”.
+
+6. EXACT FILES DELETED
+List exact paths or “None”.
+
+7. EXACT REASONS FOR EACH CHANGE
+Explain every changed file.
+
+8. ENV VAR AUDIT
+List:
+- env vars the app expects
+- env vars currently present if visible
+- which ones are missing/wrong
+- exact Replit Secrets I need to set
+
+9. CLERK CONFIG AUDIT
+List:
+- publishable key status
+- secret key status
+- allowed origin / redirect issue, if any
+- sign-in/sign-up route status
+- publicMetadata.role status
+
+10. USER-VISIBLE IMPACT
+What now loads/works.
+
+11. TEST / BUILD STATUS
+Include exact commands run and exact pass/fail result.
+At minimum try:
+- frontend start/build/typecheck if feasible
+- backend start/typecheck if feasible
+- browser preview smoke check if feasible
+
+12. REMAINING GAPS
+List true gaps only.
+
+13. EXACT NEXT STEPS FOR ME
+If I need to change Clerk dashboard or Replit Secrets, give exact click/path/value instructions.
+
+14. FINAL ARTIFACT
+Brief final summary.
+
+Stop after fixing the blank preview or identifying the exact external config blocker.

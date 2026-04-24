@@ -1,7 +1,7 @@
 import { pgTable, serial, text, integer, timestamp, index } from "drizzle-orm/pg-core";
 
 /**
- * Audited "view-as" / impersonation sessions for Trellis platform admins.
+ * Audited "view-as" / impersonation sessions for Noverta platform admins.
  *
  * A platform admin starts a session via /api/support/view-as/start, which
  * returns a one-time opaque token (only the sha256 of the token is stored).

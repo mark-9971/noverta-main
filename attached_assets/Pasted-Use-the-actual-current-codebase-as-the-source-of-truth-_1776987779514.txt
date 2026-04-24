@@ -1,0 +1,254 @@
+Use the actual current codebase as the source of truth.
+
+This task is a **full technical rename**:
+
+**trellis / Trellis / TRELLIS → noverta / Noverta / NOVERTA**
+
+The new canonical product name is:
+
+* Product: **Noverta**
+* Primary domain: **noverta.app**
+
+Do the work, not just a plan.
+
+Execution priority:
+
+1. correctness
+2. completeness
+3. compatibility / migration safety
+4. proof
+5. speed last
+
+This is **not** a blind global find/replace. It is a full technical rename with compatibility handled where needed.
+
+---
+
+## Objective
+
+Rename every active project/codebase occurrence of the old brand **Trellis / trellis / TRELLIS** to **Noverta / noverta / NOVERTA**, including technical/internal names where safe.
+
+Unlike the previous brand-only pass, this task should now include technical/internal cleanup too.
+
+---
+
+## Critical rule
+
+Do not just run a global replace and hope.
+
+Inventory first. Then rename in controlled passes.
+
+Classify every remaining old-name occurrence after the work as one of:
+
+1. **renamed**
+2. **intentionally preserved historical artifact**
+3. **blocked because it requires external system action**
+
+The goal is:
+
+* no active product/UI/docs references to Trellis
+* no active package/workspace/folder/config references to trellis where safely renamable
+* no active runtime/internal identifiers using trellis unless a compatibility shim is required
+* any remaining Trellis references must be historical or externally blocked
+
+---
+
+## In scope
+
+Rename active technical/internal references including, where safe:
+
+* package names like `@workspace/trellis*`
+* folder names like `artifacts/trellis*`
+* artifact titles, IDs, preview paths, paths, BASE_PATH values
+* workspace filters and package references
+* scripts using `--filter @workspace/trellis*`
+* imports / workspace dependencies
+* browser/app metadata
+* OpenAPI/spec/client generated references if applicable
+* env var names using `TRELLIS_*`
+* runtime constants like `TRELLIS_GREEN`
+* window globals like `__TRELLIS_*`
+* localStorage keys like `trellis.*`
+* BroadcastChannel names like `trellis-data-panel`
+* event names like `trellis:*`
+* e2e test strings, fallback passwords, helper names
+* docs/scripts that reference old paths or names
+* Replit artifact metadata where editable
+* user-facing, buyer-facing, legal, demo, and active source docs
+
+---
+
+## Compatibility requirements
+
+For runtime/client persisted identifiers, do not break existing users.
+
+If renaming:
+
+* localStorage keys
+* BroadcastChannel names
+* window event names
+* debug globals
+
+then add a temporary compatibility shim where appropriate.
+
+Examples:
+
+* read old `trellis.*` localStorage keys once and migrate to `noverta.*`
+* preserve old event listener temporarily while emitting the new event
+* support old BroadcastChannel name only if needed during transition
+* document which shims are temporary and when they can be removed
+
+Do not silently orphan existing local state.
+
+---
+
+## DB / role / migration requirements
+
+If renaming `trellis_support` or any DB enum / DB-stored value:
+
+1. inspect current schema and usage
+2. add a safe migration if needed
+3. update code references
+4. preserve existing data
+5. verify old rows are migrated or accepted
+6. do not break RBAC / permissions
+
+If DB migration is unsafe or blocked, return PARTIAL for that subsection and explain exactly why.
+
+---
+
+## External system caution
+
+Some items may require external action and should not be faked:
+
+* Clerk test identity emails
+* CI secrets
+* environment variable names set outside repo
+* Replit artifact/platform registration if not fully controlled by files
+* purchased domains / DNS
+
+For those:
+
+* update repo defaults/docs where safe
+* preserve backward compatibility if possible
+* list exact external actions required
+
+---
+
+## Required method
+
+### Step 1 — inventory
+
+Search for all of:
+
+* `Trellis`
+* `trellis`
+* `TRELLIS`
+
+Include:
+
+* code
+* docs
+* scripts
+* package files
+* Replit artifact files
+* tests/e2e
+* specs/generated clients
+* public/legal docs
+
+Exclude only:
+
+* `node_modules`
+* `.git`
+* build outputs/dist caches unless they are checked in and active
+* immutable historical artifacts only after identifying them
+
+### Step 2 — ordered rename passes
+
+Execute in this order:
+
+1. package/workspace names
+2. folder names
+3. artifact metadata/config/path references
+4. imports/dependencies/scripts/workspace filters
+5. runtime constants / globals / localStorage / events with shims
+6. DB role/env/e2e identifiers with migration or compatibility plan
+7. docs/user-visible strings
+8. generated spec/client strings if applicable
+
+### Step 3 — verify
+
+Run:
+
+* full grep/search for `Trellis`, `trellis`, `TRELLIS`
+* relevant package typechecks
+* any affected tests or smoke checks
+* if full typecheck is blocked by pre-existing failures, isolate touched-file/typecheck proof and clearly separate pre-existing failures from regressions
+
+---
+
+## Non-goals
+
+Do not:
+
+* redesign the product
+* change roadmap priorities
+* change business positioning beyond the name
+* start T01 / scheduling work
+* rewrite locked historical audit snapshots unless they are active current docs
+* delete compatibility shims immediately
+* hide failures behind “all green”
+
+---
+
+## Historical files
+
+Historical snapshots may keep old names if their purpose is historical truth.
+
+But be strict:
+
+* active docs should say Noverta
+* historical locked snapshots can say Trellis
+* generated old chat attachments can say Trellis
+* migration history may say Trellis if changing it would be unsafe
+
+Everything else should be renamed or explicitly justified.
+
+---
+
+## Required final output
+
+Return exactly these sections:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES / DIRECTORIES RENAMED
+3. EXACT FILES MODIFIED
+4. EXACT FILES LEFT UNCHANGED ON PURPOSE
+5. EXACT REASONS FOR EACH CHANGE
+6. COMPATIBILITY / MIGRATION SHIMS ADDED
+7. DB / ROLE / ENV VAR IMPACT
+8. USER-VISIBLE IMPACT
+9. ARCHITECTURE / REPO IMPACT
+10. SEARCH / VERIFICATION METHOD
+11. TEST / BUILD STATUS
+12. EXACT REMAINING TRELLIS REFERENCES
+13. EXACT REMAINING GAPS
+14. EXACT NEXT TASKS
+15. FINAL ARTIFACT
+
+For section 12, list every remaining old-name category:
+
+* `Trellis`
+* `trellis`
+* `TRELLIS`
+
+For each, say:
+
+* exact path/pattern
+* why it remains
+* whether it is acceptable
+* what would remove it later
+
+If the task cannot fully complete safely, return PARTIAL with exact blockers.
+
+Do not start unrelated cleanup.
+Do not start T01 automatically.

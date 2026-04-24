@@ -27,13 +27,14 @@ async function resolveDistrictId(req: Request): Promise<number | null> {
   if (meta.districtId) return meta.districtId;
   // Year rollover is destructive (creates next-year placeholders, archives
   // active IEPs, etc.) so even in dev we will NOT pick a district silently.
-  // Set TRELLIS_DEV_FORCE_DISTRICT_ID to the district you want to roll over
+  // Set NOVERTA_DEV_FORCE_DISTRICT_ID (or the deprecated alias
+  // TRELLIS_DEV_FORCE_DISTRICT_ID) to the district you want to roll over
   // when running locally without Clerk metadata configured.
-  if (
-    process.env.NODE_ENV !== "production" &&
-    process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
-  ) {
-    return Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID);
+  const forced =
+    process.env.NOVERTA_DEV_FORCE_DISTRICT_ID
+    ?? process.env.TRELLIS_DEV_FORCE_DISTRICT_ID;
+  if (process.env.NODE_ENV !== "production" && forced) {
+    return Number(forced);
   }
   return null;
 }

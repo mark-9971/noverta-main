@@ -1,0 +1,259 @@
+Use the actual current codebase and current project source docs as the source of truth.
+
+This task is a controlled product rename:
+Trellis → Noverta
+
+The new canonical public product identity is:
+
+* Noverta
+* primary domain: noverta.app
+* optional helper domain: getnoverta.com if relevant for copy/examples
+
+Do the work, not just a plan.
+
+Execution priority for this task:
+
+1. actual completion
+2. correctness
+3. thoroughness
+4. trustworthy proof
+5. efficiency only after the above
+
+Do not optimize for speed if it reduces correctness or proof quality.
+
+If the work cannot be completed honestly as requested, return PARTIAL with the exact blocker instead of substituting a shortcut.
+
+PARTIAL is better than fake COMPLETE.
+
+⸻
+
+Objective
+
+Replace the current active product/app brand from Trellis to Noverta in a controlled, low-risk way.
+
+This is a brand rename, not a product redesign and not a repo-hygiene sweep.
+
+The rename must:
+
+* update current active product naming
+* update user-visible branding
+* update current active source-of-truth/project docs
+* update current active demo/buyer-facing references where appropriate
+* avoid breaking imports, runtime behavior, package structure, env assumptions, or historical accuracy
+
+⸻
+
+Critical rule: NOT a blind global find/replace
+
+Do not naively replace every instance of Trellis / trellis everywhere.
+
+You must classify every match into one of these buckets:
+
+1. Rename now
+    * current active user-facing product/app references
+    * current active control docs
+    * current demo/buyer-facing product references
+    * app/page titles and metadata where current branding matters
+2. Leave unchanged because historical
+    * locked historical audit snapshots
+    * old generated reports/artifacts
+    * historical docs whose job is to preserve the old state truthfully
+3. Leave unchanged for now because technical/internal
+    * package names
+    * workspace names
+    * folder names
+    * tsconfig paths
+    * internal artifact names
+    * env var names
+    * database/migration identifiers
+        unless renaming them is clearly safe, clearly low-risk, and clearly worth it now
+
+You must preserve this distinction in the final output.
+
+⸻
+
+Source-of-truth expectations
+
+Use the current active control docs as the main rename targets.
+
+The product truth does not change:
+
+* operational workflow tool
+* compliance backbone
+* wedge-first
+* closed-loop recovery is still the next major phase
+* seed/reset is support infrastructure, not the center of execution
+
+Only the name changes.
+
+Do not accidentally rewrite the roadmap or product truth during this task.
+
+⸻
+
+In scope
+
+* rename current active product/app name from Trellis to Noverta
+* update current active source-of-truth docs
+* update current active prompt/project docs where the product name appears
+* update obvious current user-visible UI/app branding strings
+* update app/browser titles and other active metadata if present
+* update current active demo/buyer-facing docs/scripts if present
+* produce a clear inventory of:
+    * what was changed
+    * what was intentionally not changed
+    * why
+
+Out of scope
+
+* product redesign
+* architecture changes
+* roadmap reprioritization
+* moving directories just for naming consistency
+* package/workspace refactor unless trivially safe
+* env var renaming unless clearly necessary
+* DB schema/migration renaming
+* rewriting historical snapshots for aesthetic consistency
+* unrelated cleanup
+
+⸻
+
+Required method
+
+Step 1 — inventory first
+
+Before editing, search for:
+
+* Trellis
+* trellis
+* TRELLIS
+
+Classify matches into:
+
+* rename now
+* historical, leave unchanged
+* technical/internal, leave unchanged for now
+
+Step 2 — execute only the safe/current rename
+
+Apply the rename to the right surfaces only.
+
+Step 3 — verify
+
+After the rename:
+
+* search again for remaining Trellis / trellis
+* explicitly classify each remaining category
+* verify current active user-facing/app-facing references no longer say Trellis
+* verify current active source-of-truth docs no longer say Trellis where they should now say Noverta
+* verify no obvious runtime/import/build breakage from the rename
+
+⸻
+
+High-priority rename surfaces
+
+A. Current active source docs
+
+Update current active docs that shape planning/prompting/product truth.
+
+B. Current user-visible product/app strings
+
+Update obvious user-facing branding such as:
+
+* app name
+* page titles
+* browser title
+* nav/header/footer/product copy
+* welcome/about/help/product mentions
+    where current branding matters
+
+C. Current active demo/buyer-facing references
+
+Update current active demo script / scenario / buyer-facing product naming where appropriate.
+
+D. Current metadata/manifests
+
+Update current app metadata where safe and relevant.
+
+⸻
+
+Low-priority / likely non-rename surfaces
+
+These usually should stay unchanged for now unless clearly safe and useful:
+
+* internal package/workspace names
+* folder names like internal trellis artifact paths
+* import alias roots
+* migration names
+* DB identifiers
+* legacy/historical reports
+* locked audit snapshots
+
+If left unchanged, explain why.
+
+⸻
+
+Architecture caution
+
+Be conservative with deep technical rename.
+Do not create broad churn for low product value.
+
+This task is primarily:
+
+* branding
+* docs
+* UI strings
+* metadata
+
+This task is not:
+
+* workflow logic
+* package refactor
+* infrastructure cleanup
+
+⸻
+
+Required proof
+
+You must provide:
+
+* exact search method used before editing
+* exact search method used after editing
+* exact list of files modified
+* exact list of files intentionally left unchanged
+* exact reason for each unchanged category:
+    * historical
+    * technical/risk defer
+    * not worth churn now
+* exact statement of whether any current active user-facing references to “Trellis” remain
+* exact statement of whether any internal/package/technical references to trellis remain
+* whether those remaining references are acceptable for now and why
+
+⸻
+
+Required final output
+
+Return exactly these sections, in this order:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES MODIFIED
+3. EXACT FILES LEFT UNCHANGED ON PURPOSE
+4. EXACT REASONS FOR EACH CHANGE
+5. EXACT REASONS FOR EACH INTENTIONAL NON-CHANGE
+6. USER-VISIBLE IMPACT
+7. ARCHITECTURE / REPO IMPACT
+8. SEARCH / VERIFICATION METHOD
+9. TEST / BUILD STATUS
+10. EXACT REMAINING GAPS
+11. EXACT NEXT TASKS
+12. FINAL ARTIFACT
+
+Also include explicitly:
+
+* whether any current active product/docs still say “Trellis”
+* whether any technical/package/internal names still say trellis
+* whether that is acceptable for now and why
+
+If blocked, return PARTIAL honestly.
+
+Do not begin unrelated cleanup after the rename.
+Do not start T01 automatically

@@ -25,7 +25,10 @@ function intervalLabel(intervalType: string | null): string {
   }
 }
 
-const BROADCAST_CHANNEL_NAME = "trellis-data-panel";
+const BROADCAST_CHANNEL_NAME = "noverta-data-panel";
+// Compat alias: legacy popup windows opened pre-rename still post on the
+// old channel. Removed once all popups have been re-opened (≤1 session).
+const LEGACY_BROADCAST_CHANNEL_NAME = "trellis-data-panel";
 
 function detectIsMac(): boolean {
   if (typeof navigator === "undefined") return false;

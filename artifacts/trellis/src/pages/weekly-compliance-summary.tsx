@@ -295,7 +295,7 @@ function buildPrintHtml(data: ReportData): string {
     <tbody>${trendRows}</tbody>
   </table>
 
-  <div class="confidential">Trellis — Weekly SPED Compliance Summary | ${esc(data.meta.districtName)} | ${genDate} | CONFIDENTIAL</div>
+  <div class="confidential">Noverta — Weekly SPED Compliance Summary | ${esc(data.meta.districtName)} | ${genDate} | CONFIDENTIAL</div>
 </div>
 </body></html>`;
 }

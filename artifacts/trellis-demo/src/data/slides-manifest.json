@@ -3,7 +3,7 @@
     "id": "a1b2c3d4-0001-4000-8000-000000000001",
     "position": 1,
     "filepath": "src/pages/slides/S01_Title.tsx",
-    "title": "Trellis — Built to Support",
+    "title": "Noverta — Built to Support",
     "description": "Title slide with hero image and tagline.",
     "speakerNotes": ""
   },
@@ -11,7 +11,7 @@
     "id": "a1b2c3d4-0002-4000-8000-000000000002",
     "position": 2,
     "filepath": "src/pages/slides/S02_WhoAmI.tsx",
-    "title": "What is Trellis?",
+    "title": "What is Noverta?",
     "description": "Overview of the project and what it replaces.",
     "speakerNotes": ""
   },
@@ -115,7 +115,7 @@
     "id": "a1b2c3d4-0015-4000-8000-000000000015",
     "position": 15,
     "filepath": "src/pages/slides/S15_Differentiators.tsx",
-    "title": "Why Trellis Wins",
+    "title": "Why Noverta Wins",
     "description": "Four key competitive advantages.",
     "speakerNotes": ""
   },
@@ -123,7 +123,7 @@
     "id": "a1b2c3d4-0016-4000-8000-000000000016",
     "position": 16,
     "filepath": "src/pages/slides/S16_Competition.tsx",
-    "title": "How Trellis Compares",
+    "title": "How Noverta Compares",
     "description": "Feature comparison matrix against competitors.",
     "speakerNotes": ""
   },

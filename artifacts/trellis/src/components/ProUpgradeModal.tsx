@@ -43,7 +43,7 @@ export function ProUpgradeModal({ open, onClose, featureName }: ProUpgradeModalP
             <ArrowUpCircle className="w-6 h-6 text-white" />
           </div>
           <DialogTitle className="text-xl">
-            Upgrade to Trellis PRO
+            Upgrade to Noverta PRO
           </DialogTitle>
           <DialogDescription>
             {featureName

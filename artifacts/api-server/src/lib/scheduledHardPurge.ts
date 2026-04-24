@@ -55,7 +55,7 @@ export async function runScheduledHardPurges(): Promise<void> {
         actor: {
           userId: "system:scheduled-hard-purge",
           role: "system",
-          name: "Trellis Scheduler",
+          name: "Noverta Scheduler",
         },
         notifyEmails: recipients,
       });

@@ -1,5 +1,5 @@
 /**
- * Task #425: audited Trellis-support read-only session.
+ * Task #425: audited Noverta-support read-only session.
  *
  * Coverage:
  *   1. Non-trellis_support callers cannot open/end/list sessions or hit /districts.
@@ -78,7 +78,7 @@ beforeAll(async () => {
   const d = await createDistrict({ name: "Support-Session Test District" });
   testDistrictId = d.id;
   const s = await createSchool(testDistrictId);
-  await createStaff(s.id, { role: "case_manager", email: `support_target_${Date.now()}@trellis.test` });
+  await createStaff(s.id, { role: "case_manager", email: `support_target_${Date.now()}@noverta.test` });
   await seedLegalAcceptances([SUPPORT_USER, SUPPORT_USER_B, NON_SUPPORT_USER, ADMIN_USER]);
 });
 

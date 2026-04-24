@@ -86,7 +86,7 @@ export const PILOT_CHECKLIST_ITEMS: ItemDef[] = [
     key: "staffImported",
     label: "Staff imported",
     icon: Users,
-    blurb: "Import or invite the SPED teachers, related-service providers, and admins who will use Trellis.",
+    blurb: "Import or invite the SPED teachers, related-service providers, and admins who will use Noverta.",
     actionLabel: "Manage staff",
     actionHref: "/staff",
     detail: d => `${d.counts.staff} staff member${d.counts.staff === 1 ? "" : "s"} on file`,

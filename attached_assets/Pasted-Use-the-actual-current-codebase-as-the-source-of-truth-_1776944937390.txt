@@ -1,0 +1,302 @@
+Use the actual current codebase as the source of truth.
+Do the work, not just a plan.
+
+This is T-V2-08 — V1 sprawl retirement / final seed-reset unification cleanup.
+
+Execution priorities
+
+1. actual completion
+2. correctness
+3. thoroughness
+4. trustworthy proof
+5. efficiency only after the above
+
+Do not optimize for speed if it reduces correctness or proof quality.
+
+If the work cannot be completed honestly as requested, return PARTIAL with the exact blocker instead of substituting a shortcut.
+
+⸻
+
+Objective
+
+Finish the seed/reset cleanup by removing the remaining legacy V1/demo additive behavior from the canonical reset path.
+
+After this task:
+
+* the canonical seed/reset backbone should be V2-only
+* legacy demo enrichments should no longer run as additive passes in the real reset flow
+* remaining V1/demo code should either be:
+    * deleted
+    * or clearly isolated as non-runtime fallback / historical-only debt with explicit justification
+
+This is the final unification cleanup after:
+
+* W1–W5
+* parity bake
+* cutover
+* reset path unification
+
+⸻
+
+Why now
+
+Current state appears to be:
+
+* real HTTP reset paths now use V2-first
+* but legacy enrichment helpers still run as additive non-fatal passes
+
+That means the reset story is improved, but not fully canonical yet.
+
+This task should make the seed/reset path truly honest and singular.
+
+This is aligned with the project rule that demo reset / seeding is a hot architectural zone and should not remain a confusing hybrid.  
+
+⸻
+
+Hard rules
+
+* Do not reintroduce parallel engines.
+* Do not keep legacy additive passes in the canonical runtime path unless you can prove they are still required and explicitly isolate them.
+* Do not broaden into new features, UI changes, nav changes, or wedge logic changes.
+* Do not run full repo tests by default.
+* Do not claim COMPLETE if runtime reset path still materially depends on legacy V1/demo shaping.
+
+Before declaring COMPLETE, verify:
+
+1. canonical reset paths no longer depend on legacy additive demo enrichments
+2. V2 + overlay is the full runtime engine
+3. any remaining legacy code is either deleted or clearly isolated and non-runtime
+4. targeted proof exists
+5. tests/build status are clearly stated
+6. remaining gaps are explicit
+7. pre-existing failures are separated from regressions
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT FILES DELETED
+5. EXACT REASONS FOR EACH CHANGE
+6. RUNTIME UNIFICATION STATUS
+7. REMAINING LEGACY SURFACES
+8. USER-VISIBLE IMPACT
+9. DEMO / RESET IMPACT
+10. ARCHITECTURE / MODEL IMPACT
+11. TEST / BUILD STATUS
+12. EXACT REMAINING GAPS
+13. EXACT NEXT TASKS
+14. FINAL ARTIFACT
+
+⸻
+
+Scope
+
+In scope
+
+A. Remove legacy additive runtime passes from canonical reset flow
+
+Inspect the reset path and remove any remaining additive runtime calls such as:
+
+* legacy demo variety shaping
+* legacy demo handling shaping
+* legacy demo module enrichment
+* other V1/demo-only runtime patches
+
+If any such logic still runs after the V2 path, remove it from the canonical flow unless strictly required.
+
+B. Delete or isolate legacy seed/reset helpers
+
+For relevant V1/demo helpers:
+
+* delete them if no longer needed
+* or isolate/document them as:
+    * forensic-only
+    * historical-only
+    * non-runtime
+
+But do not leave them ambiguously alive in the main path.
+
+C. Preserve only bounded fallback if truly needed
+
+If something must temporarily survive:
+
+* make it explicit
+* make it non-default
+* make it non-runtime for standard reset
+* document exactly why it still exists
+
+D. Add proof
+
+Add targeted proof that:
+
+* reset-demo path is now V2 + overlay only
+* no legacy additive passes execute in canonical reset flow
+* output still satisfies expected summary/showcase behavior
+
+Out of scope
+
+* UI changes
+* nav changes
+* dashboard/showcase surfacing
+* migration tooling cleanup (#971)
+* seed size control if not already separately tracked
+* broader roadmap/product work
+
+⸻
+
+Exact execution order
+
+Step 1 — inventory remaining legacy runtime calls
+
+Find every remaining legacy/V1/demo seed helper still reachable from:
+
+* /api/sample-data
+* /demo-control/reset-district
+* /api/sample-data/reset-demo
+* /support/demo-reseed
+* operator scripts that are still treated as canonical reset paths
+
+Return the exact file path and function chain internally before editing. No guessing.
+
+Step 2 — remove legacy additive runtime behavior from canonical paths
+
+Refactor the canonical reset flow so it runs:
+
+* V2 seed
+* overlay
+* summary
+    and stops there.
+
+No additive legacy shaping after that.
+
+Step 3 — decide helper fate
+
+For each remaining legacy helper, choose one:
+
+* deleted
+* isolated as non-runtime fallback
+* intentionally deferred (must justify)
+
+Step 4 — add targeted proof
+
+Add focused proof that:
+
+* canonical reset path does not call legacy additive demo shaping
+* reset still works
+* summary/showcase output still exists
+* no regression in the expected V2 reset behavior
+
+Step 5 — write/update artifact
+
+Produce a small artifact summarizing:
+
+* what was removed
+* what remains and why
+* whether runtime reset is now fully canonical
+
+⸻
+
+Success conditions
+
+Use COMPLETE only if:
+
+* canonical reset path is V2 + overlay only
+* legacy additive runtime passes are removed
+* proof exists
+* remaining legacy surfaces are clearly non-runtime or deleted
+
+Use PARTIAL if:
+
+* the primary path is cleaner but some legacy runtime shaping still remains
+* proof is incomplete
+* helper isolation is ambiguous
+
+Use INCORRECTLY IMPLEMENTED if:
+
+* legacy additive shaping remains in the canonical path
+* runtime behavior is still hybrid
+* task broadens into unrelated work
+
+⸻
+
+Testing / verification requirements
+
+Run only:
+
+1. targeted typecheck for touched modules/packages
+2. targeted reset/seed-v2 tests
+3. one focused proof test for canonical reset path
+4. any existing parity/cutover regression only if needed
+
+Do not run full repo tests.
+
+Required proof
+
+At minimum prove:
+
+* canonical reset path executes without legacy additive runtime helpers
+* overlay still runs
+* summary still includes showcase fields
+* reset remains operational
+
+If a test fails:
+
+* state likely cause
+* classify as new / pre-existing / environment-related
+* fix once before broad reruns
+
+⸻
+
+Invalid implementation conditions
+
+If any of these occur, mark INCORRECTLY IMPLEMENTED:
+
+* legacy additive shaping still runs in canonical reset
+* only comments/docs changed while runtime remains hybrid
+* legacy helper usage is merely hidden, not removed or isolated
+* scope broadens into unrelated cleanup
+
+⸻
+
+Required final output format
+
+Return exactly this structure:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES CREATED
+3. EXACT FILES MODIFIED
+4. EXACT FILES DELETED
+5. EXACT REASONS FOR EACH CHANGE
+6. RUNTIME UNIFICATION STATUS
+7. REMAINING LEGACY SURFACES
+8. USER-VISIBLE IMPACT
+9. DEMO / RESET IMPACT
+10. ARCHITECTURE / MODEL IMPACT
+11. TEST / BUILD STATUS
+12. EXACT REMAINING GAPS
+13. EXACT NEXT TASKS
+14. FINAL ARTIFACT
+
+Rules:
+
+* no skipped sections
+* no vague summaries
+* include exact file paths
+* include exact tests run and pass/fail counts
+* separate regressions from pre-existing failures
+
+⸻
+
+Completion goal
+
+This task is successful when:
+
+* the reset story is no longer hybrid
+* V2 is the actual canonical runtime engine
+* remaining V1/demo code is no longer secretly shaping output
+* the system is clean enough to update the project source docs honestly
+
+Stop after completion.
+Do not start the next task automatically.
+:::

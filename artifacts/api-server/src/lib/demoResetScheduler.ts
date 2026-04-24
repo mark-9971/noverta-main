@@ -18,13 +18,13 @@ import {
   demoResetAuditTable,
   demoRequestsTable,
 } from "@workspace/db";
-import {
-  seedDemoDistrict,
-  seedDemoModules,
-  seedDemoComplianceVariety,
-} from "@workspace/db";
 import { eq, and, gte, lte, isNotNull } from "drizzle-orm";
 import { logger } from "./logger";
+// T-V2-08: scheduler now drives the canonical V2 + overlay reset chain
+// instead of the legacy global-TRUNCATE seedDemoDistrict() + additive
+// shaping passes. The hourly + before-demo schedulers are real runtime
+// reset paths and must use the same engine the HTTP routes use.
+import { runDemoResetV2 } from "../routes/sampleData";
 
 export type ResetCadence = "off" | "hourly" | "before-demo";
 
@@ -61,12 +61,19 @@ async function runScheduledReset(
   logger.info({ auditId, cadenceSnapshot }, "demo-reset scheduler: starting reset");
 
   try {
-    await seedDemoDistrict();
-    const modules = await seedDemoModules();
-    const variety = await seedDemoComplianceVariety();
+    // T-V2-08: canonical V2 + overlay engine. No legacy additive passes.
+    // runDemoResetV2 runs ensureDemoDistrictId -> teardownSampleData ->
+    // seedSampleDataForDistrict (which executes the W5 overlay + builds
+    // the PostRunSummary internally).
+    const outcome = await runDemoResetV2();
 
     const finishedAt = new Date();
     const elapsedMs = finishedAt.getTime() - startedAt.getTime();
+    // PostRunSummary doesn't surface a single compliance percentage the
+    // same way the legacy seedDemoComplianceVariety did. Fall back to
+    // null on the audit row so we record provenance honestly instead of
+    // synthesising a number.
+    const overlayRan = outcome.summary?.layers?.overlay === true;
 
     if (auditId) {
       await db
@@ -75,15 +82,22 @@ async function runScheduledReset(
           finishedAt,
           success: true,
           elapsedMs,
-          districtId: variety.districtId,
-          compliancePct: Math.round(Number(variety.compliancePct)),
+          districtId: outcome.districtId,
+          compliancePct: null,
         })
         .where(eq(demoResetAuditTable.id, auditId));
     }
 
     logger.info(
-      { auditId, elapsedMs, districtId: variety.districtId, compliancePct: variety.compliancePct, modules },
-      "demo-reset scheduler: reset complete",
+      {
+        auditId,
+        elapsedMs,
+        districtId: outcome.districtId,
+        runId: outcome.summary?.runId,
+        overlayRan,
+        showcaseCaseCounts: outcome.summary?.showcaseCaseCounts,
+      },
+      "demo-reset scheduler: reset complete (V2 canonical)",
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

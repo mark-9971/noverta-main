@@ -694,7 +694,7 @@ async function createSupportingContent(
       'Hi ' || split_part(g.name, ' ', 1) || ',' || E'\n\n' ||
       'Just a quick note to introduce myself as your child''s case manager this term. ' ||
       'I will be sending weekly updates on progress toward IEP goals. Please reach out anytime with questions.' ||
-      E'\n\nBest regards,\nThe Trellis team',
+      E'\n\nBest regards,\nThe Noverta team',
       (NOW() - INTERVAL '14 days')
     FROM guardians g
     WHERE g.student_id IN ${intList(studentIds)}

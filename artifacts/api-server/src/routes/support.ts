@@ -27,7 +27,6 @@ import { getRecentAccessDenials } from "../lib/accessDenials";
 import { isSisWorkerRunning } from "../lib/sis/worker";
 import { clerkClient } from "@clerk/express";
 import { runDemoResetV2 } from "./sampleData";
-import { seedDemoComplianceVariety } from "../../../../lib/db/src/seed-demo-compliance-variety";
 
 const router: IRouter = Router();
 
@@ -793,7 +792,7 @@ router.get("/support/access-denials", async (req: Request, res: Response) => {
 
 /**
  * GET /api/support/users/lookup?q=...
- * Resolves a Trellis user by email or Clerk userId. Returns:
+ * Resolves a Noverta user by email or Clerk userId. Returns:
  *  - matching staff rows (with district + school + role)
  *  - Clerk public metadata (role / districtId / platformAdmin) if available
  *  - recent audit log entries by the actor
@@ -965,7 +964,7 @@ async function maybeSendDemoReadinessFailAlert(p: DemoReadinessFailAlertParams):
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-  const subject = `[Trellis] Demo readiness FAILING — ${failing.length} check(s) red on ${esc(p.demoDistrict.name)}`;
+  const subject = `[Noverta] Demo readiness FAILING — ${failing.length} check(s) red on ${esc(p.demoDistrict.name)}`;
   const failingHtml = failing.map(c =>
     `<li><strong>${esc(c.label)}</strong>: ${esc(c.message)}${c.remediation ? `<br><span style="color:#6b7280;font-size:12px">Remediation: ${esc(c.remediation)}</span>` : ""}</li>`
   ).join("");
@@ -983,7 +982,7 @@ async function maybeSendDemoReadinessFailAlert(p: DemoReadinessFailAlertParams):
 <ul>${failingHtml}</ul>
 <p style="color:#6b7280;font-size:12px">Open the Pre-Flight page in Support to investigate. Further alerts will be suppressed for 4 hours.</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Internal Operations</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Internal Operations</div>
 </div>`;
   const text = [
     `Demo readiness regressed to FAILING for ${p.demoDistrict.name} (id ${p.demoDistrict.id}).`,
@@ -1378,16 +1377,15 @@ interface ReseedJob {
   status: ReseedJobStatus;
   startedAt: string;
   finishedAt?: string;
-  // #970: Reseed jobs now run through the unified V2 reset chain, so the
-  // job result mirrors the slice of DemoResetV2Outcome that callers care
-  // about (engine marker + districtId + variety enrichment numbers, when
-  // the additive variety pass succeeded).
+  // T-V2-08: Reseed jobs run through the canonical V2 reset chain. The
+  // result is the slice of DemoResetV2Outcome operators need to confirm
+  // the canonical engine ran (engine marker, target district, and the
+  // overlay-ran flag from the V2 PostRunSummary).
   result?: {
     engine: "v2";
     districtId: number;
-    variety:
-      | { ok: true; alertsInserted: number; alertsSkipped: number; compliancePct: string }
-      | { ok: false; error: string };
+    overlayRan: boolean;
+    runId: string | undefined;
   };
   error?: string;
 }
@@ -1442,20 +1440,20 @@ router.post("/support/demo-reseed", async (_req: Request, res: Response) => {
 
   (async () => {
     try {
-      console.log(`[demo-reseed] Job ${jobId}: starting V2 demo reset (unified engine)…`);
-      // #970: route the legacy /support/demo-reseed HTTP path through the same
-      // V2 + overlay reset chain used by /sample-data/reset-demo. The legacy
-      // global-TRUNCATE seedDemoDistrict() is no longer called from any HTTP
-      // path. runDemoResetV2 already runs seedDemoComplianceVariety as a
-      // non-fatal additive enrichment pass, so we no longer need to call it
-      // again here — its result is surfaced via outcome.variety.
+      console.log(`[demo-reseed] Job ${jobId}: starting V2 demo reset (canonical engine)…`);
+      // T-V2-08: this HTTP-triggered reseed runs the canonical V2 + W5
+      // overlay path and nothing else. No legacy additive shaping
+      // (seedDemoModules / seedDemoComplianceVariety / seedDemoHandlingState)
+      // executes here; the legacy global-TRUNCATE seedDemoDistrict()
+      // remains retired from every HTTP path.
       const outcome = await runDemoResetV2();
       job.status = "done";
       job.finishedAt = new Date().toISOString();
       job.result = {
         engine: "v2",
         districtId: outcome.districtId,
-        variety: outcome.variety,
+        overlayRan: outcome.summary?.layers?.overlay === true,
+        runId: outcome.summary?.runId,
       };
       console.log(`[demo-reseed] Job ${jobId}: done.`);
     } catch (err: unknown) {

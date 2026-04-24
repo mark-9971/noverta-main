@@ -1,6 +1,6 @@
-# Trellis Buyer Positioning Pack
+# Noverta Buyer Positioning Pack
 
-A grounded positioning + demo package for Trellis. Every claim in here is
+A grounded positioning + demo package for Noverta. Every claim in here is
 backed by code that ships in `artifacts/trellis` today, not the roadmap.
 
 ## Files
@@ -10,7 +10,7 @@ backed by code that ships in `artifacts/trellis` today, not the roadmap.
   2-minute demo narrative (verbatim), category framing, taglines.
 - **`02-DEMO-NARRATIVE.md`** — click-by-click, 10 screens, real routes.
 - **`03-COMPETITIVE-DIFFERENTIATION.md`** — Frontline, PowerSchool, Embrace,
-  IC, SameGoal, CentralReach, generic SIS — and the 5-bullet Trellis wedge.
+  IC, SameGoal, CentralReach, generic SIS — and the 5-bullet Noverta wedge.
 - **`04-WHY-DISTRICTS-BUY.md`** — memo for the Director of Special Education.
 - **`05-WHY-AN-ACQUIRER-BUYS.md`** — memo for corp dev / PE.
 - **`06-FEATURE-MATURITY.md`** — Strong now / Pilot-ready / Roadmap, every

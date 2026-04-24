@@ -14,7 +14,7 @@ export default function S06_Dashboard() {
           </div>
         </div>
         <div className="flex-1 rounded-[1vw] overflow-hidden shadow-2xl border border-gray-200 bg-white">
-          <img src={`${base}dashboard.jpg`} crossOrigin="anonymous" className="w-full h-full object-cover object-top" alt="Trellis Dashboard" />
+          <img src={`${base}dashboard.jpg`} crossOrigin="anonymous" className="w-full h-full object-cover object-top" alt="Noverta Dashboard" />
         </div>
         <p className="font-body text-[1.3vw] text-muted mt-[1.5vh] text-center">Real-time compliance tracking, session delivery trends, and active alerts -- all at a glance.</p>
       </div>

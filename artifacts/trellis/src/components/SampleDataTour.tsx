@@ -24,8 +24,10 @@ interface TourStep {
   body: string;
 }
 
-const STORAGE_KEY_PREFIX = "trellis.sampleTour.v1";
-const START_FLAG = "trellis.sampleTour.start";
+const STORAGE_KEY_PREFIX = "noverta.sampleTour.v1";
+const LEGACY_STORAGE_KEY_PREFIX = "trellis.sampleTour.v1";
+const START_FLAG = "noverta.sampleTour.start";
+const LEGACY_START_FLAG = "trellis.sampleTour.start";
 
 function storageKeyFor(
   userId: string | null | undefined,
@@ -34,6 +36,14 @@ function storageKeyFor(
   const u = userId ?? "anon";
   const d = districtId != null ? String(districtId) : "nodistrict";
   return `${STORAGE_KEY_PREFIX}.${d}.${u}`;
+}
+function legacyStorageKeyFor(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+): string {
+  const u = userId ?? "anon";
+  const d = districtId != null ? String(districtId) : "nodistrict";
+  return `${LEGACY_STORAGE_KEY_PREFIX}.${d}.${u}`;
 }
 
 const STEPS: TourStep[] = [
@@ -49,7 +59,7 @@ const STEPS: TourStep[] = [
     path: "/compliance-risk-report",
     title: "One student already falling behind",
     body:
-      "Trellis surfaces students whose delivered minutes lag their IEP requirement. This is the shortfall that triggers compensatory time if it isn't addressed.",
+      "Noverta surfaces students whose delivered minutes lag their IEP requirement. This is the shortfall that triggers compensatory time if it isn't addressed.",
   },
   {
     selector: '[data-tour-id="cost-risk"]',
@@ -79,7 +89,19 @@ function readSeen(
   districtId: number | null | undefined,
 ): boolean {
   try {
-    return window.localStorage.getItem(storageKeyFor(userId, districtId)) === "seen";
+    // Read-fallback: copy-forward the legacy `trellis.*` "seen" flag so
+    // returning users never see the tour twice.
+    const fresh = window.localStorage.getItem(storageKeyFor(userId, districtId));
+    if (fresh === "seen") return true;
+    const legacy = window.localStorage.getItem(legacyStorageKeyFor(userId, districtId));
+    if (legacy === "seen") {
+      try {
+        window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+        window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
+      } catch { /* leave legacy intact */ }
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -91,7 +113,9 @@ function markSeen(
 ) {
   try {
     window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+    window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
     window.localStorage.removeItem(START_FLAG);
+    window.localStorage.removeItem(LEGACY_START_FLAG);
   } catch {
     
   }
@@ -99,8 +123,14 @@ function markSeen(
 
 function consumeStartFlag(): boolean {
   try {
-    const v = window.localStorage.getItem(START_FLAG) === "1";
-    if (v) window.localStorage.removeItem(START_FLAG);
+    // Honor either name during the rename transition. Clear both on consume.
+    const v =
+      window.localStorage.getItem(START_FLAG) === "1" ||
+      window.localStorage.getItem(LEGACY_START_FLAG) === "1";
+    if (v) {
+      window.localStorage.removeItem(START_FLAG);
+      window.localStorage.removeItem(LEGACY_START_FLAG);
+    }
     return v;
   } catch {
     return false;
@@ -108,14 +138,20 @@ function consumeStartFlag(): boolean {
 }
 
 export function SampleDataTour() {
-  // E2E escape hatch: tests inject window.__TRELLIS_DISABLE_TOURS__=true or
-  // set localStorage["trellis.disableTours"]="1" to fully suppress the tour
+  // E2E escape hatch: tests inject window.__NOVERTA_DISABLE_TOURS__=true (or
+  // legacy __TRELLIS_DISABLE_TOURS__) or set localStorage["noverta.disableTours"]
+  // (or legacy "trellis.disableTours") = "1" to fully suppress the tour
   // (no auto-open, no replay event handling, no overlay render). Checked at
   // the top of render so all activation paths are short-circuited.
   if (typeof window !== "undefined") {
-    const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+    const w = window as unknown as {
+      __NOVERTA_DISABLE_TOURS__?: boolean;
+      __TRELLIS_DISABLE_TOURS__?: boolean;
+    };
+    if (w.__NOVERTA_DISABLE_TOURS__ === true) return null;
     if (w.__TRELLIS_DISABLE_TOURS__ === true) return null;
     try {
+      if (window.localStorage.getItem("noverta.disableTours") === "1") return null;
       if (window.localStorage.getItem("trellis.disableTours") === "1") return null;
     } catch {
       // ignore
@@ -149,14 +185,20 @@ export function SampleDataTour() {
   // has not yet seen it.
   useEffect(() => {
     if (!clerkLoaded) return;
-    // E2E escape hatch: tests inject window.__TRELLIS_DISABLE_TOURS__ or set
-    // localStorage["trellis.disableTours"]="1" to prevent the tour from
+    // E2E escape hatch: tests inject window.__NOVERTA_DISABLE_TOURS__ (or
+    // legacy __TRELLIS_DISABLE_TOURS__) or set localStorage["noverta.disableTours"]
+    // (or legacy "trellis.disableTours") = "1" to prevent the tour from
     // auto-opening (and auto-navigating to /compliance-risk-report on Step 1)
     // during automated runs.
     if (typeof window !== "undefined") {
-      const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+      const w = window as unknown as {
+        __NOVERTA_DISABLE_TOURS__?: boolean;
+        __TRELLIS_DISABLE_TOURS__?: boolean;
+      };
+      if (w.__NOVERTA_DISABLE_TOURS__ === true) return;
       if (w.__TRELLIS_DISABLE_TOURS__ === true) return;
       try {
+        if (window.localStorage.getItem("noverta.disableTours") === "1") return;
         if (window.localStorage.getItem("trellis.disableTours") === "1") return;
       } catch {
         // ignore
@@ -185,8 +227,13 @@ export function SampleDataTour() {
       setStepIdx(0);
       setActive(true);
     }
+    // Dual-listen on both names during the rename transition.
+    window.addEventListener("noverta:sampleTour:replay", onReplay);
     window.addEventListener("trellis:sampleTour:replay", onReplay);
-    return () => window.removeEventListener("trellis:sampleTour:replay", onReplay);
+    return () => {
+      window.removeEventListener("noverta:sampleTour:replay", onReplay);
+      window.removeEventListener("trellis:sampleTour:replay", onReplay);
+    };
   }, [isAdmin, data?.hasSampleData]);
 
   // Auto-close if sample data is removed (e.g. via the banner) while the
@@ -324,7 +371,7 @@ export function SampleDataTour() {
   return createPortal(
     <div
       role="dialog"
-      aria-label="Trellis sample data tour"
+      aria-label="Noverta sample data tour"
       data-testid="sample-data-tour"
       className="fixed inset-0 z-[80]"
       style={{ pointerEvents: "none" }}

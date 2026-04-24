@@ -55,8 +55,12 @@ export function resolveSizeProfile(
 ): Exclude<SizeProfile, "random"> {
   if (!profile || profile === "random") {
     if (profile === "random") {
-      return pick(["small", "medium", "large"] as const);
+      // T-V2-09 — random now spans all four profiles including xl, so a
+      // pilot district can intentionally land on a stress-scale roster.
+      return pick(["small", "medium", "large", "xl"] as const);
     }
+    // T-V2-09 — operator default is "medium" (~350 students). The
+    // contract explicitly retired the implicit ~50–100 random override.
     return "medium";
   }
   return profile;
@@ -78,7 +82,22 @@ export function buildStudentDefs(
 ): StudentDef[] {
   const target = overrideTarget ?? SIZE_PROFILES[profile].students;
   const defs: StudentDef[] = [];
-  const counts = SCENARIO_COUNTS_BY_PROFILE[profile];
+  const baseCounts = SCENARIO_COUNTS_BY_PROFILE[profile];
+
+  // Roster-size scaling. Without this, a 1000-student override against the
+  // (default) "medium" profile would still emit only the medium scenario
+  // counts (8 shortfall, 4 comp_risk, 2 crisis, etc.) — i.e. ~1-2% of
+  // the roster — leaving the Compensatory and Risk dashboards looking
+  // empty for large demos. Scale the per-scenario base counts by the
+  // roster ratio so densities (shortfall %, comp obligations %, etc.)
+  // stay roughly constant as the roster grows. Only scale UP (ratio >= 1)
+  // so a smaller-than-default override still gets the canonical mix.
+  const profileDefault = SIZE_PROFILES[profile].students;
+  const rosterRatio = Math.max(1, target / Math.max(1, profileDefault));
+  const counts: Partial<Record<Exclude<Scenario, "healthy">, number>> = {};
+  for (const [k, n] of Object.entries(baseCounts) as Array<[Exclude<Scenario, "healthy">, number]>) {
+    counts[k] = Math.max(n, Math.round(n * rosterRatio));
+  }
 
   // Special-scenario presets: choose grades / disabilities that match the
   // narrative (transition student must be high-school age, behavior_plan

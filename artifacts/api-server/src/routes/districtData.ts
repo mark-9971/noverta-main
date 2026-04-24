@@ -217,7 +217,7 @@ async function runArchiveJob(jobId: number, districtId: number) {
       const expiresDateStr = expiresAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
       sendAdminEmail({
         to: [updatedJob.requestedByEmail],
-        subject: `Trellis — Your district archive is ready (${manifest.districtName})`,
+        subject: `Noverta — Your district archive is ready (${manifest.districtName})`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
 <h2 style="margin:0;font-size:18px">District Data Archive Ready</h2>
@@ -231,10 +231,10 @@ async function runArchiveJob(jobId: number, districtId: number) {
 <li><strong>Generated:</strong> ${new Date(manifest.generatedAt).toLocaleString()}</li>
 <li><strong>Download expires:</strong> ${expiresDateStr}</li>
 </ul>
-<p>Download the archive from <strong>Settings → Data &amp; Privacy</strong> in Trellis. The link will remain active until ${expiresDateStr}.</p>
+<p>Download the archive from <strong>Settings → Data &amp; Privacy</strong> in Noverta. The link will remain active until ${expiresDateStr}.</p>
 <p style="color:#6b7280;font-size:13px">Archive ID: ${jobId}</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Confidential</div>
 </div>`,
         notificationType: "district_archive_ready",
       }).catch(() => {});
@@ -300,7 +300,7 @@ router.post("/district-data/archive", requireAdmin, async (req, res): Promise<vo
   if (actor.email) {
     sendAdminEmail({
       to: [actor.email],
-      subject: "Trellis — Your district archive is being prepared",
+      subject: "Noverta — Your district archive is being prepared",
       html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
 <h2 style="margin:0;font-size:18px">District Data Archive</h2>
@@ -308,10 +308,10 @@ router.post("/district-data/archive", requireAdmin, async (req, res): Promise<vo
 <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
 <p>Hi ${actor.name},</p>
 <p>Your district data archive is being generated. This typically takes a few minutes.</p>
-<p>You can check the status and download the archive from <strong>Settings → Data & Privacy</strong> in Trellis.</p>
+<p>You can check the status and download the archive from <strong>Settings → Data & Privacy</strong> in Noverta.</p>
 <p style="color:#6b7280;font-size:13px">The archive will be available for 7 days.</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Confidential</div>
 </div>`,
       notificationType: "district_archive",
     }).catch(() => {});
@@ -394,7 +394,7 @@ router.get("/district-data/archive/:jobId/download", requireAdmin, async (req, r
 
   const districtName = district?.name ?? "district";
   const slug = districtName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  const filename = `trellis-export-${slug}-${new Date().toISOString().slice(0, 10)}.zip`;
+  const filename = `noverta-export-${slug}-${new Date().toISOString().slice(0, 10)}.zip`;
 
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -817,7 +817,7 @@ export async function runHardPurgeForDistrict(opts: {
 
       await sendAdminEmail({
         to: notifyEmails,
-        subject: `Trellis — Data Deletion Certificate: ${district.name}`,
+        subject: `Noverta — Data Deletion Certificate: ${district.name}`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#7f1d1d;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
 <h2 style="margin:0;font-size:18px">Data Deletion Certificate</h2>
@@ -832,12 +832,12 @@ export async function runHardPurgeForDistrict(opts: {
 </ul>
 <p>A DPA-compliant deletion certificate is attached to this email for your records.</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Confidential</div>
 </div>`,
         notificationType: "district_deletion_certificate",
         attachments: [
           {
-            filename: `trellis-deletion-certificate-${districtId}.pdf`,
+            filename: `noverta-deletion-certificate-${districtId}.pdf`,
             content: pdfBuffer,
           },
         ],
@@ -942,14 +942,14 @@ async function generateDeletionCertificate(opts: {
     doc.fillColor("white").fontSize(22).font("Helvetica-Bold")
       .text("DATA DELETION CERTIFICATE", 50, 25);
     doc.fontSize(11).font("Helvetica")
-      .text("Trellis SPED Compliance Platform", 50, 52);
+      .text("Noverta SPED Compliance Platform", 50, 52);
 
     doc.moveDown(3).fillColor("#111");
 
     doc.fontSize(13).font("Helvetica-Bold").text("Certificate of Data Destruction");
     doc.moveDown(0.5);
     doc.fontSize(11).font("Helvetica")
-      .text("This certificate confirms that all personal data associated with the district listed below has been permanently and irreversibly deleted from the Trellis platform systems in accordance with applicable data protection regulations.");
+      .text("This certificate confirms that all personal data associated with the district listed below has been permanently and irreversibly deleted from the Noverta platform systems in accordance with applicable data protection regulations.");
 
     doc.moveDown(1);
     doc.fontSize(12).font("Helvetica-Bold").text("District Information");
@@ -976,12 +976,12 @@ async function generateDeletionCertificate(opts: {
       .text("Certification");
     doc.moveDown(0.3);
     doc.font("Helvetica").fontSize(10)
-      .text("This certificate is issued by Trellis confirming that the above-named district's data has been deleted from all primary and backup systems accessible to the Trellis platform. This deletion is permanent and cannot be reversed.");
+      .text("This certificate is issued by Noverta confirming that the above-named district's data has been deleted from all primary and backup systems accessible to the Noverta platform. This deletion is permanent and cannot be reversed.");
 
     doc.moveDown(1);
     doc.fontSize(10).fillColor("#6b7280")
       .text(`Certificate generated: ${new Date().toISOString()}`, { align: "right" });
-    doc.text("Trellis SPED Compliance Platform", { align: "right" });
+    doc.text("Noverta SPED Compliance Platform", { align: "right" });
 
     doc.end();
   });

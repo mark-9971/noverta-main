@@ -20,7 +20,7 @@ export function Step5Generate({ draft, generating, onGenerate, onPrint, context 
         </div>
         <h2 className="text-lg font-bold text-gray-800">Ready to Assemble Draft</h2>
         <p className="text-[13px] text-gray-500 max-w-md mx-auto">
-          Trellis will pull progress data, questionnaire input, service compliance, and age-appropriate skill checklists
+          Noverta will pull progress data, questionnaire input, service compliance, and age-appropriate skill checklists
           and assemble a structured draft for the {context.nextSchoolYear.label} Annual IEP Review using rule-based
           recommendation templates. No language model is used — every recommendation is a pure function of your data.
         </p>

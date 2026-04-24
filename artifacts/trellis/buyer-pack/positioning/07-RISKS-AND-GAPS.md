@@ -1,4 +1,4 @@
-# Trellis — Risks and Gaps (Honest Edition)
+# Noverta — Risks and Gaps (Honest Edition)
 
 A list of the things that will get challenged in a serious buyer or diligence
 call, with talking points and mitigations next to each one. The point of this

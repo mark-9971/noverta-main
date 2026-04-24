@@ -6,7 +6,7 @@ export default function S06_Differentiator() {
           <span className="font-display italic text-accent text-[1.4vw]">05</span>
           <span className="block w-[2vw] h-[0.2vh] bg-rule/40" />
           <span className="font-body uppercase tracking-[0.3em] text-[0.95vw] text-muted">
-            Why Trellis wins
+            Why Noverta wins
           </span>
         </div>
 
@@ -42,7 +42,7 @@ export default function S06_Differentiator() {
 
           <div className="bg-primary text-bg p-[4vh]">
             <div className="font-body uppercase tracking-[0.3em] text-[0.95vw] text-gold mb-[2vh]">
-              Trellis
+              Noverta
             </div>
             <div className="border-t border-bg/25 pt-[2vh]">
               <div className="flex justify-between py-[1.5vh] border-b border-bg/15 font-body text-[1.15vw]">

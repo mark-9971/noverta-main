@@ -1,8 +1,8 @@
-# Trellis — SPED Operations, Service Delivery & Compliance Platform
+# Noverta — SPED Operations, Service Delivery & Compliance Platform
 
 ## Overview
 
-Trellis is a SPED service-delivery and compliance-risk platform for Massachusetts school districts (603 CMR 28.00/46.00). Its core purpose is to help SPED teams track mandated service delivery, identify compliance gaps early, and mitigate compensatory risk. It integrates with existing SIS systems, focusing on IEP-delivery aspects such as service minutes, missed sessions, and documentation. The platform avoids "AI-powered" branding unless explicitly using AI models for features like IEP PDF extraction. The product tagline is: "Service-minute compliance for SPED."
+Noverta is a SPED service-delivery and compliance-risk platform for Massachusetts school districts (603 CMR 28.00/46.00). Its core purpose is to help SPED teams track mandated service delivery, identify compliance gaps early, and mitigate compensatory risk. It integrates with existing SIS systems, focusing on IEP-delivery aspects such as service minutes, missed sessions, and documentation. The platform avoids "AI-powered" branding unless explicitly using AI models for features like IEP PDF extraction. The product tagline is: "Service-minute compliance for SPED."
 
 **Key Capabilities:**
 
@@ -18,7 +18,7 @@ Trellis is a SPED service-delivery and compliance-risk platform for Massachusett
 -   **Security & Audit:** Implements FERPA-compliant audit logging and robust tenant isolation.
 -   **Risk Mitigation:** Provides tools for protective measures (603 CMR 46.00/46.06), compliance risk forecasting, and compensatory service tracking.
 -   **Data-Driven Insights:** Offers comprehensive reporting, analytics, and data health checks for district administrators.
--   **Goal:** Trellis's ambition is to streamline SPED operations, ensuring compliance and improving outcomes for students. It offers tools for managing student data, sessions, schedules, staff, reports, and communication, with a focus on ease of use and actionable insights. Key capabilities include comprehensive compliance reporting, automated workflows, and data-driven recommendations, designed to empower SPED administrators and clinicians.
+-   **Goal:** Noverta's ambition is to streamline SPED operations, ensuring compliance and improving outcomes for students. It offers tools for managing student data, sessions, schedules, staff, reports, and communication, with a focus on ease of use and actionable insights. Key capabilities include comprehensive compliance reporting, automated workflows, and data-driven recommendations, designed to empower SPED administrators and clinicians.
 
 **Standing tagline:** "Service-minute compliance for SPED."
 
@@ -29,7 +29,7 @@ NEVER hide, demote, remove, or delete nav items, pages, routes, components, or f
 
 ## Operating Model (binding for every future session — ACCEPTED NORMALIZED VERSION 2026-04-21)
 
-**Product truth.** Trellis is strongest today as an operational workflow tool with a compliance reporting backbone. The wedge is: Action Center, Today / executive wedge surfaces, Compliance Risk Report, Quick Log, Student Detail "Recommended Next Step", shared handling state, and school-calendar-aware minute math. Biggest current risks: (1) Schedule Makeup / recovery orchestration is still not a true closed loop; (2) surrounding surface area still overstates maturity and creates confusion.
+**Product truth.** Noverta is strongest today as an operational workflow tool with a compliance reporting backbone. The wedge is: Action Center, Today / executive wedge surfaces, Compliance Risk Report, Quick Log, Student Detail "Recommended Next Step", shared handling state, and school-calendar-aware minute math. Biggest current risks: (1) Schedule Makeup / recovery orchestration is still not a true closed loop; (2) surrounding surface area still overstates maturity and creates confusion.
 
 **Roadmap execution rule.**
 - Immediate main build priority: closed-loop scheduling / makeup orchestration (roadmap Phase A; tasks T01–T05 + T07).
@@ -73,7 +73,7 @@ Do not encourage many simultaneous coding lanes against wedge files.
 
 ## System Architecture
 
-Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and backend components.
+Noverta is built as a monorepo using `pnpm` workspaces, separating frontend and backend components.
 
 **Technology Stack:**
 
@@ -138,7 +138,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Compliance Trends Page:** Provides a unified time-series view of four key compliance metrics (service minutes, at-risk students, compensatory exposure, logging completion).
 -   **Per-tenant sample data:** Admins/coordinators can one-click seed a small realistic district inside their own tenant for quick setup. Sample data spans a realistic 6–8 month service-delivery window with historical sessions, IEP-year-relative mastery, and multi-period progress reports for pilot demos. An "Advanced — tailor this demo for a specific district" form on the setup CTA also accepts v1 custom inputs (district name, school count, SPED student count, CM/provider/para/BCBA counts, avg goals/week minutes, backfill months, 5 health intensities, and a demo-emphasis story) which the seeder applies via `resolveSeedShape()` to scale roster size, staffing, completion rate, on-time logging, scenario weights, and backfill window for per-district demos.
 -   **Role-Based IA & Navigation:** Top-level navigation is carved per role (admin, case manager, related-service provider, paraprofessional, guardian, etc.) with an "Ink & Air" two-rail layout. Internal/diagnostic surfaces are gated behind support roles only.
--   **Trellis Support View-As (Impersonation):** Platform-admin support agents can impersonate any user with full audit-log coverage. Sessions are token-based with TTL expiry, single-active-session-per-admin (auto-supersede), and customer-visible audit_logs rows for every transition (start, end, supersede, expiry self-heal). `/api/audit-logs` surfaces these to district admins via `targetTable=view_as_sessions`.
+-   **Noverta Support View-As (Impersonation):** Platform-admin support agents can impersonate any user with full audit-log coverage. Sessions are token-based with TTL expiry, single-active-session-per-admin (auto-supersede), and customer-visible audit_logs rows for every transition (start, end, supersede, expiry self-heal). `/api/audit-logs` surfaces these to district admins via `targetTable=view_as_sessions`.
 -   **Trust & Security Readiness:** Unconditional district scope enforcement on all data routes (`enforceDistrictScope`), per-tenant audit isolation, and a permission-matrix regression suite for impersonation, view-as token reuse, and stale-token attribution edge cases.
 -   **Multi-Artifact Workspace:** The monorepo also hosts pitch/demo decks (`trellis-pitch`, `trellis-demo`, `trellis-deck`), a dashboard concepts deck, an API server, and a mockup sandbox for component variant exploration on the canvas.
 

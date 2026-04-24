@@ -1,5 +1,5 @@
 /**
- * Trellis-support read-only session lifecycle + district-admin recent-sessions view.
+ * Noverta-support read-only session lifecycle + district-admin recent-sessions view.
  *
  * Routes:
  *   POST /api/support-session/open      { districtId, reason }   trellis_support
@@ -161,7 +161,7 @@ router.post("/support-session/open", requireSupportRole, async (req: Request, re
     action: "create",
     targetTable: "support_sessions",
     targetId: row.id,
-    summary: `Trellis support opened read-only session for district ${district.name} (#${district.id})`,
+    summary: `Noverta support opened read-only session for district ${district.name} (#${district.id})`,
     metadata: {
       districtId, districtName: district.name, reason,
       expiresAt: expiresAt.toISOString(), supersededCount,
@@ -202,7 +202,7 @@ router.post("/support-session/end", requireSupportRole, async (req: Request, res
     action: "update",
     targetTable: "support_sessions",
     targetId: existing.id,
-    summary: `Trellis support ended read-only session for district #${existing.districtId}`,
+    summary: `Noverta support ended read-only session for district #${existing.districtId}`,
     metadata: {
       districtId: existing.districtId,
       endReason: "manual",

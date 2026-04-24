@@ -94,7 +94,7 @@ export default function Students() {
   const isAdmin = role === "admin";
   // Source-of-truth gate for SIS-owned data (demographics, guardians,
   // medical alerts, etc.). Hides manual-entry affordances once a real
-  // SIS connection is live so Trellis never contradicts the SIS of record.
+  // SIS connection is live so Noverta never contradicts the SIS of record.
   const sis = useSisConnection();
   const hasSIS = sis.connected;
 
@@ -421,7 +421,7 @@ export default function Students() {
               secondaryAction={{ label: "Import from SIS", href: "/sis-settings", variant: "outline" }}
             >
               <EmptyStateDetail>
-                Your student roster is the foundation of SPED compliance tracking. Every student with an active IEP needs to be here so Trellis can monitor service delivery, flag shortfalls, and calculate compensatory exposure.
+                Your student roster is the foundation of SPED compliance tracking. Every student with an active IEP needs to be here so Noverta can monitor service delivery, flag shortfalls, and calculate compensatory exposure.
               </EmptyStateDetail>
               <EmptyStateHeading>Get started:</EmptyStateHeading>
               <EmptyStateStep number={1}>Connect your Student Information System (SIS) under Settings to auto-import students, schools, and enrollments.</EmptyStateStep>

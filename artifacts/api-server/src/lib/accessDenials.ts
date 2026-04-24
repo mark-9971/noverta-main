@@ -20,7 +20,7 @@ import { getClientIp } from "./clientIp";
 
 export type DenialKind =
   | "unauthenticated"           // 401 — no Clerk session / no token
-  | "no_role"                   // 403 — token present, no Trellis role
+  | "no_role"                   // 403 — token present, no Noverta role
   | "role_forbidden"            // 403 — role exists but lacks requireRoles/requireMinRole
   | "platform_admin_required"   // 403 — non-platform-admin hit a /support/* endpoint
   | "no_district_scope"         // 403 — non-platform-admin without a districtId claim

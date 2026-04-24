@@ -1,4 +1,4 @@
-# Trellis — 10-Screen Demo Narrative
+# Noverta — 10-Screen Demo Narrative
 
 A click-by-click walkthrough for a live 15–20 minute district demo. Every screen
 listed below maps to a real route in `artifacts/trellis/src/pages`. Do not

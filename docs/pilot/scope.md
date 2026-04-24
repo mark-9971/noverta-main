@@ -1,4 +1,4 @@
-# Trellis Pilot Scope
+# Noverta Pilot Scope
 
 **Version:** 1.0  
 **Date:** April 15, 2026  
@@ -9,7 +9,7 @@
 
 ## What This Is
 
-This document defines exactly what is included in the Trellis pilot, what is explicitly excluded, and what conditions govern the pilot period. Both Trellis and the pilot district agree to this scope before any real student data is entered.
+This document defines exactly what is included in the Noverta pilot, what is explicitly excluded, and what conditions govern the pilot period. Both Noverta and the pilot district agree to this scope before any real student data is entered.
 
 ---
 
@@ -64,12 +64,12 @@ The pilot school will be notified by email at least 7 days before any change to 
 
 ## Data Residency & Privacy
 
-- Trellis is hosted on Replit's managed cloud infrastructure (United States).
+- Noverta is hosted on Replit's managed cloud infrastructure (United States).
 - The database is a managed PostgreSQL instance. Backups run daily with a 7-day retention window.
 - No student data is shared with third parties. The only third-party services that receive any external data are:
   - **Resend** — transactional email delivery (receives staff email addresses for alert routing; no student names, IDs, or record content)
-  - **Sentry** — error monitoring (receives server-side error logs; Trellis policy is that no PII is included in error payloads)
-- Staff authentication is handled through a secure identity service. Only staff/admin email addresses and session tokens are transmitted — no student records, IEP data, or SPED content leave the Trellis database.
+  - **Sentry** — error monitoring (receives server-side error logs; Noverta policy is that no PII is included in error payloads)
+- Staff authentication is handled through a secure identity service. Only staff/admin email addresses and session tokens are transmitted — no student records, IEP data, or SPED content leave the Noverta database.
 - The pilot district retains ownership of all student data. Data will be returned or deleted within 30 days of pilot end upon written request.
 
 ---

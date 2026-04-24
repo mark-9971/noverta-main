@@ -6,7 +6,7 @@ import { districtsTable } from "./districts";
 /**
  * Day-0 pilot baseline snapshot. Captured automatically the first time a
  * district is observed in the "pilot kicked off" state (isPilot=true) and
- * never re-captured or edited thereafter — this is the immutable pre-Trellis
+ * never re-captured or edited thereafter — this is the immutable pre-Noverta
  * state used by the Pilot Readout to compute "you went from X to X'."
  *
  * One row per district (enforced by the unique index on district_id).

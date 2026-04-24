@@ -158,7 +158,7 @@ export default function Staff() {
                     action={{ label: "Add Staff Member", href: "/setup" }}
                   >
                     <EmptyStateDetail>
-                      Clinicians are your licensed service providers — SLPs, OTs, PTs, BCBAs, and counselors who deliver IEP-mandated services. Adding them here lets Trellis track their caseloads, session delivery rates, and compliance performance.
+                      Clinicians are your licensed service providers — SLPs, OTs, PTs, BCBAs, and counselors who deliver IEP-mandated services. Adding them here lets Noverta track their caseloads, session delivery rates, and compliance performance.
                     </EmptyStateDetail>
                     <EmptyStateHeading>To add clinicians:</EmptyStateHeading>
                     <EmptyStateStep number={1}>Go to Setup and add staff members with their role (SLP, OT, PT, BCBA, or Counselor).</EmptyStateStep>

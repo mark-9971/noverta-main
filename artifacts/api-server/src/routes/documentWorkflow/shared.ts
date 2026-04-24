@@ -136,7 +136,7 @@ export async function notifyReviewersForStage(workflowId: number, stage: string,
       studentId,
       email,
       reviewer.reviewerName,
-      `Trellis: Document needs your review — ${stageLabel}`,
+      `Noverta: Document needs your review — ${stageLabel}`,
       `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
         <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
           <h2 style="margin:0;font-size:18px">Document Review Required</h2>
@@ -148,7 +148,7 @@ export async function notifyReviewersForStage(workflowId: number, stage: string,
             <li><strong>Student:</strong> ${studentName}</li>
             <li><strong>Stage:</strong> ${stageLabel}</li>
           </ul>
-          ${link ? linkButtonHtml(link, "Review document", "#059669") : `<p style="color:#6b7280;font-size:13px">Log in to Trellis to review and take action.</p>`}
+          ${link ? linkButtonHtml(link, "Review document", "#059669") : `<p style="color:#6b7280;font-size:13px">Log in to Noverta to review and take action.</p>`}
         </div>
       </div>`,
       { workflowId, stage, kind: "reviewer_assigned" },
@@ -172,7 +172,7 @@ export async function notifyWorkflowCreator(workflow: { id: number; createdByUse
     workflow.studentId,
     email,
     workflow.createdByName,
-    `Trellis: Document ${actionLabel} — ${workflow.title}`,
+    `Noverta: Document ${actionLabel} — ${workflow.title}`,
     `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
       <div style="background:${headerColor};color:white;padding:16px 24px;border-radius:8px 8px 0 0">
         <h2 style="margin:0;font-size:18px">Document ${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)}</h2>
@@ -180,7 +180,7 @@ export async function notifyWorkflowCreator(workflow: { id: number; createdByUse
       <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
         <p>Your document <strong>${workflow.title}</strong> for <strong>${studentName}</strong> has been ${actionLabel} by ${reviewerName}.</p>
         ${comment ? `<p style="margin-top:12px;padding:12px;background:#f3f4f6;border-radius:6px;color:#374151"><em>"${comment}"</em></p>` : ""}
-        ${link ? linkButtonHtml(link, "View document workflow", headerColor) : `<p style="color:#6b7280;font-size:13px;margin-top:16px">Log in to Trellis to view details.</p>`}
+        ${link ? linkButtonHtml(link, "View document workflow", headerColor) : `<p style="color:#6b7280;font-size:13px;margin-top:16px">Log in to Noverta to view details.</p>`}
       </div>
     </div>`,
     { workflowId: workflow.id, stage: workflow.currentStage, kind: "creator_update" },

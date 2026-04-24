@@ -64,7 +64,7 @@ export type Intensity = "low" | "medium" | "high";
  * without re-importing from the legacy seeder file.
  */
 export const SCENARIO_COUNTS_BY_PROFILE: Record<
-  "small" | "medium" | "large",
+  "small" | "medium" | "large" | "xl",
   Partial<Record<Exclude<Scenario, "healthy">, number>>
 > = {
   small: {
@@ -105,6 +105,22 @@ export const SCENARIO_COUNTS_BY_PROFILE: Record<
     incident_history: 2,
     annual_review_due: 4,
     esy_eligible: 3,
+  },
+  // T-V2-09 — `xl` baseline counts. Scaled ~1.5× from `large` so xl runs
+  // still feel scenario-rich at ~1750 students; healthy fill (~1700+)
+  // dominates the roster regardless. Staff scales via STAFF_RATIOS.
+  xl: {
+    shortfall: 18,
+    urgent: 6,
+    compensatory_risk: 9,
+    recovered: 4,
+    sliding: 4,
+    crisis: 4,
+    transition: 3,
+    behavior_plan: 4,
+    incident_history: 3,
+    annual_review_due: 6,
+    esy_eligible: 4,
   },
 };
 

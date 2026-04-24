@@ -31,7 +31,7 @@ export function getCsvConnector(): CsvConnector {
 //   - "ga"           : verified and supported for self-serve setup today.
 //   - "early_pilot"  : code path exists and a sync can be attempted, but the
 //                      connector has NOT been validated against a real tenant
-//                      of that vendor's SIS. Setup requires Trellis engineering
+//                      of that vendor's SIS. Setup requires Noverta engineering
 //                      to be on the call to verify field mappings.
 export const SUPPORTED_PROVIDERS: {
   key: SisProvider;

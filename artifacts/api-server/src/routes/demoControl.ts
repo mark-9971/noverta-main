@@ -518,19 +518,27 @@ router.post("/demo-control/hero-cast", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // POST /demo-control/before-after
 // Input-driven calculator. Body:
-//   { districtId, weeksOnTrellis (1..52), startingCompliancePct (0..100),
+//   { districtId, weeksOnNoverta (1..52, accepts deprecated alias
+//     weeksOnTrellis), startingCompliancePct (0..100),
 //     startingOnTimeLoggingPct (0..100) }
 // Returns derived "before" snapshot, current "after" snapshot from real DB,
 // projection narrative, and a self-contained one-page sharable HTML.
+//
+// Compat: the previous body key `weeksOnTrellis` is still accepted during
+// the rename transition so existing demo scripts keep working. The
+// response echoes both names under `inputs` for the same reason.
 // ---------------------------------------------------------------------------
 router.post("/demo-control/before-after", async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as {
-    districtId?: number; weeksOnTrellis?: number;
+    districtId?: number;
+    weeksOnNoverta?: number;
+    weeksOnTrellis?: number;
     startingCompliancePct?: number; startingOnTimeLoggingPct?: number;
   };
   const r = await requireDemoDistrict(body.districtId);
   if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
-  const weeks = Math.max(1, Math.min(52, Number(body.weeksOnTrellis) || 12));
+  const weeksRaw = body.weeksOnNoverta ?? body.weeksOnTrellis;
+  const weeks = Math.max(1, Math.min(52, Number(weeksRaw) || 12));
   const startCompliance = Math.max(0, Math.min(100, Number(body.startingCompliancePct ?? 60)));
   const startLogging = Math.max(0, Math.min(100, Number(body.startingOnTimeLoggingPct ?? 42)));
   try {
@@ -586,7 +594,7 @@ router.post("/demo-control/before-after", async (req: Request, res: Response) =>
       ? Math.round((before.compMinutesOpen - after.compMinutesOpen) / weeks) : 0;
     const dollarsRecovered = Math.round((before.compMinutesOpen - after.compMinutesOpen) / 60 * 85);
     const narrative =
-      `Over ${weeks} weeks on Trellis, ${r.district.name} moved from ${before.compliancePct}% compliance ` +
+      `Over ${weeks} weeks on Noverta, ${r.district.name} moved from ${before.compliancePct}% compliance ` +
       `to ${after.compliancePct}% (${deltaCompliance >= 0 ? "+" : ""}${deltaCompliance} pts), closed ` +
       `${(before.compMinutesOpen - after.compMinutesOpen).toLocaleString()} minutes of compensatory exposure ` +
       `(~$${dollarsRecovered.toLocaleString()} avoided), and cut average alert resolution time from ` +
@@ -594,7 +602,7 @@ router.post("/demo-control/before-after", async (req: Request, res: Response) =>
 
     const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
-    const onePagerHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Trellis impact — ${esc(r.district.name)}</title>
+    const onePagerHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Noverta impact — ${esc(r.district.name)}</title>
 <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:760px;margin:24px auto;padding:0 20px;color:#111}
 h1{font-size:22px;margin:0 0 4px}h2{font-size:13px;color:#374151;margin-top:18px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
 .banner{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:8px 12px;border-radius:6px;font-size:12px;margin:8px 0 16px}
@@ -604,15 +612,15 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}.up{color:#047857;font-
 .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
 .k{border:1px solid #ddd;border-radius:6px;padding:10px}.kl{font-size:10px;text-transform:uppercase;color:#6b7280}.kv{font-size:20px;font-weight:600;margin-top:4px}
 </style></head><body>
-<div class="banner">SAMPLE DATA — Generated for a Trellis demo. Numbers are not real.</div>
-<h1>${esc(r.district.name)} — ${weeks} weeks on Trellis</h1>
+<div class="banner">SAMPLE DATA — Generated for a Noverta demo. Numbers are not real.</div>
+<h1>${esc(r.district.name)} — ${weeks} weeks on Noverta</h1>
 <div class="kpi">
   <div class="k"><div class="kl">Compliance Δ</div><div class="kv up">+${deltaCompliance} pts</div></div>
   <div class="k"><div class="kl">Minutes recovered</div><div class="kv">${(before.compMinutesOpen - after.compMinutesOpen).toLocaleString()}</div></div>
   <div class="k"><div class="kl">$ avoided (heuristic)</div><div class="kv">$${dollarsRecovered.toLocaleString()}</div></div>
 </div>
 <h2>Key metrics</h2>
-<table><thead><tr><th>Metric</th><th>Before Trellis</th><th>Today</th></tr></thead><tbody>
+<table><thead><tr><th>Metric</th><th>Before Noverta</th><th>Today</th></tr></thead><tbody>
   <tr><td>Compliance %</td><td>${before.compliancePct}%</td><td class="up">${after.compliancePct}%</td></tr>
   <tr><td>On-time logging</td><td>${before.onTimeLoggingPct}%</td><td class="up">${after.onTimeLoggingPct}%</td></tr>
   <tr><td>Open alerts</td><td>${before.openAlerts}</td><td class="up">${after.openAlerts}</td></tr>
@@ -626,7 +634,14 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}.up{color:#047857;font-
 </body></html>`;
     res.json({
       ok: true, districtId: r.district.id, districtName: r.district.name,
-      inputs: { weeksOnTrellis: weeks, startingCompliancePct: startCompliance, startingOnTimeLoggingPct: startLogging },
+      inputs: {
+        weeksOnNoverta: weeks,
+        // Deprecated alias kept during the rename transition; clients
+        // should switch to `weeksOnNoverta`.
+        weeksOnTrellis: weeks,
+        startingCompliancePct: startCompliance,
+        startingOnTimeLoggingPct: startLogging,
+      },
       totalStudents: total, before, after,
       delta: {
         compliancePts: deltaCompliance,
@@ -635,7 +650,7 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}.up{color:#047857;font-
       },
       narrative,
       onePagerHtml,
-      filename: `trellis-impact-${r.district.id}-${new Date().toISOString().slice(0, 10)}.html`,
+      filename: `noverta-impact-${r.district.id}-${new Date().toISOString().slice(0, 10)}.html`,
     });
   } catch (err) {
     logger.error({ err }, "before-after failed");
@@ -1097,7 +1112,7 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}
 <table><thead><tr><th>Student</th><th>Open alerts</th></tr></thead><tbody>
 ${topRisk.map(s => `<tr><td>${esc(s.first_name)} ${esc(s.last_name)}</td><td>${s.n}</td></tr>`).join("") || `<tr><td colspan="2">None</td></tr>`}
 </tbody></table>
-<div class="foot">Generated by Demo Control Center for the ${esc(r.district.name)} demo district. Not for distribution outside Trellis demos.</div>
+<div class="foot">Generated by Demo Control Center for the ${esc(r.district.name)} demo district. Not for distribution outside Noverta demos.</div>
 </body></html>`;
     res.json({
       ok: true, districtId: r.district.id, districtName: r.district.name,
@@ -1134,7 +1149,7 @@ router.get("/demo-control/exec-packet.pdf", async (req: Request, res: Response) 
     const doc = new PDFDocument({ size: "LETTER", margin: 48 });
     doc.pipe(res);
     doc.fillColor("#92400e").fontSize(9)
-       .text("SAMPLE DATA — Generated for a Trellis demo. Numbers are not real.", { align: "left" });
+       .text("SAMPLE DATA — Generated for a Noverta demo. Numbers are not real.", { align: "left" });
     doc.moveDown(0.4);
     doc.fillColor("#111827").fontSize(20).font("Helvetica-Bold")
        .text(`Executive Packet — ${r.district.name}`);
@@ -1201,7 +1216,7 @@ router.get("/demo-control/exec-packet.pdf", async (req: Request, res: Response) 
     else topRisk.forEach(s => doc.text(`• ${s.first_name} ${s.last_name} — ${s.n} open alert(s)`));
     doc.moveDown(1.5);
     doc.fillColor("#6b7280").fontSize(8)
-       .text(`Generated by Demo Control Center for the ${r.district.name} demo district. Not for distribution outside Trellis demos.`, { align: "left" });
+       .text(`Generated by Demo Control Center for the ${r.district.name} demo district. Not for distribution outside Noverta demos.`, { align: "left" });
     doc.end();
   } catch (err) {
     logger.error({ err }, "exec-packet pdf failed");
@@ -1215,13 +1230,29 @@ router.get("/demo-control/exec-packet.pdf", async (req: Request, res: Response) 
 // re-seeds it. Never touches other districts. Refuses non-demo districts.
 // ---------------------------------------------------------------------------
 router.post("/demo-control/reset-district", async (req: Request, res: Response) => {
-  const { districtId } = (req.body ?? {}) as { districtId?: number };
+  const body = (req.body ?? {}) as {
+    districtId?: number;
+    sizeProfile?: string;
+    targetStudents?: number;
+  };
+  const { districtId } = body;
   const r = await requireDemoDistrict(districtId);
   if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
+  // T-V2-09 — accept the same size knobs the canonical sample-data path
+  // honors so a per-district demo reset can intentionally produce a
+  // small / medium / large / xl roster (60–2000 students).
+  const SIZE_WIRE = new Set(["small", "medium", "large", "xl", "random"]);
+  const seedOpts: { sizeProfile?: "small" | "medium" | "large" | "xl" | "random"; targetStudents?: number } = {};
+  if (typeof body.sizeProfile === "string" && SIZE_WIRE.has(body.sizeProfile)) {
+    seedOpts.sizeProfile = body.sizeProfile as "small" | "medium" | "large" | "xl" | "random";
+  }
+  if (typeof body.targetStudents === "number" && Number.isFinite(body.targetStudents)) {
+    seedOpts.targetStudents = Math.max(1, Math.min(5000, Math.round(body.targetStudents)));
+  }
   const start = Date.now();
   try {
     const teardown = await teardownSampleData(r.district.id);
-    const seed = await seedSampleDataForDistrict(r.district.id, {});
+    const seed = await seedSampleDataForDistrict(r.district.id, seedOpts);
     res.json({
       ok: true, districtId: r.district.id, districtName: r.district.name,
       elapsedMs: Date.now() - start,

@@ -1,5 +1,6 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, AlertTriangle, TrendingDown } from "lucide-react";
+import { Users, AlertTriangle, TrendingDown, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Link } from "wouter";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
@@ -16,10 +17,65 @@ interface ProviderRow {
   utilizationPercent: number;
 }
 
+type SortKey =
+  | "staffName"
+  | "assignedStudents"
+  | "totalDeliveredMinutes"
+  | "utilizationPercent"
+  | "studentsAtRisk"
+  | "openAlerts";
+type SortDir = "asc" | "desc";
+
 function pctColor(pct: number) {
   if (pct >= 90) return { text: "text-emerald-700", ring: "ring-emerald-200 bg-emerald-50" };
   if (pct >= 80) return { text: "text-amber-700", ring: "ring-amber-200 bg-amber-50" };
   return { text: "text-red-700", ring: "ring-red-100 bg-red-50" };
+}
+
+function compareRows(a: ProviderRow, b: ProviderRow, key: SortKey, dir: SortDir): number {
+  const mul = dir === "asc" ? 1 : -1;
+  if (key === "staffName") return a.staffName.localeCompare(b.staffName) * mul;
+  return ((a[key] as number) - (b[key] as number)) * mul;
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  current,
+  dir,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  current: SortKey;
+  dir: SortDir;
+  onSort: (k: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const active = current === sortKey;
+  const Icon = !active ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <th
+      className={`px-3 py-2 text-${align} text-[11px] font-medium uppercase tracking-wide select-none ${
+        active ? "text-gray-700" : "text-gray-400"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 hover:text-gray-700 transition-colors ${
+          align === "right" ? "flex-row-reverse" : ""
+        }`}
+        data-testid={`sort-${sortKey}`}
+        aria-label={`Sort by ${label}`}
+        aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      >
+        <span>{label}</span>
+        <Icon className={`w-3 h-3 ${active ? "text-indigo-600" : "text-gray-300"}`} />
+      </button>
+    </th>
+  );
 }
 
 export default function ProviderDelivery() {
@@ -27,7 +83,23 @@ export default function ProviderDelivery() {
   const qs = new URLSearchParams(filterParams).toString();
   const params = qs ? `?${qs}` : "";
 
-  const { data: providers, isLoading } = useQuery<ProviderRow[]>({
+  // Default sort matches the original "lowest delivery rate first" view so
+  // the widget still surfaces under-delivering providers at the top.
+  const [sortKey, setSortKey] = useState<SortKey>("utilizationPercent");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const onSort = (k: SortKey) => {
+    if (k === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      // Sensible default direction per column: text asc, numeric desc
+      // (except the rate column which keeps "lowest first" as the default).
+      setSortDir(k === "staffName" || k === "utilizationPercent" ? "asc" : "desc");
+    }
+  };
+
+  const { data: rawProviders, isLoading } = useQuery<ProviderRow[]>({
     queryKey: ["dashboard/provider-summary", filterParams],
     queryFn: async () => {
       const r = await authFetch(`/api/dashboard/provider-summary${params}`);
@@ -35,12 +107,20 @@ export default function ProviderDelivery() {
       return r.json();
     },
     staleTime: 60_000,
+    // Pre-narrow to the lowest-utilization 8 providers (the widget's
+    // intent) so sort never reorders the entire roster — that's the
+    // job of the full /staff page linked at the bottom.
     select: (rows) =>
       rows
         .filter(p => p.totalRequiredMinutes > 0)
         .sort((a, b) => a.utilizationPercent - b.utilizationPercent)
         .slice(0, 8),
   });
+
+  const providers = useMemo(() => {
+    if (!rawProviders) return rawProviders;
+    return [...rawProviders].sort((a, b) => compareRows(a, b, sortKey, sortDir));
+  }, [rawProviders, sortKey, sortDir]);
 
   if (isLoading) {
     return (
@@ -86,10 +166,30 @@ export default function ProviderDelivery() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100">
-              <th className="px-5 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Provider</th>
-              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Students</th>
-              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Min Delivered</th>
-              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Rate</th>
+              <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wide">
+                <button
+                  type="button"
+                  onClick={() => onSort("staffName")}
+                  className={`inline-flex items-center gap-1 hover:text-gray-700 transition-colors ${
+                    sortKey === "staffName" ? "text-gray-700" : "text-gray-400"
+                  }`}
+                  data-testid="sort-staffName"
+                  aria-label="Sort by Provider"
+                  aria-sort={sortKey === "staffName" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <span>Provider</span>
+                  {sortKey === "staffName" ? (
+                    sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-indigo-600" /> : <ChevronDown className="w-3 h-3 text-indigo-600" />
+                  ) : (
+                    <ChevronsUpDown className="w-3 h-3 text-gray-300" />
+                  )}
+                </button>
+              </th>
+              <SortHeader label="Students" sortKey="assignedStudents" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
+              <SortHeader label="At Risk" sortKey="studentsAtRisk" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
+              <SortHeader label="Open Alerts" sortKey="openAlerts" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
+              <SortHeader label="Min Delivered" sortKey="totalDeliveredMinutes" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
+              <SortHeader label="Rate" sortKey="utilizationPercent" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -107,8 +207,19 @@ export default function ProviderDelivery() {
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums text-[13px] text-gray-600">
                     {p.assignedStudents}
-                    {p.studentsAtRisk > 0 && (
-                      <span className="ml-1 text-[10px] text-red-500 font-medium">({p.studentsAtRisk} at risk)</span>
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums text-[13px]">
+                    {p.studentsAtRisk > 0 ? (
+                      <span className="text-red-600 font-medium">{p.studentsAtRisk}</span>
+                    ) : (
+                      <span className="text-gray-300">0</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums text-[13px]">
+                    {p.openAlerts > 0 ? (
+                      <span className="text-amber-700 font-medium">{p.openAlerts}</span>
+                    ) : (
+                      <span className="text-gray-300">0</span>
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">

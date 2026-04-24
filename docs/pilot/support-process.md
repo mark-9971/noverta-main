@@ -1,4 +1,4 @@
-# Trellis Pilot Support Process
+# Noverta Pilot Support Process
 
 **Version:** 1.0  
 **Date:** April 15, 2026
@@ -7,7 +7,7 @@
 
 ## How to Report a Problem
 
-**Email:** support@trellis.education  
+**Email:** support@noverta.education  
 **Subject line format:** `[DISTRICT NAME] P1/P2/P3 — brief description`  
 Example: `[Millbrook SPED] P2 — service minutes CSV export returns blank file`
 
@@ -31,7 +31,7 @@ Include:
 **Definition:** There is an active risk that student data has been lost, corrupted, or is inaccessible. The system may be partially running.  
 **Examples:** A submitted incident report disappeared after saving; an IEP record shows a different student's data; session logs are missing from a prior date; an export CSV contains corrupted or missing rows.  
 **Response time:** Initial response within **24 hours** on business days.  
-**Resolution target:** Confirmed data status (recovered, unrecoverable, or isolated) within 48 hours. Trellis provides a written incident summary within 5 business days.
+**Resolution target:** Confirmed data status (recovered, unrecoverable, or isolated) within 48 hours. Noverta provides a written incident summary within 5 business days.
 
 ### P3 — UX Issue or Non-Blocking Bug
 **Definition:** Something doesn't look right or is inconvenient, but no data is at risk and the core workflow can still be completed.  
@@ -45,11 +45,11 @@ Include:
 
 | Role | Responsibility |
 |---|---|
-| **Trellis on-call (P1/P2)** | System availability, data integrity, and data loss incidents |
-| **Trellis support lead** | P3 responses, feature questions, workflow support |
-| **District admin** | First line of internal user questions; escalates to Trellis via email |
+| **Noverta on-call (P1/P2)** | System availability, data integrity, and data loss incidents |
+| **Noverta support lead** | P3 responses, feature questions, workflow support |
+| **District admin** | First line of internal user questions; escalates to Noverta via email |
 
-The district admin is the single point of contact. End users (case managers, teachers) should report issues to the district admin first. The district admin decides whether to escalate to Trellis.
+The district admin is the single point of contact. End users (case managers, teachers) should report issues to the district admin first. The district admin decides whether to escalate to Noverta.
 
 ---
 
@@ -58,7 +58,7 @@ The district admin is the single point of contact. End users (case managers, tea
 - Maintenance windows are **Sundays, 10 PM – 2 AM ET**.
 - The district admin will be notified by email at least **48 hours in advance** of any planned maintenance.
 - Emergency patches (security fixes) may be applied outside the maintenance window. The district admin will be notified by email within 1 hour of an emergency patch, with a summary of what changed.
-- Trellis targets **99% uptime** during the pilot period (excluding scheduled maintenance windows). Unplanned downtime events will be documented in a monthly summary sent to the district admin.
+- Noverta targets **99% uptime** during the pilot period (excluding scheduled maintenance windows). Unplanned downtime events will be documented in a monthly summary sent to the district admin.
 
 ---
 

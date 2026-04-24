@@ -1,26 +1,30 @@
 /**
- * #970 — Unify hard reset onto V2 + overlay (proof).
+ * #970 + T-V2-08 — Canonical V2 + overlay reset (proof).
  *
- * Verifies that POST /api/sample-data/reset-demo runs on the SAME
- * canonical engine (`seedSampleDataForDistrict` + W5 demo overlay) as
- * POST /api/sample-data, rather than the legacy global-TRUNCATE
- * `seedDemoDistrict()` engine.
+ * Verifies that POST /api/sample-data/reset-demo runs the canonical
+ * V2 + W5 overlay engine ONLY — no legacy additive shaping.
  *
  * What we assert:
- *   1. Route returns `engine: "v2"` (proves the unified handler ran).
+ *   1. Route returns `engine: "v2"` (proves the canonical handler ran).
  *   2. `summary.layers.overlay === true` (proves the W5 overlay
  *      executed and emitted at least one showcase row).
  *   3. `summary.runId` is a non-empty string and `summary.v2Version`
  *      is present (proves the V2 W1 run-metadata pipeline ran — only
  *      `seedSampleDataForDistrict` produces these).
  *   4. `showcaseCaseCounts`, `complianceDistribution`, and
- *      `exampleShowcaseIds` are surfaced top-level on the response
- *      (proves the operator can verify overlay execution without
- *      re-querying).
- *   5. Total showcase rows > 0 (proves overlay actually wrote rows
- *      into `demo_showcase_cases`).
- *   6. `seedDemoDistrict` is no longer imported by the route file
- *      (static guard against silent fall-back to the legacy engine).
+ *      `exampleShowcaseIds` are surfaced top-level on the response.
+ *   5. Total showcase rows > 0 and matches `demo_showcase_cases` row
+ *      count for that district (re-queried from the source of truth).
+ *   6. T-V2-08: response body MUST NOT carry the legacy
+ *      `modules` / `variety` / `handling` enrichment fields. Their
+ *      presence would indicate the legacy additive passes still
+ *      execute as part of the canonical runtime path.
+ *   7. Static guard: no HTTP route file (under src/routes) and no
+ *      runtime lib file (under src/lib) references the legacy
+ *      `seedDemoDistrict` / `seedDemoModules` /
+ *      `seedDemoComplianceVariety` / `seedDemoHandlingState` engines
+ *      in executable code (comments tolerated). This catches a future
+ *      edit that quietly re-introduces a parallel reset path.
  *
  * No mocks: this hits the real route, the real DB, and the real
  * V2/overlay pipeline.
@@ -96,20 +100,27 @@ describe("#970 reset-demo unifies onto V2 + overlay", () => {
       .where(sql`${demoShowcaseCasesTable.districtId} = ${districtId}`);
     expect(dbCount[0]!.n).toBeGreaterThan(0);
     expect(dbCount[0]!.n).toBe(totalShowcase);
+
+    // T-V2-08: legacy additive enrichment fields must be gone from the
+    // canonical reset response. Their presence would mean the legacy
+    // shaping passes still run as part of the canonical runtime path.
+    expect(res.body).not.toHaveProperty("modules");
+    expect(res.body).not.toHaveProperty("variety");
+    expect(res.body).not.toHaveProperty("handling");
   }, 120_000);
 
-  it("route file no longer imports the legacy seedDemoDistrict engine", () => {
-    // Static proof: the legacy global-TRUNCATE engine must not be the
-    // primary path. Removing the import is the cleanest way to
-    // guarantee a future edit can't silently re-introduce a parallel
-    // system. (`seedDemoDistrict` remains exported from @workspace/db
-    // for the standalone CLI seeder under T-V2-08; it is just no
-    // longer wired into the HTTP reset path.)
-    // #970: scan EVERY HTTP route file under src/routes for any reference to
-    // the legacy global-TRUNCATE engine in executable code. Comment-only
-    // historical references are tolerated. This guards against a future edit
-    // silently re-introducing a parallel reset path on a different route.
-    const routesDir = path.resolve(__dirname, "../src/routes");
+  it("no runtime file references the legacy V1/demo seed/enrich helpers", () => {
+    // T-V2-08: scan EVERY runtime file under src/routes AND src/lib for
+    // any reference to the legacy V1/demo engines or additive enrichment
+    // helpers in executable code. Comment-only historical references are
+    // tolerated. This guards against a future edit silently re-introducing
+    // a parallel reset/enrichment path on any runtime surface.
+    //
+    // The legacy helpers themselves remain on disk in lib/db/src/seed-demo-*.ts
+    // and reachable from the lib/db/run-seed-demo.ts CLI for forensic /
+    // historical / one-off re-enrichment use; they are intentionally NOT
+    // part of the canonical HTTP reset or scheduler path anymore.
+    const apiServerSrc = path.resolve(__dirname, "../src");
     const stripComments = (s: string): string =>
       s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     const walk = (dir: string): string[] => {
@@ -121,19 +132,37 @@ describe("#970 reset-demo unifies onto V2 + overlay", () => {
       }
       return out;
     };
-    const offenders: string[] = [];
-    for (const file of walk(routesDir)) {
-      const codeOnly = stripComments(fs.readFileSync(file, "utf8"));
-      if (/\bseedDemoDistrict\b/.test(codeOnly)) offenders.push(file);
+
+    const LEGACY_SYMBOLS = [
+      "seedDemoDistrict",
+      "seedDemoModules",
+      "seedDemoComplianceVariety",
+      "seedDemoHandlingState",
+    ] as const;
+    const legacyPattern = new RegExp(`\\b(?:${LEGACY_SYMBOLS.join("|")})\\b`);
+
+    const runtimeRoots = [
+      path.join(apiServerSrc, "routes"),
+      path.join(apiServerSrc, "lib"),
+    ];
+    const offenders: { file: string; symbol: string }[] = [];
+    for (const root of runtimeRoots) {
+      for (const file of walk(root)) {
+        const codeOnly = stripComments(fs.readFileSync(file, "utf8"));
+        const match = codeOnly.match(legacyPattern);
+        if (match) offenders.push({ file, symbol: match[0] });
+      }
     }
     expect(
       offenders,
-      `Legacy seedDemoDistrict() must not be referenced from any HTTP route file. Offenders:\n${offenders.join("\n")}`,
+      `Legacy V1/demo seed helpers must not be referenced from any runtime file ` +
+        `(src/routes or src/lib). Offenders:\n` +
+        offenders.map(o => `  ${o.symbol} in ${o.file}`).join("\n"),
     ).toEqual([]);
 
-    // And the V2 entrypoint MUST be present in the unified reset route.
+    // And the V2 entrypoint MUST still be the canonical engine.
     const sampleData = stripComments(
-      fs.readFileSync(path.resolve(routesDir, "sampleData.ts"), "utf8"),
+      fs.readFileSync(path.resolve(apiServerSrc, "routes/sampleData.ts"), "utf8"),
     );
     expect(sampleData).toMatch(/\bseedSampleDataForDistrict\b/);
   });

@@ -1,20 +1,20 @@
 # Privacy Summary
 
-**Trellis — Plain-Language Privacy Summary**
+**Noverta — Plain-Language Privacy Summary**
 *For school districts, parents/guardians, and staff*
 *Last updated: [DATE]*
 
 ---
 
-## What is Trellis?
+## What is Noverta?
 
-Trellis is a software platform used by school districts to manage special education services. It helps districts track IEP compliance, record therapy sessions, manage staff schedules, and generate required reports. Trellis is a tool for district staff — it is not a consumer product and is not marketed to individual families.
+Noverta is a software platform used by school districts to manage special education services. It helps districts track IEP compliance, record therapy sessions, manage staff schedules, and generate required reports. Noverta is a tool for district staff — it is not a consumer product and is not marketed to individual families.
 
 ---
 
-## What Data Does Trellis Collect?
+## What Data Does Noverta Collect?
 
-Trellis collects only the data that district staff enter into the platform and data needed to operate the service. No data is collected from students' devices, browsing behavior, or sources outside the platform.
+Noverta collects only the data that district staff enter into the platform and data needed to operate the service. No data is collected from students' devices, browsing behavior, or sources outside the platform.
 
 ### Student Education Records
 - Student name, grade, date of birth, disability category, and placement type
@@ -26,7 +26,7 @@ Trellis collects only the data that district staff enter into the platform and d
 - Restraint and seclusion incident records
 - Parent/guardian name, phone number, and email address
 
-These records are **education records** protected by the Family Educational Rights and Privacy Act (FERPA). Trellis processes them as a "school official" under FERPA's legitimate educational interest exception.
+These records are **education records** protected by the Family Educational Rights and Privacy Act (FERPA). Noverta processes them as a "school official" under FERPA's legitimate educational interest exception.
 
 ### Staff Records
 - Staff name, job title, role, and school assignment
@@ -34,14 +34,14 @@ These records are **education records** protected by the Family Educational Righ
 - Supervision session records (for BCBAs and their supervisees)
 
 ### Account and Usage Data
-- Email address and name used to create a Trellis account (via Clerk authentication)
+- Email address and name used to create a Noverta account (via Clerk authentication)
 - Log-in times and session activity for security audit purposes
 
 ---
 
 ## How Is Data Used?
 
-Trellis uses data **only** to provide services to the school district:
+Noverta uses data **only** to provide services to the school district:
 
 - To display student records, session history, and compliance status to authorized staff
 - To calculate compliance metrics (minutes delivered vs. required)
@@ -49,7 +49,7 @@ Trellis uses data **only** to provide services to the school district:
 - To enable staff workflows (scheduling, session logging, behavior assessment)
 - To maintain an audit trail of changes for compliance and legal purposes
 
-Trellis **does not**:
+Noverta **does not**:
 - Sell student or staff data to any third party
 - Use student data for advertising or machine learning model training
 - Share data with any party other than the contracted sub-processors listed in the DPA
@@ -59,7 +59,7 @@ Trellis **does not**:
 
 ## Who Can Access the Data?
 
-Access is controlled by the district. Trellis enforces role-based permissions:
+Access is controlled by the district. Noverta enforces role-based permissions:
 
 | Role | What They Can See |
 |---|---|
@@ -70,7 +70,7 @@ Access is controlled by the district. Trellis enforces role-based permissions:
 | Paraprofessional | Their own schedule, assigned student targets for session logging |
 | Student (sped_student) | Their own goals, sessions, and services only |
 
-Trellis staff access district data **only** when the district submits a support request requiring it, and only for the minimum time needed to resolve the issue.
+Noverta staff access district data **only** when the district submits a support request requiring it, and only for the minimum time needed to resolve the issue.
 
 ---
 
@@ -92,17 +92,17 @@ Parents and eligible students (age 18+) have the right to:
 - **Request amendment** of records they believe are inaccurate
 - **Consent (or withhold consent)** to disclosure of records beyond what FERPA permits without consent
 
-These rights are administered by the school district, not by Trellis. Trellis provides the district with tools to fulfill these obligations.
+These rights are administered by the school district, not by Noverta. Noverta provides the district with tools to fulfill these obligations.
 
 ---
 
 ## Data Security
 
-Trellis protects data using industry-standard controls described in the Security Overview document:
+Noverta protects data using industry-standard controls described in the Security Overview document:
 - All data is encrypted in transit (TLS) and at rest
 - Authentication is handled by Clerk with session expiry controls
 - Every data modification is logged in a tamper-evident audit trail
-- Trellis notifies the district within 72 hours of any confirmed data breach affecting student records
+- Noverta notifies the district within 72 hours of any confirmed data breach affecting student records
 
 ---
 
@@ -110,7 +110,7 @@ Trellis protects data using industry-standard controls described in the Security
 
 For questions about data processing or to request data deletion:
 
-**Trellis Support**
+**Noverta Support**
 Email: [SUPPORT EMAIL]
 Address: [COMPANY ADDRESS]
 

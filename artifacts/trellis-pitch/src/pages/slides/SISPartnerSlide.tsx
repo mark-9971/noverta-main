@@ -9,7 +9,7 @@ export default function SISPartnerSlide() {
           Your SPED add-on, our engine
         </h2>
         <p className="font-body text-[1.8vw] text-white/60 mt-[1.5vh] max-w-[55vw]">
-          SIS companies can offer enterprise SPED compliance without building it. Trellis integrates as a white-label module or partner extension.
+          SIS companies can offer enterprise SPED compliance without building it. Noverta integrates as a white-label module or partner extension.
         </p>
 
         <div className="flex gap-[3vw] mt-[5vh] flex-1">
@@ -24,7 +24,7 @@ export default function SISPartnerSlide() {
                   </div>
                   <div>
                     <p className="font-body text-[1.3vw] font-semibold text-white">Embedded Module</p>
-                    <p className="font-body text-[1.1vw] text-white/50 leading-relaxed">White-label Trellis inside your SIS with SSO. Your branding, our compliance engine. iframe or API integration.</p>
+                    <p className="font-body text-[1.1vw] text-white/50 leading-relaxed">White-label Noverta inside your SIS with SSO. Your branding, our compliance engine. iframe or API integration.</p>
                   </div>
                 </div>
 
@@ -73,7 +73,7 @@ export default function SISPartnerSlide() {
             </div>
 
             <div className="bg-white/5 border border-white/10 rounded-[1vw] p-[2vw] flex-1">
-              <p className="font-body text-[1.3vw] font-bold text-white mb-[1.5vh]">Why Partner with Trellis?</p>
+              <p className="font-body text-[1.3vw] font-bold text-white mb-[1.5vh]">Why Partner with Noverta?</p>
               <div className="space-y-[1vh]">
                 {[
                   "Retain SPED districts switching to competitors",

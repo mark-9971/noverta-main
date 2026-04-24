@@ -38,29 +38,61 @@ export const SAMPLE_BOUNDS = {
  * district receives so pilot demos can show realistic range — a small
  * single-school district shouldn't look the same as a large urban one.
  *
- *   - "small":  ~20 students,  3 staff   (caseload ~20:1)
- *   - "medium": ~60 students, 10 staff   (caseload ~20:1) — DEFAULT
- *   - "large":  ~120 students, 18 staff  (caseload ~20:1)
- *   - "random": picks small / medium / large at random
+ * T-V2-09 — Formal size-control contract. Each profile resolves to a
+ * concrete `students` count inside the documented `SIZE_PROFILE_RANGES`
+ * band. Staff counts auto-scale via `STAFF_RATIOS` once `targetStudents`
+ * is known (see `roster/staff.ts`); the `staff` value below is only the
+ * baseline for slots without a ratio entry.
+ *
+ *   - "small":  ~90  students   (range  60 – 120)
+ *   - "medium": ~350 students   (range 200 – 500) — DEFAULT
+ *   - "large":  ~1000 students  (range 800 – 1200)
+ *   - "xl":     ~1750 students  (range 1500 – 2000) — stress / enterprise
+ *   - "random": picks small / medium / large / xl via the seeded RNG so
+ *               successive runs against the same district id pin to the
+ *               same chosen profile.
  *
  * All profiles keep the case-manager-to-student ratio within MA SPED
  * guidance (~15–22 students per case manager) and preserve the canonical
  * narrative scenarios (crisis, transition, BIP, incident history, etc.)
  * so dashboards always have meaningful storylines to show.
+ *
+ * Per the T-V2-09 contract, an exact `targetStudents` value supplied via
+ * `SeedSampleOptions` overrides the profile's default students count;
+ * the chosen profile still drives scenario-distribution baselines and
+ * staff-slot composition.
  */
-export type SizeProfile = "small" | "medium" | "large" | "random";
+export type SizeProfile = "small" | "medium" | "large" | "xl" | "random";
+
+/**
+ * T-V2-09 — Documented effective student-count ranges per profile.
+ * `resolveSizeContract()` uses these to report whether the actual seeded
+ * roster fell within the band the operator requested. Mid-points become
+ * each profile's default `students` value in `SIZE_PROFILES`.
+ */
+export const SIZE_PROFILE_RANGES = {
+  small:  { min: 60,   max: 120  },
+  medium: { min: 200,  max: 500  },
+  large:  { min: 800,  max: 1200 },
+  xl:     { min: 1500, max: 2000 },
+} as const;
 
 export const SIZE_PROFILES = {
-  small:  { students: 20,  staff: 3  },
-  medium: { students: 60,  staff: 10 },
-  large:  { students: 120, staff: 18 },
+  small:  { students: 90,   staff: 6   },
+  medium: { students: 350,  staff: 22  },
+  large:  { students: 1000, staff: 60  },
+  xl:     { students: 1750, staff: 105 },
 } as const;
 
 /**
- * For the *default* (no explicit profile) path the user wants each district
- * to ship with a randomized 50–100 student roster — large enough to feel
- * like a real district but bounded so demos stay snappy. The seeded RNG
- * makes the choice reproducible per district id.
+ * Legacy "default random roster" range. Retained for back-compat with
+ * external callers (and still re-exported from the @workspace/db barrel)
+ * but the canonical seed/reset path no longer consults it: per the
+ * T-V2-09 contract, omitting both `sizeProfile` and `targetStudents`
+ * resolves deterministically to the "medium" profile (`SIZE_PROFILES.medium.students`).
+ *
+ * Kept exported so a downstream tool that still wants a small-district
+ * default can opt in explicitly via `targetStudents: rand(50, 100)`.
  */
 export const DEFAULT_RANDOM_ROSTER_RANGE: readonly [number, number] = [50, 100];
 

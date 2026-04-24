@@ -185,7 +185,7 @@ export default function NotificationPreferencesPage() {
               <p className="text-sm font-medium text-gray-800">Weekly Pilot Success Scorecard</p>
               <p className="text-xs text-gray-500 mt-0.5">
                 Every Monday during your pilot, district administrators receive a "This week on
-                Trellis" email summarizing minutes logged, % delivered, missed-session financial
+                Noverta" email summarizing minutes logged, % delivered, missed-session financial
                 exposure surfaced, comp-ed minutes flagged, and compliance alerts acted on.
                 Each metric links into the matching in-app view.
               </p>

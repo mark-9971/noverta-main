@@ -43,6 +43,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: 10.33.0
           run_install: false
 
       - name: Set up Node.js
@@ -50,6 +51,15 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: Verify bootstrap prerequisites
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL must be set for schema drift checks"
+            exit 1
+          fi
+          echo "Schema Drift uses Postgres service-container env only; no GitHub secrets are required."
 
       # Need full history (or at least the base ref) so we can bootstrap
       # the DB from main's schema below. `actions/checkout@v4` defaults

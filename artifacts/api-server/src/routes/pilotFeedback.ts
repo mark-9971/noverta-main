@@ -167,7 +167,7 @@ async function notifyAccountManager(feedbackId: number, districtId: number | nul
     suggestion: "Suggestion",
     question: "Question",
   };
-  const subject = `[Trellis pilot] ${typeLabel[feedback.type] ?? feedback.type} from ${district.name}`;
+  const subject = `[Noverta pilot] ${typeLabel[feedback.type] ?? feedback.type} from ${district.name}`;
   const truncatedDesc = feedback.description.length > 800
     ? `${feedback.description.slice(0, 800)}…`
     : feedback.description;
@@ -187,7 +187,7 @@ ${feedback.userAgent ? `<p style="font-size:12px;color:#64748b;margin:4px 0"><st
 ${(feedback.consoleErrors?.length ?? 0) > 0 ? `<p style="font-size:12px;color:#b91c1c;margin:8px 0 4px 0"><strong>${feedback.consoleErrors!.length} recent console error(s) captured</strong></p>` : ""}
 ${adminLink ? `<p style="margin:18px 0 0 0"><a href="${adminLink}" style="background:#0ea5e9;color:white;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:13px">Open in Pilot Feedback admin</a></p>` : ""}
 </div>
-<div style="text-align:center;padding:10px;color:#9ca3af;font-size:11px">Trellis pilot feedback · do not reply</div>
+<div style="text-align:center;padding:10px;color:#9ca3af;font-size:11px">Noverta pilot feedback · do not reply</div>
 </div>`;
 
   const text = [

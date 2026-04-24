@@ -31,7 +31,7 @@ the unified message is:
 - **CSV upload** is GA, fully supported, the recommended path for every district.
 - **PowerSchool / Infinite Campus / Skyward / SFTP** are *early pilot*: built but
   not yet validated against a live tenant of those vendors. Setup saves
-  credentials and queues a sync, but Trellis support reaches out to verify
+  credentials and queues a sync, but Noverta support reaches out to verify
   field mappings before relying on it. **No surface should imply self-serve
   automatic sync for these.**
 - **Aspen / Synergy / Aeries / Genesis / others** have **no live API
