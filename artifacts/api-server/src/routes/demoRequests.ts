@@ -92,7 +92,7 @@ function buildDemoWelcomeEmail(opts: {
     <a class="cta" href="${loginUrl}">Open my demo</a>
     <p class="note">
       This demo district expires in 7 days. Your data is pre-populated with sample students, IEPs, service logs, and compliance scenarios — nothing is real student data.<br><br>
-      Questions? Reply to this email or reach us at <a href="mailto:hello@trellis.education">hello@trellis.education</a>.
+      Questions? Reply to this email or reach us at <a href="mailto:hello@noverta.education">hello@noverta.education</a>.
     </p>
   </div>
   <div class="footer">Noverta SPED Compliance Platform — Automated demo provisioning</div>
@@ -100,7 +100,7 @@ function buildDemoWelcomeEmail(opts: {
 </body>
 </html>`;
 
-  const text = `Your Noverta demo is ready, ${name.split(" ")[0]}!\n\nWe've created a fully-populated demo district: ${districtName}.\n\nLogin URL: ${loginUrl}\nEmail: ${opts.email}\nTemporary password: ${tempPassword}\nYour role: ${roleLabel}\n\nThis demo expires in 7 days.\n\nQuestions? Reply to this email or reach hello@trellis.education`;
+  const text = `Your Noverta demo is ready, ${name.split(" ")[0]}!\n\nWe've created a fully-populated demo district: ${districtName}.\n\nLogin URL: ${loginUrl}\nEmail: ${opts.email}\nTemporary password: ${tempPassword}\nYour role: ${roleLabel}\n\nThis demo expires in 7 days.\n\nQuestions? Reply to this email or reach hello@noverta.education`;
   return { subject, html, text };
 }
 

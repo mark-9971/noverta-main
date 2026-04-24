@@ -87,7 +87,7 @@ function MarkdownDoc({ path }: { path: string }) {
     fetch(`${BASE}${path}`)
       .then(r => r.text())
       .then(setContent)
-      .catch(() => setContent("(Could not load document. Contact legal@trellis.app)"));
+      .catch(() => setContent("(Could not load document. Contact legal@noverta.app)"));
   }, [path]);
 
   if (!content) {
@@ -316,7 +316,7 @@ export function LegalAcceptanceGate({ children, exemptRoles = ["sped_parent", "s
           )}
           <p className="text-[11px] text-gray-400 text-center mt-3 leading-relaxed">
             Your acceptance is recorded with a timestamp and linked to your account.
-            Questions? Email <a href="mailto:legal@trellis.app" className="underline">legal@trellis.app</a>
+            Questions? Email <a href="mailto:legal@noverta.app" className="underline">legal@noverta.app</a>
           </p>
         </div>
       </div>

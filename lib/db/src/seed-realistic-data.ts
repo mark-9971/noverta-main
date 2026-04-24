@@ -1161,14 +1161,14 @@ export async function seedRealisticData() {
 }
 
 const TEACHER_DATA = [
-  { firstName: "Jennifer", lastName: "Martinez", email: "jmartinez@trellis.edu", title: "Math Teacher" },
-  { firstName: "Robert", lastName: "Chen", email: "rchen@trellis.edu", title: "ELA Teacher" },
-  { firstName: "Patricia", lastName: "Williams", email: "pwilliams@trellis.edu", title: "Science Teacher" },
-  { firstName: "Michael", lastName: "Johnson", email: "mjohnson@trellis.edu", title: "Social Studies Teacher" },
-  { firstName: "Sarah", lastName: "Thompson", email: "sthompson@trellis.edu", title: "Art Teacher" },
-  { firstName: "David", lastName: "Brown", email: "dbrown@trellis.edu", title: "PE Teacher" },
-  { firstName: "Amanda", lastName: "Davis", email: "adavis@trellis.edu", title: "Music Teacher" },
-  { firstName: "Kevin", lastName: "Wilson", email: "kwilson@trellis.edu", title: "Computer Science Teacher" },
+  { firstName: "Jennifer", lastName: "Martinez", email: "jmartinez@noverta.edu", title: "Math Teacher" },
+  { firstName: "Robert", lastName: "Chen", email: "rchen@noverta.edu", title: "ELA Teacher" },
+  { firstName: "Patricia", lastName: "Williams", email: "pwilliams@noverta.edu", title: "Science Teacher" },
+  { firstName: "Michael", lastName: "Johnson", email: "mjohnson@noverta.edu", title: "Social Studies Teacher" },
+  { firstName: "Sarah", lastName: "Thompson", email: "sthompson@noverta.edu", title: "Art Teacher" },
+  { firstName: "David", lastName: "Brown", email: "dbrown@noverta.edu", title: "PE Teacher" },
+  { firstName: "Amanda", lastName: "Davis", email: "adavis@noverta.edu", title: "Music Teacher" },
+  { firstName: "Kevin", lastName: "Wilson", email: "kwilson@noverta.edu", title: "Computer Science Teacher" },
 ];
 
 const COURSE_TEMPLATES = [

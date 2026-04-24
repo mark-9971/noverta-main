@@ -12,7 +12,7 @@ import { Resend } from "resend";
  * webhook (Stripe retries non-200 webhook responses, and we don't want
  * billing-state DB writes to be re-applied just because email is unconfigured).
  */
-const FROM_EMAIL = "Noverta Billing <billing@trellis.education>";
+const FROM_EMAIL = "Noverta Billing <billing@noverta.education>";
 
 export interface SendBillingNotificationParams {
   districtId: number;

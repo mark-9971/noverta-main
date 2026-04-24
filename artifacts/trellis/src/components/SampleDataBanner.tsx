@@ -6,25 +6,42 @@ import { useRole } from "@/lib/role-context";
 import { CheckCircle2, FlaskConical, Loader2, PlayCircle, Sparkles, X } from "lucide-react";
 import { isScreenshotMode } from "@/lib/screenshot-mode";
 
-const TOUR_STORAGE_PREFIX = "trellis.sampleTour.v1";
-const TOUR_START_FLAG = "trellis.sampleTour.start";
+// Canonical storage keys are now prefixed `noverta.*`. The legacy
+// `trellis.*` prefix is also cleared during a replay so a user who saw the
+// tour pre-rename gets a fully-fresh replay (no stale per-step "seen"
+// markers blocking activation). Drop the legacy prefix once one cycle of
+// users has rolled through.
+const TOUR_STORAGE_PREFIX = "noverta.sampleTour.v1";
+const LEGACY_TOUR_STORAGE_PREFIX = "trellis.sampleTour.v1";
+const TOUR_START_FLAG = "noverta.sampleTour.start";
+const LEGACY_TOUR_START_FLAG = "trellis.sampleTour.start";
 
 function armReplayTour() {
   try {
     const toRemove: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
-      if (k && k.startsWith(TOUR_STORAGE_PREFIX)) toRemove.push(k);
+      if (
+        k &&
+        (k.startsWith(TOUR_STORAGE_PREFIX) || k.startsWith(LEGACY_TOUR_STORAGE_PREFIX))
+      ) {
+        toRemove.push(k);
+      }
     }
     toRemove.forEach((k) => window.localStorage.removeItem(k));
     window.localStorage.setItem(TOUR_START_FLAG, "1");
+    // Dual-write the start flag so a SampleDataTour build that hasn't been
+    // refreshed yet still sees it in its consumeStartFlag().
+    window.localStorage.setItem(LEGACY_TOUR_START_FLAG, "1");
   } catch {
     /* localStorage unavailable; tour will still re-arm via the event below */
   }
   // Notify a mounted SampleDataTour to reopen at step 0 immediately. The
   // localStorage flags above also let the tour fire if it mounts later
-  // (e.g. after a route change).
+  // (e.g. after a route change). Dispatch on both names during the rename
+  // transition.
   try {
+    window.dispatchEvent(new Event("noverta:sampleTour:replay"));
     window.dispatchEvent(new Event("trellis:sampleTour:replay"));
   } catch {
     /* no-op */

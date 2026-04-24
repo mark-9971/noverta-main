@@ -4,8 +4,8 @@ import { ShieldAlert, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const DEFAULT_MESSAGE =
-  "This district is scheduled for deletion. Contact support@trellis.education to cancel.";
-const SUPPORT_EMAIL = "support@trellis.education";
+  "This district is scheduled for deletion. Contact support@noverta.education to cancel.";
+const SUPPORT_EMAIL = "support@noverta.education";
 const STORAGE_KEY = "trellis.districtLockedMessage";
 
 export function setDistrictLockedMessage(message: string | null): void {

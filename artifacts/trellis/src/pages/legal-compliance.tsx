@@ -281,7 +281,7 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        toast.error("Server error logging request. Please email legal@trellis.app directly.");
+        toast.error("Server error logging request. Please email legal@noverta.app directly.");
         return;
       }
 
@@ -292,12 +292,12 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
         (notes ? `\nNotes: ${notes}` : "") +
         `\n\nRequested at: ${new Date().toLocaleString()}\n`,
       );
-      window.open(`mailto:legal@trellis.app?subject=${emailSubject}&body=${emailBody}`, "_blank");
+      window.open(`mailto:legal@noverta.app?subject=${emailSubject}&body=${emailBody}`, "_blank");
 
       toast.success("Your email client has opened with a pre-filled request. Noverta will follow up within 2 business days.");
       onClose();
     } catch {
-      toast.error("Could not send request. Please email legal@trellis.app directly.");
+      toast.error("Could not send request. Please email legal@noverta.app directly.");
     } finally {
       setSending(false);
     }
@@ -513,7 +513,7 @@ export default function LegalCompliancePage() {
       <p className="text-[11px] text-gray-400 text-center pb-2">
         These documents are templates and operational policies. They do not constitute legal advice.
         Noverta recommends district counsel review the DPA before signing.
-        Questions? Email <a href="mailto:legal@trellis.app" className="underline hover:text-gray-600">legal@trellis.app</a>
+        Questions? Email <a href="mailto:legal@noverta.app" className="underline hover:text-gray-600">legal@noverta.app</a>
       </p>
     </div>
   );

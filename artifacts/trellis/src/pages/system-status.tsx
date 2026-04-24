@@ -306,7 +306,7 @@ export default function SystemStatusPage() {
                   <li>Add it as <span className="font-mono font-semibold">RESEND_API_KEY</span> in the Replit Secrets panel</li>
                   <li>Restart the API server — no code changes needed</li>
                 </ol>
-                <p className="text-amber-700 mt-1">The sending address is <span className="font-mono">noreply@trellis.education</span> — ensure your Resend domain matches or update <span className="font-mono">FROM_EMAIL</span> in <span className="font-mono">lib/email.ts</span>.</p>
+                <p className="text-amber-700 mt-1">The sending address is <span className="font-mono">noreply@noverta.education</span> — ensure your Resend domain matches or update <span className="font-mono">FROM_EMAIL</span> in <span className="font-mono">lib/email.ts</span>.</p>
               </div>
             )}
           </CardContent>

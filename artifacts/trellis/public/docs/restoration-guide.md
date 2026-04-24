@@ -142,7 +142,7 @@ script that respects tenant scoping.
 
 ## 4. Need help?
 
-Restoration is high-stakes work — a wrong import order or a stray `id` column can corrupt a live district. If you have any doubt, **email [support@trellis.education](mailto:support@trellis.education)** with:
+Restoration is high-stakes work — a wrong import order or a stray `id` column can corrupt a live district. If you have any doubt, **email [support@noverta.education](mailto:support@noverta.education)** with:
 
 - The district name and ID (if the destination already exists)
 - The archive ZIP (or a link to it in your storage)

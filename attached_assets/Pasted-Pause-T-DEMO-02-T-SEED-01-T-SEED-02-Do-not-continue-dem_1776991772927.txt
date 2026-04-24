@@ -1,0 +1,112 @@
+Pause T-DEMO-02 / T-SEED-01 / T-SEED-02. Do not continue demo-plan work right now.
+
+Proceed with the controlled safe rename pass from your audit.
+
+This task is now:
+
+**SAFE RENAME PASS — Trellis → Noverta**
+
+Use the audit you just produced as the source inventory.
+
+## Objective
+
+Rename all safe active occurrences of:
+
+* Trellis → Noverta
+* trellis → noverta
+* TRELLIS → NOVERTA
+
+while preserving compatibility for persisted/runtime identifiers.
+
+## In scope now
+
+Rename/update safe active references in:
+
+* user-visible JSX/text/headings/alt text
+* active docs
+* buyer-pack markdown
+* slide decks
+* API/server user-facing copy
+* comments/dev-facing source references where safe
+* email domains used only as sample/test/demo copy
+* constants like TRELLIS_GREEN → NOVERTA_GREEN
+* window globals with compatibility aliases
+* window events with compatibility support
+* BroadcastChannel names with compatibility support
+* localStorage keys with one-time migration shims
+* env var `TRELLIS_DEV_FORCE_DISTRICT_ID` with dual-read support
+
+## Compatibility requirements
+
+For localStorage:
+
+* migrate old `trellis.*` keys to new `noverta.*` keys
+* preserve existing user state
+* do not orphan tour-seen/dismissed flags
+
+For window globals/events:
+
+* expose new `NOVERTA` names
+* support old `TRELLIS` aliases temporarily if needed
+* document the shim
+
+For BroadcastChannel:
+
+* use `noverta-data-panel` going forward
+* support old `trellis-data-panel` if needed during transition
+* document any dual-channel behavior
+
+For env var:
+
+* prefer `NOVERTA_DEV_FORCE_DISTRICT_ID`
+* fall back to `TRELLIS_DEV_FORCE_DISTRICT_ID`
+* document deprecation of old env var
+
+## Still out of scope
+
+Do not rename yet:
+
+* `artifacts/trellis*` folder names
+* `@workspace/trellis*` package names
+* DB role identifier `trellis_support`
+* JS property `trellisRole` if auth-coupled
+* generated clients unless regenerated from source
+* migration SQL
+* `_clerk-restore/**`
+* `pnpm-lock.yaml`
+* external domains we do not own
+
+## Required proof
+
+After editing, run:
+
+* grep/search for `Trellis`
+* grep/search for `trellis`
+* grep/search for `TRELLIS`
+
+Classify every remaining hit as:
+
+* historical
+* intentionally deferred technical identifier
+* externally blocked
+* missed and needs fixing
+
+Also run the narrowest useful typecheck/build proof for touched packages.
+
+## Required final output
+
+Return exactly:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES MODIFIED
+3. EXACT COMPATIBILITY SHIMS ADDED
+4. EXACT FILES / REFERENCES LEFT UNCHANGED ON PURPOSE
+5. USER-VISIBLE IMPACT
+6. ARCHITECTURE / REPO IMPACT
+7. SEARCH / VERIFICATION METHOD
+8. TEST / BUILD STATUS
+9. EXACT REMAINING TRELLIS REFERENCES
+10. EXACT REMAINING GAPS
+11. EXACT NEXT TASKS
+
+Do not continue T-DEMO-02, T-SEED-01, T-SEED-02, or T01 after this.

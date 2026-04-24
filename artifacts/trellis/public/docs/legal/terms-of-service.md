@@ -22,7 +22,7 @@ You acknowledge that the Service processes personally identifiable information (
 
 - Access and handle student records only as necessary for your legitimate educational duties.
 - Not download, copy, or transmit student data outside of authorized workflows.
-- Promptly report suspected unauthorized access or disclosure to your district's data privacy contact and to Noverta at **security@trellis.app**.
+- Promptly report suspected unauthorized access or disclosure to your district's data privacy contact and to Noverta at **security@noverta.app**.
 
 ## 3. Account Security
 
@@ -50,7 +50,7 @@ These Terms are governed by the laws of the Commonwealth of Massachusetts, witho
 
 ## 9. Contact
 
-If you have questions about these Terms, contact **legal@trellis.app**.
+If you have questions about these Terms, contact **legal@noverta.app**.
 
 ---
 

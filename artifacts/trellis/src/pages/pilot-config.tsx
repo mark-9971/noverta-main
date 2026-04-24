@@ -199,7 +199,7 @@ export default function PilotConfigPage() {
               type="email"
               value={amEmail}
               onChange={(e) => setAmEmail(e.target.value)}
-              placeholder="riley@trellis.com"
+              placeholder="riley@noverta.com"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>

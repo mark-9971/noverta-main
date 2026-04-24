@@ -157,7 +157,7 @@ Review alerts at least twice a week. Click any alert to go directly to the relev
 
 **If the system is down:** Check your email — we send outage notifications to district admins within 30 minutes. The support email is your fastest path to an update.
 
-**Support email:** support@trellis.education  
+**Support email:** support@noverta.education  
 **Subject format:** `[Your District] P1/P2/P3 — brief description`
 
 See the full [Support Process](./support-process.md) for response time expectations.
@@ -178,4 +178,4 @@ See the full [Support Process](./support-process.md) for response time expectati
 | Download compliance CSV | Reports → Exports |
 | Add staff | Staff → Add Staff Member |
 | Change district settings | Setup (bottom of sidebar) |
-| Get help | support@trellis.education |
+| Get help | support@noverta.education |

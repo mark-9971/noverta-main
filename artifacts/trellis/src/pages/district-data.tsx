@@ -327,7 +327,7 @@ export default function DistrictDataPage() {
               Open restoration guide
             </a>
             <a
-              href="mailto:support@trellis.education?subject=Restoration%20assistance%20request"
+              href="mailto:support@noverta.education?subject=Restoration%20assistance%20request"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <Mail className="w-4 h-4" />
@@ -394,7 +394,7 @@ export default function DistrictDataPage() {
         <Shield className="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-400" />
         <span>
           These tools fulfil contractual DPA obligations. Exported archives and deletion certificates are provided
-          for your compliance records. Contact <a href="mailto:dpa@trellis.education" className="underline">dpa@trellis.education</a> with questions.
+          for your compliance records. Contact <a href="mailto:dpa@noverta.education" className="underline">dpa@noverta.education</a> with questions.
         </span>
       </div>
 

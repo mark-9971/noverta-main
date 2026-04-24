@@ -108,14 +108,20 @@ function consumeStartFlag(): boolean {
 }
 
 export function SampleDataTour() {
-  // E2E escape hatch: tests inject window.__TRELLIS_DISABLE_TOURS__=true or
-  // set localStorage["trellis.disableTours"]="1" to fully suppress the tour
+  // E2E escape hatch: tests inject window.__NOVERTA_DISABLE_TOURS__=true (or
+  // legacy __TRELLIS_DISABLE_TOURS__) or set localStorage["noverta.disableTours"]
+  // (or legacy "trellis.disableTours") = "1" to fully suppress the tour
   // (no auto-open, no replay event handling, no overlay render). Checked at
   // the top of render so all activation paths are short-circuited.
   if (typeof window !== "undefined") {
-    const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+    const w = window as unknown as {
+      __NOVERTA_DISABLE_TOURS__?: boolean;
+      __TRELLIS_DISABLE_TOURS__?: boolean;
+    };
+    if (w.__NOVERTA_DISABLE_TOURS__ === true) return null;
     if (w.__TRELLIS_DISABLE_TOURS__ === true) return null;
     try {
+      if (window.localStorage.getItem("noverta.disableTours") === "1") return null;
       if (window.localStorage.getItem("trellis.disableTours") === "1") return null;
     } catch {
       // ignore
@@ -149,14 +155,20 @@ export function SampleDataTour() {
   // has not yet seen it.
   useEffect(() => {
     if (!clerkLoaded) return;
-    // E2E escape hatch: tests inject window.__TRELLIS_DISABLE_TOURS__ or set
-    // localStorage["trellis.disableTours"]="1" to prevent the tour from
+    // E2E escape hatch: tests inject window.__NOVERTA_DISABLE_TOURS__ (or
+    // legacy __TRELLIS_DISABLE_TOURS__) or set localStorage["noverta.disableTours"]
+    // (or legacy "trellis.disableTours") = "1" to prevent the tour from
     // auto-opening (and auto-navigating to /compliance-risk-report on Step 1)
     // during automated runs.
     if (typeof window !== "undefined") {
-      const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+      const w = window as unknown as {
+        __NOVERTA_DISABLE_TOURS__?: boolean;
+        __TRELLIS_DISABLE_TOURS__?: boolean;
+      };
+      if (w.__NOVERTA_DISABLE_TOURS__ === true) return;
       if (w.__TRELLIS_DISABLE_TOURS__ === true) return;
       try {
+        if (window.localStorage.getItem("noverta.disableTours") === "1") return;
         if (window.localStorage.getItem("trellis.disableTours") === "1") return;
       } catch {
         // ignore
@@ -185,8 +197,13 @@ export function SampleDataTour() {
       setStepIdx(0);
       setActive(true);
     }
+    // Dual-listen on both names during the rename transition.
+    window.addEventListener("noverta:sampleTour:replay", onReplay);
     window.addEventListener("trellis:sampleTour:replay", onReplay);
-    return () => window.removeEventListener("trellis:sampleTour:replay", onReplay);
+    return () => {
+      window.removeEventListener("noverta:sampleTour:replay", onReplay);
+      window.removeEventListener("trellis:sampleTour:replay", onReplay);
+    };
   }, [isAdmin, data?.hasSampleData]);
 
   // Auto-close if sample data is removed (e.g. via the banner) while the

@@ -86,7 +86,7 @@ beforeAll(async () => {
   testDistrictId = d.id;
   const s = await createSchool(testDistrictId);
   testSchoolId = s.id;
-  const staff = await createStaff(testSchoolId, { role: "case_manager", email: `target_${Date.now()}@trellis.test` });
+  const staff = await createStaff(testSchoolId, { role: "case_manager", email: `target_${Date.now()}@noverta.test` });
   testStaffId = staff.id;
   await seedLegalAcceptances([ADMIN_USER, ADMIN_USER_B, NON_ADMIN_USER, TARGET_USER, TARGET_USER_2]);
 });

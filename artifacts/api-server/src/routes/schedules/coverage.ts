@@ -419,7 +419,7 @@ ${notesLabel ? `<div class="notes-box"><strong>Special Notes:</strong><br>${note
 </div>
 <div class="footer"><p>Noverta SPED Compliance Platform — Confidential. This message was sent because you were assigned as a substitute provider.</p></div>
 </div></body></html>`;
-    const text = `Hi ${subName},\n\nYou have been assigned to cover a session.\n\nDate: ${dateLabel}${timeLabel ? `\nTime: ${timeLabel}` : ""}${locationLabel ? `\nLocation: ${locationLabel}` : ""}${studentName ? `\nStudent: ${studentName}` : ""}${notesLabel ? `\nSpecial Notes: ${notesLabel}` : ""}\n\nPlease log in to Noverta to view full session details.\n\nTrellis SPED Compliance Platform`;
+    const text = `Hi ${subName},\n\nYou have been assigned to cover a session.\n\nDate: ${dateLabel}${timeLabel ? `\nTime: ${timeLabel}` : ""}${locationLabel ? `\nLocation: ${locationLabel}` : ""}${studentName ? `\nStudent: ${studentName}` : ""}${notesLabel ? `\nSpecial Notes: ${notesLabel}` : ""}\n\nPlease log in to Noverta to view full session details.\n\nNoverta SPED Compliance Platform`;
     let sendResult: Awaited<ReturnType<typeof sendAdminEmail>>;
     try {
       sendResult = await sendAdminEmail({ to: [sub.email], subject, html, text, notificationType: "coverage_assignment" });

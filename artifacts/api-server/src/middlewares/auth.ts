@@ -357,8 +357,14 @@ export function enforceDistrictScope(req: Request, res: Response, next: NextFunc
  * claims. Intentionally NOT a silent first-row fallback — that hazard is what
  * caused the multi-tenant pin bug. Requires explicit operator action to enable.
  */
-const _forcedDistrictId: number | null = process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
-  ? Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID)
+// Prefer the new NOVERTA_* env var; fall back to the deprecated TRELLIS_* one
+// so existing operator/CI configs continue to work during the rename. Drop
+// the legacy read once all environments have been updated.
+const _forcedDistrictRaw =
+  process.env.NOVERTA_DEV_FORCE_DISTRICT_ID
+  ?? process.env.TRELLIS_DEV_FORCE_DISTRICT_ID;
+const _forcedDistrictId: number | null = _forcedDistrictRaw
+  ? Number(_forcedDistrictRaw)
   : null;
 
 /**
@@ -404,7 +410,7 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
     let districtId = rows[0]?.districtId ?? null;
 
     // Fallback: known demo / e2e Clerk-test identities (showcase-walker,
-    // trellis-e2e-*, etc.) auto-provision into the existing demo district
+    // noverta-e2e-* / trellis-e2e-*, etc.) auto-provision into the existing demo district
     // so a freshly-signed-in demo account doesn't need a manual staff row
     // INSERT to clear requireDistrictScope. Returns null in any environment
     // that has no is_demo=true district, so production tenants are never
@@ -440,11 +446,15 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
 /**
  * Initializer kept for backwards compatibility. The legacy "first district in
  * the table is everyone's tenant in dev" behavior was removed; this now only
- * logs whether the explicit TRELLIS_DEV_FORCE_DISTRICT_ID override is active.
+ * logs whether the explicit NOVERTA_DEV_FORCE_DISTRICT_ID (or its deprecated
+ * alias TRELLIS_DEV_FORCE_DISTRICT_ID) override is active.
  */
 export async function initDevDistrictFallback(): Promise<void> {
   if (_forcedDistrictId != null) {
-    console.log(`[Auth] TRELLIS_DEV_FORCE_DISTRICT_ID is set — every request will be pinned to district ${_forcedDistrictId}. Do not enable in production.`);
+    const which = process.env.NOVERTA_DEV_FORCE_DISTRICT_ID
+      ? "NOVERTA_DEV_FORCE_DISTRICT_ID"
+      : "TRELLIS_DEV_FORCE_DISTRICT_ID (deprecated — rename to NOVERTA_DEV_FORCE_DISTRICT_ID)";
+    console.log(`[Auth] ${which} is set — every request will be pinned to district ${_forcedDistrictId}. Do not enable in production.`);
   }
 }
 
@@ -630,7 +640,7 @@ export function blockDeletedDistrict(req: Request, res: Response, next: NextFunc
     if (cached.deleteInitiatedAt) {
       recordAccessDenial(req, "district_soft_deleted", 403, `District ${districtId} is scheduled for deletion (initiated ${cached.deleteInitiatedAt.toISOString()})`);
       res.status(403).json({
-        error: "This district is scheduled for deletion. Contact support@trellis.education to cancel.",
+        error: "This district is scheduled for deletion. Contact support@noverta.education to cancel.",
         code: "DISTRICT_SOFT_DELETED",
       });
       return;
@@ -654,7 +664,7 @@ export function blockDeletedDistrict(req: Request, res: Response, next: NextFunc
       if (deleteInitiatedAt) {
         recordAccessDenial(req, "district_soft_deleted", 403, `District ${districtId} is scheduled for deletion (initiated ${deleteInitiatedAt.toISOString()})`);
         res.status(403).json({
-          error: "This district is scheduled for deletion. Contact support@trellis.education to cancel.",
+          error: "This district is scheduled for deletion. Contact support@noverta.education to cancel.",
           code: "DISTRICT_SOFT_DELETED",
         });
         return;

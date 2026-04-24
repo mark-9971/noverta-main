@@ -132,9 +132,16 @@ function markSeen(
 
 function toursDisabled(): boolean {
   if (typeof window === "undefined") return false;
-  const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+  const w = window as unknown as {
+    __NOVERTA_DISABLE_TOURS__?: boolean;
+    __TRELLIS_DISABLE_TOURS__?: boolean;
+  };
+  // Dual-read both window globals during the rename transition.
+  if (w.__NOVERTA_DISABLE_TOURS__ === true) return true;
   if (w.__TRELLIS_DISABLE_TOURS__ === true) return true;
   try {
+    // Dual-read both localStorage keys during the rename transition.
+    if (window.localStorage.getItem("noverta.disableTours") === "1") return true;
     if (window.localStorage.getItem("trellis.disableTours") === "1") return true;
   } catch {
     // ignore
@@ -171,6 +178,9 @@ export function startShowcaseTour() {
     /* localStorage unavailable; the event below still re-opens it */
   }
   try {
+    // Dual-dispatch on both event names during the rename transition so
+    // any listener that hasn't been updated still fires.
+    window.dispatchEvent(new Event("noverta:showcaseTour:start"));
     window.dispatchEvent(new Event("trellis:showcaseTour:start"));
   } catch {
     /* no-op */
@@ -224,8 +234,13 @@ export function ShowcaseTour() {
       setStepIdx(0);
       setActive(true);
     }
+    // Dual-listen on both names during the rename transition.
+    window.addEventListener("noverta:showcaseTour:start", onStart);
     window.addEventListener("trellis:showcaseTour:start", onStart);
-    return () => window.removeEventListener("trellis:showcaseTour:start", onStart);
+    return () => {
+      window.removeEventListener("noverta:showcaseTour:start", onStart);
+      window.removeEventListener("trellis:showcaseTour:start", onStart);
+    };
   }, [isAdmin, data?.hasSampleData]);
 
   // Auto-close if sample data is removed mid-flight — the surfaces it

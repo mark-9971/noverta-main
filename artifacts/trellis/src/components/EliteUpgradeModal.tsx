@@ -67,7 +67,7 @@ export function EliteUpgradeModal({ open, onClose, featureName }: EliteUpgradeMo
             asChild
             className="bg-violet-600 hover:bg-violet-700 text-white w-full gap-2"
           >
-            <a href="mailto:sales@trellis.education?subject=ELITE%20Plan%20Inquiry" onClick={onClose}>
+            <a href="mailto:sales@noverta.education?subject=ELITE%20Plan%20Inquiry" onClick={onClose}>
               <Crown className="w-4 h-4" />
               Talk to Sales
             </a>

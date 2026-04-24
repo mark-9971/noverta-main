@@ -7,7 +7,7 @@
 
 ## How to Report a Problem
 
-**Email:** support@trellis.education  
+**Email:** support@noverta.education  
 **Subject line format:** `[DISTRICT NAME] P1/P2/P3 — brief description`  
 Example: `[Millbrook SPED] P2 — service minutes CSV export returns blank file`
 

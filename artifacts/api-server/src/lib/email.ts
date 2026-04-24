@@ -808,7 +808,7 @@ ${dashboardLink}
 <div class="footer"><p>Sent by Noverta SPED Compliance Platform. Manage alert preferences in Noverta Settings.</p></div>
 </div></body></html>`;
 
-  const text = `DAILY CRITICAL RISK DIGEST — ${digestDate}\n\nHi ${staffName},\n\n${count} critical compliance risk${count !== 1 ? "s" : ""} require your attention:\n\n${textRows}\n\nLog in to Noverta to take action. This digest replaces individual per-alert emails.\n\nTrellis SPED Compliance Platform`;
+  const text = `DAILY CRITICAL RISK DIGEST — ${digestDate}\n\nHi ${staffName},\n\n${count} critical compliance risk${count !== 1 ? "s" : ""} require your attention:\n\n${textRows}\n\nLog in to Noverta to take action. This digest replaces individual per-alert emails.\n\nNoverta SPED Compliance Platform`;
 
   return { subject, html, text };
 }

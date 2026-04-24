@@ -518,19 +518,27 @@ router.post("/demo-control/hero-cast", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // POST /demo-control/before-after
 // Input-driven calculator. Body:
-//   { districtId, weeksOnTrellis (1..52), startingCompliancePct (0..100),
+//   { districtId, weeksOnNoverta (1..52, accepts deprecated alias
+//     weeksOnTrellis), startingCompliancePct (0..100),
 //     startingOnTimeLoggingPct (0..100) }
 // Returns derived "before" snapshot, current "after" snapshot from real DB,
 // projection narrative, and a self-contained one-page sharable HTML.
+//
+// Compat: the previous body key `weeksOnTrellis` is still accepted during
+// the rename transition so existing demo scripts keep working. The
+// response echoes both names under `inputs` for the same reason.
 // ---------------------------------------------------------------------------
 router.post("/demo-control/before-after", async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as {
-    districtId?: number; weeksOnTrellis?: number;
+    districtId?: number;
+    weeksOnNoverta?: number;
+    weeksOnTrellis?: number;
     startingCompliancePct?: number; startingOnTimeLoggingPct?: number;
   };
   const r = await requireDemoDistrict(body.districtId);
   if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
-  const weeks = Math.max(1, Math.min(52, Number(body.weeksOnTrellis) || 12));
+  const weeksRaw = body.weeksOnNoverta ?? body.weeksOnTrellis;
+  const weeks = Math.max(1, Math.min(52, Number(weeksRaw) || 12));
   const startCompliance = Math.max(0, Math.min(100, Number(body.startingCompliancePct ?? 60)));
   const startLogging = Math.max(0, Math.min(100, Number(body.startingOnTimeLoggingPct ?? 42)));
   try {
@@ -626,7 +634,14 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}.up{color:#047857;font-
 </body></html>`;
     res.json({
       ok: true, districtId: r.district.id, districtName: r.district.name,
-      inputs: { weeksOnTrellis: weeks, startingCompliancePct: startCompliance, startingOnTimeLoggingPct: startLogging },
+      inputs: {
+        weeksOnNoverta: weeks,
+        // Deprecated alias kept during the rename transition; clients
+        // should switch to `weeksOnNoverta`.
+        weeksOnTrellis: weeks,
+        startingCompliancePct: startCompliance,
+        startingOnTimeLoggingPct: startLogging,
+      },
       totalStudents: total, before, after,
       delta: {
         compliancePts: deltaCompliance,
@@ -635,7 +650,7 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}.up{color:#047857;font-
       },
       narrative,
       onePagerHtml,
-      filename: `trellis-impact-${r.district.id}-${new Date().toISOString().slice(0, 10)}.html`,
+      filename: `noverta-impact-${r.district.id}-${new Date().toISOString().slice(0, 10)}.html`,
     });
   } catch (err) {
     logger.error({ err }, "before-after failed");
