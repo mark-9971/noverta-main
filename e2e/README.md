@@ -249,7 +249,15 @@ repository (Settings → Secrets and variables → Actions):
      `authFetch` calls.
 - **Disabling onboarding tours.** Both `SampleDataTour` and
   `ShowcaseTour` honor a render-time guard: if
-  `window.__TRELLIS_DISABLE_TOURS__ === true` or
-  `localStorage["trellis.disableTours"] === "1"`, they return `null`.
-  The Playwright `addInitScript` in this suite sets both, so tours
-  never overlay test assertions.
+  `window.__NOVERTA_DISABLE_TOURS__ === true` or
+  `localStorage["noverta.disableTours"] === "1"`, they return `null`.
+  The legacy `window.__TRELLIS_DISABLE_TOURS__` flag and
+  `localStorage["trellis.disableTours"] === "1"` value are also
+  accepted (rolling browser-storage migration window — see
+  `docs/runbooks/noverta-cutover.md` §5.6); the canonical Noverta
+  names are preferred for new code. The Playwright `addInitScript`
+  in this suite sets the canonical Noverta flag and storage value
+  (see `tests/incident-lifecycle.spec.ts`,
+  `tests/onboarding-checklist-task-792.spec.ts`, and
+  `tests/_helpers/handling.ts`), so tours never overlay test
+  assertions.
