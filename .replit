@@ -33,9 +33,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.development]
-NODE_ENV = "test"
-DEV_AUTH_BYPASS = "1"
-VITE_DEV_AUTH_BYPASS = "1"
 
 [userenv.shared]
 VITE_SENTRY_DSN = "https://9df57583c8780b2677f1310ae418620d@o4511242208149504.ingest.us.sentry.io/4511242209787904"
