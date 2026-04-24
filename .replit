@@ -33,8 +33,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.development]
-DEV_AUTH_BYPASS = "1"
-VITE_DEV_AUTH_BYPASS = "1"
 NODE_ENV = "test"
 
 [userenv.shared]
