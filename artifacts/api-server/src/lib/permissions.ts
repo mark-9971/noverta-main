@@ -10,6 +10,31 @@ export type TrellisRole =
   | "sped_parent"
   | "trellis_support";
 
+/**
+ * Canonical Noverta-era alias for the same role-string union.
+ *
+ * The internal/stored representation of every role-string remains the
+ * legacy name (e.g. `"trellis_support"`) during the rename transition
+ * so:
+ *   - existing Clerk publicMetadata.role values continue to satisfy
+ *     `isRole()` and authorization checks unchanged,
+ *   - the ~10 in-repo `=== "trellis_support"` literal comparisons
+ *     across api-server + trellis frontend keep working without a
+ *     scatter-shot rewrite (which would risk silently weakening
+ *     support-session enforcement).
+ *
+ * Boundary parsers (`extractRole` in middlewares/auth.ts;
+ * `isValidRole` in artifacts/trellis/src/lib/role-context.tsx) accept
+ * the new `"noverta_support"` claim value and canonicalize it back to
+ * `"trellis_support"` via `canonicalizeRoleString` below — so once the
+ * Clerk dashboard is updated to issue `"noverta_support"` in
+ * publicMetadata.role, this codebase admits both values and treats
+ * them identically. The legacy `"trellis_support"` literal in the
+ * union and HIERARCHY map is retained until every Clerk tenant has
+ * been migrated; removal is tracked in NEXT-8.
+ */
+export type NovertaRole = TrellisRole;
+
 export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   admin: 100,
   case_manager: 80,
@@ -25,8 +50,31 @@ export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   // check by accident. Read access is granted only when an active
   // support_sessions row pins the request to a specific district (see
   // requireAuth's support-session override in middlewares/auth.ts).
+  // Internal canonical name is `trellis_support`; `noverta_support` is
+  // accepted at boundary parsers and remapped to this value. See
+  // `canonicalizeRoleString` below.
   trellis_support: 1,
 };
+
+/**
+ * Boundary canonicalizer for role-string claim values.
+ *
+ * Accepts both the legacy `"trellis_support"` claim (still issued by
+ * existing Clerk tenants) and the canonical Noverta-era
+ * `"noverta_support"` claim (to be issued once the Clerk dashboard
+ * `publicMetadata.role` rename rolls out — see NEXT-7 §10 checklist).
+ * Returns the internal canonical role-string used by every downstream
+ * comparison in the api-server and trellis frontend, so the
+ * authorization layer never has to know which spelling the token used.
+ *
+ * Idempotent: passing an already-canonical role returns it unchanged.
+ * Non-string / unrecognized inputs are returned untouched so the
+ * caller's existing `isRole()` validation still rejects them.
+ */
+export function canonicalizeRoleString(role: unknown): unknown {
+  if (role === "noverta_support") return "trellis_support";
+  return role;
+}
 
 export const STAFF_ROLES: TrellisRole[] = [
   "admin",

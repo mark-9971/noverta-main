@@ -97,6 +97,14 @@ pnpm --filter @workspace/e2e exec playwright install chromium
 # 2. Make sure the dev API + web are running (workflows: artifacts/api-server, artifacts/trellis).
 
 # 3. Provide a Clerk test admin (see https://clerk.com/docs/testing/test-emails).
+#    Default emails/passwords below remain `trellis-e2e-*` / `TrellisE2E!*`
+#    so existing Clerk dev-instance users keep working unchanged. The
+#    canonical Noverta-era aliases `noverta-e2e-admin+clerk_test@example.com`
+#    and `noverta-e2e-teacher+clerk_test@example.com` are also accepted by
+#    the auth-time auto-provision fallback (see "Demo / e2e identity
+#    bootstrap" below) — once new Clerk dev-instance users are created
+#    with those addresses + new passwords, point E2E_ADMIN_EMAIL /
+#    E2E_TEACHER_EMAIL / their _PASSWORD envs at them.
 export E2E_ADMIN_EMAIL='trellis-e2e-admin+clerk_test@example.com'
 export E2E_ADMIN_PASSWORD='TrellisE2E!Test#2026'
 
@@ -125,9 +133,11 @@ before the first run; subsequent runs reuse them.
 ### Demo / e2e identity bootstrap
 
 Outside of `/api/e2e/setup`, any Clerk user whose email is in the canonical
-demo list (`lib/db/src/seed-demo-identities.ts` — currently
+demo list (`lib/db/src/seed-demo-identities.ts` — currently the legacy
 `trellis-e2e-admin+clerk_test@example.com`,
-`trellis-e2e-teacher+clerk_test@example.com`,
+`trellis-e2e-teacher+clerk_test@example.com`, the canonical
+`noverta-e2e-admin+clerk_test@example.com`,
+`noverta-e2e-teacher+clerk_test@example.com`, and
 `showcase-walker+clerk_test@example.com`) is auto-linked to a staff row in
 the `is_demo=true` district the first time `requireDistrictScope` runs for
 them. This means the showcase / sales-demo path works against any
@@ -137,13 +147,19 @@ platform admins) — no manual `INSERT INTO staff` required. To add a new
 demo identity, edit `seed-demo-identities.ts`; both the canonical seed
 script and the auth-time fallback will pick it up automatically.
 
-### `TRELLIS_DEV_FORCE_DISTRICT_ID`
+### `NOVERTA_DEV_FORCE_DISTRICT_ID` (alias: `TRELLIS_DEV_FORCE_DISTRICT_ID`)
 
 In non-production environments only, setting this env var pins every
 authenticated request to the given district id, bypassing both the Clerk
 metadata claim and the staff-row lookup. Use it sparingly — it overrides
 real tenant scope and is intended only for QA on dedicated single-tenant
-staging deployments. The auto-provision fallback above is the preferred
+staging deployments.
+
+The canonical Noverta-era name is `NOVERTA_DEV_FORCE_DISTRICT_ID`. The
+legacy `TRELLIS_DEV_FORCE_DISTRICT_ID` is still accepted (with the new
+name winning when both are set) so existing operator/CI configs keep
+working during the rename. Drop the legacy alias once every environment
+has been updated. The auto-provision fallback above is the preferred
 route for the showcase / e2e accounts; reach for the env var only when you
 need to force a non-demo Clerk identity into a specific district for a
 one-off investigation. Production rejects this var by virtue of the

@@ -57,8 +57,28 @@ const VALID_ROLES = new Set<string>([
   "sped_student", "sped_parent", "trellis_support",
 ]);
 
+/**
+ * Boundary canonicalizer for role-string claim values.
+ *
+ * Mirrors the api-server's `canonicalizeRoleString` (see
+ * artifacts/api-server/src/lib/permissions.ts). Accepts the new
+ * `"noverta_support"` claim spelling alongside the legacy
+ * `"trellis_support"` value during the rename transition and
+ * returns the internal canonical name so every downstream
+ * `=== "trellis_support"` comparison in this app keeps working
+ * unchanged. Once the Clerk dashboard `publicMetadata.role` rename
+ * rolls out, both claim values will resolve identically; the legacy
+ * literal stays in VALID_ROLES until tenant migration completes
+ * (tracked in NEXT-8).
+ */
+function canonicalizeRoleString(role: unknown): unknown {
+  if (role === "noverta_support") return "trellis_support";
+  return role;
+}
+
 function isValidRole(r: unknown): r is UserRole {
-  return typeof r === "string" && VALID_ROLES.has(r);
+  const c = canonicalizeRoleString(r);
+  return typeof c === "string" && VALID_ROLES.has(c);
 }
 
 /**
@@ -165,8 +185,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return Number(lsGet("noverta_guardian_id")) || 1;
   });
 
-  const clerkRole = isValidRole(clerkUser?.publicMetadata?.role)
-    ? (clerkUser!.publicMetadata!.role as UserRole)
+  // Run Clerk's publicMetadata.role through the boundary canonicalizer
+  // so the new `"noverta_support"` claim is mapped to the internal
+  // `"trellis_support"` role before any UI compare or routing decision.
+  const rawClerkRole = clerkUser?.publicMetadata?.role;
+  const canonicalClerkRole = canonicalizeRoleString(rawClerkRole);
+  const clerkRole = isValidRole(canonicalClerkRole)
+    ? (canonicalClerkRole as UserRole)
     : null;
 
   const clerkStudentId = Number(clerkUser?.publicMetadata?.studentId) || 0;

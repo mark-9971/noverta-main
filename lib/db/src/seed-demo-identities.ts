@@ -35,6 +35,25 @@ export interface DemoIdentity {
   title: string;
 }
 
+/**
+ * Rename transition (Trellis → Noverta).
+ *
+ * Both `trellis-e2e-*` (legacy) and `noverta-e2e-*` (canonical Noverta-era)
+ * Clerk-test identities are listed below. Both are auto-provisioned by
+ * `ensureDemoStaffForEmail` so:
+ *   - existing Clerk dev-instance test users with legacy emails keep
+ *     working (no Clerk dashboard change required to ship this code),
+ *   - newly-created Clerk dev-instance test users with canonical
+ *     `noverta-e2e-*` emails work immediately when the e2e env defaults
+ *     are eventually flipped (see e2e/README.md → Rename transition).
+ *
+ * Because `seedDemoIdentities` is idempotent (it skips an identity whose
+ * email already has a row in the demo district and revives soft-deleted
+ * rows in place), adding the canonical aliases is a non-destructive
+ * extension. The legacy `trellis-e2e-*` rows are NOT removed; removal is
+ * gated on Clerk dashboard rename (NEXT-7 §10) and in-repo retirement
+ * (NEXT-8).
+ */
 export const DEMO_IDENTITIES: DemoIdentity[] = [
   {
     email: "trellis-e2e-admin+clerk_test@example.com",
@@ -45,6 +64,25 @@ export const DEMO_IDENTITIES: DemoIdentity[] = [
   },
   {
     email: "trellis-e2e-teacher+clerk_test@example.com",
+    role: "sped_teacher",
+    firstName: "E2E",
+    lastName: "Teacher",
+    title: "Special Education Teacher (E2E)",
+  },
+  // Canonical Noverta-era aliases. Same role + auto-provision policy as
+  // the legacy `trellis-e2e-*` rows above — added so the e2e suite can
+  // be flipped to `noverta-e2e-*` defaults without a server-side code
+  // change. Until E2E_*_EMAIL envs are pointed at these addresses,
+  // these rows are inserted but unused.
+  {
+    email: "noverta-e2e-admin+clerk_test@example.com",
+    role: "admin",
+    firstName: "E2E",
+    lastName: "Admin",
+    title: "Director of Student Services (E2E)",
+  },
+  {
+    email: "noverta-e2e-teacher+clerk_test@example.com",
     role: "sped_teacher",
     firstName: "E2E",
     lastName: "Teacher",

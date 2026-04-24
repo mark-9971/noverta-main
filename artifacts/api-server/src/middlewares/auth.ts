@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
-import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
+import { type TrellisRole, isRole, ROLE_HIERARCHY, canonicalizeRoleString } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { recordAccessDenial } from "../lib/accessDenials";
 import { db, staffTable, schoolsTable, districtsTable, ensureDemoStaffForEmail } from "@workspace/db";
@@ -48,11 +48,21 @@ function extractRole(req: Request): TrellisRole | null {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
 
+  // Canonicalize the Clerk session's publicMetadata.role through the
+  // boundary helper so the new `"noverta_support"` claim spelling is
+  // accepted alongside the legacy `"trellis_support"` value during the
+  // rename transition. After canonicalization, every downstream check
+  // (support-session override, role-hierarchy gate, route-level
+  // requireRoles) only sees the internal canonical name. See
+  // permissions.ts → canonicalizeRoleString.
   const meta = getPublicMeta(req);
-  if (isRole(meta.role)) return meta.role as TrellisRole;
+  const metaRole = canonicalizeRoleString(meta.role);
+  if (isRole(metaRole)) return metaRole as TrellisRole;
 
   if (process.env.NODE_ENV !== "production") {
-    const demoRole = req.headers["x-demo-role"];
+    // Same dual-accept policy on the dev/demo `x-demo-role` header so
+    // local persona switching can use either spelling safely.
+    const demoRole = canonicalizeRoleString(req.headers["x-demo-role"]);
     if (isRole(demoRole)) return demoRole as TrellisRole;
     return "admin";
   }
@@ -132,11 +142,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   if (allowTestBypass) {
     const testUserId = req.headers["x-test-user-id"];
     const testRole = req.headers["x-test-role"];
-    if (typeof testUserId === "string" && testUserId && isRole(testRole)) {
+    // Canonicalize `x-test-role` so test fixtures may pass either
+    // `"trellis_support"` or `"noverta_support"` and observe identical
+    // authorization behavior.
+    const canonicalTestRole = canonicalizeRoleString(testRole);
+    if (typeof testUserId === "string" && testUserId && isRole(canonicalTestRole)) {
       const authed = req as unknown as AuthedRequest;
       authed.userId = testUserId;
-      authed.trellisRole = testRole as TrellisRole;
-      authed.displayName = `Test ${testRole}`;
+      authed.trellisRole = canonicalTestRole as TrellisRole;
+      authed.displayName = `Test ${canonicalTestRole}`;
       authed.tenantDistrictId = req.headers["x-test-district-id"]
         ? Number(req.headers["x-test-district-id"]) : null;
       authed.tenantStaffId = req.headers["x-test-staff-id"]
