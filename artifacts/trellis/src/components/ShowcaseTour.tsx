@@ -39,8 +39,10 @@ interface TourStep {
   body: string;
 }
 
-const STORAGE_KEY_PREFIX = "trellis.showcaseTour.v1";
-const START_FLAG = "trellis.showcaseTour.start";
+const STORAGE_KEY_PREFIX = "noverta.showcaseTour.v1";
+const LEGACY_STORAGE_KEY_PREFIX = "trellis.showcaseTour.v1";
+const START_FLAG = "noverta.showcaseTour.start";
+const LEGACY_START_FLAG = "trellis.showcaseTour.start";
 
 function storageKeyFor(
   userId: string | null | undefined,
@@ -49,6 +51,14 @@ function storageKeyFor(
   const u = userId ?? "anon";
   const d = districtId != null ? String(districtId) : "nodistrict";
   return `${STORAGE_KEY_PREFIX}.${d}.${u}`;
+}
+function legacyStorageKeyFor(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+): string {
+  const u = userId ?? "anon";
+  const d = districtId != null ? String(districtId) : "nodistrict";
+  return `${LEGACY_STORAGE_KEY_PREFIX}.${d}.${u}`;
 }
 
 // Wedge-focused tour: Phase A closed-loop makeup. Walks the viewer through
@@ -112,7 +122,19 @@ function readSeen(
   districtId: number | null | undefined,
 ): boolean {
   try {
-    return window.localStorage.getItem(storageKeyFor(userId, districtId)) === "seen";
+    // Read-fallback for per-user × per-district seen flag. Copy-forward
+    // so we never re-show the tour to someone who already dismissed it.
+    const fresh = window.localStorage.getItem(storageKeyFor(userId, districtId));
+    if (fresh === "seen") return true;
+    const legacy = window.localStorage.getItem(legacyStorageKeyFor(userId, districtId));
+    if (legacy === "seen") {
+      try {
+        window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+        window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
+      } catch { /* leave legacy intact */ }
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -124,7 +146,9 @@ function markSeen(
 ) {
   try {
     window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+    window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
     window.localStorage.removeItem(START_FLAG);
+    window.localStorage.removeItem(LEGACY_START_FLAG);
   } catch {
     /* ignore */
   }
@@ -151,8 +175,14 @@ function toursDisabled(): boolean {
 
 function consumeStartFlag(): boolean {
   try {
-    const v = window.localStorage.getItem(START_FLAG) === "1";
-    if (v) window.localStorage.removeItem(START_FLAG);
+    // Honor either name during the rename transition. Clear both on consume.
+    const v =
+      window.localStorage.getItem(START_FLAG) === "1" ||
+      window.localStorage.getItem(LEGACY_START_FLAG) === "1";
+    if (v) {
+      window.localStorage.removeItem(START_FLAG);
+      window.localStorage.removeItem(LEGACY_START_FLAG);
+    }
     return v;
   } catch {
     return false;
@@ -174,6 +204,8 @@ export function startShowcaseTour() {
   // through different demo districts on the same machine).
   try {
     window.localStorage.setItem(START_FLAG, "1");
+    // Dual-write the legacy flag too so any pre-rename listener still fires.
+    window.localStorage.setItem(LEGACY_START_FLAG, "1");
   } catch {
     /* localStorage unavailable; the event below still re-opens it */
   }

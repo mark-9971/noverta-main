@@ -22,7 +22,8 @@ import {
 } from "react";
 import { setAuthFetchExtraHeaders, authFetch, getDevAuthBypassHeaders } from "@/lib/auth-fetch";
 
-const STORAGE_KEY = "trellis_view_as_token";
+const STORAGE_KEY = "noverta_view_as_token";
+const LEGACY_STORAGE_KEY = "trellis_view_as_token";
 const HEADER_NAME = "X-View-As-Token";
 
 export interface ViewAsTarget {
@@ -65,8 +66,27 @@ function ssGet(k: string): string | null { try { return sessionStorage.getItem(k
 function ssSet(k: string, v: string): void { try { sessionStorage.setItem(k, v); } catch {} }
 function ssDel(k: string): void { try { sessionStorage.removeItem(k); } catch {} }
 
+/**
+ * Read-fallback for the impersonation token: prefer the new
+ * `noverta_view_as_token` key; if absent, copy-forward from the legacy
+ * `trellis_view_as_token` and (only on a successful copy) clear the
+ * legacy key. Never drops the active impersonation session.
+ */
+function readToken(): string | null {
+  const fresh = ssGet(STORAGE_KEY);
+  if (fresh !== null) {
+    if (ssGet(LEGACY_STORAGE_KEY) !== null) ssDel(LEGACY_STORAGE_KEY);
+    return fresh;
+  }
+  const legacy = ssGet(LEGACY_STORAGE_KEY);
+  if (legacy === null) return null;
+  ssSet(STORAGE_KEY, legacy);
+  if (ssGet(STORAGE_KEY) === legacy) ssDel(LEGACY_STORAGE_KEY);
+  return legacy;
+}
+
 export function ViewAsProvider({ children }: { children: ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(() => ssGet(STORAGE_KEY));
+  const [token, setTokenState] = useState<string | null>(() => readToken());
   const [session, setSession] = useState<ViewAsSessionInfo | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   // Track whether we've done the initial server-side revalidation so the banner
@@ -85,7 +105,14 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   const setToken = useCallback((t: string | null) => {
-    if (t) ssSet(STORAGE_KEY, t); else ssDel(STORAGE_KEY);
+    if (t) {
+      ssSet(STORAGE_KEY, t);
+    } else {
+      ssDel(STORAGE_KEY);
+      // Belt-and-suspenders: clear the legacy key on logout/end-session
+      // so a stale token cannot resurface via the read-fallback.
+      ssDel(LEGACY_STORAGE_KEY);
+    }
     setTokenState(t);
   }, []);
 

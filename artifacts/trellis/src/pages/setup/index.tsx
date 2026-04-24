@@ -468,8 +468,12 @@ function SampleDataCta() {
       queryClient.invalidateQueries();
       try {
         // Trigger the guided tour on the next page load. Cleared on dismiss
-        // or completion. Read by SampleDataTour.
+        // or completion. Read by SampleDataTour. Dual-write both new and
+        // legacy keys during the Trellis → Noverta rename transition so
+        // any reader that hasn't been updated still fires.
+        window.localStorage.setItem("noverta.sampleTour.start", "1");
         window.localStorage.setItem("trellis.sampleTour.start", "1");
+        window.localStorage.removeItem("noverta.sampleTour.v1");
         window.localStorage.removeItem("trellis.sampleTour.v1");
       } catch {
         /* localStorage unavailable; tour will still fire via the

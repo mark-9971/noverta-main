@@ -24,8 +24,10 @@ interface TourStep {
   body: string;
 }
 
-const STORAGE_KEY_PREFIX = "trellis.sampleTour.v1";
-const START_FLAG = "trellis.sampleTour.start";
+const STORAGE_KEY_PREFIX = "noverta.sampleTour.v1";
+const LEGACY_STORAGE_KEY_PREFIX = "trellis.sampleTour.v1";
+const START_FLAG = "noverta.sampleTour.start";
+const LEGACY_START_FLAG = "trellis.sampleTour.start";
 
 function storageKeyFor(
   userId: string | null | undefined,
@@ -34,6 +36,14 @@ function storageKeyFor(
   const u = userId ?? "anon";
   const d = districtId != null ? String(districtId) : "nodistrict";
   return `${STORAGE_KEY_PREFIX}.${d}.${u}`;
+}
+function legacyStorageKeyFor(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+): string {
+  const u = userId ?? "anon";
+  const d = districtId != null ? String(districtId) : "nodistrict";
+  return `${LEGACY_STORAGE_KEY_PREFIX}.${d}.${u}`;
 }
 
 const STEPS: TourStep[] = [
@@ -79,7 +89,19 @@ function readSeen(
   districtId: number | null | undefined,
 ): boolean {
   try {
-    return window.localStorage.getItem(storageKeyFor(userId, districtId)) === "seen";
+    // Read-fallback: copy-forward the legacy `trellis.*` "seen" flag so
+    // returning users never see the tour twice.
+    const fresh = window.localStorage.getItem(storageKeyFor(userId, districtId));
+    if (fresh === "seen") return true;
+    const legacy = window.localStorage.getItem(legacyStorageKeyFor(userId, districtId));
+    if (legacy === "seen") {
+      try {
+        window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+        window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
+      } catch { /* leave legacy intact */ }
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -91,7 +113,9 @@ function markSeen(
 ) {
   try {
     window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+    window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
     window.localStorage.removeItem(START_FLAG);
+    window.localStorage.removeItem(LEGACY_START_FLAG);
   } catch {
     
   }
@@ -99,8 +123,14 @@ function markSeen(
 
 function consumeStartFlag(): boolean {
   try {
-    const v = window.localStorage.getItem(START_FLAG) === "1";
-    if (v) window.localStorage.removeItem(START_FLAG);
+    // Honor either name during the rename transition. Clear both on consume.
+    const v =
+      window.localStorage.getItem(START_FLAG) === "1" ||
+      window.localStorage.getItem(LEGACY_START_FLAG) === "1";
+    if (v) {
+      window.localStorage.removeItem(START_FLAG);
+      window.localStorage.removeItem(LEGACY_START_FLAG);
+    }
     return v;
   } catch {
     return false;

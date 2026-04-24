@@ -20,7 +20,7 @@ import type { Response } from "express";
 import { type AuthedRequest, getEnforcedDistrictId } from "../middlewares/auth";
 import { isPrivilegedStaff, type TrellisRole } from "./permissions";
 
-const SCOPE_CACHE = Symbol("trellisStaffScopeCache");
+const SCOPE_CACHE = Symbol("novertaStaffScopeCache");
 
 /** True if caller can see all district records (privileged staff or platform admin). */
 export function isPrivilegedCaller(req: AuthedRequest): boolean {

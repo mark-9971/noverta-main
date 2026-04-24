@@ -1,0 +1,141 @@
+Proceed with **NEXT-3 — localStorage/sessionStorage rename shims only**.
+
+Do not start package/folder rename, DB role rename, Clerk rename, Sentry rename, or T01.
+
+## Objective
+
+Finish the remaining safe persisted-client-key rename from:
+
+* `trellis.*`
+* `trellis_*`
+* `trellis:...`
+
+to:
+
+* `noverta.*`
+* `noverta_*`
+* `noverta:...`
+
+without losing any existing user state.
+
+## Critical rule
+
+This is **not** a destructive rename.
+
+For every persisted client key:
+
+1. read the new Noverta key first
+2. if missing, read the old Trellis key
+3. if old exists, write/copy it to the new Noverta key
+4. only delete the old key after successful copy
+5. never drop unsaved state
+
+Special care required for:
+
+* `session-timer-context.tsx` — in-flight session timer state
+* `useOfflineQueue.ts` — offline ABA pending session queue
+
+For those two, use read-fallback + copy-forward only. Do not risk destructive cleanup if there is any uncertainty.
+
+## Known files / keys to inspect
+
+* `artifacts/trellis/src/lib/school-context.tsx`
+
+  * `trellis_selected_school_id`
+  * `trellis_selected_district_id`
+  * `trellis_selected_year_id`
+
+* `artifacts/trellis/src/lib/screenshot-mode.ts`
+
+  * `trellis.screenshotMode`
+  * `trellis.disableTours`
+
+* `artifacts/trellis/src/lib/session-timer-context.tsx`
+
+  * `trellis_session_timers_v3_${userId}`
+  * related session timer keys
+
+* `artifacts/trellis/src/lib/useOfflineQueue.ts`
+
+  * `trellis_aba_pending_sessions_v1`
+
+* `artifacts/trellis/src/lib/theme-context.tsx`
+
+  * `trellis-theme`
+
+* `artifacts/trellis/src/lib/view-as-context.tsx`
+
+  * `trellis_view_as_token`
+
+* `artifacts/trellis/src/lib/demo-mode.tsx`
+
+  * `trellis.demoFlow.v1`
+  * `trellis.demoHighlight.v1`
+
+* `artifacts/trellis/src/pages/district-locked.tsx`
+
+  * `trellis.districtLockedMessage`
+
+* `artifacts/trellis/src/components/ShowcaseTour.tsx`
+
+  * storage key prefix / start flag
+
+* `artifacts/trellis/src/components/SampleDataTour.tsx`
+
+  * storage key prefix / start flag
+
+* `artifacts/trellis/src/pages/setup/index.tsx`
+
+  * `trellis.sampleTour.start`
+  * `trellis.sampleTour.v1`
+
+Also update the stale e2e intent string:
+
+* `e2e/tests/incident-lifecycle.spec.ts`
+
+  * `/set up trellis/i` → `/set up noverta/i`
+
+And safe internal symbol rename:
+
+* `artifacts/api-server/src/lib/staffScope.ts`
+
+  * `Symbol("trellisStaffScopeCache")` → `Symbol("novertaStaffScopeCache")`
+
+## Required implementation pattern
+
+Prefer a small helper where appropriate, for example:
+
+* get migrated localStorage value
+* set migrated localStorage value
+* remove old key only after new key is written
+
+Do not duplicate fragile migration logic in every file if a small helper is cleaner.
+
+## Verification
+
+After changes, run:
+
+```bash
+rg -n 'trellis\.|trellis_|trellis:' artifacts/trellis/src artifacts/api-server/src e2e/tests
+```
+
+Classify remaining hits.
+
+Run the narrowest relevant typecheck / touched-file validation available.
+
+## Required final output
+
+Return exactly:
+
+1. EXECUTIVE VERDICT
+2. EXACT FILES MODIFIED
+3. EXACT KEYS MIGRATED
+4. EXACT COMPATIBILITY SHIMS ADDED
+5. USER STATE SAFETY EXPLANATION
+6. SEARCH / VERIFICATION METHOD
+7. TEST / BUILD STATUS
+8. EXACT REMAINING TRELLIS REFERENCES
+9. EXACT REMAINING GAPS
+10. EXACT NEXT TASKS
+
+Do not start NEXT-4 or any broader rename work.

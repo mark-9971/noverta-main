@@ -6,12 +6,16 @@ import { useEffect, useState } from "react";
 const DEFAULT_MESSAGE =
   "This district is scheduled for deletion. Contact support@noverta.education to cancel.";
 const SUPPORT_EMAIL = "support@noverta.education";
-const STORAGE_KEY = "trellis.districtLockedMessage";
+const STORAGE_KEY = "noverta.districtLockedMessage";
+const LEGACY_STORAGE_KEY = "trellis.districtLockedMessage";
 
 export function setDistrictLockedMessage(message: string | null): void {
   try {
     if (message) sessionStorage.setItem(STORAGE_KEY, message);
-    else sessionStorage.removeItem(STORAGE_KEY);
+    else {
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
   } catch {
     /* sessionStorage may be unavailable */
   }
@@ -19,7 +23,19 @@ export function setDistrictLockedMessage(message: string | null): void {
 
 function readStoredMessage(): string {
   try {
-    return sessionStorage.getItem(STORAGE_KEY) ?? DEFAULT_MESSAGE;
+    // Read-fallback: prefer noverta.*; copy-forward from legacy
+    // trellis.* and clear the old key only on a successful copy.
+    const fresh = sessionStorage.getItem(STORAGE_KEY);
+    if (fresh) return fresh;
+    const legacy = sessionStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, legacy);
+        sessionStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch { /* leave legacy intact */ }
+      return legacy;
+    }
+    return DEFAULT_MESSAGE;
   } catch {
     return DEFAULT_MESSAGE;
   }

@@ -883,7 +883,7 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     // The page heading should be present (varies by copy; accept any heading).
     const heading = page
       .getByRole("heading")
-      .filter({ hasNotText: /set up trellis/i })
+      .filter({ hasNotText: /set up (trellis|noverta)/i })
       .first();
     await expect(heading).toBeVisible({ timeout: 30_000 });
 
