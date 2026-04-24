@@ -54,7 +54,7 @@ export default function S10_Ask() {
               Contact
             </div>
             <div className="font-display text-[1.5vw] leading-snug">
-              sarah@noverta.school · trellis.school
+              sarah@noverta.app · noverta.app
             </div>
           </div>
         </div>
