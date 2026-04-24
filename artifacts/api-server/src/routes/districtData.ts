@@ -394,7 +394,7 @@ router.get("/district-data/archive/:jobId/download", requireAdmin, async (req, r
 
   const districtName = district?.name ?? "district";
   const slug = districtName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  const filename = `trellis-export-${slug}-${new Date().toISOString().slice(0, 10)}.zip`;
+  const filename = `noverta-export-${slug}-${new Date().toISOString().slice(0, 10)}.zip`;
 
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -837,7 +837,7 @@ export async function runHardPurgeForDistrict(opts: {
         notificationType: "district_deletion_certificate",
         attachments: [
           {
-            filename: `trellis-deletion-certificate-${districtId}.pdf`,
+            filename: `noverta-deletion-certificate-${districtId}.pdf`,
             content: pdfBuffer,
           },
         ],

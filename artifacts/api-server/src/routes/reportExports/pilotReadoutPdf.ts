@@ -251,7 +251,7 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
   // ── Cover page ────────────────────────────────────────────────────────────
   doc.rect(0, 0, 612, 220).fill(EMERALD);
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(11)
-    .text("TRELLIS", LEFT, 60, { characterSpacing: 4 });
+    .text("NOVERTA", LEFT, 60, { characterSpacing: 4 });
   doc.fontSize(9).font("Helvetica").fillColor("#d1fae5")
     .text("Special Education Compliance Platform", LEFT, 78);
 

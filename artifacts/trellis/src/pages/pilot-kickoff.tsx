@@ -332,7 +332,7 @@ function StepUploader({ step, state, onChange }: {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `trellis_${step.templateKey}_template.csv`;
+      a.download = `noverta_${step.templateKey}_template.csv`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch (e: any) {

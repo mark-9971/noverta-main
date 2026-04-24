@@ -376,7 +376,7 @@ export function buildPilotScorecardEmail(opts: {
 </html>`;
 
   const lines = [
-    `THIS WEEK ON TRELLIS`,
+    `THIS WEEK ON NOVERTA`,
     `${districtName} — ${weekLabel}`,
     ``,
     `Minutes logged:                       ${metrics.minutesLogged.display}${metrics.minutesLogged.deltaLabel ? `  (${metrics.minutesLogged.deltaLabel} vs prior week)` : ""}`,

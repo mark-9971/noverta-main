@@ -206,7 +206,7 @@ router.get("/imports/templates/:type", requireAdmin, async (req, res): Promise<v
 
   const csv = lines.join("\n");
   res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", `attachment; filename=trellis_${type}_template.csv`);
+  res.setHeader("Content-Disposition", `attachment; filename=noverta_${type}_template.csv`);
   res.send(csv);
 });
 
