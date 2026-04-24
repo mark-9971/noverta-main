@@ -1,0 +1,160 @@
+Project: Trellis has been renamed to Noverta.
+
+Current state:
+- NEXT-1 complete: user-facing string rename.
+- NEXT-2 complete: filename/import rename.
+- NEXT-3 accepted partial: main localStorage/sessionStorage migration shims.
+- NEXT-4 complete: remaining active client storage keys migrated.
+- NEXT-5 complete: e2e/test fixture storage/event references flipped to Noverta.
+
+Task:
+NEXT-6 — DNS/email/external URL rename audit and safe cutover prep.
+
+Use the actual current codebase as source of truth. Do the work, not just a plan.
+
+Execution priority:
+1. correctness
+2. safety
+3. exact auditability
+4. non-breaking implementation where clearly safe
+5. speed only after the above
+
+Objective:
+Find and classify all remaining externally meaningful Trellis references, especially:
+- trellis.education
+- usetrellis.co
+- noreply.trellis.education
+- public/demo URLs
+- billing CTA URLs
+- email sender/domain references
+- external-facing environment variable defaults or docs
+
+Why now:
+Internal product rename and browser/test storage rename are complete enough. The next rename residue is external-facing. These references may affect email deliverability, billing links, demo links, DNS, Resend, Stripe, and Clerk/dev environment assumptions, so they must be handled deliberately.
+
+Scope:
+1. Search the repo for external-facing Trellis references:
+   - trellis.education
+   - usetrellis.co
+   - noreply.trellis.education
+   - trellis-e2e
+   - TrellisE2E
+   - TRELLIS
+   - Trellis
+   - trellis
+2. Classify every remaining external-facing hit.
+3. Rename references only where safe in code without external account/DNS changes.
+4. For references that require external coordination, do not fake-complete them. Produce an exact cutover checklist.
+5. Keep compatibility/legacy runtime shims untouched unless this task specifically proves they are external-facing and safe to change.
+6. Do not touch high-conflict wedge product files unless the reference is clearly external URL/email text and the change is isolated.
+
+Known likely files from prior outputs:
+- artifacts/api-server/src/lib/email.ts
+- artifacts/api-server/src/routes/webhookHandlers.ts
+- artifacts/api-server/src/routes/demoRequests.ts
+- artifacts/trellis/src/pages/ComplianceSnapshotPage.tsx
+- e2e/README.md
+- any env/example/docs files containing trellis.education, usetrellis.co, noreply.trellis.education, TrellisE2E, or TRELLIS_DEV_FORCE_DISTRICT_ID
+
+Non-goals:
+- No DB role rename.
+- No trellis_support → noverta_support migration.
+- No Clerk role/publicMetadata change.
+- No production legacy storage-shim retirement.
+- No Action Center, compliance risk, recommendation engine, handling state, minute math, school calendar, scheduling orchestration, seed/reset, or demo-seeder changes.
+- No broad docs rewrite beyond URL/email rename truth.
+- No fake DNS/account claims.
+
+Important safety rules:
+- If a URL/email depends on a domain not yet configured externally, do not blindly change runtime behavior unless a fallback/env-based approach is safer.
+- Prefer environment-configurable URLs/domains over hardcoded domain swaps where possible.
+- If changing email FROM domain would break Resend/DNS verification without external setup, leave runtime default unchanged and document exact external dependency.
+- If changing Stripe/billing CTA URLs requires configured public app domain, make it env-driven or document blocker.
+- If changing public demo links requires a live Noverta domain, document blocker.
+- Do not claim DNS/Resend/Stripe/Clerk changes were made unless actually verifiable from repo/config.
+
+Suggested implementation approach:
+- For hardcoded external URLs, prefer introducing or using existing environment variables with safe defaults.
+- If current production still depends on trellis.education until noverta.education is live, keep old fallback but add clearly named Noverta env support.
+- Example pattern:
+  - PUBLIC_APP_URL / APP_BASE_URL / MARKETING_SITE_URL / EMAIL_FROM_DOMAIN if existing conventions support it.
+  - Do not invent excessive config if the repo already has a config helper.
+
+Required classification categories:
+1. Safe code rename completed
+2. Env-configured cutover completed
+3. External dependency blocker — DNS/domain/email/account work needed
+4. Auth/DB role item — defer to NEXT-7
+5. Legacy migration/shim item — defer to NEXT-8
+6. Historical docs/comment only
+7. True remaining rename gap
+
+Testing/proof:
+- Run grep/rg after changes and classify all remaining Trellis references relevant to this task.
+- Run typecheck/build if feasible for touched packages.
+- If runtime cannot be fully validated due to external DNS/Resend/Stripe dependency, say so clearly.
+- Separate regressions from pre-existing failures/environment noise.
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. EXACT FILES CREATED
+List exact paths or “None”.
+
+3. EXACT FILES MODIFIED
+List exact paths or “None”.
+
+4. EXACT FILES DELETED
+List exact paths or “None”.
+
+5. EXACT REASONS FOR EACH CHANGE
+Explain every changed file.
+
+6. USER-VISIBLE IMPACT
+Explain any changed URLs/email sender behavior, or state none.
+
+7. ARCHITECTURE / CONFIG IMPACT
+List any new/changed env vars, defaults, or config helpers.
+
+8. EXTERNAL REFERENCE RENAME MAP
+For every changed external reference, list:
+- old value
+- new value/config
+- file
+- safety rationale
+
+9. REMAINING TRELLIS REFERENCES
+List every remaining relevant hit and classify it using the required categories.
+
+10. DNS / EMAIL / THIRD-PARTY CUTOVER CHECKLIST
+Include exact steps needed outside the repo for:
+- noverta.education or chosen app domain
+- email sender domain / Resend
+- Stripe/billing CTA URLs if applicable
+- Clerk/test user references if encountered but defer auth/role changes to NEXT-7
+
+11. TEST / BUILD STATUS
+Include exact commands and exact results.
+Separate:
+- regressions
+- pre-existing failures
+- environment/tooling noise
+
+12. EXACT REMAINING GAPS
+List true gaps only, or “None”.
+
+13. EXACT NEXT TASKS
+Likely:
+- NEXT-7 DB/auth role rename plan
+- NEXT-8 legacy shim retirement
+Do not start them.
+
+14. FINAL ARTIFACT
+Brief implementation summary.
+
+Stop after NEXT-6.
