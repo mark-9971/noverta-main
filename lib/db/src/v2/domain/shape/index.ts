@@ -32,15 +32,24 @@ export interface SeedSampleOptions {
   /** District size profile. Defaults to "medium". See `SizeProfile` for details. */
   sizeProfile?: SizeProfile;
   /**
-   * Optional override for total student count. Bypasses the per-profile cap
-   * (small=20 / medium=60 / large=120) and the default 50-100 random range.
-   * Special-scenario counts still come from the chosen sizeProfile; the
-   * remainder is filled with healthy students. Useful for stress / load
-   * scenarios where dashboards need to render against a much larger roster
-   * (e.g. district-wide demos with ~2000 students). Staff count is NOT
-   * auto-scaled — it follows the chosen `sizeProfile` (use "large" when
-   * paired with a big `targetStudents` to get the fullest staff roster the
-   * SAMPLE_STAFF_POOL allows).
+   * Optional override for total student count (1–5000). Bypasses the
+   * per-profile default. Special-scenario counts scale up by the
+   * `targetStudents / SIZE_PROFILES[profile].students` ratio (see
+   * `buildStudentDefs` in `roster/students.ts`); the remainder is filled
+   * with healthy students.
+   *
+   * **Auto-scaled when `targetStudents` is set:**
+   *   - Staff: per-specialty STAFF_RATIOS in `roster/staff.ts`
+   *     (e.g. case_manager 1:22, SLP 1:75) drive the slot count, and a
+   *     load-aware floor in `platform/capacity.ts` further bumps providers
+   *     when projected monthly minutes exceed PROVIDER_MONTHLY_MIN_CAPACITY.
+   *     Pool is the SAMPLE_STAFF_POOL plus synthesized fillers.
+   *   - Schools: when no explicit `schoolCount` was supplied, the seed shape
+   *     derives schoolCount = clamp(round(targetStudents / 150), 1, 12)
+   *     so a 1000-student demo gets ~7 schools (≈140 students per building).
+   *   - Scenario counts: per-scenario student-defs scale by the same
+   *     roster-ratio so urgent/comp_risk/crisis cohorts stay representative
+   *     instead of drowning in a sea of healthy students.
    */
   targetStudents?: number;
 
@@ -163,8 +172,22 @@ export const INTENSITY_TO_SCALE_RANGE: Record<Intensity, readonly [number, numbe
   high:   [1.55, 2.05],
 };
 
+/** Approximate students-per-school ratio used when the caller leaves
+ *  `schoolCount` unset and `targetStudents` is supplied. ~150/building keeps
+ *  per-school caseload realistic across small (60→1 school) up through
+ *  large (1000→7 schools) and xl (1750→12 schools, the hard cap). */
+export const STUDENTS_PER_SCHOOL_TARGET = 150;
+
 export function resolveSeedShape(opts: SeedSampleOptions): SeedShape {
-  const schoolCount = Math.max(1, Math.min(12, opts.schoolCount ?? 5));
+  // Auto-derive schoolCount from targetStudents when the caller hasn't
+  // pinned it explicitly. Without this a 1000-student stress demo would
+  // be packed into the default 5 schools (~200 students/building) which
+  // is unrealistic for MA SPED districts. Explicit `schoolCount` always
+  // wins so operators can still force a single-school pilot, etc.
+  const defaultSchoolCount = opts.targetStudents != null
+    ? Math.max(1, Math.min(12, Math.round(opts.targetStudents / STUDENTS_PER_SCHOOL_TARGET)))
+    : 5;
+  const schoolCount = Math.max(1, Math.min(12, opts.schoolCount ?? defaultSchoolCount));
 
   // Goals/student: center on the requested mean, ±2. Default band 15–20
   // mirrors real MA SPED IEPs (one annual goal per service area + multiple

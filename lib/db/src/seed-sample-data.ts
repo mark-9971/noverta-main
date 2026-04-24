@@ -2429,6 +2429,26 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
     const staffFks = (staffFksRes.rows as any[]).map(r => ({ table: r.child, column: r.child_col }));
     const staffIdList = staffIds.join(",");
 
+    // Pre-clean: delete schedule_blocks owned ONLY by staff (no student tie,
+    // i.e. availability windows). The student-FK walk above can't reach
+    // these because there's no student edge to traverse — they survive
+    // every teardown otherwise, and on the next teardown their parent
+    // staff has already been "graduated" (is_sample=false) so the staff
+    // filter at the top of this function won't even see them. Result was
+    // a cumulative pile of orphan availability blocks: 3,130+ rows after
+    // a few seed/teardown cycles.
+    //
+    // We delete BEFORE the FK-nullify pass and BEFORE the still-referenced
+    // computation so those blocks don't force their parent staff into the
+    // graduation branch — letting most staff actually delete cleanly.
+    try {
+      await db.execute(sql.raw(
+        `DELETE FROM schedule_blocks WHERE staff_id IN (${staffIdList})`
+      ));
+    } catch (err) {
+      console.warn("[teardownSampleData] schedule_blocks pre-clean failed; continuing", err);
+    }
+
     for (const { table, column } of staffFks) {
       // Nullify in a single statement per FK. Safe because these are sample
       // staff slated for deletion or graduation — nothing in the system
@@ -2471,6 +2491,126 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
       await db.update(staffTable)
         .set({ isSample: false })
         .where(inArray(staffTable.id, stillReferencedStaffIds));
+    }
+  }
+
+  // ── Cross-cycle residue sweep (demo districts only) ──
+  // The per-student / per-staff cleanup above only sees rows tagged
+  // is_sample=true on this run. Across multiple seed/teardown cycles a
+  // pile of "graduated" rows accumulates (staff demoted to is_sample=false
+  // because their schedule_blocks couldn't null out, plus orphan
+  // demo_showcase_cases, plus iep_documents / service_requirements whose
+  // students were already wiped). The user's "Remove all sample data"
+  // CTA implies a clean slate, so finish with a district-scoped sweep —
+  // gated on `is_demo=true` to keep operator data in real tenants safe.
+  const districtRow = await db.select({ isDemo: districtsTable.isDemo })
+    .from(districtsTable).where(eq(districtsTable.id, districtId)).limit(1);
+  const isDemoDistrict = districtRow[0]?.isDemo === true;
+
+  if (isDemoDistrict) {
+    // 1) Schedule blocks for any staff in this district (covers graduated
+    //    staff from prior cycles whose blocks survived).
+    await db.execute(sql`
+      DELETE FROM schedule_blocks
+      WHERE staff_id IN (
+        SELECT s.id FROM staff s
+        JOIN schools sc ON sc.id = s.school_id
+        WHERE sc.district_id = ${districtId}
+      )
+    `);
+
+    // 2) Orphan student-keyed rows (student no longer exists). These should
+    //    have been caught by the FK-graph BFS but survive when prior runs
+    //    crashed mid-teardown or when the BFS hit its depth cap. We wrap
+    //    the sweep in a single transaction with session_replication_role
+    //    =replica so the per-table delete order doesn't matter (some of
+    //    these reference each other: session_goal_data → iep_goals,
+    //    session_logs → service_requirements, etc.). Constraints are
+    //    re-enabled at COMMIT — orphans can't violate FKs because there's
+    //    no live referent for them by definition.
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL session_replication_role = 'replica'`);
+        await tx.execute(sql`SET LOCAL max_parallel_workers_per_gather = 0`);
+        // Order: parents whose children we'll touch are done LAST so we
+        // don't generate fresh orphans inside the same txn (RI is off, so
+        // dangling children would survive commit). Concretely: delete
+        // orphan session_logs / iep_goals FIRST, then mop up
+        // session_goal_data whose session_log_id OR iep_goal_id no longer
+        // resolves — catches both pre-existing orphans and any newly
+        // orphaned by this txn.
+        for (const t of [
+          "session_logs",
+          "iep_goals",
+          "service_requirements",
+          "iep_documents",
+          "alerts",
+          "compensatory_obligations",
+        ]) {
+          await tx.execute(sql.raw(
+            `DELETE FROM "${t}" WHERE student_id IS NOT NULL AND student_id NOT IN (SELECT id FROM students)`
+          ));
+        }
+        // Final pass: session_goal_data may now point at session_logs we
+        // just removed OR iep_goals we just removed. One DELETE covers
+        // both predicates so nothing slips through.
+        await tx.execute(sql`
+          DELETE FROM session_goal_data
+          WHERE (session_log_id IS NOT NULL AND session_log_id NOT IN (SELECT id FROM session_logs))
+             OR (iep_goal_id    IS NOT NULL AND iep_goal_id    NOT IN (SELECT id FROM iep_goals))
+        `);
+      });
+    } catch (err) {
+      console.warn("[teardownSampleData] orphan sweep failed; continuing", err);
+    }
+
+    // 3) Demo overlay cases for this district (W5 overlay output).
+    try {
+      await db.execute(sql`DELETE FROM demo_showcase_cases WHERE district_id = ${districtId}`);
+    } catch (err) {
+      console.warn("[teardownSampleData] demo_showcase_cases sweep failed; continuing", err);
+    }
+
+    // 4) Graduated staff (is_sample=false) in this district that no longer
+    //    have any blocking references after steps 1-3. We iterate FKs the
+    //    same way the main staff branch does, NULL-ing what we can, then
+    //    delete the safely-deletable ones.
+    const gradStaffRows = await db.select({ id: staffTable.id })
+      .from(staffTable)
+      .where(and(
+        eq(staffTable.isSample, false),
+        inArray(staffTable.schoolId, schoolIds),
+      ));
+    const gradStaffIds = gradStaffRows.map(r => r.id);
+    if (gradStaffIds.length > 0) {
+      const gradList = gradStaffIds.join(",");
+      const fksRes = await db.execute(sql`
+        SELECT cl.relname AS child, att.attname AS child_col
+        FROM pg_constraint c
+        JOIN pg_class cl  ON cl.oid  = c.conrelid
+        JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = ANY(c.conkey)
+        WHERE c.contype = 'f' AND c.confrelid = 'staff'::regclass
+      `);
+      for (const r of fksRes.rows as Array<{ child: string; child_col: string }>) {
+        try {
+          await db.execute(sql.raw(
+            `UPDATE "${r.child}" SET "${r.child_col}" = NULL WHERE "${r.child_col}" IN (${gradList})`
+          ));
+        } catch { /* NOT NULL FK on a join table — ignore, will block delete */ }
+      }
+      const stillRefRes = await db.execute(sql.raw(`
+        SELECT DISTINCT staff_id_ref FROM (
+          SELECT staff_id AS staff_id_ref FROM schedule_blocks WHERE staff_id IN (${gradList})
+          UNION ALL SELECT staff_id FROM staff_assignments WHERE staff_id IN (${gradList})
+          UNION ALL SELECT teacher_id FROM classes WHERE teacher_id IN (${gradList})
+        ) t WHERE staff_id_ref IS NOT NULL
+      `));
+      const stillRef = (stillRefRes.rows as Array<{ staff_id_ref: number }>)
+        .map(r => Number(r.staff_id_ref)).filter(Number.isFinite);
+      const deletableGrad = gradStaffIds.filter(id => !stillRef.includes(id));
+      if (deletableGrad.length > 0) {
+        await db.delete(staffTable).where(inArray(staffTable.id, deletableGrad));
+      }
     }
   }
 
