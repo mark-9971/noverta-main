@@ -31,10 +31,27 @@ export const MISSED_QUICK_REASONS = [
 ];
 
 export function storageKey(staffId: number | null) {
+  return `noverta_quicklog_v2_${staffId ?? "anon"}`;
+}
+function legacyTrellisV2Key(staffId: number | null) {
   return `trellis_quicklog_v2_${staffId ?? "anon"}`;
 }
+function legacyTrellisV1Key(staffId: number | null) {
+  return `trellis_quicklog_v1_${staffId ?? "anon"}`;
+}
 
+/**
+ * Quick Log defaults are a high-value wedge surface — never lose a
+ * staffer's recent combos / service durations. Read order:
+ *   1. `noverta_quicklog_v2_${staffId}` (canonical)
+ *   2. `trellis_quicklog_v2_${staffId}` (legacy v2; copy-forward to
+ *      noverta and remove only after a successful copy)
+ *   3. `trellis_quicklog_v1_${staffId}` (legacy v1; pre-existing
+ *      one-way migration — left intact, NOT removed, since v1 has
+ *      fewer fields and is the original migration source)
+ */
 export function loadDefaults(staffId: number | null): QuickLogDefaults {
+  // (1) Canonical noverta v2
   try {
     const raw = localStorage.getItem(storageKey(staffId));
     if (raw) {
@@ -48,9 +65,27 @@ export function loadDefaults(staffId: number | null): QuickLogDefaults {
       };
     }
   } catch {}
+  // (2) Legacy trellis v2 — copy-forward + delete only on success
   try {
-    const oldKey = `trellis_quicklog_v1_${staffId ?? "anon"}`;
-    const oldRaw = localStorage.getItem(oldKey);
+    const legacyV2Raw = localStorage.getItem(legacyTrellisV2Key(staffId));
+    if (legacyV2Raw) {
+      const parsed = JSON.parse(legacyV2Raw) as Partial<QuickLogDefaults>;
+      try {
+        localStorage.setItem(storageKey(staffId), legacyV2Raw);
+        localStorage.removeItem(legacyTrellisV2Key(staffId));
+      } catch { /* leave legacy intact on copy failure */ }
+      return {
+        recentStudentIds: parsed.recentStudentIds ?? [],
+        recentServiceTypeIds: parsed.recentServiceTypeIds ?? [],
+        lastDurationMinutes: parsed.lastDurationMinutes ?? 30,
+        recentCombos: parsed.recentCombos ?? [],
+        serviceDurations: parsed.serviceDurations ?? {},
+      };
+    }
+  } catch {}
+  // (3) Legacy trellis v1 — pre-existing migration, partial fields
+  try {
+    const oldRaw = localStorage.getItem(legacyTrellisV1Key(staffId));
     if (oldRaw) {
       const old = JSON.parse(oldRaw) as Partial<QuickLogDefaults>;
       return {
@@ -68,6 +103,9 @@ export function loadDefaults(staffId: number | null): QuickLogDefaults {
 export function saveDefaults(staffId: number | null, defaults: QuickLogDefaults) {
   try {
     localStorage.setItem(storageKey(staffId), JSON.stringify(defaults));
+    // Clear the legacy v2 key so a stale draft can't resurface via the
+    // read-fallback. v1 is intentionally left untouched (one-way source).
+    try { localStorage.removeItem(legacyTrellisV2Key(staffId)); } catch {}
   } catch {}
 }
 

@@ -40,14 +40,42 @@ import {
 const DEMO_ADMIN_ROLES = new Set(["admin", "case_manager", "coordinator"]);
 
 const SHOW_COMING_SOON = false;
-const LS_PREFIX = "trellis_nav_";
+const LS_PREFIX = "noverta_nav_";
+const LEGACY_LS_PREFIX = "trellis_nav_";
+
+/**
+ * Read-fallback + copy-forward for the per-section sidebar collapsed
+ * flag. Tries `noverta_nav_${label}` first; if absent, copies the
+ * legacy `trellis_nav_${label}` value into the new key and clears the
+ * legacy key only on a successful copy. Never overwrites an existing
+ * Noverta value.
+ */
+function readNavCollapsed(label: string): string | null {
+  try {
+    const fresh = localStorage.getItem(`${LS_PREFIX}${label}`);
+    if (fresh !== null) {
+      // Drop the dead-weight legacy entry best-effort.
+      try { if (localStorage.getItem(`${LEGACY_LS_PREFIX}${label}`) !== null) localStorage.removeItem(`${LEGACY_LS_PREFIX}${label}`); } catch {}
+      return fresh;
+    }
+    const legacy = localStorage.getItem(`${LEGACY_LS_PREFIX}${label}`);
+    if (legacy === null) return null;
+    try {
+      localStorage.setItem(`${LS_PREFIX}${label}`, legacy);
+      localStorage.removeItem(`${LEGACY_LS_PREFIX}${label}`);
+    } catch { /* leave legacy intact on copy failure */ }
+    return legacy;
+  } catch {
+    return null;
+  }
+}
 
 function useCollapsedSections(sections: NavSection[]) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     for (const s of sections) {
       if (s.label && s.collapsible) {
-        const stored = localStorage.getItem(`${LS_PREFIX}${s.label}`);
+        const stored = readNavCollapsed(s.label);
         initial[s.label] = stored !== null ? stored === "collapsed" : !(s.defaultOpen ?? true);
       }
     }
@@ -57,7 +85,11 @@ function useCollapsedSections(sections: NavSection[]) {
   const toggle = useCallback((label: string) => {
     setCollapsed(prev => {
       const next = !prev[label];
-      localStorage.setItem(`${LS_PREFIX}${label}`, next ? "collapsed" : "open");
+      try {
+        localStorage.setItem(`${LS_PREFIX}${label}`, next ? "collapsed" : "open");
+        // Clear the legacy key so a stale value can't resurface via the read-fallback.
+        localStorage.removeItem(`${LEGACY_LS_PREFIX}${label}`);
+      } catch { /* ignore storage errors */ }
       return { ...prev, [label]: next };
     });
   }, []);
