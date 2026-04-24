@@ -29,10 +29,10 @@ const ADMIN_EMAIL =
   process.env.E2E_ADMIN_EMAIL ?? "trellis-e2e-admin+clerk_test@example.com";
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "TrellisE2E!Test#2026";
 
-const SHOWCASE_STORAGE_PREFIX = "trellis.showcaseTour.v1";
-const SHOWCASE_START_FLAG = "trellis.showcaseTour.start";
-const SAMPLE_TOUR_STORAGE_PREFIX = "trellis.sampleTour.v1";
-const SAMPLE_TOUR_START_FLAG = "trellis.sampleTour.start";
+const SHOWCASE_STORAGE_PREFIX = "noverta.showcaseTour.v1";
+const SHOWCASE_START_FLAG = "noverta.showcaseTour.start";
+const SAMPLE_TOUR_STORAGE_PREFIX = "noverta.sampleTour.v1";
+const SAMPLE_TOUR_START_FLAG = "noverta.sampleTour.start";
 
 const SHOWCASE_ANCHORS: ReadonlyArray<{ selector: string; label: string }> = [
   { selector: '[data-testid="section-overall-compliance"]', label: "dashboard compliance" },
@@ -178,7 +178,7 @@ test.describe("Showcase guided tour", () => {
     }
 
     // Finish closes the overlay and persists a per-user × per-district
-    // seen flag (key prefix `trellis.showcaseTour.v1.<district>.<user>`).
+    // seen flag (key prefix `noverta.showcaseTour.v1.<district>.<user>`).
     await expect(tour).toHaveCount(0, { timeout: 10_000 });
     const seenKeys = await page.evaluate((prefix) => {
       const out: string[] = [];
