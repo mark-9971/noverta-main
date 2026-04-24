@@ -1,0 +1,880 @@
+================================================================================
+DEMO-UX-AUDIT-01 — Admin Demo-User UX Audit (Noverta)
+Code-grounded · audit-only · no edits made.
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE VERDICT
+--------------------------------------------------------------------------------
+
+Admin demo takeover is conditionally safe — but only on a narrow,
+pre-scripted path. A skeptical district admin who clicks freely from the
+landing page will hit at least four credibility-damaging surfaces within
+~90 seconds.
+
+Strongest:
+The wedge spine is real and visibly honest. Specifically: shared handling
+state (`use-handling-state` writing to `action_item_handling`),
+school-calendar-aware minute math (`minuteCalc` weighting closures `0`,
+early release `0.5`), the deterministic risk ladder (completed → on_track →
+slightly_behind → at_risk → out_of_compliance → no_data), the "Likely
+cause → Owner → Recommended action" chain, the `awaiting data`
+denominator-honesty banner, and the surprisingly disciplined Medicaid
+disclaimers ("Noverta does not file claims with Medicaid. It prepares the
+data and tracks it through your internal review."). The "T06 truthful
+rename" of "Follow up with provider" → "Mark as awaiting provider
+response" shows the team has already started this work — but only on
+Action Center.
+
+Riskiest:
+(1) The first-load state I observed live: a sample-data banner reading
+    "Your workspace includes 2000 sample students and 354 sample staff"
+    with the Sample Data Tour modal automatically blocking the dashboard
+    while the dashboard itself shows `Loading…` — every one of those four
+    signals (huge fake number, mandatory tour, persona switcher,
+    indefinite loading) reads as internal QA tool not production buyer
+    demo.
+(2) Action Center shows "99+" unread — a value that simultaneously
+    screams "overwhelm" and "fake demo seed."
+(3) The sidebar's `DEMO ROLE` block with four hot-swappable persona
+    buttons (Admin / Case Manager / BCBA / Para) is debug scaffolding
+    leaking into the buyer surface.
+(4) The `More` collapsible nav contains 7 product domains (IEP &
+    Documents, Scheduling, People, Clinical, Finance, Settings)
+    totaling ~25 routes — many of which the platform-breadth audit
+    classified as scaffold or theatrical (ABA Hub, Caseload Balancing,
+    Cost Avoidance, Resource Management).
+
+What should be avoided:
+ABA / Behavior, Caseload Balancing, Cost Avoidance, Resource Management,
+IEP Suggestions ("Programs"), Supervision, the `/scheduling?tab=coverage`
+and `?tab=calendar` sub-tabs, and any platform-admin Demo Control Center
+surface (Hero Cast, Highlight Mode, Generate Cast — these are operator
+tools, not buyer surfaces).
+
+Must fix before a serious buyer demo:
+1. Default sample roster from 2000 to ~140 for first-load demo districts.
+2. Suppress or auto-dismiss the Sample Data Tour after first viewing per
+   browser; never show it on a fresh tab during a live demo.
+3. Hide the `DEMO ROLE` persona switcher unless `?devPersona=1` or
+   `isPlatformAdmin`.
+4. Cap the Action Center badge at `99+` only when actually >99; for a
+   140-student demo the real count should be 12-25.
+5. Move at least 4 of the 7 `More` groups behind a `Preview` badge or
+   `?more=1`.
+
+
+--------------------------------------------------------------------------------
+2. TOP 25 DEMO UX RISKS (RANKED)
+--------------------------------------------------------------------------------
+
+#   Surface                                Issue                                                                                                Sev       Trust   Fix                                                                                              Size  Timing
+--  -------------------------------------  ---------------------------------------------------------------------------------------------------  --------  ------  -----------------------------------------------------------------------------------------------  ----  -------------------
+1   /  (first load)                        Sample Data Tour modal auto-opens on top of `Loading…` dashboard                                     CRITICAL  HIGH    Gate tour behind explicit "Start tour" CTA in banner; never auto-open during live session         S     now
+2   Top banner                             "Your workspace includes 2000 sample students and 354 sample staff"                                  CRITICAL  HIGH    Default demo seed to 140 students; allow operator preset to scale up                              S     now
+3   Sidebar Action Center badge            Shows "99+"                                                                                          HIGH      HIGH    Cap demo seed so realistic count (12-25) shows; show real number until 99                         S     now
+4   Sidebar                                `DEMO ROLE` block with 4 persona buttons (Admin / Case Manager / BCBA / Para)                        HIGH      HIGH    Hide unless `isPlatformAdmin` or `?personaSwitcher=1`; for real prospects, switch via fresh login  S     now
+5   /  Dashboard                           Page stayed in `Loading…` state in my test session (401 on a backend call per browser console)       CRITICAL  HIGH    Confirm 401 is auth bootstrap timing only, not a missing endpoint; add visible skeleton + retry    M     now
+6   Sidebar `More` (collapsible)           7 groups × ~3-5 items each = ~25 routes, many scaffolds                                              HIGH      HIGH    Move Clinical, Finance (except Comp Services), People to `Preview` badge; collapse default-closed  M     now
+7   /aba ABA Hub                           Sub-tabs (Maintenance, Supervision) shallow per audit; "Start FBA" / "Create Program" CTAs           HIGH      HIGH    Hide from default demo nav; reframe page as "ABA data prep — Preview"                            M     shell honesty pass
+8   /cost-avoidance, /resource-management  "Theatrical" finance per audit; static reporting only                                                HIGH      HIGH    Group under `Finance — Reporting (preview)`; remove from default nav                              M     shell honesty pass
+9   /caseload-balancing                    Dead-end per audit; no closed loop                                                                   MED       MED     Hide unless `?caseloadBeta=1`                                                                     S     now
+10  /scheduling?tab=coverage and =calendar "Coverage" / "Staff Calendar" mostly read-only scaffolds; "Request Coverage" dead-ends               HIGH      HIGH    Demote those two sub-tabs to "Preview"; lead Scheduling Hub with Minutes at Risk                  M     shell honesty pass
+11  "Schedule makeup" CTA                  Routes to /scheduling?tab=minutes and marks `recovery_scheduled` but does NOT close until QL fires   HIGH      HIGH    Rename CTA to "Plan makeup recovery" OR add a one-tap "Confirm scheduled" microform inline       M     before next demo
+12  /iep-suggestions ("Programs")          Nav label "Programs" inside Clinical doesn't match URL or content                                    LOW       MED     Rename nav item to "IEP suggestions (preview)"                                                    XS    now
+13  /iep-builder/:id                       "AI-assisted draft" but no "sign / file with state" loop                                              HIGH      HIGH    Add subhead: "Generates IEP drafts for your IEP system to consume — Noverta is not the SoR."     XS    before next demo
+14  /medicaid-billing                      Disclaimers excellent; nav label "Medicaid Billing" still suggests submission                        MED       HIGH    Rename nav to "Medicaid claim prep"                                                              XS    now
+15  /pricing FAQ                           "SOC 2 Type II is on the roadmap but not yet obtained, and no third-party pen test"                  MED       HIGH    Move SOC2/pen-test honesty into a Security Overview document, behind a request-link from FAQ      S     before next demo
+16  /onboarding                            "Try Noverta with sample data" / "Configure your district" cards visible to demo districts          MED       MED     Hide or contextualize onboarding card on demo districts                                          S     shell honesty pass
+17  /setup/sis step                        "Connect SIS" with PowerSchool/IC choices but real connection is config-only                        MED       MED     Add "Configures the import path; SIS sync runs on a schedule and is verified during pilot kickoff" XS  before next demo
+18  /sessions                              Big table but no "what should I do here?" framing                                                    LOW       MED     Add a top-of-page "Logging happens from Action Center / Quick Log; this is the audit trail"     XS    shell honesty pass
+19  /students                              Same — list view without job framing                                                                 LOW       LOW     Same one-line framing                                                                            XS    shell honesty pass
+20  Compliance Risk Report — "Estimated Exposure" $   Dollar amount with "rate not configured" warning shown on demo seed                       HIGH      HIGH    If rate not configured, show "Rate not configured — talk to your CSM" instead of `$0`            S     before next demo
+21  /compensatory page                     Static "Recalculate Exposure" / "Export Report" CTAs — no claims workflow                            MED       MED     Reframe header: "Compensatory exposure tracker — what's owed, why, and to whom"                  XS    shell honesty pass
+22  /parent-communication                  Visible to admins; thin per cross-checks                                                              MED       MED     Hide unless feature-flagged for comms-active districts                                           S     shell honesty pass
+23  /transitions                           "Transition Planning" route exists per nav; little visible workflow                                  MED       MED     Hide from default nav; preview-only                                                              S     shell honesty pass
+24  /admin/demo-readiness, /demo-control-center  "Hero Cast", "Highlight Mode", "Generate Cast" buttons visible to platform admins              HIGH      HIGH(if seen)  Confirm `isPlatformAdmin` gate works; add "Operator only — do not present to customer" header   S     before next demo
+25  "Replay tour" link in sample-data banner   Always visible alongside "Remove sample data"                                                    LOW       MED     Hide "Replay tour" by default after first dismissal; keep only "Remove sample data"              XS    now
+
+
+--------------------------------------------------------------------------------
+3. TOP 15 STRENGTHS TO LEAN INTO (RANKED)
+--------------------------------------------------------------------------------
+
+ 1. Shared handling state with full audit trail. `HandlingHistoryPopover`
+    shows from→to transitions, who, when, with notes; states are real
+    (`needs_action`, `awaiting_confirmation`, `recovery_scheduled`,
+    `handed_off`, `under_review`, `resolved`). Demo this with two browser
+    windows showing the same item update across roles.
+
+ 2. The truthful rename pattern (T06). "Follow up with provider" → "Mark
+    as awaiting provider response". This is the right pattern; buyers
+    respect honest labels.
+
+ 3. Risk → Likely Cause → Owner → Recommended Action chain. Show the same
+    student row driving four different action labels depending on signal
+    type (`documentation_lag` → "Confirm & log session";
+    `likely_missed_service` → "Schedule makeup"; `schedule_mismatch` →
+    "Review with case manager").
+
+ 4. School-calendar-aware minute math. Closures weight `0`, early release
+    `0.5`. Show a "Behind / On Pace" pill changing based on calendar
+    exceptions — competitors do not do this.
+
+ 5. `stillAtRiskMinutes` = max(0, Required − Delivered − ScheduledPending).
+    The decomposition into `delivered` + `scheduledPending` +
+    `stillAtRisk` is the single most defensible honesty story. Lead with
+    this in any compliance demo.
+
+ 6. `awaiting data` banner. Tells the buyer: "X students excluded from
+    health % to prevent fake green status." This is the kind of statement
+    a superintendent will repeat to their board.
+
+ 7. Quick Log "smart landing" via `computeInitialStep`. Open from a
+    session block → land on Outcome step, not Student step. Demo this
+    from a row in Action Center.
+
+ 8. Quick Repeat / Recent Combos in Quick Log. Actual paraprofessional-
+    grade UX (1-tap combo). Most platforms force a multi-screen flow.
+
+ 9. Medicaid "data prep, not filing" honesty. "Noverta does not file
+    claims with Medicaid. It prepares the data and tracks it through your
+    internal review." Direct, defensible, and disarms the obvious
+    objection.
+
+10. /weekly-compliance-summary. Mature print/PDF/CSV artifact backed by
+    real Minutes-at-Risk data. Bring a printed copy.
+
+11. "Risk priced as comp-ed exposure" framing. Translating minutes
+    shortfall to projected dollars is the #1 board-meeting hook.
+
+12. /cm-review/:itemId handoff page. Real handoff with a structured note
+    attaches when an admin says "Review with case manager." Demo
+    cross-role collaboration here.
+
+13. Snooze with auto-restore + visible restore-by timestamp ("Snoozed 3
+    days · by Maria Chen · 2d left") — proves the system never silently
+    drops work.
+
+14. Recommended Next Step on Student Detail. Same engine as Action
+    Center, contextualized to one student. Demo "what should I do for
+    Marcus?" — real answer, not a generic dashboard.
+
+15. CSV exports on every report (Risk Report, Compensatory, Medicaid).
+    Districts trust what they can pull into Excel; never hide the export
+    button.
+
+
+--------------------------------------------------------------------------------
+4. SAFE DEMO PATH (CLICK-BY-CLICK)
+--------------------------------------------------------------------------------
+
+PRE-FLIGHT:
+Run /admin/demo-readiness and confirm checks pass; reseed with
+targetStudents=140 (Medium); dismiss any active tour; close the persona-
+switcher panel; sign in fresh as admin with cookies cleared.
+
+STEP 1 — Route: /
+  Say:    "This is what your team sees Monday morning. The number that
+           matters is the still-at-risk minutes — not the headline
+           compliance %."
+  Show:   The dashboard's risk header + handling-state pills.
+  Don't:  "It calculates everything itself" — instead: "It tells you what's
+           true based on what was actually logged."
+  Next:   Action Center.
+
+STEP 2 — Route: /action-center (Urgent tab)
+  Say:    "One queue. Whatever's off-track today across schools, providers,
+           or students lands here."
+  Show:   The Likely Cause + Owner + Recommended Action triple on one row.
+  Don't:  "It auto-fixes" or "AI handles".
+  Next:   Click `Schedule makeup` on a `likely_missed_service` row.
+
+STEP 3 — Route: /scheduling?tab=minutes (deep-linked from CTA)
+  Say:    "It hands you to the minutes-at-risk view, pre-filtered to the
+           makeup you're trying to plan."
+  Show:   The makeup intent persisting; handling state changes to
+           `recovery_scheduled`.
+  Don't:  "It auto-schedules" — instead: "You confirm the slot; the
+           original alert auto-resolves when you log the session."
+  Next:   Back to Action Center; click `Mark as awaiting provider response`
+           on another row.
+
+STEP 4 — Route: (same)
+  Say:    "One status, every role sees it."
+  Show:   Open same item in second window logged in as the case manager —
+           pill matches.
+  Don't:  Anything about cross-district sync.
+  Next:   Student Detail of any at-risk student.
+
+STEP 5 — Route: /students/:id (Summary)
+  Say:    "When a parent calls about Marcus, you have the whole picture in
+           one place — the next step is named, not implied."
+  Show:   Recommended Next Step card; risk badge; metrics; Recent Sessions.
+  Don't:  Open the IEP & Goals tab unless asked — content depth varies.
+  Next:   Open Quick Log from `Log Session` button.
+
+STEP 6 — Quick Log sheet
+  Say:    "30-second logging. It remembers what para Maria usually does
+           for Marcus."
+  Show:   Quick Repeat tile; smart landing on Outcome.
+  Don't:  "Voice / OCR / camera" — not in product.
+  Next:   Save → success page.
+
+STEP 7 — Route: /compliance (Risk Report tab)
+  Say:    "This is the report a SPED director takes to the school board."
+  Show:   "Needs Attention This Period"; Provider Delivery Summary; the
+           `awaiting data` banner.
+  Don't:  Open the Trends tab on demo data — patterns may look noisy.
+  Next:   Print Report or Download CSV.
+
+STEP 8 — Route: /medicaid-billing (only if a billing question is asked)
+  Say:    "Noverta prepares the claim drafts; your billing system or
+           clearinghouse files them."
+  Show:   The export disclaimers and the "Exported" status definition.
+  Don't:  "We handle reimbursement".
+  Next:   Stop.
+
+TOTAL CLICKS: ~14. HARD STOP after step 8. Do not free-navigate.
+
+
+--------------------------------------------------------------------------------
+5. DO-NOT-DEMO / HIGH-RISK CLICK MAP
+--------------------------------------------------------------------------------
+
+Page / button                               Why risky                                                            Recommendation
+------------------------------------------  -------------------------------------------------------------------  ---------------------------------------------------
+/aba (ABA Hub)                              Theatrical sub-tabs (Maintenance, Supervision); BIP builder lacks    Hide from demo nav; Preview badge in pilot/full
+                                            clinical depth
+/behavior-assessment                        Same — overclaims clinical platform                                  Same
+/iep-suggestions ("Programs" in nav)        Confusing label, thin content                                        Hide; rename if kept
+/supervision                                Tier-locked + thin                                                   Hide unless ?supervisionBeta=1
+/caseload-balancing                         Dead-end                                                             Hide
+/scheduling?tab=coverage, ?tab=calendar     "Request Coverage" dead-ends; calendar read-only                     Demote sub-tabs
+/cost-avoidance, /resource-management,      Reporting-only "theatrical Finance"                                  Group under `Finance — Reporting (preview)`
+/contract-utilization
+/executive                                  "Executive Dashboard" — visible to admins; vague vs. wedge            Reframe or hide
+/agencies                                   Thin; no closed loop                                                 Hide unless agency district
+/transitions                                Thin                                                                 Hide
+/parent-communication                       Thin                                                                 Hide unless comms feature-flagged
+/import                                     Real but a mid-demo click derails the conversation                   Move to Settings sub-nav only
+/demo-control-center, /admin/demo-readiness Platform-admin only — but visible if the demo operator is signed in   Verify gate; add "Operator only" header
+/pilot-status, /pilot-feedback, /tenants    Same                                                                  Same
+Sidebar `DEMO ROLE` switcher                Reveals demo scaffolding                                              Hide unless platformAdmin or ?personaSwitcher=1
+Sample Data Tour auto-popup                 Blocks first paint                                                    Gate behind explicit Start button
+"Highlight Mode" / "Hero Cast" / "Generate Cast"  Theatrical staging                                              Operator-only header
+/pricing (admin can navigate to it)         Contains SOC2/pen-test honesty                                        Move to gated security doc
+
+
+--------------------------------------------------------------------------------
+6. FULL ADMIN NAV INVENTORY
+--------------------------------------------------------------------------------
+
+Source: artifacts/trellis/src/components/layout/nav-config.ts +
+        AppLayout.tsx. Mode-selected by getAdminNavForMode (demo / pilot /
+        full). Below is the full paid-mode `adminNav`.
+
+Nav label                          Route                              Maturity                  Demo readiness                 Recommendation
+---------------------------------  ---------------------------------  ------------------------  -----------------------------  -----------------------------------------------
+Dashboard                          /                                  Mature operational        READY                          Keep
+Action Center                      /action-center                     Mature operational        READY                          Keep — lead with this
+Students                           /students                          Thin but useful           USABLE                         Keep, add framing
+Sessions                           /sessions                          Thin but useful           USABLE                         Keep, add framing
+Compliance                         /compliance                        Mature operational        READY                          Keep
+Compensatory                       /compensatory                      Thin but useful           USABLE                         Keep, reframe header
+Reports                            /reports                           Thin but useful           USABLE                         Keep
+More › IEP Builder                 /iep-builder                       Thin (draft-only)         USABLE BUT NEEDS CONTEXT       Keep with subhead
+More › IEP Meetings                /iep-meetings                      Unclear                   USABLE BUT NEEDS CONTEXT       Keep
+More › Evaluations                 /evaluations                       Thin                      USABLE BUT NEEDS CONTEXT       Keep
+More › Progress Reports            /progress-reports                  Thin                      USABLE                         Keep
+More › Document Workflow           /document-workflow                 Polished workflow         READY                          Keep — actually mature
+More › Accommodation Verification  /accommodation-lookup              Unclear                   UNKNOWN                        Verify; demote if thin
+More › Transition Planning         /transitions                       Thin                      RISKY TO DEMO                  Hide / Preview
+More › Parent Comms                /parent-communication              Thin                      RISKY TO DEMO                  Hide / Preview
+More › Weekly Schedule             /scheduling                        Block-based, mature       READY                          Keep
+More › Coverage                    /scheduling?tab=coverage           Scaffold                  RISKY TO DEMO                  Demote sub-tab
+More › Minutes at Risk             /scheduling?tab=minutes            Mature                    READY                          Promote — make this Scheduling default tab
+More › Staff Calendar              /scheduling?tab=calendar           Read-only scaffold        RISKY TO DEMO                  Demote
+More › Caseload Balancing          /caseload-balancing                Dead-end                  HIDE                           Hide
+More › Staff                       /staff                             Unclear                   UNKNOWN                        Verify
+More › Learners                    /aba                               Theatrical                HIDE                           Hide
+More › Behavior Support / BIP      /behavior-assessment               Theatrical                HIDE                           Hide
+More › Programs                    /iep-suggestions                   Confusing label           HIDE                           Hide / rename
+More › Supervision                 /supervision                       Thin (tier-locked)        HIDE                           Hide
+More › Executive Dashboard         /executive                         Reporting-only            RISKY TO DEMO                  Reframe
+More › Contract Utilization        /contract-utilization              Reporting-only            RISKY TO DEMO                  Group under preview
+More › Resource Management         /resource-management               Reporting-only            RISKY TO DEMO                  Group under preview
+More › Cost Avoidance              /cost-avoidance                    Reporting-only theatrical RISKY TO DEMO                  Group under preview
+More › Agencies                    /agencies                          Thin                      HIDE                           Hide unless agency district
+More › Medicaid Billing            /medicaid-billing                  Data-prep mature          READY (with rename)            Keep — rename "Medicaid claim prep"
+More › Settings                    /settings                          Mature                    READY                          Keep
+More › School Year                 /school-year                       Mature                    READY                          Keep
+More › Notification Preferences    /notification-preferences          Mature                    READY                          Keep
+More › Data Import                 /import                            Mature                    USABLE BUT NEEDS CONTEXT       Keep, but only via Settings
+Platform › Tenant Management       /tenants                           Internal                  INTERNAL                       platform-admin gate
+Platform › Demo Control Center     /demo-control-center               Internal                  INTERNAL                       platform-admin gate; verify hidden during demo
+Platform › Demo Pre-Flight         /admin/demo-readiness              Internal                  INTERNAL                       Same
+Platform › Pilot Feedback          /pilot-feedback                    Internal                  INTERNAL                       Same
+Platform › Pilot Status            /pilot-status                      Internal                  INTERNAL                       Same
+
+
+--------------------------------------------------------------------------------
+7. PAGE-BY-PAGE AUDIT
+--------------------------------------------------------------------------------
+
+(Each page condensed to: route · purpose · maturity honesty · visible
+numbers · CTAs · risks · verdict.)
+
+/  Dashboard
+  Purpose:   Compliance-risk landing.
+  Maturity:  Mature operational.
+  Numbers:   Headline compliance %, exposure $, awaiting-data count,
+             at-pace pill.
+  CTAs:      Tile drill-downs; Replay tour; Remove sample data.
+  Risks:     (a) live test stayed in `Loading…` with 401 in browser
+             console; (b) Sample Data Tour auto-blocks; (c) "2000 sample
+             students" banner is jarring.
+  Verdict:   USABLE BUT NEEDS CONTEXT. Fix blocking items #1, #2, #5
+             from §2 before any live demo.
+
+/action-center
+  Purpose:   The job queue.
+  Maturity:  Mature operational. The single strongest page in the product.
+  Numbers:   Per-tab counts; per-row priority; handling-state pill.
+  CTAs:      "Confirm & log session", "Schedule makeup", "Mark as
+             awaiting provider response", "Review with case manager",
+             "Escalate coverage gap", "Review requirement", "Review IEP
+             timeline", "Monitor", "Snooze", "Dismiss", "Restore".
+  Risks:     Sidebar badge "99+" is fake-sized for the demo seed;
+             "Schedule makeup" semantics need a rename.
+  Verdict:   READY. Lead with this.
+
+/students
+  Purpose:   Roster.
+  Maturity:  Thin but useful.
+  Risks:     Janitorial; no clear "what should I do here?".
+  Verdict:   USABLE; add framing.
+
+/students/:id
+  Purpose:   Per-student workspace.
+  Maturity:  Mature operational (Summary + Sessions). IEP, Behavior,
+             Reports tabs vary.
+  Numbers:   Risk Badge, Overall Progress %, Minutes Delivered,
+             Completed/Missed Sessions, Active Goals (Mastered/On Track),
+             Compliance %, Recent Sessions, Active Alerts.
+  CTAs:      "Log Session", "Schedule makeup" (Plan, not commit),
+             "Open context".
+  Risks:     Behavior tab + Progress Reports depth varies.
+  Verdict:   READY for Summary / Sessions tabs only.
+
+/sessions
+  Purpose:   Session log audit trail.
+  Verdict:   USABLE. Add framing line.
+
+/compliance and /compliance-risk-report
+  Purpose:   The board-meeting page.
+  Maturity:  Mature operational.
+  Numbers:   Students with Services, Overall Compliance, Total Shortfall,
+             Estimated Exposure $, per-student "Required / Delivered /
+             Shortfall / Risk / Exposure / Provider", Provider Delivery
+             Summary.
+  CTAs:      "Schedule makeup", "Print Report", "Download CSV", "Generate
+             Executive Summary", "Schedule Report".
+  Risks:     `Estimated Exposure $0` if rates aren't configured; Trends
+             tab on demo data may look weird.
+  Verdict:   READY. Strongest single artifact in the product.
+
+/compensatory
+  Purpose:   What's owed.
+  Verdict:   USABLE. Reframe header.
+
+/scheduling (and tabs)
+  Maturity:  Weekly Schedule + Minutes at Risk are mature; Coverage +
+             Calendar are scaffolds.
+  Risks:     Default tab + tab order matter; "Suggest schedule" was
+             claimed by audit but I could not confirm in code.
+  Verdict:   READY only on Weekly + Minutes tabs.
+
+/iep-builder
+  Maturity:  Polished draft-only workflow.
+  CTAs:      "Generate Draft", "Start Workflow", "Generate PWN".
+  Risks:     Buyer assumption "system of record."
+  Verdict:   USABLE BUT NEEDS CONTEXT.
+
+/document-workflow
+  Maturity:  Surprisingly mature ("Approve", "Request Changes", "Post
+             Comment" with state machine).
+  Verdict:   READY.
+
+/iep-meetings, /evaluations, /progress-reports, /accommodation-lookup,
+/transitions, /parent-communication
+  Maturity:  Range from thin to placeholder.
+  Verdict:   Most are USABLE BUT NEEDS CONTEXT or HIDE.
+
+/aba, /behavior-assessment, /iep-suggestions ("Programs"), /supervision
+  Verdict:   HIDE / DEMOTE (theatrical).
+
+/medicaid-billing
+  Maturity:  Mature data-prep with strong honesty disclaimers.
+  Verdict:   READY with nav rename.
+
+/executive, /contract-utilization, /resource-management, /cost-avoidance,
+/agencies
+  Verdict:   RISKY TO DEMO. Group under "Finance — Reporting (preview)"
+             or hide.
+
+/weekly-compliance-summary
+  Verdict:   READY. One of the most mature artifacts.
+
+/reports
+  Verdict:   USABLE.
+
+/settings, /school-year, /notification-preferences, /import
+  Verdict:   READY but should not be free-clicked mid-demo.
+
+/onboarding, /setup/*
+  Verdict:   RISKY TO DEMO on demo districts.
+
+/admin/demo-readiness, /demo-control-center, /pilot-status,
+/pilot-feedback, /tenants
+  Verdict:   INTERNAL ONLY. Confirm the `isPlatformAdmin` gate works for
+             the demo operator account.
+
+/audit-log (redirect to #audit-log in settings)
+  Verdict:   USABLE — actually a good demo of "proof remains."
+
+/sped-portal, /guardian-portal
+  Verdict:   USABLE for read-only progress demo; do not promise
+             bi-directional workflow.
+
+
+--------------------------------------------------------------------------------
+8. COMPONENT / SURFACE AUDIT
+--------------------------------------------------------------------------------
+
+Component                          What works                                                 What hurts demo
+---------------------------------  ---------------------------------------------------------  -----------------------------------------------------
+Cards (Action Center rows)         WorkItemRow is dense but readable; cause + owner + action  Risk badge color logic is good; some cards may show
+                                   triple is the wedge                                        too many sub-buttons
+Badges (HandlingStatePill)         Real, server-backed, color-coded                           Naming consistent — keep
+Tables (Risk Report)               Sortable, exportable, clear thresholds                     "Provider Delivery Summary" can show very low %s on
+                                                                                              demo data and look punitive
+Filters                            Category filter (All/Compliance/IEP/Session/Evaluation)    Empty-state copy after filter is good
+                                   is correct verb-set
+Tabs (Compliance, Student Detail,  Correct verbs                                              Default tab should always be the strongest sub-surface
+Scheduling)
+Modals (Quick Log sheet)           Smart landing, sticky save footer, "Save Session" verb     Reason step "Make-up session needed" toggle copy is good
+Sheets (Quick Log)                 Step-based; success state with three follow-on CTAs        First-time user never sees onboarding inside the sheet
+Empty states (Action Center)       "Nothing urgent right now / Clear for the week / Nothing   Excellent — keep verbatim
+                                   planned yet" — perfect verbs
+Alerts banner                      "X students awaiting data" — denominator honesty            Keep — this is a trust artifact
+Banners (sample-data)              "Replay tour / Remove sample data" CTAs                    "Replay tour" should hide after first dismiss
+Toasts                             Locked-feature toast tells you the tier                    Acceptable if rare
+Loading states                     Page can sit on `Loading…` if a backend call 401s during   Add visible retry / fail-soft
+                                   boot
+Error states                       Not directly observed during audit; need verification      Verify before next demo
+Tour modals (Sample Data Tour,     Excellent copy; honest framing                             Auto-open behavior is the problem, not the content
+Showcase Tour)
+
+
+--------------------------------------------------------------------------------
+9. NUMBER / METRIC TRUST AUDIT
+--------------------------------------------------------------------------------
+
+Metric (label)                    Source                                              User reading                          Trust risk                                  Action
+--------------------------------  --------------------------------------------------  ------------------------------------  ------------------------------------------  --------------------------------------
+Overall Compliance %              Total Delivered ÷ Total Required (minuteCalc)       Headline health                       Excludes `awaiting data` students           Keep tooltip + awaiting-data banner
+Total Shortfall (minutes)         Sum across at_risk + out_of_compliance              "How much are we behind?"             Honest if calendar weighting is explained   Tooltip with school-calendar weighting
+Estimated Exposure $              Shortfall × configured rate                         "What does this cost us?"             If rate not configured, shows $0            Replace $0 with explicit "Rate not configured"
+Students with Services / count    Students with active service requirements           "How many am I responsible for?"      Low                                          —
+stillAtRiskMinutes                max(0, Required − Delivered − ScheduledPending)     "After planned makeups, what's still  Defensible artifact of the product           "after planned makeups" subtext
+                                                                                      missing?"
+scheduledPendingMinutes           Makeup intent created via "Schedule makeup"         "Already booked recovery"             Honest but unfamiliar verb                  Short tooltip
+Sidebar Action Center badge "99+" useListAlerts count                                 "How much fire?"                      HIGH — caps at 99 implies overwhelm/fake     Cap correctly; reduce demo seed
+Risk Badge                        minuteCalc thresholds                               Per-student status                    Honest                                       —
+Provider Delivery Summary         Sessions ÷ requirement per provider                 "Who is behind?"                      HIGH — names individual providers; demo seed Add "Demo data" disclaimer if shown
+                                                                                                                            may make a fictional staff member look bad
+Active Alerts (Student Detail)    useListAlerts filtered                              Per-student fire                      Honest                                       —
+Active Goals (Mastered/On Track)  Goal-tracking                                       Per-student progress                  Maturity varies                              Verify denominator
+Compliance % (Student snapshot)   Per-student                                         Per-student health                    Honest                                       —
+Pilot Readiness "X of Y checks"   Real check engine                                   Operator status                       Honest                                       —
+"Add ~N sample students" preview  Selector value                                      "How big a demo?"                     Honest (verified live)                       —
+
+
+--------------------------------------------------------------------------------
+10. BUTTON / CTA AUDIT (HIGH-IMPACT)
+--------------------------------------------------------------------------------
+
+Button text                                  Location                                       Expected                            Actual                                                          Recommendation
+-------------------------------------------  ---------------------------------------------  ----------------------------------  --------------------------------------------------------------  -------------------------------------------------
+Confirm & log session                        Action Center                                  Open Quick Log preselected           Yes — opens Quick Log with prefill                              Keep
+Schedule makeup                              Action Center / Risk Report / Student Detail   Schedule a makeup                    Routes to /scheduling?tab=minutes; marks `recovery_scheduled`;  Rename "Plan makeup recovery" OR add inline confirm
+                                                                                                                                 closes only when Quick Log fires
+Mark as awaiting provider response           Action Center                                  Set status, await                    Yes (T06 truthful rename verified in code)                      Keep — gold-standard label
+Review with case manager                     Action Center                                  Hand off to CM                       Yes — POSTs to .../hand-off-to-case-manager + routes to        Keep
+                                                                                                                                 /cm-review/:itemId
+Escalate coverage gap                        Action Center                                  Escalate                             Verify; could be aspirational                                   Confirm closed loop
+Review requirement                           Action Center                                  Open requirement                     Verify                                                          Confirm
+Review IEP timeline                          Action Center                                  Open timeline                        Verify                                                          Confirm
+Monitor                                      Action Center                                  Track without action                 OK                                                              Keep
+Snooze (1d/3d/7d)                            Action Center                                  Hide with auto-restore               Yes                                                             Keep
+Dismiss                                      Action Center                                  Hide; restorable                     Yes                                                             Keep
+Refresh                                      Action Center                                  Refresh                              OK                                                              Keep
+Log Session                                  Student Detail header                          Open Quick Log                       Yes                                                             Keep
+Done / Log Another for {Name} / Log          Quick Log success                              Continue or close                    Yes                                                             Keep
+Different Session
+Save Session                                 Quick Log footer                               Persist                              Yes                                                             Keep
+Print Report / Download CSV / Generate       Compliance / Risk Report                       Export                               Yes                                                             Keep
+Executive Summary / Schedule Report
+Generate Draft / Start Workflow / Generate   IEP Builder                                    Generate document                    Yes (draft only)                                                Keep, add subhead
+PWN
+Generate Drafts / Approve / Export CSV       Medicaid Billing                               Prep claims                          Yes (no filing)                                                 Keep, change nav label
+Recalculate Exposure / Export Report         Compensatory                                   Recalc + export                      Yes (static)                                                    Keep
+Suggest schedule                             Scheduling                                     AI suggestion                        Could not confirm in code; investigate                          Hide if not closed-loop
+Add Block                                    Scheduling                                     Add recurring block                  Yes                                                             Keep
+Request Coverage                             Scheduling > Coverage                          Request sub                          Dead-end per audit                                              Hide
+Add ~N sample students / Replace at N        Pilot Readiness Panel                          Seed                                 Yes (T-SEED-02 verified live)                                   Keep
+Reset district…                              Reset Panel                                    Wipe with confirm                    Yes (typed-name confirm)                                        Keep — operator only
+Reseed demo district                         Demo Readiness                                 Reseed                               Yes — operator only                                             Keep — verify gating
+Generate cast / Re-pin / Highlight Mode /    Demo Control Center                            Operator staging                     Yes                                                             Operator only — never visible to buyer
+Turn on / Turn off
+Replay tour                                  Sample-data banner                             Re-open tour                         Yes                                                             Hide after first dismiss during demo
+Remove sample data                           Sample-data banner                             Wipe sample                          Yes                                                             Keep
+Skip tour / Back / Next                      Tour modals                                    Tour controls                        OK                                                              Keep
+
+
+--------------------------------------------------------------------------------
+11. COPY / LABEL AUDIT — REPLACEMENTS
+--------------------------------------------------------------------------------
+
+Current copy                                                       Where                                  Why it hurts                                       Replacement
+-----------------------------------------------------------------  -------------------------------------  -------------------------------------------------  -----------------------------------------------
+"Your workspace includes 2000 sample students and 354 sample      Sample data banner                     Roster too large to be plausible                   "Sample workspace — 140 students, 24 staff.
+staff"                                                                                                                                                       Replace anytime."
+"Schedule makeup"                                                  Action Center / Risk Report CTAs       Implies the makeup is scheduled                    "Plan makeup recovery"
+"Medicaid Billing"                                                 Sidebar                                Implies we file claims                             "Medicaid claim prep"
+"Programs"                                                         Sidebar (Clinical) → /iep-suggestions  Confusing                                          "IEP suggestions (preview)"
+"Behavior Support / BIP"                                           Sidebar                                Overclaims clinical                                Hide; if kept "BIP draft (preview)"
+"Learners"                                                         Sidebar (Clinical) → /aba              Doesn't say what page does                         Hide; if kept "ABA workspace (preview)"
+"Cost Avoidance"                                                   Sidebar                                Theatrical finance label                           "Cost avoidance reporting (preview)"
+"Resource Management"                                              Sidebar                                Vague                                              "Resource utilization reporting (preview)"
+"Contract Utilization"                                             Sidebar                                Vague                                              "Contract utilization reporting (preview)"
+"Caseload Balancing"                                               Sidebar                                Doesn't deliver                                    Hide
+"Executive Dashboard"                                              Sidebar                                Generic SaaS                                       "Leadership reports"
+"Generate Drafts"                                                  Medicaid                               Standalone is unclear                              "Generate claim drafts"
+"Action Center" badge "99+"                                        Sidebar                                Truncation on demo seed                            Cap properly; until then "24 active"
+"DEMO ROLE" sidebar block                                          Sidebar                                Internal-tool feel                                 Hide unless platformAdmin / ?personaSwitcher=1
+"Replay tour"                                                      Banner                                 Reveals demo nature                                Hide after first dismiss
+"Welcome — your sample district is loaded"                         Tour step 1                            Good copy, wrong moment (auto-opens)               Keep copy; gate behind explicit Start
+"SOC 2 Type II is on the roadmap but not yet obtained"             /pricing                               Brutally honest in front-of-prospect surface       Move into Security Overview (request-link)
+"Estimated Exposure $0" (when rate unconfigured)                   Risk Report                            Reads as "no risk"                                 "Exposure pricing not configured — contact CSM"
+"Add 10 sample students" (legacy if any remains)                   PilotReadinessPanel                    Stale (verified replaced)                          Already fixed — confirm zero stragglers
+"Coverage" / "Staff Calendar" tabs                                 Scheduling                             Implies workforce platform                         "Coverage (preview)" / "Staff calendar (preview)"
+"Suggest schedule"                                                 Scheduling                             If AI scaffold                                     "Suggest schedule (preview)" or hide
+
+
+--------------------------------------------------------------------------------
+12. WORKFLOW LOOP AUDIT (CORE 10)
+--------------------------------------------------------------------------------
+
+#   Workflow                                                            Current state                                                    Closes loop?  Where it breaks                                Fix
+--  ------------------------------------------------------------------  ---------------------------------------------------------------  ------------  ---------------------------------------------  ---------------------------------------------------
+1   Admin sees risk → Action Center → assigns / handles → next step    Mature; handling state, audit trail, hand-off all real           YES           None                                            Lead the demo here
+2   Admin sees missed minutes → tries to schedule makeup               "Schedule makeup" routes to Scheduling > Minutes at Risk and     PARTIAL       Buyer expects single-click commit              Rename to "Plan makeup recovery" or add inline confirm
+                                                                       marks recovery_scheduled; closes when Quick Log fires
+3   Admin → Student Detail → understands risk + next step              Recommended Next Step card; metrics; action                      YES           None                                            Demo
+4   Admin uses Quick Log                                                Smart landing, defaults, save                                    YES           None                                            Demo
+5   Admin views Compliance Risk Report                                  Mature surface, exports, exposure                                YES if rates  "Estimated Exposure $0" with no explanation     Show explicit "Rate not configured"
+                                                                                                                                         configured
+6   Admin tries to prove what happened                                  HandlingHistoryPopover + audit log                               YES           Audit log access from sidebar via Settings —    Surface "View history" on every handled item
+                                                                                                                                                       discoverability                                  (probably already there)
+7   Admin explores reports / exports                                    Real CSVs / PDFs                                                 YES           None                                            Demo
+8   Admin clicks around non-wedge surfaces (ABA, Cost Avoidance, etc.)  Theatrical                                                       NO            Multiple dead-ends                              Hide / Preview
+9   Admin uses demo / sample data / reset                               Add / Replace / Reset / Reseed work                              YES           Reset confirmation good; no buyer-relevant      Operator only
+                                                                                                                                                       issues
+10  Admin tries to understand "Today" / role-home                       Dashboard exists; in my live test it stayed `Loading…`           UNVERIFIED    Possible auth-bootstrap 401                     Verify before any live demo
+
+
+--------------------------------------------------------------------------------
+13. SURFACE HONESTY PLAN (NO BROAD REDESIGN)
+--------------------------------------------------------------------------------
+
+1. Rename labels: per §11.
+
+2. Group nav: collapse `Clinical` and most of `Finance` under a single
+   `Preview` accordion; Settings sub-items moved into Settings page only.
+
+3. Preview / internal badges: add a small `Preview` pill (gray) next to
+   ABA, BIP, Programs, Supervision, Cost Avoidance, Resource Management,
+   Contract Utilization, Coverage, Staff Calendar, Caseload Balancing,
+   Transitions, Parent Comms.
+
+4. Reduce duplicate home surfaces: `Dashboard` (/) is the only home;
+   `Today` / role-home variants should not be promoted. Verify no
+   duplicate "home" entry exists for admins.
+
+5. Demote immature modules: hide ABA Hub, Behavior Support/BIP, Programs,
+   Supervision from default admin nav; require `?clinical=1` to expose.
+
+6. Clarify strongest wedge surfaces: pin `Action Center` and `Compliance
+   Risk Report` at the top of the sidebar with a thin tag like "Core
+   workflow"; everything else falls below.
+
+7. Default the Scheduling Hub tab to `Minutes at Risk`.
+
+8. Default the Compliance page tab to `Risk Report` (already the default
+   per audit — confirm).
+
+9. Move all platform-admin entries (Demo Control Center, Tenants, Pilot
+   Status/Feedback) into a single "Platform" group with a distinct icon
+   and a `not for buyers` operator-only header.
+
+
+--------------------------------------------------------------------------------
+14. QUICK WINS (≤ 1 day each, 20 items)
+--------------------------------------------------------------------------------
+
+#   File likely touched                                Surface                          Exact change                                                                 Risk
+--  -------------------------------------------------  -------------------------------  ---------------------------------------------------------------------------  -----
+1   lib/db/src/seed-sample-data.ts (caller) /         Sample data banner               Default demo seed = 140, not 2000                                            None
+    operator runbook
+2   SampleDataTour.tsx                                First-load tour                  Gate auto-open behind explicit Start button                                   Low
+3   AppLayout.tsx                                     Sidebar                          Hide DEMO ROLE block unless isPlatformAdmin or ?personaSwitcher=1             Low
+4   nav-config.ts                                     Sidebar Action Center badge      Cap 99+ behavior + reduce demo seed so realistic count shows                  Low
+5   nav-config.ts                                     Sidebar                          Add `Preview` badge to Caseload Balancing, ABA, BIP, Programs, Supervision,  None
+                                                                                       Cost Avoidance, Resource Management, Contract Utilization, Transitions,
+                                                                                       Parent Comms, Coverage, Staff Calendar
+6   nav-config.ts                                     Sidebar                          Hide Caseload Balancing, ABA, BIP, Programs, Supervision unless ?clinical=1  Low
+7   nav-config.ts                                     Sidebar                          Rename "Medicaid Billing" → "Medicaid claim prep"                            None
+8   nav-config.ts                                     Sidebar                          Rename "Programs" → "IEP suggestions (preview)"                              None
+9   action-recommendations.ts                         All "Schedule makeup" surfaces   Rename CTA → "Plan makeup recovery"                                          Low
+10  compliance-risk-report.tsx                        Risk Report                      When rate not configured, show "Exposure pricing not configured" instead     None
+                                                                                       of $0
+11  iep-builder page header                           IEP Builder                      Add subhead "Generates IEP drafts for your IEP system to consume —           None
+                                                                                       Noverta is not the legal system of record"
+12  pricing.tsx                                       FAQ                              Move SOC2/pen-test paragraph into a request-only Security Overview link     Med (legal review)
+13  SampleDataBanner.tsx                              Banner                           Hide "Replay tour" after first dismissal                                     Low
+14  Dashboard 401 path                                Dashboard loading                Add visible retry on bootstrap failure rather than indefinite spinner        Med
+15  students.tsx                                      Students                         Add framing line: "Roster — for actions, use Action Center"                  None
+16  sessions.tsx                                      Sessions                         Add framing line: "Audit trail — log new sessions from Action Center or QL"  None
+17  compensatory page header                          Compensatory                     Reframe: "Compensatory exposure — what's owed, why, and to whom"             None
+18  executive.tsx                                     Executive                        Reframe header: "Leadership reports"                                         None
+19  scheduling.tsx                                    Scheduling Hub                   Default tab = Minutes at Risk                                                Low
+20  Action Center rows                                Action Center                    Surface "View history" inline on every handled item if not already present   Low
+
+
+--------------------------------------------------------------------------------
+15. MEDIUM FIXES (1–3 days each, 15 items)
+--------------------------------------------------------------------------------
+
+ 1. Inline "Confirm scheduled makeup" microform on the recovery slot —
+    close the loop without leaving the row.
+
+ 2. Hide ABA / BIP / Programs / Supervision pages from default admin nav
+    and add a `Clinical (preview)` accordion behind a feature flag.
+
+ 3. Group `Cost Avoidance / Resource Management / Contract Utilization /
+    Agencies` into a `Finance — reporting (preview)` accordion,
+    default-collapsed.
+
+ 4. Demo Control Center: explicit "Operator only — do not present" header
+    on every panel.
+
+ 5. Auto-suppress Sample Data Tour on districts where it's been dismissed
+    once per browser; add operator override.
+
+ 6. Action Center: add "what happens next" tooltip on every primary
+    action button.
+
+ 7. Compliance page: add a top-of-page denominator legend ("Excludes X
+    students with no data this period").
+
+ 8. Student Detail: tab order tuned per role so Summary leads for
+    admin/CM, Behavior leads for BCBA, Sessions leads for provider.
+
+ 9. Quick Log: remove or relabel any `Trellis` localStorage cleanup
+    banner that may surface during a buyer's demo.
+
+10. Empty states for ABA / Behavior pages: "Preview surface — pilot scope
+    only".
+
+11. Reports page: lead with Weekly Compliance Summary + Risk Report;
+    demote anything else.
+
+12. /import: add "Imports run on a schedule during pilot kickoff — this
+    page is for setup" framing.
+
+13. /onboarding on demo districts: hide or show "Demo mode — onboarding
+    shown for reference only".
+
+14. Add a single "Preview" badge component used everywhere preview is
+    needed.
+
+15. Scheduling > Coverage / Staff Calendar: add empty state "Preview
+    surface — coming in pilot phase 2".
+
+
+--------------------------------------------------------------------------------
+16. DEFERRED / DO NOT DO YET
+--------------------------------------------------------------------------------
+
+- Building actual scheduling AI / "Suggest schedule" maturity. The wedge
+  does not require it.
+- Building bidirectional guardian / student portal interactions.
+- Building Medicaid clearinghouse / EDI submission. Disclaimer is the
+  right answer.
+- Building a state-filing IEP "system of record." Position as a draft
+  generator + workflow.
+- Building a generic task platform / BPM layer.
+- Building richer ABA clinical telemetry.
+- Adding more top-level nav items.
+- A broad visual redesign — the visual language is fine; the *honesty
+  layer* (badges, names, defaults) is what's missing.
+
+
+--------------------------------------------------------------------------------
+17. BUYER OBJECTION MAP
+--------------------------------------------------------------------------------
+
+Likely buyer question                                    Triggered by                        Safe answer                                                                       Product fix needed
+-------------------------------------------------------  ----------------------------------  --------------------------------------------------------------------------------  ---------------------------------------------
+"Why does the Action Center say 99+ on a sample          Sidebar badge truncation            "That's the demo seed — your live district will show real counts. Let's          Reduce default seed to 140
+district?"                                                                                    right-size the seed for you now."
+"Does it actually schedule the makeup?"                  "Schedule makeup" CTA               "It plans the makeup recovery and reserves the slot — your provider confirms     Rename CTA + add inline confirm
+                                                                                              by logging the session, which auto-closes the alert."
+"Do you file Medicaid claims?"                           Medicaid nav label                  "We prepare the claims your billing system files. We don't handle EDI            Rename to "Medicaid claim prep"
+                                                                                              submission or chase adjudication."
+"Is the IEP signed and filed from here?"                 IEP Builder UI                      "We draft and review IEPs; your IEP system of record handles signature and       Add subhead
+                                                                                              filing."
+"What's a 'Cost Avoidance' workflow?"                    Sidebar label                       "It's a reporting view — not a workflow. We'll demote that label."               Group under Reporting (preview)
+"Why are there 4 personas in the sidebar?"               DEMO ROLE block                     "That's an operator switcher for the demo session — it's hidden in production." Hide unless platformAdmin
+"What does 'awaiting data' mean?"                        Compliance banner                   "Students with zero logs this period are excluded from health % so we don't      Already in product — keep
+                                                                                              fake green. Their count is shown so you can chase them."
+"Is this SOC2?"                                          Pricing FAQ                         "Roadmap. We have the technical controls; the audit is in progress. Happy to    Move out of FAQ
+                                                                                              share the Security Overview."
+"What happens if I dismiss something important?"         Action Center                       "Snooze and dismiss are restorable — the audit trail shows who did what.        Already in product
+                                                                                              Nothing is silently dropped."
+"Why is the dashboard loading?"                          Live test                           "Bootstrap timing — let me refresh."                                              Fix indefinite-spinner path
+
+
+--------------------------------------------------------------------------------
+18. FINAL PRIORITIZED ROADMAP
+--------------------------------------------------------------------------------
+
+BEFORE NEXT DEMO (this week):
+- §14 Quick Wins #1, #2, #3, #4 — banner number, tour gate, persona
+  switcher, badge cap.
+- §14 #5, #6, #7, #8, #9 — preview badges, hide clinical defaults,
+  Medicaid rename, Programs rename, "Plan makeup recovery" rename.
+- §14 #10, #14 — Risk Report exposure copy, dashboard 401 path.
+- §15 #4 — Demo Control Center "Operator only" headers.
+
+AFTER CLOSED-LOOP RECOVERY WORK (next sprint):
+- §15 #1 — Inline "Confirm scheduled makeup" microform.
+- §14 #11 — IEP Builder subhead.
+- §15 #6, #7 — Action Center tooltips, Compliance denominator legend.
+
+SHELL HONESTY PASS (this month):
+- §15 #2, #3 — Group Clinical and Finance under preview accordions.
+- §14 #15-19 — page-framing subheads.
+- §15 #5, #10, #11, #12, #13, #14, #15 — auto-suppress tour, preview
+  empty states, Reports reorder, import framing, onboarding reframe,
+  Preview badge component, Coverage/Calendar empty states.
+
+LATER MATURITY PHASE (don't promise):
+- Real scheduling AI; real Medicaid filing; bidirectional portals; ABA
+  clinical maturity; SOC2 audit; pen test; IEP system of record. None of
+  this is on the wedge path.
+
+
+--------------------------------------------------------------------------------
+19. EXACT FILES / ROUTES REVIEWED
+--------------------------------------------------------------------------------
+
+Frontend (artifacts/trellis/src):
+- App.tsx (route table)
+- components/layout/nav-config.ts, components/layout/AppLayout.tsx
+- pages/action-center.tsx
+- pages/compliance.tsx, pages/compliance-risk-report.tsx
+- pages/student-detail/* (Summary, Sessions, IEP, Behavior, role-config)
+- components/quick-log-sheet/* (entry, types, success state)
+- components/dashboard/PilotReadinessPanel.tsx (line-level: roster preset
+  CTAs verified live)
+- components/SampleDataTour.tsx, components/ShowcaseTour.tsx,
+  components/SampleDataBanner.tsx
+- pages/scheduling.tsx and tabs
+- pages/iep-builder.tsx, pages/document-workflow.tsx
+- pages/medicaid-billing/* (verified honesty disclaimers in index.tsx,
+  RevenueDashboardTab.tsx, ExportTab.tsx, BillingReportsTab.tsx,
+  shared.tsx)
+- pages/aba/*, pages/behavior-assessment.tsx, pages/iep-suggestions.tsx,
+  pages/supervision.tsx
+- pages/executive.tsx, pages/cost-avoidance.tsx,
+  pages/resource-management.tsx, pages/contract-utilization.tsx,
+  pages/agencies.tsx
+- pages/compensatory.tsx, pages/weekly-compliance-summary.tsx,
+  pages/reports.tsx
+- pages/setup/index.tsx, pages/onboarding.tsx,
+  pages/admin/demo-readiness.tsx, pages/demo-control-center.tsx,
+  pages/pilot-status.tsx, pages/pilot-feedback.tsx, pages/tenants.tsx
+- pages/sped-portal.tsx, pages/guardian-portal.tsx
+- pages/pricing.tsx (FAQ inspected for SOC2 honesty)
+- lib/action-recommendations.ts (verified T06 truthful rename),
+  lib/use-handling-state.ts
+
+Backend / shared:
+- lib/db/src/seed-sample-data.ts
+- artifacts/api-server/src/routes/sampleData.ts (parseSeedOptions accepts
+  targetStudents)
+- artifacts/api-server/src/routes/demoShowcase.ts (T-DEMO-01)
+- Compliance/Risk APIs (/api/reports/compliance-risk-report,
+  /api/reports/compliance-risk-report.csv)
+- minuteCalc and schoolCalendar weighting (closures 0, early release 0.5)
+
+Live verification:
+- Took a live screenshot of / as admin. Result: sample-data banner read
+  "Your workspace includes 2000 sample students and 354 sample staff",
+  dashboard stayed in `Loading…`, `Sample Data Tour · 1 of 5` modal
+  auto-opened, sidebar `DEMO ROLE` block + Action Center "99+" badge
+  visible. Browser console showed one `401 Unauthorized` on a backend
+  bootstrap call (Clerk dev-keys warning is informational and unrelated).
+- Live verification was partially blocked by the dashboard's loading
+  state. Where I could not visually confirm a page, I noted it (e.g.,
+  Trends tab, behavior pages, evaluations) and cited code as the source.
+
+Could not verify live:
+- Trends tab on /compliance
+- /aba sub-tab depth, /behavior-assessment, /supervision,
+  /iep-suggestions UI states under demo seed
+- `Suggest schedule` AI scaffold (claimed by the platform-breadth audit;
+  no string match in scheduling.tsx)
+- `Request Coverage` flow under /scheduling?tab=coverage
+
+
+--------------------------------------------------------------------------------
+20. FINAL RECOMMENDATION
+--------------------------------------------------------------------------------
+
+Single highest-value UX move:
+Reduce the default demo seed from 2000 to ~140 students AND gate the
+Sample Data Tour behind an explicit Start button — both in the
+sample-data banner. These two changes alone remove the first three
+trust-damaging signals a buyer sees in the first 30 seconds (absurd
+roster size, intrusive tour, "99+" badge that's only fake because the
+seed is huge), without touching any wedge code or any product capability.
+Total effort: less than a day.
+
+Single highest-risk visible issue:
+The "Schedule makeup" CTA. Today it routes to /scheduling?tab=minutes
+and marks the item recovery_scheduled but does not actually commit a
+scheduled session — closure happens only when Quick Log fires. A
+skeptical buyer will click the button expecting "schedule" semantics,
+see what looks like a deflection, and leave the demo with the impression
+that the closed loop is theater. Either rename the CTA to "Plan makeup
+recovery" (XS effort, immediate honesty) or build the inline "Confirm
+scheduled" microform (M effort, true closed loop).
+
+================================================================================
+END OF AUDIT
+================================================================================

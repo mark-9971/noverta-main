@@ -227,3 +227,9 @@ id = "c-s7ZW4heDIQ2mADnPy5_"
 uri = "file://exports/trellis-files.zip"
 type = "unspecified"
 title = "Trellis source files (zip)"
+
+[[outputs]]
+id = "WM74j4rrNpLg7HXiGQDJk"
+uri = "file://docs/audit/demo-ux-audit-01-admin.txt"
+type = "text"
+title = "Demo UX Audit — Admin (Full)"
