@@ -2332,6 +2332,32 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
         addTablePredicate(t, `student_id IN (${idsList})`);
       }
 
+      // Also include every table with a real FK directly to students, even if
+      // the FK column is named differently or the table was missed by the
+      // student_id column sweep. This specifically protects managed-Postgres
+      // teardown from leaving rows like data_sessions.student_id behind before
+      // the final students delete.
+      const directStudentFkRes = await tx.execute(sql`
+        SELECT
+          child.relname AS child_table,
+          child_att.attname AS child_col
+        FROM pg_constraint c
+        JOIN pg_class child ON child.oid = c.conrelid
+        JOIN pg_class parent ON parent.oid = c.confrelid
+        JOIN pg_attribute child_att
+          ON child_att.attrelid = c.conrelid
+         AND child_att.attnum = ANY(c.conkey)
+        WHERE c.contype = 'f'
+          AND parent.relname = 'students'
+      `);
+
+      for (const row of directStudentFkRes.rows as any[]) {
+        const table = String(row.child_table);
+        const column = String(row.child_col);
+        if (table === "students") continue;
+        addTablePredicate(table, `${quoteIdent(column)} IN (${idsList})`);
+      }
+
       // ---- Snapshot phase ----
       const tableSnapshots: Array<{ table: string; tmp: string }> = [];
       const snapshotByTable = new Map<string, string>();
