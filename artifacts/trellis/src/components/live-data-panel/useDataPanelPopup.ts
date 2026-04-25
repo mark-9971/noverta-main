@@ -1,7 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import type { CollectedGoalEntry } from "./types";
 
-const CHANNEL_NAME = "trellis-data-panel";
+const CHANNEL_NAME = "noverta-data-panel";
+// Compat alias: dual-broadcast/dual-listen during the rename transition so
+// popups opened with the legacy channel name still receive updates. Safe to
+// remove after one cycle of popup re-opens.
+const LEGACY_CHANNEL_NAME = "trellis-data-panel";
 
 interface PopupMessage {
   type: "data-update" | "popup-ready" | "popup-closed" | "open-popup";
@@ -15,12 +19,15 @@ export function useDataPanelSync(
   onEntriesChange: (entries: Map<number, CollectedGoalEntry>) => void,
 ) {
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const legacyChannelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     try {
       const ch = new BroadcastChannel(CHANNEL_NAME);
+      const legacyCh = new BroadcastChannel(LEGACY_CHANNEL_NAME);
       channelRef.current = ch;
-      ch.onmessage = (e: MessageEvent<PopupMessage>) => {
+      legacyChannelRef.current = legacyCh;
+      const handler = (e: MessageEvent<PopupMessage>) => {
         if (e.data.timerId !== timerId) return;
         if (e.data.type === "data-update" && e.data.entries) {
           const map = new Map<number, CollectedGoalEntry>();
@@ -28,7 +35,12 @@ export function useDataPanelSync(
           onEntriesChange(map);
         }
       };
-      return () => { ch.close(); channelRef.current = null; };
+      ch.onmessage = handler;
+      legacyCh.onmessage = handler;
+      return () => {
+        ch.close(); legacyCh.close();
+        channelRef.current = null; legacyChannelRef.current = null;
+      };
     } catch {
       return;
     }
@@ -38,7 +50,11 @@ export function useDataPanelSync(
     if (!channelRef.current) return;
     const obj: Record<string, CollectedGoalEntry> = {};
     newEntries.forEach((v, k) => { obj[String(k)] = v; });
-    channelRef.current.postMessage({ type: "data-update", timerId, entries: obj } as PopupMessage);
+    const msg: PopupMessage = { type: "data-update", timerId, entries: obj };
+    channelRef.current.postMessage(msg);
+    // Dual-broadcast on legacy channel so any popup window still listening
+    // on the old name keeps receiving updates during the transition.
+    legacyChannelRef.current?.postMessage(msg);
   }, [timerId]);
 
   return { broadcastUpdate };

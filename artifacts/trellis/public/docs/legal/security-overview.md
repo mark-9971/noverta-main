@@ -1,6 +1,6 @@
 # Security Overview
 
-**Trellis — Security Architecture Overview**
+**Noverta — Security Architecture Overview**
 *For district IT directors, privacy officers, and security reviewers*
 *Last updated: [DATE]*
 
@@ -8,7 +8,7 @@
 
 ## Summary
 
-Trellis is a web-based SaaS platform hosted on Replit's cloud infrastructure in the United States. It uses industry-standard controls for authentication, authorization, encryption, and audit logging. This document describes the security architecture as of the current production deployment.
+Noverta is a web-based SaaS platform hosted on Replit's cloud infrastructure in the United States. It uses industry-standard controls for authentication, authorization, encryption, and audit logging. This document describes the security architecture as of the current production deployment.
 
 ---
 
@@ -19,14 +19,14 @@ Trellis is a web-based SaaS platform hosted on Replit's cloud infrastructure in 
 - **Network:** All traffic routed through Replit's infrastructure with TLS termination at the edge
 - **Data residency:** All data stored and processed within the United States
 
-Replit maintains infrastructure-level security controls including physical security at data centers, network isolation, and DDoS mitigation. Trellis is responsible for application-layer security described in this document.
+Replit maintains infrastructure-level security controls including physical security at data centers, network isolation, and DDoS mitigation. Noverta is responsible for application-layer security described in this document.
 
 ---
 
 ## 2. Encryption
 
 ### In Transit
-- All communication between clients (browser) and the Trellis application server uses **TLS 1.2 or higher**
+- All communication between clients (browser) and the Noverta application server uses **TLS 1.2 or higher**
 - The Replit proxy enforces HTTPS; plain HTTP connections are not accepted
 - API communication between frontend and backend travels over the same TLS-protected channel
 
@@ -45,7 +45,7 @@ Authentication is handled by **Clerk**, a managed identity platform:
 - Sessions are managed server-side; tokens are verified on every authenticated API request
 - Clerk supports **multi-factor authentication (MFA)** — districts can enforce MFA for all users through their Clerk organization settings
 - Password hashing is managed by Clerk using bcrypt with appropriate work factors
-- No passwords are stored in the Trellis database
+- No passwords are stored in the Noverta database
 
 ---
 
@@ -62,7 +62,7 @@ Access to data is enforced at the API layer, not only in the UI:
 
 ## 5. Tenant Isolation
 
-Trellis is a multi-tenant platform. Each school district is a separate tenant:
+Noverta is a multi-tenant platform. Each school district is a separate tenant:
 
 - Every database record that belongs to a district is linked to that district via a `school_id` or cascading FK chain to `schools → districts`
 - In production, the `enforceDistrictScope` middleware reads the authenticated user's district from their Clerk token and overwrites any client-supplied district parameter, preventing cross-tenant data access through query-string manipulation
@@ -114,18 +114,18 @@ Application errors are monitored via **Sentry** (when enabled):
 
 ## 10. Employee Access Controls
 
-Trellis limits internal access to production systems:
+Noverta limits internal access to production systems:
 
 - Production database access requires individual authenticated credentials — no shared root passwords
-- Trellis employees do not routinely access district data; access is logged when it occurs for support purposes
-- All Trellis engineers are subject to confidentiality obligations
+- Noverta employees do not routinely access district data; access is logged when it occurs for support purposes
+- All Noverta engineers are subject to confidentiality obligations
 
 ---
 
 ## 11. What This Document Does Not Cover
 
-- **SOC 2 certification:** Not yet obtained. Trellis plans to pursue SOC 2 Type II as the product scales.
-- **HIPAA:** FERPA (not HIPAA) governs student education records. Trellis does not process Protected Health Information (PHI) as defined by HIPAA.
+- **SOC 2 certification:** Not yet obtained. Noverta plans to pursue SOC 2 Type II as the product scales.
+- **HIPAA:** FERPA (not HIPAA) governs student education records. Noverta does not process Protected Health Information (PHI) as defined by HIPAA.
 - **Penetration testing:** Not yet performed on the current production environment. Planned before enterprise deployment.
 
 ---

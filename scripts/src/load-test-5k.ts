@@ -262,7 +262,7 @@ async function main(): Promise<void> {
 
   const authMode = AUTH_TOKEN ? "bearer token" : USE_TEST_HEADERS ? "test headers (x-test-*)" : "NONE";
 
-  console.log(`\nTrellis 5k-student load test`);
+  console.log(`\nNoverta 5k-student load test`);
   console.log(`  Target:       ${BASE_URL}`);
   console.log(`  Auth:         ${authMode}`);
   console.log(`  Concurrency:  ${CONCURRENCY}`);

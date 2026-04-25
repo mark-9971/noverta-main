@@ -64,7 +64,7 @@ because the medical-alerts router only owns the literal route plus
 
 ## Open issues / follow-ups
 
-### Trellis web TS-error backlog (~74)
+### Noverta web TS-error backlog (~74)
 Rebuilding `lib/api-client-react/dist` exposed a backlog of
 pre-existing TypeScript errors in `artifacts/trellis/` that were
 masked by the 14-Apr stale `.d.ts`. These are **not runtime

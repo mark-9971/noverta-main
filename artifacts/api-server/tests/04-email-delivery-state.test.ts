@@ -74,7 +74,7 @@ describe("email delivery-state honesty", () => {
       acceptedAt: new Date(),
       sentAt: new Date(),
       toEmail: "guardian@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     // Drive the same DB transition the webhook would, with the same shape.
@@ -103,7 +103,7 @@ describe("email delivery-state honesty", () => {
       providerMessageId: "msg_legacy_sent",
       sentAt: new Date(),
       toEmail: "guardian@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     const now = new Date();
@@ -126,7 +126,7 @@ describe("email delivery-state honesty", () => {
       acceptedAt: new Date(),
       sentAt: new Date(),
       toEmail: "bad@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     const now = new Date();
@@ -153,7 +153,7 @@ describe("email delivery-state honesty", () => {
       acceptedAt: new Date(),
       sentAt: new Date(),
       toEmail: "spamflag@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     const now = new Date();
@@ -178,7 +178,7 @@ describe("email delivery-state honesty", () => {
       acceptedAt: new Date(),
       sentAt: new Date(),
       toEmail: "slow@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     const now = new Date();
@@ -209,7 +209,7 @@ describe("email delivery-state honesty", () => {
       sentAt: new Date(Date.now() - 60_000),
       deliveredAt: new Date(Date.now() - 30_000),
       toEmail: "guardian@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     // Mirror webhook handler: bouncedAt always recorded; status only flips
@@ -247,7 +247,7 @@ describe("email delivery-state honesty", () => {
       sentAt: new Date(Date.now() - 60_000),
       deliveredAt: new Date(Date.now() - 30_000),
       toEmail: "guardian@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     const now = new Date();
@@ -283,7 +283,7 @@ describe("email delivery-state honesty", () => {
       failedAt: new Date(Date.now() - 30_000),
       failedReason: "transient timeout",
       toEmail: "guardian@example.com",
-      fromEmail: "noreply@trellis.education",
+      fromEmail: "noreply@noverta.education",
     }).returning();
 
     const now = new Date();

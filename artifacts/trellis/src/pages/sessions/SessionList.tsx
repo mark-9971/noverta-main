@@ -116,7 +116,7 @@ export function SessionList(props: Props) {
             </EmptyStateDetail>
             <EmptyStateHeading>To get started:</EmptyStateHeading>
             <EmptyStateStep number={1}>Click "Log a Session" to record a completed, missed, or cancelled service session.</EmptyStateStep>
-            <EmptyStateStep number={2}>Each session links to a student, provider, and service type — Trellis matches it against IEP requirements automatically.</EmptyStateStep>
+            <EmptyStateStep number={2}>Each session links to a student, provider, and service type — Noverta matches it against IEP requirements automatically.</EmptyStateStep>
             <EmptyStateStep number={3}>Providers can also log sessions from their own dashboard for faster day-to-day entry.</EmptyStateStep>
           </EmptyState>
         )}

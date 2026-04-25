@@ -16,7 +16,7 @@ export default function CompetitionSlide() {
                 <p className="font-body text-[1vw] font-semibold text-muted">Capability</p>
               </div>
               <div className="px-[1vw] py-[1.5vh] text-center border-l border-gray-200 bg-primary/5">
-                <p className="font-body text-[1vw] font-bold text-primary">Trellis</p>
+                <p className="font-body text-[1vw] font-bold text-primary">Noverta</p>
               </div>
               <div className="px-[1vw] py-[1.5vh] text-center border-l border-gray-200">
                 <p className="font-body text-[1vw] font-semibold text-muted">Generic SIS</p>

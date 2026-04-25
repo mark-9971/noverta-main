@@ -3,11 +3,11 @@ export default function S16_Competition() {
     <div className="relative w-screen h-screen overflow-hidden bg-gradient-to-br from-[#f8f9fa] to-[#f0fdf4]">
       <div className="relative z-10 flex flex-col justify-center h-full px-[6vw]">
         <p className="font-body text-[1.4vw] text-primary font-semibold tracking-widest uppercase mb-[2vh]">Landscape</p>
-        <h2 className="font-display text-[3vw] font-bold text-text tracking-tight leading-[1.1] mb-[4vh]">How Trellis compares</h2>
+        <h2 className="font-display text-[3vw] font-bold text-text tracking-tight leading-[1.1] mb-[4vh]">How Noverta compares</h2>
         <div className="bg-white rounded-[1vw] border border-gray-200 shadow-lg overflow-hidden">
           <div className="grid grid-cols-6 bg-dark text-white">
             <div className="p-[1.2vw] font-body text-[1.2vw] font-semibold">Feature</div>
-            <div className="p-[1.2vw] font-body text-[1.2vw] font-semibold text-center bg-primary">Trellis</div>
+            <div className="p-[1.2vw] font-body text-[1.2vw] font-semibold text-center bg-primary">Noverta</div>
             <div className="p-[1.2vw] font-body text-[1.2vw] font-semibold text-center">SpedTrack</div>
             <div className="p-[1.2vw] font-body text-[1.2vw] font-semibold text-center">Frontline</div>
             <div className="p-[1.2vw] font-body text-[1.2vw] font-semibold text-center">PowerSchool</div>

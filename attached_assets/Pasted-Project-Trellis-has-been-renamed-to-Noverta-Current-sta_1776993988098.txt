@@ -1,0 +1,149 @@
+Project: Trellis has been renamed to Noverta.
+
+Current state:
+- NEXT-1 complete: user-facing string rename.
+- NEXT-2 complete: filename/import rename.
+- NEXT-3 partial/accepted: main localStorage/sessionStorage migration shims.
+- NEXT-4 complete: remaining active client-side storage keys migrated.
+
+Task:
+NEXT-5 — rename e2e/test fixture references from Trellis storage/event keys to Noverta canonical keys.
+
+Use the actual current codebase as source of truth. Do the work, not just a plan.
+
+Execution priority:
+1. actual completion
+2. correctness
+3. test intent preservation
+4. proof
+5. speed only after the above
+
+Objective:
+Update e2e tests, test helpers, and test-authored browser storage/event fixtures so they use canonical Noverta names instead of legacy Trellis names wherever production code now supports Noverta keys.
+
+Why now:
+Production code now supports Noverta-prefixed storage keys through NEXT-3/NEXT-4. Tests should stop seeding legacy Trellis keys as the default path. This reduces false rename residue and prepares for eventual legacy-shim retirement.
+
+Scope:
+1. Search e2e/tests and frontend test/helper files for:
+   - trellis.
+   - trellis_
+   - trellis:
+   - TRELLIS
+   - Trellis
+2. Update test-authored storage keys/events to canonical Noverta equivalents where appropriate.
+3. Preserve test intent exactly.
+4. Keep production legacy-read shims intact for now.
+5. Do not remove compatibility shims yet.
+6. Do not change product behavior.
+7. Do not broaden this into DNS, DB-role, marketing URL, or production cleanup work.
+
+Known likely files from NEXT-4:
+- e2e/tests/showcase-tour.spec.ts
+- e2e/tests/sample-data-tour.spec.ts
+- e2e/tests/onboarding-checklist.spec.ts
+- e2e/tests/onboarding-checklist-task-792.spec.ts
+- e2e/tests/incident-lifecycle.spec.ts
+- e2e/tests/_helpers/handling.ts
+- e2e/tests/_helpers/incident.ts
+
+Likely rename examples:
+- trellis.disableTours → noverta.disableTours
+- trellis.sampleTour.v1.* → noverta.sampleTour.v1.*
+- trellis.sampleTour.start → noverta.sampleTour.start
+- trellis.showcaseTour.v1.* → noverta.showcaseTour.v1.*
+- trellis.showcaseTour.start → noverta.showcaseTour.start
+- trellis.demoFlow.v1 → noverta.demoFlow.v1
+- trellis.demoHighlight.v1 → noverta.demoHighlight.v1
+- trellis.districtLockedMessage → noverta.districtLockedMessage
+- trellis_nav_* → noverta_nav_*
+- trellis_quicklog_v2_* → noverta_quicklog_v2_*
+- trellis.pilot-decision-banner.dismissed-until → noverta.pilot-decision-banner.dismissed-until
+- trellis:mobile-setup-progress:dismissed → noverta:mobile-setup-progress:dismissed
+
+Non-goals:
+- No DNS/email/url cutover.
+- No trellis_support DB role rename.
+- No production legacy-shim removal.
+- No product UI changes.
+- No Action Center, recommendation engine, handling state, compliance risk, minute math, school calendar, scheduling orchestration, seed/reset, or demo-seeder changes.
+- No broad e2e rewrite.
+- No test intent changes.
+
+Important compatibility rule:
+Production should still accept old Trellis keys after this task. NEXT-5 only changes tests to write the canonical Noverta keys. It does not remove legacy fallback behavior.
+
+Testing:
+- Run the narrowest relevant e2e specs if feasible.
+- If full e2e is blocked by known harness/OOM/FK issues, report that as pre-existing test harness noise, not a rename regression.
+- Run typecheck/build if feasible.
+- Run grep/rg verification after changes to classify any remaining Trellis references.
+
+Required search/proof:
+After changes, run a search equivalent to:
+- rg -n 'trellis\.|trellis_|trellis:|Trellis|TRELLIS' e2e tests frontend test helpers
+
+Classify every remaining hit as one of:
+1. intentional legacy compatibility coverage
+2. out-of-scope DB role/auth string
+3. out-of-scope external URL/DNS/email
+4. historical comment/migration shim
+5. true remaining rename gap
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. EXACT FILES CREATED
+List exact paths or “None”.
+
+3. EXACT FILES MODIFIED
+List exact paths or “None”.
+
+4. EXACT FILES DELETED
+List exact paths or “None”.
+
+5. EXACT REASONS FOR EACH CHANGE
+Explain each changed file.
+
+6. USER-VISIBLE IMPACT
+Should be none. If not none, explain.
+
+7. ARCHITECTURE / MODEL IMPACT
+Should be none. If not none, explain.
+
+8. TEST FIXTURE RENAME MAP
+For every changed fixture/key/event, list:
+- old Trellis value
+- new Noverta value
+- file changed
+- test purpose preserved
+
+9. TEST / BUILD STATUS
+Include exact commands run and exact results.
+Separate:
+- regressions
+- pre-existing failures
+- environment/tooling noise
+
+10. REMAINING TRELLIS REFERENCES
+List every remaining Trellis/trellis hit found by search and classify it.
+
+11. EXACT REMAINING GAPS
+List true gaps only, or “None”.
+
+12. EXACT NEXT TASKS
+Likely next tasks:
+- NEXT-6 DNS/email/external URL cutover
+- NEXT-7 DB/role rename plan
+- NEXT-8 legacy shim retirement
+Do not start them.
+
+13. FINAL ARTIFACT
+Brief summary of final implementation.
+
+Stop after NEXT-5.

@@ -20,16 +20,20 @@ import { expect, type Page } from "@playwright/test";
  */
 async function disableTours(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
-    w.__TRELLIS_DISABLE_TOURS__ = true;
+    const w = window as unknown as { __NOVERTA_DISABLE_TOURS__?: boolean };
+    w.__NOVERTA_DISABLE_TOURS__ = true;
     try {
-      localStorage.setItem("trellis.disableTours", "1");
+      localStorage.setItem("noverta.disableTours", "1");
     } catch {
       // best-effort
     }
+    // Production reads `noverta.sampleTour.v1.*` first via the storage-
+    // migration helper; matching the canonical key here is sufficient
+    // (the legacy `trellis.*` fallback is never reached when the
+    // canonical read returns "seen").
     const origGet = Storage.prototype.getItem;
     Storage.prototype.getItem = function (key: string) {
-      if (typeof key === "string" && key.startsWith("trellis.sampleTour.v1")) return "seen";
+      if (typeof key === "string" && key.startsWith("noverta.sampleTour.v1")) return "seen";
       return origGet.call(this, key);
     };
   });

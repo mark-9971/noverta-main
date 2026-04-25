@@ -1,5 +1,5 @@
 /**
- * Trellis-support landing page: pick a district + provide a reason to open
+ * Noverta-support landing page: pick a district + provide a reason to open
  * a 60-minute read-only session, or view the currently-active one.
  *
  * Shown as the home route for the trellis_support role. When no session is
@@ -57,7 +57,7 @@ export default function SupportSessionPage() {
           <LifeBuoy className="w-5 h-5 text-sky-700" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Trellis Support — Read-Only Access</h1>
+          <h1 className="text-xl font-bold text-gray-900">Noverta Support — Read-Only Access</h1>
           <p className="text-sm text-gray-500">Open a 60-minute audited session to inspect a district's data.</p>
         </div>
       </div>

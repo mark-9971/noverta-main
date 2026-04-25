@@ -36,7 +36,7 @@ function htmlPage(opts: { title: string; message: string; ok: boolean }): string
 <body><div class="card">
   <h1>${opts.title}</h1>
   <p>${opts.message}</p>
-  <div class="brand">Trellis SPED Compliance Platform</div>
+  <div class="brand">Noverta SPED Compliance Platform</div>
 </div></body></html>`;
 }
 

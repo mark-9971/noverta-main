@@ -1,16 +1,16 @@
-# Trellis — Positioning
+# Noverta — Positioning
 
 ## One-sentence positioning
 
-Trellis is the special-education operations platform that turns a district's IEP minutes, paperwork, and compliance deadlines into a single accountable system — so case managers stop drowning, paras stop guessing, and directors stop writing comp-ed checks.
+Noverta is the special-education operations platform that turns a district's IEP minutes, paperwork, and compliance deadlines into a single accountable system — so case managers stop drowning, paras stop guessing, and directors stop writing comp-ed checks.
 
 ## 30-second pitch (~75 words, verbatim)
 
-> Special education is the most regulated, most litigated, most paperwork-heavy part of a school district — and most districts run it on a 20-year-old IEP tool, three spreadsheets, and a prayer. Trellis is the operating system underneath all of that. We log every service minute, surface every missed session before it becomes comp-ed, and give the director one screen that shows whether the district is actually compliant today. Districts pilot us in 30 days.
+> Special education is the most regulated, most litigated, most paperwork-heavy part of a school district — and most districts run it on a 20-year-old IEP tool, three spreadsheets, and a prayer. Noverta is the operating system underneath all of that. We log every service minute, surface every missed session before it becomes comp-ed, and give the director one screen that shows whether the district is actually compliant today. Districts pilot us in 30 days.
 
 ## 2-minute demo narrative (verbatim script with stage directions)
 
-> "Most special-ed software is a filing cabinet. Trellis is the air-traffic control tower."
+> "Most special-ed software is a filing cabinet. Noverta is the air-traffic control tower."
 >
 > *[open the Action Center at `/action-center`]*
 >
@@ -42,13 +42,13 @@ Trellis is the special-education operations platform that turns a district's IEP
 
 ## Category framing
 
-**Trellis is:**
+**Noverta is:**
 - A special-education operations platform.
 - A compliance and minutes-of-service engine.
 - A workflow tool for case managers, paras, related-service providers, BCBAs, and directors.
 - A reporting layer the district can hand to a state monitor or due-process attorney without panic.
 
-**Trellis is not:**
+**Noverta is not:**
 - An IEP writer that auto-generates legally binding documents from a prompt.
 - A standalone SIS — we sit alongside PowerSchool, Infinite Campus, Skyward.
 - A Medicaid clearinghouse — we prep the claim and export the file; the district submits.

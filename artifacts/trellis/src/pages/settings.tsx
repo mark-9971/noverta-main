@@ -33,7 +33,7 @@ const TABS = [
   { key: "notifications", label: "Notifications", icon: Bell },
   { key: "email-delivery", label: "Email Delivery", icon: Mail },
   { key: "audit-log", label: "Audit Log", icon: Shield },
-  { key: "support-sessions", label: "Trellis Support Access", icon: LifeBuoy },
+  { key: "support-sessions", label: "Noverta Support Access", icon: LifeBuoy },
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
   { key: "upload-quota", label: "Upload Quota", icon: HardDrive },
   { key: "system-status", label: "System Status", icon: Activity },
@@ -191,7 +191,7 @@ export default function SettingsHubPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800">Showcase tour</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Replays the cross-module walkthrough that visits the strongest screen of each Trellis module.
+                      Replays the cross-module walkthrough that visits the strongest screen of each Noverta module.
                     </p>
                   </div>
                   <button

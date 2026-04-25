@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tiny reverse proxy used in CI so that the API server and the Trellis web
+ * Tiny reverse proxy used in CI so that the API server and the Noverta web
  * app appear under a single origin (mirroring the Replit dev proxy on port
  * 80). Routes /api/* to the API server, everything else to the Vite preview
  * server.

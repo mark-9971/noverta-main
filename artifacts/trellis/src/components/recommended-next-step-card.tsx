@@ -193,7 +193,7 @@ export default function RecommendedNextStepCard({
               className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1.5 leading-snug"
               data-testid="text-recommendation-honesty-note"
             >
-              Updates the team's handling state to "awaiting confirmation". Trellis does not message the provider yet — please reach out directly.
+              Updates the team's handling state to "awaiting confirmation". Noverta does not message the provider yet — please reach out directly.
             </p>
           )}
 

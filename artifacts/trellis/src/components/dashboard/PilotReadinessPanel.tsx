@@ -88,7 +88,7 @@ export default function PilotReadinessPanel() {
 
       {allGood ? (
         <p className="text-sm text-emerald-700">
-          All {data.summary.total} readiness checks pass. Your district is set up to use Trellis in production.
+          All {data.summary.total} readiness checks pass. Your district is set up to use Noverta in production.
         </p>
       ) : (
         <ul className="divide-y divide-gray-100">

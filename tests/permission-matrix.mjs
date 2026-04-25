@@ -1,5 +1,5 @@
 /**
- * Permission Matrix Test — Trellis API
+ * Permission Matrix Test — Noverta API
  *
  * Verifies that role-based access control is enforced correctly across all
  * critical endpoints. Runs against a local API server in non-production mode,
@@ -114,7 +114,7 @@ const DEMO_SESSION_ID = 175760; // Session belonging to district 2 student
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
-console.log(`\nRunning Trellis permission matrix against ${BASE} …\n`);
+console.log(`\nRunning Noverta permission matrix against ${BASE} …\n`);
 
 // ─── 1. Unauthenticated access must always return 401 ─────────────────────
 console.log("1. Unauthenticated guard checks …");

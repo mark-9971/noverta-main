@@ -11,7 +11,7 @@ import { getAuth, clerkClient } from "@clerk/express";
 import { getClientIp } from "../lib/clientIp";
 import { SlidingWindowLimiter } from "../lib/rateLimiter";
 import { seedSampleDataForDistrict } from "@workspace/db";
-import { sendAdminEmail } from "../lib/email";
+import { sendAdminEmail, getAppBaseUrl } from "../lib/email";
 import { logger } from "../lib/logger";
 
 // tenant-scope: public
@@ -55,7 +55,7 @@ function buildDemoWelcomeEmail(opts: {
 }): { subject: string; html: string; text: string } {
   const { name, districtName, role, tempPassword, loginUrl } = opts;
   const roleLabel = ROLE_LABEL[role];
-  const subject = `Your Trellis demo is ready — log in now`;
+  const subject = `Your Noverta demo is ready — log in now`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -79,7 +79,7 @@ function buildDemoWelcomeEmail(opts: {
 <div class="wrapper">
   <div class="header">
     <h1>Your demo is ready, ${name.split(" ")[0]}!</h1>
-    <p>Trellis SPED Compliance Platform</p>
+    <p>Noverta SPED Compliance Platform</p>
   </div>
   <div class="body">
     <p>We've created a fully-populated demo district — <strong>${districtName}</strong> — seeded with real-looking IEPs, session logs, compliance data, and more so you can explore the product immediately.</p>
@@ -92,15 +92,15 @@ function buildDemoWelcomeEmail(opts: {
     <a class="cta" href="${loginUrl}">Open my demo</a>
     <p class="note">
       This demo district expires in 7 days. Your data is pre-populated with sample students, IEPs, service logs, and compliance scenarios — nothing is real student data.<br><br>
-      Questions? Reply to this email or reach us at <a href="mailto:hello@trellis.education">hello@trellis.education</a>.
+      Questions? Reply to this email or reach us at <a href="mailto:hello@noverta.education">hello@noverta.education</a>.
     </p>
   </div>
-  <div class="footer">Trellis SPED Compliance Platform — Automated demo provisioning</div>
+  <div class="footer">Noverta SPED Compliance Platform — Automated demo provisioning</div>
 </div>
 </body>
 </html>`;
 
-  const text = `Your Trellis demo is ready, ${name.split(" ")[0]}!\n\nWe've created a fully-populated demo district: ${districtName}.\n\nLogin URL: ${loginUrl}\nEmail: ${opts.email}\nTemporary password: ${tempPassword}\nYour role: ${roleLabel}\n\nThis demo expires in 7 days.\n\nQuestions? Reply to this email or reach hello@trellis.education`;
+  const text = `Your Noverta demo is ready, ${name.split(" ")[0]}!\n\nWe've created a fully-populated demo district: ${districtName}.\n\nLogin URL: ${loginUrl}\nEmail: ${opts.email}\nTemporary password: ${tempPassword}\nYour role: ${roleLabel}\n\nThis demo expires in 7 days.\n\nQuestions? Reply to this email or reach hello@noverta.education`;
   return { subject, html, text };
 }
 
@@ -256,8 +256,15 @@ async function provisionDemoAccount(requestId: number, opts: {
   await db.update(districtsTable).set({ hasSampleData: true }).where(eq(districtsTable.id, district.id));
 
   // 6. Send welcome email
-  const appOrigin = process.env.APP_ORIGIN ??
-    (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://trellis.education");
+  // Resolve the customer-facing app origin used in the demo welcome
+  // email's sign-in deep link. APP_ORIGIN remains the highest-priority
+  // override; otherwise fall back to the standard getAppBaseUrl()
+  // ladder (APP_URL → APP_BASE_URL → REPLIT_DEV_DOMAIN). The legacy
+  // `https://trellis.education` literal is preserved as the final
+  // fallback so existing welcome emails still resolve until the
+  // Noverta marketing domain is live; flip by setting APP_ORIGIN /
+  // APP_URL when noverta.education is configured. See NEXT-6.
+  const appOrigin = process.env.APP_ORIGIN ?? getAppBaseUrl() ?? "https://trellis.education";
   const loginUrl = `${appOrigin}/sign-in`;
 
   const { subject, html, text } = buildDemoWelcomeEmail({

@@ -27,7 +27,7 @@ export function StaffStep(p: StaffStepProps) {
         <p className="text-sm text-gray-500 mt-1">
           Add SPED teachers, therapists, and providers so they appear in caseloads
           and can be assigned to service requirements. They'll be able to log in
-          once you share Trellis with them — no invitation email is sent yet.
+          once you share Noverta with them — no invitation email is sent yet.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

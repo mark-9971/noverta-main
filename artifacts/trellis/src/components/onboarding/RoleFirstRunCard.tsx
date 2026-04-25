@@ -1,9 +1,9 @@
 /**
  * RoleFirstRunCard — honest, role-specific empty state for non-admin
- * roles when the district isn't fully set up for their part of Trellis
+ * roles when the district isn't fully set up for their part of Noverta
  * yet. Each variant explains four things in plain language:
  *
- *   1. What this role uses Trellis for
+ *   1. What this role uses Noverta for
  *   2. What needs to happen first (and who does it)
  *   3. What they can do *now* (concrete safe links)
  *   4. What to expect next (so the empty state doesn't feel like a bug)
@@ -39,7 +39,7 @@ interface RoleCopy {
   ring: string;            // Tailwind class for the card ring
   eyebrow: string;         // small uppercase label
   title: string;           // primary headline
-  whatItsFor: string;      // 1–2 sentence "what you'll use Trellis for"
+  whatItsFor: string;      // 1–2 sentence "what you'll use Noverta for"
   whatsNeededFirst: string;// who needs to do what before this surface lights up
   whatYouCanDoNow: string; // a sentence describing the safe actions
   whatToExpectNext: string;// what will appear automatically once setup catches up
@@ -54,7 +54,7 @@ const COPY: Record<FirstRunRole, RoleCopy> = {
     eyebrow: "Provider · first login",
     title: "Your caseload will appear here once students are assigned to you",
     whatItsFor:
-      "Trellis is where you log service sessions, see required vs. delivered minutes per student, and spot the IEPs that need attention before they fall out of compliance.",
+      "Noverta is where you log service sessions, see required vs. delivered minutes per student, and spot the IEPs that need attention before they fall out of compliance.",
     whatsNeededFirst:
       "Your district admin needs to (1) import the SPED roster, (2) capture each student's service requirements (e.g. 120 min/month of speech), and (3) assign you as the provider on the requirements you cover. Until step 3 happens, your caseload will be empty.",
     whatYouCanDoNow:
@@ -74,7 +74,7 @@ const COPY: Record<FirstRunRole, RoleCopy> = {
     eyebrow: "Paraprofessional · first login",
     title: "Your day will fill in once you're assigned to a schedule",
     whatItsFor:
-      "Trellis is where you see your daily schedule of student support blocks, run quick session timers, log behavior data and BIP trials, and check the alerts your supervising teacher has flagged for you.",
+      "Noverta is where you see your daily schedule of student support blocks, run quick session timers, log behavior data and BIP trials, and check the alerts your supervising teacher has flagged for you.",
     whatsNeededFirst:
       "Your supervising teacher or admin needs to (1) build the daily schedule blocks that you cover, and (2) attach you to those blocks as the assigned para. If you support BIPs (behavior intervention plans), they'll also assign those to you so you can record trials.",
     whatYouCanDoNow:
@@ -95,7 +95,7 @@ const COPY: Record<FirstRunRole, RoleCopy> = {
     whatItsFor:
       "This is your secure portal to see IEP documents, sign or acknowledge what the school sends you, view upcoming meetings, message the team directly, and keep a record of every contact.",
     whatsNeededFirst:
-      "Your child's case manager needs to (1) link your guardian record to your child in Trellis, then (2) share documents, schedule meetings, or send a message for anything to appear here. Most schools set this up around the IEP meeting cycle.",
+      "Your child's case manager needs to (1) link your guardian record to your child in Noverta, then (2) share documents, schedule meetings, or send a message for anything to appear here. Most schools set this up around the IEP meeting cycle.",
     whatYouCanDoNow:
       "If you were expecting documents or a meeting invite and don't see one, contact your child's case manager or the special-education office at your school. They can confirm your portal is correctly linked.",
     whatToExpectNext:
@@ -115,7 +115,7 @@ const COPY: Record<FirstRunRole, RoleCopy> = {
     whatItsFor:
       "This is your space to see the goals your IEP team is helping you work toward, check your sessions and streak, do a quick daily check-in about how you're feeling, and celebrate the wins your teachers log for you.",
     whatsNeededFirst:
-      "Your case manager needs to (1) make sure your IEP goals are entered in Trellis and (2) make sure the providers who help you (speech, OT, counseling, etc.) are logging your sessions. Once that's happening, this page lights up.",
+      "Your case manager needs to (1) make sure your IEP goals are entered in Noverta and (2) make sure the providers who help you (speech, OT, counseling, etc.) are logging your sessions. Once that's happening, this page lights up.",
     whatYouCanDoNow:
       "You can do a daily check-in any time — it just takes a moment and helps your team understand how things are going. Your check-in streak starts as soon as you do your first one.",
     whatToExpectNext:
@@ -161,7 +161,7 @@ export default function RoleFirstRunCard({ role, personName, compact = false }: 
       </header>
 
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 ${compact ? "mt-3" : "mt-4"}`}>
-        <Block n={1} label="What you'll use Trellis for" body={c.whatItsFor} />
+        <Block n={1} label="What you'll use Noverta for" body={c.whatItsFor} />
         <Block n={2} label="What needs to happen first" body={c.whatsNeededFirst} />
         <Block n={3} label="What you can do right now" body={c.whatYouCanDoNow} />
         <Block n={4} label="What to expect next" body={c.whatToExpectNext} />

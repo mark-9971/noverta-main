@@ -22,17 +22,28 @@ interface PilotChecklistSummary {
   };
 }
 
-const DISMISS_STORAGE_KEY = "trellis:mobile-setup-progress:dismissed";
+const DISMISS_STORAGE_KEY = "noverta:mobile-setup-progress:dismissed";
+// Compat: pre-rename users may have dismissed under the legacy key. We
+// read the legacy key as a fallback (and migrate on read) so they don't
+// see a re-appearance of the dismissed banner. Safe to remove later.
+const LEGACY_DISMISS_STORAGE_KEY = "trellis:mobile-setup-progress:dismissed";
+
+function readDismissed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.sessionStorage.getItem(DISMISS_STORAGE_KEY) === "1") return true;
+    if (window.sessionStorage.getItem(LEGACY_DISMISS_STORAGE_KEY) === "1") {
+      try { window.sessionStorage.setItem(DISMISS_STORAGE_KEY, "1"); } catch {}
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export function MobileSetupProgress() {
-  const [dismissed, setDismissed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.sessionStorage.getItem(DISMISS_STORAGE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [dismissed, setDismissed] = useState<boolean>(readDismissed);
 
   const { data, isError } = useQuery<PilotChecklistSummary, Error & { status?: number }>({
     queryKey: ["onboarding/pilot-checklist"],

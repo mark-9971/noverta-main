@@ -174,7 +174,7 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
     category: "students",
     severity: studentsNoReqs.length > 0 ? "critical" : "info",
     title: "Students missing service requirements",
-    description: "Active students with no IEP service requirements defined. Without service requirements, Trellis cannot track compliance or calculate delivery gaps.",
+    description: "Active students with no IEP service requirements defined. Without service requirements, Noverta cannot track compliance or calculate delivery gaps.",
     count: studentsNoReqs.length,
     total: allStudents.length,
     items: studentsNoReqs.slice(0, 25).map(s => ({
@@ -276,7 +276,7 @@ export async function runDataHealthChecks(districtId: number): Promise<DataHealt
     category: "staff",
     severity: staffNoEmail.length > 0 ? "warning" : "info",
     title: "Staff members without email addresses",
-    description: "Staff without email addresses cannot receive Trellis login invitations or notifications.",
+    description: "Staff without email addresses cannot receive Noverta login invitations or notifications.",
     count: staffNoEmail.length,
     total: allStaff.length,
     items: staffNoEmail.slice(0, 25).map(s => ({

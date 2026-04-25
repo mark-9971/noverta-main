@@ -471,7 +471,7 @@ ${r.parentNotes ? `<div class="section" style="page-break-inside:avoid;">
 
 <!-- Footer -->
 <div class="footer">
-  <span>Trellis SPED Platform &mdash; Confidential Student Record &mdash; 603 CMR 28.07(8)</span>
+  <span>Noverta SPED Platform &mdash; Confidential Student Record &mdash; 603 CMR 28.07(8)</span>
   <span>${escapeHtml(studentFullName)} &bull; ${escapeHtml(r.reportingPeriod)}</span>
 </div>
 

@@ -105,7 +105,7 @@ export default function OnboardingPage() {
         </h1>
         <p className="text-sm text-gray-500 mt-1.5">
           One coherent path. Each step below is grounded in real data — items check off
-          automatically as the underlying records exist in Trellis.
+          automatically as the underlying records exist in Noverta.
         </p>
       </header>
 
@@ -118,7 +118,7 @@ export default function OnboardingPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-bold text-gray-400 tabular-nums">STEP 1</span>
-              <h2 className="text-sm font-semibold text-gray-900">Try Trellis with sample data (optional)</h2>
+              <h2 className="text-sm font-semibold text-gray-900">Try Noverta with sample data (optional)</h2>
               {sample?.hasSampleData && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-100">
                   Loaded · {sample.sampleStudents} students, {sample.sampleStaff} staff
@@ -241,7 +241,7 @@ export default function OnboardingPage() {
             </div>
             <p className="text-xs text-gray-500 mt-1">
               The Compliance Risk Report shows required vs. delivered minutes, students at
-              risk of comp time, and the next best actions — the wedge of Trellis in one place.
+              risk of comp time, and the next best actions — the wedge of Noverta in one place.
             </p>
             <Link
               href="/compliance-risk-report"

@@ -10,7 +10,7 @@ export default function SolutionSlide() {
           One platform. Every workflow.
         </h2>
         <p className="font-body text-[1.8vw] text-white/60 mt-[1.5vh] max-w-[55vw]">
-          Trellis replaces disconnected tools with a single source of truth purpose-built for special education compliance and clinical operations.
+          Noverta replaces disconnected tools with a single source of truth purpose-built for special education compliance and clinical operations.
         </p>
 
         <div className="grid grid-cols-3 gap-[2.5vw] mt-[5vh]">

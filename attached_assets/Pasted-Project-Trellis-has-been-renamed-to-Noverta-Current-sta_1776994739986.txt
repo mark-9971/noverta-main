@@ -1,0 +1,179 @@
+Project: Trellis has been renamed to Noverta.
+
+Current state:
+- NEXT-1 complete: user-facing string rename.
+- NEXT-2 complete: filename/import rename.
+- NEXT-3 accepted partial: main localStorage/sessionStorage migration shims.
+- NEXT-4 complete: remaining active client storage keys migrated.
+- NEXT-5 complete: e2e/test fixture storage/event references flipped to Noverta.
+- NEXT-6 complete in-repo: external URL/email references are env-configurable with safe legacy fallbacks.
+
+Task:
+NEXT-7 — DB/auth role rename plan and safe dual-read implementation.
+
+Use the actual current codebase as source of truth. Do the work, not just a plan, but do not make unsafe breaking changes.
+
+Execution priority:
+1. correctness
+2. authentication/authorization safety
+3. rollback safety
+4. exact auditability
+5. proof
+6. speed only after the above
+
+Objective:
+Audit and safely prepare the rename of auth/DB/dev identity references from Trellis to Noverta, especially:
+- trellis_support role string
+- TRELLIS_DEV_FORCE_DISTRICT_ID env var
+- trellis-e2e-* Clerk test-user defaults
+- TrellisE2E!* test passwords/defaults
+- seed/demo identity rows that contain trellis-e2e-* values
+
+Why now:
+Product strings, filenames, storage keys, test fixtures, and external URL cutover prep are done. The remaining active rename residue is now mostly auth/role/dev-identity related. These are higher-risk because blind replacement can break support access, district scoping, e2e auth, seeded identity matching, and Clerk metadata.
+
+Scope:
+1. Search the repo for auth/DB/dev-identity rename targets:
+   - trellis_support
+   - trellisRole
+   - TrellisRole
+   - trellis_role
+   - noverta_role / trellis_role mirror code
+   - TRELLIS_DEV_FORCE_DISTRICT_ID
+   - trellis-e2e
+   - TrellisE2E
+   - trellis-e2e-admin
+   - trellis-e2e-teacher
+2. Classify every hit.
+3. Implement safe dual-read / dual-accept support where appropriate.
+4. Do not remove old Trellis auth/role support yet.
+5. Prefer introducing Noverta canonical names while continuing to accept legacy Trellis names.
+6. Do not make a destructive DB migration unless it is safe, reversible, and clearly proven.
+7. If true DB/Clerk migration requires external action, document exact migration steps and blockers instead of pretending it is complete.
+
+Important safety rules:
+- Do not break existing users with trellis_support in Clerk metadata/session claims.
+- Do not break existing e2e users with trellis-e2e-* emails.
+- Do not break local/dev district forcing through TRELLIS_DEV_FORCE_DISTRICT_ID.
+- Do not change authorization semantics.
+- Do not weaken support/admin access checks.
+- Do not rename seeded identity rows in a way that disconnects existing demo data from Clerk users.
+- Do not touch product wedge files unless they only consume role labels and the change is isolated.
+- No Action Center, compliance risk, recommendation engine, handling state, minute math, school calendar, scheduling orchestration, seed/reset, or demo-seeder behavior changes.
+
+Expected safe implementation pattern:
+- Introduce Noverta canonical names where feasible:
+  - noverta_support as canonical future role
+  - NOVERTA_DEV_FORCE_DISTRICT_ID as canonical future env var
+  - noverta-e2e-* as future test identity defaults only if safe
+- Continue accepting legacy names:
+  - trellis_support
+  - TRELLIS_DEV_FORCE_DISTRICT_ID
+  - trellis-e2e-* where existing Clerk/dev accounts still require them
+- Add comments explaining the compatibility window.
+- Use explicit constants/helpers if the code currently scatters role strings.
+- If role logic is currently centralized, reuse/extend it instead of duplicating.
+
+Possible implementation areas:
+- auth middleware / role parsing
+- support session helpers
+- access denial helpers
+- e2e env defaults
+- seed demo identity constants
+- README/env docs
+- role-context mirror code if relevant
+
+Non-goals:
+- No production removal of trellis_support yet.
+- No Clerk dashboard changes claimed unless actually done outside repo.
+- No forced password/email rotation without external Clerk setup.
+- No storage-shim retirement.
+- No DNS/email/URL work.
+- No broad docs rewrite.
+- No demo/seeder roadmap work.
+
+Required classification categories:
+1. Safe dual-read implemented
+2. Canonical Noverta default introduced
+3. External Clerk/DB migration required — documented only
+4. Legacy compatibility retained intentionally
+5. Storage legacy item — defer to NEXT-8
+6. Historical docs/comment only
+7. True remaining rename gap
+
+Testing/proof:
+- Run grep/rg after changes and classify all remaining relevant Trellis references.
+- Run typecheck/build for touched packages if feasible.
+- If auth e2e cannot run because Clerk/dev credentials are external, say so clearly.
+- Do not claim live Clerk users were renamed unless verified outside repo.
+- Separate regressions from pre-existing failures/environment noise.
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. EXACT FILES CREATED
+List exact paths or “None”.
+
+3. EXACT FILES MODIFIED
+List exact paths or “None”.
+
+4. EXACT FILES DELETED
+List exact paths or “None”.
+
+5. EXACT REASONS FOR EACH CHANGE
+Explain every changed file.
+
+6. USER-VISIBLE IMPACT
+Should be none unless auth labels change. Explain clearly.
+
+7. AUTH / ROLE / IDENTITY IMPACT
+List:
+- roles accepted before
+- roles accepted after
+- env vars accepted before
+- env vars accepted after
+- Clerk/test identities affected
+- seeded identity behavior
+
+8. RENAME / COMPATIBILITY MAP
+For every changed auth/role/dev identity reference:
+- old Trellis value
+- new Noverta value
+- compatibility behavior
+- removal timing
+
+9. REMAINING TRELLIS REFERENCES
+List every remaining relevant hit and classify it using the required categories.
+
+10. CLERK / DB / ENV MIGRATION CHECKLIST
+Include exact outside-repo steps needed for:
+- Clerk publicMetadata/session role rename
+- test user email/password rotation
+- env var rename rollout
+- DB/seed identity migration if needed
+- rollback plan
+
+11. TEST / BUILD STATUS
+Include exact commands and exact results.
+Separate:
+- regressions
+- pre-existing failures
+- environment/tooling noise
+
+12. EXACT REMAINING GAPS
+List true gaps only, or “None”.
+
+13. EXACT NEXT TASKS
+Likely:
+- NEXT-8 legacy shim retirement
+Do not start it.
+
+14. FINAL ARTIFACT
+Brief implementation summary.
+
+Stop after NEXT-7.

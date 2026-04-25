@@ -1,4 +1,4 @@
-# Why Districts Buy Trellis
+# Why Districts Buy Noverta
 
 *Memo for the Director of Special Education / Assistant Superintendent.*
 
@@ -13,7 +13,7 @@ filing that can cost a district tens of thousands to settle plus more in
 attorney fees.
 A state monitoring finding that puts you on a corrective action plan.
 
-Trellis is built around the idea that all four of those costs come from the
+Noverta is built around the idea that all four of those costs come from the
 same root cause: nobody sees the gap between what the IEP promised and what
 actually happened until it's too late to fix.
 
@@ -94,7 +94,7 @@ These are grounded in features actually shipped today, not the roadmap.
 
 ## The bottom line
 
-You buy Trellis because in 90 days you will be able to walk into a board
+You buy Noverta because in 90 days you will be able to walk into a board
 meeting, point at a chart, and say: *we know exactly which students are at
 risk, exactly how many minutes we owe, exactly how many we recovered, and
 exactly what we'll claim back from Medicaid.* And then you will say it again

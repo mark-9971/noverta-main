@@ -23,8 +23,8 @@ const ADMIN_EMAIL =
   process.env.E2E_ADMIN_EMAIL ?? "trellis-e2e-admin+clerk_test@example.com";
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "TrellisE2E!Test#2026";
 
-const TOUR_STORAGE_KEY = "trellis.sampleTour.v1";
-const TOUR_START_FLAG = "trellis.sampleTour.start";
+const TOUR_STORAGE_KEY = "noverta.sampleTour.v1";
+const TOUR_START_FLAG = "noverta.sampleTour.start";
 
 const TOUR_ANCHORS: ReadonlyArray<{ selector: string; label: string }> = [
   { selector: '[data-tour-id="compliance-summary"]', label: "compliance summary" },
@@ -88,7 +88,7 @@ test.describe("Sample data guided tour", () => {
     // signed-in session before we hit /api/sample-data.
     await page.goto("/setup");
     await expect(
-      page.getByRole("heading", { name: "Set Up Trellis" }),
+      page.getByRole("heading", { name: "Set Up Noverta" }),
     ).toBeVisible({ timeout: 60_000 });
 
     await teardownSampleDataIfPresent(page);

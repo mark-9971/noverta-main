@@ -12,10 +12,10 @@ export default function S25_Closing() {
               <path d="M12 22c0-4-3-7-7-7m7 7c0-4 3-7 7-7M12 22V12m0 0c-2-4-5-6-8-7m8 7c2-4 5-6 8-7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <span className="font-display text-[2.5vw] font-bold text-white tracking-tight">Trellis</span>
+          <span className="font-display text-[2.5vw] font-bold text-white tracking-tight">Noverta</span>
         </div>
         <h2 className="font-display text-[5vw] font-extrabold text-white tracking-tighter leading-[1.05] mb-[2vh]">Built to support.</h2>
-        <p className="font-body text-[1.8vw] text-emerald-200/80 leading-relaxed max-w-[50vw] mb-[4vh]">Every student deserves a team that has the tools to do their job. Trellis makes that possible.</p>
+        <p className="font-body text-[1.8vw] text-emerald-200/80 leading-relaxed max-w-[50vw] mb-[4vh]">Every student deserves a team that has the tools to do their job. Noverta makes that possible.</p>
         <div className="w-[8vw] h-[0.3vh] bg-primary rounded-full" />
       </div>
     </div>

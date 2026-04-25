@@ -13,7 +13,7 @@ export default function MarketSlide() {
             7.5 million students receive special education services in the U.S. -- yet the tools available are generic SIS add-ons built for general ed.
           </p>
           <p className="font-body text-[1.5vw] text-white/50 mt-[1.5vh] leading-relaxed">
-            Trellis starts with Massachusetts (400+ districts, strict regulations) and expands state by state with localized compliance modules.
+            Noverta starts with Massachusetts (400+ districts, strict regulations) and expands state by state with localized compliance modules.
           </p>
         </div>
 

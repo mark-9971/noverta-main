@@ -162,7 +162,7 @@ export default function PilotStatusPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Platform admins / Trellis support can target any district via the URL
+  // Platform admins / Noverta support can target any district via the URL
   // (e.g. /pilot-status?districtId=42). Without a districtId platform admins
   // who don't carry a tenant context get a 400 from the API, so we surface
   // a small picker to set it explicitly.
@@ -206,7 +206,7 @@ export default function PilotStatusPage() {
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
           <h1 className="text-lg font-semibold text-amber-900">Pilot Status</h1>
           <p className="text-sm text-amber-800 mt-2">
-            This page is reserved for district administrators and Trellis support staff.
+            This page is reserved for district administrators and Noverta support staff.
           </p>
         </div>
       </div>

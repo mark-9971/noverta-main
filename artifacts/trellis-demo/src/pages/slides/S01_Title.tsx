@@ -12,7 +12,7 @@ export default function S01_Title() {
               <path d="M12 22c0-4-3-7-7-7m7 7c0-4 3-7 7-7M12 22V12m0 0c-2-4-5-6-8-7m8 7c2-4 5-6 8-7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <span className="font-display text-[2.5vw] font-bold text-white tracking-tight">Trellis</span>
+          <span className="font-display text-[2.5vw] font-bold text-white tracking-tight">Noverta</span>
         </div>
         <h1 className="font-display text-[5.5vw] font-extrabold text-white leading-[1.05] tracking-tighter mb-[2vh]">Built to Support.</h1>
         <p className="font-body text-[1.8vw] text-emerald-200/90 leading-relaxed max-w-[35vw]">The compliance and clinical platform purpose-built for special education.</p>

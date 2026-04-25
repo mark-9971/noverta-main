@@ -1,0 +1,163 @@
+Project: Noverta / former Trellis.
+
+Context:
+We are parking rename/external cutover work for now.
+
+Current rename/cutover state:
+- Noverta rename NEXT-1 through NEXT-7 completed in-repo.
+- Clerk admin works.
+- Noverta e2e users exist.
+- Resend sender hello@noreply.noverta.app is verified and app email env is working.
+- One customer-visible deck residue was fixed.
+- Stripe is intentionally skipped for now.
+- noverta.app deployment/domain routing is not done yet.
+- NEXT-8 must NOT run yet.
+- Do not remove Trellis compatibility shims.
+
+Now resume the demo/product lane.
+
+Task:
+T-DEMO-02 — Build / improve the Spotlight Cases panel for the Noverta demo/product wedge.
+
+Objective:
+Create a clear demo-facing Spotlight Cases surface that helps a buyer immediately understand the strongest product wedge:
+risk → likely cause → owner → recommended next action → shared handling state → proof.
+
+Why now:
+The rename work is parked. The product now needs a stronger demo/product path that emphasizes the real operational wedge instead of broad route count. The demo should make Noverta feel like a serious compliance triage and workflow product, not a shallow dashboard collection.
+
+Scope:
+1. Identify the existing intended location for Spotlight Cases or the closest existing demo/home/dashboard panel.
+2. Reuse existing wedge data, recommendation logic, action state, handling state, and seeded demo scenarios.
+3. Surface a small number of high-signal cases, not a giant table.
+4. For each spotlight case, show:
+   - student/case identity
+   - risk type or compliance issue
+   - likely cause
+   - owner/current handling state
+   - recommended next step
+   - proof/history indicator if available
+   - clear CTA into the correct existing workflow
+5. Make it demo-legible:
+   - simple labels
+   - honest maturity
+   - no fake AI claims
+   - no claims of full closed-loop scheduling if not true
+6. Preserve route behavior and existing workflows.
+7. Keep changes narrow and avoid high-conflict architecture unless absolutely necessary.
+
+High-conflict files / areas to avoid unless required:
+- wedge-primitives.tsx
+- action-recommendations.ts
+- use-handling-state.ts
+- use-dismissal-state.ts
+- action-center.tsx
+- compliance-risk-report.tsx
+- dashboard core widgets
+- actionItemHandling backend
+- actionItemDismissals backend
+- minuteCalc.ts
+- schoolCalendar.ts
+- nav-config.ts
+- seed-sample-data.ts / demo reset orchestration
+- scheduling orchestration files
+
+Important product truth:
+- Noverta is strongest today as an operational workflow tool with a compliance reporting backbone.
+- The wedge is real: Action Center, Quick Log, Compliance Risk, Today/home surfaces, Student Detail recommended next step, shared handling state.
+- Schedule Makeup is still not a true closed loop. Do not overclaim it.
+- Do not add broad new dashboard/executive surfaces.
+- Do not build a generic task engine.
+- Do not broaden ABA/clinical scaffolding.
+- Do not do a visual redesign.
+
+Architecture expectations:
+- Reuse existing recommendation and handling-state data wherever possible.
+- Reuse existing UI primitives/components if already available.
+- Do not duplicate minute math or recommendation logic.
+- Do not create parallel handling-state models.
+- If the task would require touching a high-conflict file, explain why before making broad changes and keep the edit minimal.
+- Prefer presentation of existing canonical demo data over new seed logic.
+
+User-visible outcome:
+A demo user should immediately see 3–5 concrete cases that explain:
+- what is at risk
+- why it is at risk
+- who owns it
+- what should happen next
+- whether the item is already being handled
+
+Non-goals:
+- No scheduling closed-loop implementation.
+- No new backend task engine.
+- No new top-level nav items.
+- No seed/reset overhaul.
+- No broad dashboard redesign.
+- No NEXT-8 rename cleanup.
+- No Stripe/domain/deployment work.
+- No internal package/path rename.
+- No auth/Clerk changes.
+- No removal of Trellis compatibility shims.
+
+Testing / proof:
+- Run the narrowest relevant frontend typecheck/build.
+- If existing tests cover the touched surface, run them.
+- Manually verify the panel renders with seeded/demo data.
+- Verify CTAs route to existing valid destinations.
+- Verify no false claim of full recovery loop is introduced.
+- Separate pre-existing typecheck/test noise from regressions.
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. EXACT FILES CREATED
+List exact paths or “None”.
+
+3. EXACT FILES MODIFIED
+List exact paths or “None”.
+
+4. EXACT FILES DELETED
+List exact paths or “None”.
+
+5. EXACT REASONS FOR EACH CHANGE
+Explain every changed file.
+
+6. USER-VISIBLE IMPACT
+Explain what a demo user/buyer sees differently.
+
+7. BEFORE / AFTER WORKFLOW IMPACT
+Explain the demo flow before and after.
+
+8. ARCHITECTURE / MODEL IMPACT
+State which existing data/hooks/components were reused.
+State whether any new model/data shape was introduced.
+
+9. DEMO HONESTY CHECK
+Confirm:
+- no fake AI claims
+- no full-scheduler claim
+- no closed-loop recovery claim unless actually implemented
+- no route-breadth overclaim
+
+10. TEST / BUILD STATUS
+Include exact commands and exact results.
+Separate:
+- regressions
+- pre-existing failures
+- environment/tooling noise
+
+11. EXACT REMAINING GAPS
+List true gaps only.
+
+12. EXACT NEXT TASKS
+List the next demo/product tasks after this, but do not start them.
+
+13. FINAL ARTIFACT
+Brief summary of the final implementation.
+
+Stop after T-DEMO-02.

@@ -60,18 +60,18 @@ export function buildCoverageReminderEmail(opts: {
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#b45309;color:#fff;padding:20px 24px}.body{padding:24px}.detail-row{margin:6px 0;font-size:14px}.label{font-weight:bold;color:#374151;display:inline-block;width:110px}.notes-box{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:12px 16px;margin-top:16px;font-size:13px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style>
 </head><body><div class="wrapper">
-<div class="header"><h1 style="margin:0;font-size:17px">Reminder — Coverage Assignment</h1><p style="margin:4px 0 0;font-size:11px;opacity:.9">Trellis SPED Platform</p></div>
+<div class="header"><h1 style="margin:0;font-size:17px">Reminder — Coverage Assignment</h1><p style="margin:4px 0 0;font-size:11px;opacity:.9">Noverta SPED Platform</p></div>
 <div class="body">
 <p>Hi ${eName},</p>
-<p>This is a friendly reminder that you are assigned to cover an upcoming session and we have not yet seen you acknowledge the alert in Trellis. Please review the details below and confirm in the app when you have a moment.</p>
+<p>This is a friendly reminder that you are assigned to cover an upcoming session and we have not yet seen you acknowledge the alert in Noverta. Please review the details below and confirm in the app when you have a moment.</p>
 <div class="detail-row"><span class="label">Date:</span> ${eDate}</div>
 ${eTime ? `<div class="detail-row"><span class="label">Time:</span> ${eTime}</div>` : ""}
 ${eLocation ? `<div class="detail-row"><span class="label">Location:</span> ${eLocation}</div>` : ""}
 ${eStudent ? `<div class="detail-row"><span class="label">Student:</span> ${eStudent}</div>` : ""}
 ${eNotes ? `<div class="notes-box"><strong>Special Notes:</strong><br>${eNotes}</div>` : ""}
-<p style="margin-top:20px;color:#6b7280;font-size:13px">Please log in to Trellis to view full session details and dismiss the alert once you've seen it.</p>
+<p style="margin-top:20px;color:#6b7280;font-size:13px">Please log in to Noverta to view full session details and dismiss the alert once you've seen it.</p>
 </div>
-<div class="footer"><p>Trellis SPED Compliance Platform — Confidential. This reminder was sent because the in-app coverage alert had not been acknowledged.</p></div>
+<div class="footer"><p>Noverta SPED Compliance Platform — Confidential. This reminder was sent because the in-app coverage alert had not been acknowledged.</p></div>
 </div></body></html>`;
 
   const text =
@@ -82,8 +82,8 @@ ${eNotes ? `<div class="notes-box"><strong>Special Notes:</strong><br>${eNotes}<
     `${location ? `\nLocation: ${location}` : ""}` +
     `${studentName ? `\nStudent: ${studentName}` : ""}` +
     `${notes ? `\nSpecial Notes: ${notes}` : ""}\n\n` +
-    `Please log in to Trellis to view details and dismiss the alert.\n\n` +
-    `Trellis SPED Compliance Platform`;
+    `Please log in to Noverta to view details and dismiss the alert.\n\n` +
+    `Noverta SPED Compliance Platform`;
 
   return { subject, html, text };
 }

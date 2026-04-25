@@ -109,7 +109,7 @@ export default function DemoRequestPage() {
             No sales call required
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">
-            See Trellis with your<br />own eyes — instantly
+            See Noverta with your<br />own eyes — instantly
           </h1>
           <p className="text-lg text-gray-600 max-w-xl mx-auto">
             Fill in the form and we'll provision a fully-seeded demo district for you in under 60 seconds. Real product, real data, no setup.

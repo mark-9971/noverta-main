@@ -356,9 +356,9 @@ router.post("/medicaid/reports/snapshots/:id/email", async (req, res): Promise<v
     "revenue-trend": "Revenue Trend",
   };
   const label = snapshot.label || `${reportLabel[snapshot.reportType] ?? snapshot.reportType} snapshot`;
-  const senderName = authed.displayName || "A Trellis user";
+  const senderName = authed.displayName || "A Noverta user";
   const savedOn = new Date(snapshot.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const subject = `Trellis Billing Report: ${label}`;
+  const subject = `Noverta Billing Report: ${label}`;
 
   const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const messageBlock = message
@@ -367,10 +367,10 @@ router.post("/medicaid/reports/snapshots/:id/email", async (req, res): Promise<v
 
   const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#065f46;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
-<h2 style="margin:0;font-size:18px">Trellis — ${escape(label)}</h2>
+<h2 style="margin:0;font-size:18px">Noverta — ${escape(label)}</h2>
 </div>
 <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-<p style="margin-top:0">${escape(senderName)} shared a saved billing report snapshot with you from Trellis.</p>
+<p style="margin-top:0">${escape(senderName)} shared a saved billing report snapshot with you from Noverta.</p>
 <ul style="color:#374151;font-size:13px">
 <li><strong>Report:</strong> ${escape(reportLabel[snapshot.reportType] ?? snapshot.reportType)}</li>
 <li><strong>Period:</strong> ${escape(period)}</li>
@@ -379,10 +379,10 @@ router.post("/medicaid/reports/snapshots/:id/email", async (req, res): Promise<v
 ${messageBlock}
 <p style="color:#6b7280;font-size:13px">The snapshot data is attached as a CSV file.</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Confidential</div>
 </div>`;
 
-  const text = `${senderName} shared a Trellis billing report snapshot.\n\nReport: ${reportLabel[snapshot.reportType] ?? snapshot.reportType}\nPeriod: ${period}\nSaved on: ${savedOn} by ${snapshot.savedByName ?? "Unknown"}\n\n${message ? message + "\n\n" : ""}The snapshot data is attached as a CSV file.`;
+  const text = `${senderName} shared a Noverta billing report snapshot.\n\nReport: ${reportLabel[snapshot.reportType] ?? snapshot.reportType}\nPeriod: ${period}\nSaved on: ${savedOn} by ${snapshot.savedByName ?? "Unknown"}\n\n${message ? message + "\n\n" : ""}The snapshot data is attached as a CSV file.`;
 
   const result = await sendAdminEmail({
     to: [toEmail],

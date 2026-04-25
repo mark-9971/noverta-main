@@ -49,7 +49,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
         <h2 className="text-xl font-semibold text-gray-900">Subscription Required</h2>
         <p className="text-sm text-gray-600 mt-3 leading-relaxed">
           {status?.status === "canceled"
-            ? "Your district's subscription has been canceled. Access to Trellis features is restricted until the subscription is reactivated."
+            ? "Your district's subscription has been canceled. Access to Noverta features is restricted until the subscription is reactivated."
             : "Your district's subscription has an unpaid balance. Access is restricted until payment is resolved."}
         </p>
         {isAdmin ? (

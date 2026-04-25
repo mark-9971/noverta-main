@@ -19,7 +19,7 @@ export type SisConnectionState = {
  * Single source of truth for "is an SIS wired up for this district".
  * Surfaces gated on this hook should hide manual entry / banners that
  * the SIS owns (medical alerts, demographics, guardians, etc.) once a
- * connection is live, so Trellis never contradicts the SIS of record.
+ * connection is live, so Noverta never contradicts the SIS of record.
  *
  * A district is considered SIS-connected iff at least one connection
  * row exists with status="connected" AND enabled !== false. Disabled

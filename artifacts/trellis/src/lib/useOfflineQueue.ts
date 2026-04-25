@@ -15,7 +15,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 
-const STORAGE_KEY = "trellis_aba_pending_sessions_v1";
+const STORAGE_KEY = "noverta_aba_pending_sessions_v1";
+const LEGACY_STORAGE_KEY = "trellis_aba_pending_sessions_v1";
 const QUEUE_LIMIT = 20;
 
 export interface PendingSession {
@@ -38,7 +39,22 @@ export interface PendingSession {
 
 function readQueue(): PendingSession[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    // Read-fallback for the legacy `trellis_*` key. Copy-forward to the
+    // new key and clear the legacy key only if the copy succeeds. Never
+    // discard pending session payloads.
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy) {
+        try {
+          localStorage.setItem(STORAGE_KEY, legacy);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch {
+          // copy failed — leave the legacy queue intact
+        }
+        raw = legacy;
+      }
+    }
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -66,7 +82,7 @@ export function useOfflineQueue() {
   /* Sync state when another tab modifies localStorage */
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key === STORAGE_KEY) setQueue(readQueue());
+      if (e.key === STORAGE_KEY || e.key === LEGACY_STORAGE_KEY) setQueue(readQueue());
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);

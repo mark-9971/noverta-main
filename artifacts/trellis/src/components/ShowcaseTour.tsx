@@ -9,7 +9,7 @@ import { Compass, X, ArrowRight, ArrowLeft } from "lucide-react";
 
 /**
  * Showcase Tour — a longer, cross-module guided walkthrough that visits
- * the strongest screen of each major Trellis module so a viewer can see
+ * the strongest screen of each major Noverta module so a viewer can see
  * "everything" without clicking around. Designed to live alongside the
  * shorter SampleDataTour: that tour orients a new admin to the freshly
  * seeded sample district, and this one points at the breadth of the
@@ -39,8 +39,10 @@ interface TourStep {
   body: string;
 }
 
-const STORAGE_KEY_PREFIX = "trellis.showcaseTour.v1";
-const START_FLAG = "trellis.showcaseTour.start";
+const STORAGE_KEY_PREFIX = "noverta.showcaseTour.v1";
+const LEGACY_STORAGE_KEY_PREFIX = "trellis.showcaseTour.v1";
+const START_FLAG = "noverta.showcaseTour.start";
+const LEGACY_START_FLAG = "trellis.showcaseTour.start";
 
 function storageKeyFor(
   userId: string | null | undefined,
@@ -49,6 +51,14 @@ function storageKeyFor(
   const u = userId ?? "anon";
   const d = districtId != null ? String(districtId) : "nodistrict";
   return `${STORAGE_KEY_PREFIX}.${d}.${u}`;
+}
+function legacyStorageKeyFor(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+): string {
+  const u = userId ?? "anon";
+  const d = districtId != null ? String(districtId) : "nodistrict";
+  return `${LEGACY_STORAGE_KEY_PREFIX}.${d}.${u}`;
 }
 
 // Wedge-focused tour: Phase A closed-loop makeup. Walks the viewer through
@@ -60,7 +70,7 @@ function storageKeyFor(
 //
 // Other modules (IEP builder, Medicaid, SIS, reports, etc.) are intentionally
 // NOT in this tour. They still exist in the nav and are reachable directly —
-// this tour is specifically the "what makes Trellis different" walkthrough,
+// this tour is specifically the "what makes Noverta different" walkthrough,
 // not a product overview.
 const STEPS: TourStep[] = [
   {
@@ -103,7 +113,7 @@ const STEPS: TourStep[] = [
     path: "/action-center",
     title: "Closing the loop",
     body:
-      "Log a makeup session from anywhere — the Action Center, the floating timer, the Today schedule — and Trellis auto-resolves the source alert when the minutes match. No second click to mark something \"done\".",
+      "Log a makeup session from anywhere — the Action Center, the floating timer, the Today schedule — and Noverta auto-resolves the source alert when the minutes match. No second click to mark something \"done\".",
   },
 ];
 
@@ -112,7 +122,19 @@ function readSeen(
   districtId: number | null | undefined,
 ): boolean {
   try {
-    return window.localStorage.getItem(storageKeyFor(userId, districtId)) === "seen";
+    // Read-fallback for per-user × per-district seen flag. Copy-forward
+    // so we never re-show the tour to someone who already dismissed it.
+    const fresh = window.localStorage.getItem(storageKeyFor(userId, districtId));
+    if (fresh === "seen") return true;
+    const legacy = window.localStorage.getItem(legacyStorageKeyFor(userId, districtId));
+    if (legacy === "seen") {
+      try {
+        window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+        window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
+      } catch { /* leave legacy intact */ }
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -124,7 +146,9 @@ function markSeen(
 ) {
   try {
     window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
+    window.localStorage.removeItem(legacyStorageKeyFor(userId, districtId));
     window.localStorage.removeItem(START_FLAG);
+    window.localStorage.removeItem(LEGACY_START_FLAG);
   } catch {
     /* ignore */
   }
@@ -132,9 +156,16 @@ function markSeen(
 
 function toursDisabled(): boolean {
   if (typeof window === "undefined") return false;
-  const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+  const w = window as unknown as {
+    __NOVERTA_DISABLE_TOURS__?: boolean;
+    __TRELLIS_DISABLE_TOURS__?: boolean;
+  };
+  // Dual-read both window globals during the rename transition.
+  if (w.__NOVERTA_DISABLE_TOURS__ === true) return true;
   if (w.__TRELLIS_DISABLE_TOURS__ === true) return true;
   try {
+    // Dual-read both localStorage keys during the rename transition.
+    if (window.localStorage.getItem("noverta.disableTours") === "1") return true;
     if (window.localStorage.getItem("trellis.disableTours") === "1") return true;
   } catch {
     // ignore
@@ -144,8 +175,14 @@ function toursDisabled(): boolean {
 
 function consumeStartFlag(): boolean {
   try {
-    const v = window.localStorage.getItem(START_FLAG) === "1";
-    if (v) window.localStorage.removeItem(START_FLAG);
+    // Honor either name during the rename transition. Clear both on consume.
+    const v =
+      window.localStorage.getItem(START_FLAG) === "1" ||
+      window.localStorage.getItem(LEGACY_START_FLAG) === "1";
+    if (v) {
+      window.localStorage.removeItem(START_FLAG);
+      window.localStorage.removeItem(LEGACY_START_FLAG);
+    }
     return v;
   } catch {
     return false;
@@ -167,10 +204,15 @@ export function startShowcaseTour() {
   // through different demo districts on the same machine).
   try {
     window.localStorage.setItem(START_FLAG, "1");
+    // Dual-write the legacy flag too so any pre-rename listener still fires.
+    window.localStorage.setItem(LEGACY_START_FLAG, "1");
   } catch {
     /* localStorage unavailable; the event below still re-opens it */
   }
   try {
+    // Dual-dispatch on both event names during the rename transition so
+    // any listener that hasn't been updated still fires.
+    window.dispatchEvent(new Event("noverta:showcaseTour:start"));
     window.dispatchEvent(new Event("trellis:showcaseTour:start"));
   } catch {
     /* no-op */
@@ -224,8 +266,13 @@ export function ShowcaseTour() {
       setStepIdx(0);
       setActive(true);
     }
+    // Dual-listen on both names during the rename transition.
+    window.addEventListener("noverta:showcaseTour:start", onStart);
     window.addEventListener("trellis:showcaseTour:start", onStart);
-    return () => window.removeEventListener("trellis:showcaseTour:start", onStart);
+    return () => {
+      window.removeEventListener("noverta:showcaseTour:start", onStart);
+      window.removeEventListener("trellis:showcaseTour:start", onStart);
+    };
   }, [isAdmin, data?.hasSampleData]);
 
   // Auto-close if sample data is removed mid-flight — the surfaces it
@@ -361,7 +408,7 @@ export function ShowcaseTour() {
   return createPortal(
     <div
       role="dialog"
-      aria-label="Trellis showcase tour"
+      aria-label="Noverta showcase tour"
       data-testid="showcase-tour"
       className="fixed inset-0 z-[80]"
       style={{ pointerEvents: "none" }}

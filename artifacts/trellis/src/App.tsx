@@ -165,15 +165,25 @@ const queryClient = new QueryClient({
 // helpers can invalidate query keys (e.g. `["action-item-handling"]`) after
 // writing state via the API path. Production users never read this; it is
 // purely a test instrumentation seam.
+//
+// Dual-exposure during the Trellis → Noverta rename: existing test specs
+// still reference `__TRELLIS_QC__`. Once every spec is updated to read the
+// new `__NOVERTA_QC__` name we can drop the legacy alias.
 if (typeof window !== "undefined") {
-  (window as unknown as { __TRELLIS_QC__?: QueryClient }).__TRELLIS_QC__ =
-    queryClient;
+  const w = window as unknown as {
+    __NOVERTA_QC__?: QueryClient;
+    __TRELLIS_QC__?: QueryClient;
+  };
+  w.__NOVERTA_QC__ = queryClient;
+  w.__TRELLIS_QC__ = queryClient;
 }
 
 // Includes `trellis_support` so the support-session picker page is reachable.
 // trellis_support users are not actually staff; they hit the standard router
 // only so they can land on /support-session and (after opening a session)
-// browse the rest of the app under the read-only override.
+// browse the rest of the app under the read-only override. The role
+// identifier is intentionally NOT renamed — it is auth-coupled and
+// referenced across DB, Clerk metadata, and route guards.
 const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "direct_provider", "trellis_support"];
 
 /**
@@ -264,7 +274,7 @@ function ProtectedRoutes({ children }: { children: React.ReactNode }) {
     <div className="flex items-center justify-center min-h-screen bg-white">
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-        <p className="text-sm text-gray-400 font-medium">Loading Trellis...</p>
+        <p className="text-sm text-gray-400 font-medium">Loading Noverta...</p>
       </div>
     </div>
   );

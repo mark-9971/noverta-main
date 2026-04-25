@@ -1,8 +1,8 @@
-# Trellis Platform Analysis: PowerSchool Replacement Roadmap
+# Noverta Platform Analysis: PowerSchool Replacement Roadmap
 
 ## 1. Executive Verdict
 
-Trellis is a strong demo-quality special education workflow tool with real clinical depth (FBA/FA/BIP, ABA data collection, service minute compliance, restraint/seclusion tracking). It has genuine product differentiation in the SPED/therapeutic school niche. However, it is **not remotely ready for real student data today**.
+Noverta is a strong demo-quality special education workflow tool with real clinical depth (FBA/FA/BIP, ABA data collection, service minute compliance, restraint/seclusion tracking). It has genuine product differentiation in the SPED/therapeutic school niche. However, it is **not remotely ready for real student data today**.
 
 The gap is not feature depth — it is infrastructure. There is no authentication, no authorization enforcement on the API, no audit logging, no data access controls, no parent portal, and no SSO. Every API endpoint is publicly accessible to anyone who can reach the server. This is not a security weakness — it is the complete absence of a security layer.
 
@@ -27,7 +27,7 @@ Not because the features are wrong, but because:
 
 ### What It Could Replace First
 
-Trellis could credibly replace these **specific PowerSchool modules** for a therapeutic/SPED school:
+Noverta could credibly replace these **specific PowerSchool modules** for a therapeutic/SPED school:
 
 - **IEP tracking and compliance monitoring** — already strong
 - **Service minute delivery tracking** — already strong
@@ -54,11 +54,11 @@ Why:
 - They often use cobbled-together systems (spreadsheets, paper, or clunky legacy tools)
 - They typically do NOT need full SIS functions (the sending district keeps the official record)
 - They have BCBA/clinical staff who would immediately value the FBA/BIP/ABA tools
-- Regulatory burden is high (603 CMR 28.00 and 46.00) and Trellis already addresses this
+- Regulatory burden is high (603 CMR 28.00 and 46.00) and Noverta already addresses this
 - Staff size is small enough for manual account provisioning initially
 - Parent communication needs are high but can start with email-based workflows
 
-**Not realistic first targets:** Public school districts (too much SIS dependency), large charter networks (need state reporting), mainstream K-12 (Trellis has no general education value proposition currently).
+**Not realistic first targets:** Public school districts (too much SIS dependency), large charter networks (need state reporting), mainstream K-12 (Noverta has no general education value proposition currently).
 
 ---
 
@@ -76,7 +76,7 @@ Do NOT position as a PowerSchool replacement. Position as the clinical/complianc
 
 ### A. Core SIS / System-of-Record Requirements
 
-| Requirement | What a Real SIS Does | What Trellis Does | Gap Severity | Gap Type |
+| Requirement | What a Real SIS Does | What Noverta Does | Gap Severity | Gap Type |
 |---|---|---|---|---|
 | Student legal identity | SSN (encrypted), state student ID, legal name vs preferred name, gender, race/ethnicity, citizenship, birth certificate data | firstName, lastName, dateOfBirth, externalId, grade | **Critical** | Product |
 | Enrollment history | Date-stamped enrollment/withdrawal/transfer records per school, with reason codes | Single `status` field ("active"), no history | **Critical** | Product |
@@ -94,7 +94,7 @@ Do NOT position as a PowerSchool replacement. Position as the clinical/complianc
 
 ### B. Special Education / Therapeutic School Requirements
 
-| Requirement | What Trellis Does | Gap | Severity |
+| Requirement | What Noverta Does | Gap | Severity |
 |---|---|---|---|
 | IEP goal tracking | Strong — goals, baselines, progress, auto-suggestions | Missing: benchmark objectives, short-term objectives | Low |
 | Service minute compliance | Strong — requirements vs delivered, compliance alerts | Functional and good | **None** |
@@ -380,7 +380,7 @@ users:
 - Support account linking: a user can have both a local password and an SSO provider
 - Staff accounts are pre-provisioned; SSO links on first login
 - Parent accounts are invitation-based; SSO is optional enhancement
-- Role comes from the application, not the IdP (IdP says "this is a valid staff member at your school," Trellis assigns the role)
+- Role comes from the application, not the IdP (IdP says "this is a valid staff member at your school," Noverta assigns the role)
 
 ### What to Avoid
 

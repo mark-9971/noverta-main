@@ -114,7 +114,7 @@ async function installMockChecklist(
   // dashboard checklist we want to assert against.
   await page.addInitScript(() => {
     try {
-      window.localStorage.setItem("trellis.disableTours", "1");
+      window.localStorage.setItem("noverta.disableTours", "1");
     } catch {}
   });
   let current = { ...initial };
