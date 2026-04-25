@@ -1,7 +1,7 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth, useUser, useClerk } from "@clerk/react";
-import { setOnApiError, ApiError } from "@workspace/api-client-react";
+import { setOnApiError, setBaseUrl, ApiError } from "@workspace/api-client-react";
 import { setDistrictLockedMessage } from "@/pages/district-locked";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -245,12 +245,20 @@ if (DEV_AUTH_BYPASS) {
   setAuthFetchExtraHeaders(getDevAuthBypassHeaders());
 }
 
+const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") || null;
+
+setBaseUrl(API_BASE_URL);
+
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, getToken } = useAuth();
 
-  registerTokenProvider(() => getToken());
+  if (DEV_AUTH_BYPASS) {
+    registerTokenProvider(() => Promise.resolve(null));
+    return <>{children}</>;
+  }
 
-  if (DEV_AUTH_BYPASS) return <>{children}</>;
+  registerTokenProvider(() => getToken());
 
   if (!isLoaded) return (
     <div className="flex items-center justify-center min-h-screen bg-white">

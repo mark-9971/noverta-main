@@ -100,7 +100,10 @@ function getInitials(name: string): string {
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser();
   const [, setLocation] = useLocation();
-  const isDevMode = import.meta.env.DEV;
+  const isDevAuthBypass =
+    import.meta.env.VITE_DEV_AUTH_BYPASS === "1" &&
+    import.meta.env.MODE !== "production";
+  const isDevMode = import.meta.env.DEV || isDevAuthBypass;
 
   // Persona override is enabled in dev mode AND for platform admins in prod
   // (used by the Demo Control Center role-walkthrough panel). The override
@@ -200,7 +203,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     lsSet("trellis_guardian_id", String(id));
   }
 
-  if (!isLoaded) return null;
+  if (!isLoaded && !isDevAuthBypass) return null;
 
   return (
     <RoleContext.Provider value={{

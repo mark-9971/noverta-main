@@ -1,6 +1,20 @@
 let _getToken: (() => Promise<string | null>) | null = null;
 let _extraHeaders: Record<string, string> | null = null;
 
+const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
+
+const DEV_AUTH_BYPASS =
+  import.meta.env.VITE_DEV_AUTH_BYPASS === "1" &&
+  import.meta.env.MODE !== "production";
+
+function applyApiBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
+  if (!API_BASE_URL || typeof input !== "string" || !input.startsWith("/")) {
+    return input;
+  }
+  return `${API_BASE_URL}${input}`;
+}
+
 export function registerTokenProvider(fn: () => Promise<string | null>) {
   _getToken = fn;
 }
@@ -32,8 +46,13 @@ export function getDevAuthBypassHeaders(): Record<string, string> {
 }
 
 export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  input = applyApiBaseUrl(input);
+
   let token: string | null = null;
-  if (_getToken) {
+  const shouldSkipToken =
+    DEV_AUTH_BYPASS || Boolean(_extraHeaders?.["x-test-user-id"]);
+
+  if (_getToken && !shouldSkipToken) {
     try { token = await _getToken(); } catch {}
   }
   const headers: Record<string, string> = {
