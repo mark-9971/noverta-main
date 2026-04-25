@@ -48,7 +48,7 @@ const plans: PlanConfig[] = [
 async function createProducts() {
   try {
     const stripe = await getUncachableStripeClient();
-    console.log('Creating Trellis subscription plans...\n');
+    console.log('Creating Noverta subscription plans...\n');
 
     const { Pool } = await import('pg');
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });

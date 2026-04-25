@@ -165,7 +165,7 @@ export default function S07_NextSteps() {
               Next step: pick one direction — the team will build a high-fidelity prototype before implementation begins.
             </div>
             <div className="text-[1.1vw] font-body font-semibold" style={{ color: "#4e9bf5" }}>
-              Trellis — MetroWest Collaborative Pilot
+              Noverta — MetroWest Collaborative Pilot
             </div>
           </div>
         </div>

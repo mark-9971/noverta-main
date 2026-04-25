@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Sparkles, X } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useRole } from "@/lib/role-context";
+import { migrateLocalGet } from "@/lib/storage-migration";
 
 interface PilotDecisionStatus {
   isPilot: boolean;
@@ -13,7 +14,8 @@ interface PilotDecisionStatus {
   decision: { outcome: string } | null;
 }
 
-const DISMISS_KEY = "trellis.pilot-decision-banner.dismissed-until";
+const DISMISS_KEY = "noverta.pilot-decision-banner.dismissed-until";
+const LEGACY_DISMISS_KEY = "trellis.pilot-decision-banner.dismissed-until";
 
 export function PilotDecisionBanner() {
   const { role } = useRole();
@@ -21,7 +23,9 @@ export function PilotDecisionBanner() {
   const [status, setStatus] = useState<PilotDecisionStatus | null>(null);
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
-    const until = window.localStorage.getItem(DISMISS_KEY);
+    // Read-fallback: prefer noverta.*; copy-forward from legacy
+    // trellis.* and clear the old key only on a successful copy.
+    const until = migrateLocalGet(DISMISS_KEY, LEGACY_DISMISS_KEY);
     if (!until) return false;
     return Date.now() < Number(until);
   });
@@ -55,10 +59,15 @@ export function PilotDecisionBanner() {
     setDismissed(true);
     if (typeof window !== "undefined") {
       // Hide for 24 hours so we don't pester, but the page is still reachable.
-      window.localStorage.setItem(
-        DISMISS_KEY,
-        String(Date.now() + 24 * 60 * 60 * 1000),
-      );
+      try {
+        window.localStorage.setItem(
+          DISMISS_KEY,
+          String(Date.now() + 24 * 60 * 60 * 1000),
+        );
+        // Clear the legacy key so a stale dismissal can't resurface via
+        // the read-fallback after the new value expires.
+        window.localStorage.removeItem(LEGACY_DISMISS_KEY);
+      } catch { /* ignore storage errors */ }
     }
   };
 

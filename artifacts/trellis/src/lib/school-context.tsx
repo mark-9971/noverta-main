@@ -1,4 +1,12 @@
 import { createContext, useContext, useState, useMemo, type ReactNode } from "react";
+import { migrateLocalGet } from "./storage-migration";
+
+const SCHOOL_KEY = "noverta_selected_school_id";
+const DISTRICT_KEY = "noverta_selected_district_id";
+const YEAR_KEY = "noverta_selected_year_id";
+const LEGACY_SCHOOL_KEY = "trellis_selected_school_id";
+const LEGACY_DISTRICT_KEY = "trellis_selected_district_id";
+const LEGACY_YEAR_KEY = "trellis_selected_year_id";
 
 interface SchoolDistrictFilter {
   schoolId?: number;
@@ -21,33 +29,35 @@ const SchoolContext = createContext<SchoolContextType | null>(null);
 
 export function SchoolProvider({ children }: { children: ReactNode }) {
   const [selectedSchoolId, setSelectedSchoolIdState] = useState<number | null>(() => {
-    const saved = localStorage.getItem("trellis_selected_school_id");
+    const saved = migrateLocalGet(SCHOOL_KEY, LEGACY_SCHOOL_KEY);
     return saved ? Number(saved) : null;
   });
   const [selectedDistrictId, setSelectedDistrictIdState] = useState<number | null>(() => {
-    const saved = localStorage.getItem("trellis_selected_district_id");
+    const saved = migrateLocalGet(DISTRICT_KEY, LEGACY_DISTRICT_KEY);
     return saved ? Number(saved) : null;
   });
   const [selectedYearId, setSelectedYearIdState] = useState<number | null>(() => {
-    const saved = localStorage.getItem("trellis_selected_year_id");
+    const saved = migrateLocalGet(YEAR_KEY, LEGACY_YEAR_KEY);
     return saved ? Number(saved) : null;
   });
 
   const setSelectedSchoolId = (id: number | null) => {
     setSelectedSchoolIdState(id);
     if (id) {
-      localStorage.setItem("trellis_selected_school_id", String(id));
+      localStorage.setItem(SCHOOL_KEY, String(id));
     } else {
-      localStorage.removeItem("trellis_selected_school_id");
+      localStorage.removeItem(SCHOOL_KEY);
+      localStorage.removeItem(LEGACY_SCHOOL_KEY);
     }
   };
 
   const setSelectedDistrictId = (id: number | null) => {
     setSelectedDistrictIdState(id);
     if (id) {
-      localStorage.setItem("trellis_selected_district_id", String(id));
+      localStorage.setItem(DISTRICT_KEY, String(id));
     } else {
-      localStorage.removeItem("trellis_selected_district_id");
+      localStorage.removeItem(DISTRICT_KEY);
+      localStorage.removeItem(LEGACY_DISTRICT_KEY);
     }
     setSelectedSchoolId(null);
   };
@@ -55,9 +65,10 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   const setSelectedYearId = (id: number | null) => {
     setSelectedYearIdState(id);
     if (id) {
-      localStorage.setItem("trellis_selected_year_id", String(id));
+      localStorage.setItem(YEAR_KEY, String(id));
     } else {
-      localStorage.removeItem("trellis_selected_year_id");
+      localStorage.removeItem(YEAR_KEY);
+      localStorage.removeItem(LEGACY_YEAR_KEY);
     }
   };
 

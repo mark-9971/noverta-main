@@ -1,7 +1,7 @@
 /**
  * Per-tenant sample data routes — generate / inspect / tear down a small
  * realistic district of sample students, staff, services, and sessions so a
- * brand-new tenant can experience Trellis's value within minutes.
+ * brand-new tenant can experience Noverta's value within minutes.
  *
  * Admin-only. Sample data is tagged via `students.is_sample` /
  * `staff.is_sample` (plus `districts.has_sample_data`) and is fully removable

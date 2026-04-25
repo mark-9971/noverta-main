@@ -1,0 +1,177 @@
+Project: Trellis has been renamed to Noverta.
+
+Current state:
+- NEXT-1 complete: user-facing string rename.
+- NEXT-2 complete: filename/import rename.
+- NEXT-3 accepted partial: main localStorage/sessionStorage migration shims.
+- NEXT-4 complete: remaining active client storage keys migrated.
+- NEXT-5 complete: e2e/test fixture storage/event references flipped to Noverta.
+- NEXT-6 complete in-repo: external URL/email references are env-configurable with safe legacy fallbacks.
+- NEXT-7 complete: auth/role/dev identity dual-read verification accepted. No code changes were needed.
+
+Task:
+NEXT-8 — legacy Trellis compatibility shim retirement audit + safe removals only.
+
+Important:
+Do NOT blindly remove all Trellis compatibility.
+Do NOT remove any legacy bridge that depends on external Clerk/DNS/Resend/Stripe/env migration unless the repo can prove it is safe.
+Do NOT claim external cutover is complete unless it is verifiable from repo/config.
+
+Objective:
+Identify all remaining Trellis compatibility shims and retire only the ones that are safe to remove now. For anything still needed during the migration window, leave it in place and classify the blocker exactly.
+
+Execution priority:
+1. safety
+2. correctness
+3. compatibility preservation
+4. exact auditability
+5. proof
+6. speed only after the above
+
+Scope:
+1. Search the repo for remaining Trellis legacy compatibility references:
+   - trellis_support
+   - TrellisRole
+   - trellis_role
+   - TRELLIS_DEV_FORCE_DISTRICT_ID
+   - __TRELLIS_DISABLE_TOURS__
+   - trellis.disableTours
+   - trellis.sampleTour
+   - trellis.showcaseTour
+   - trellis.demoFlow
+   - trellis.demoHighlight
+   - trellis_nav_
+   - trellis_quicklog
+   - trellis-e2e
+   - TrellisE2E
+   - trellis.education
+   - usetrellis.co
+   - noreply.trellis.education
+2. Classify every remaining hit.
+3. Remove only shims that are clearly safe because:
+   - production now writes only Noverta keys,
+   - tests now use Noverta keys,
+   - no external system depends on the old value,
+   - removal cannot strand user state or break auth/dev/demo flows.
+4. Keep shims that depend on:
+   - Clerk role metadata migration,
+   - Clerk e2e test-user creation/password rotation,
+   - Replit/CI env var rollout,
+   - DNS/Resend/Stripe/domain cutover,
+   - rolling browser sessions that may still carry old localStorage/sessionStorage keys.
+5. Do not touch high-conflict wedge files.
+
+High-conflict / do-not-touch areas:
+- Action Center
+- recommendation logic
+- handling state hooks
+- dismissal state hooks
+- Compliance Risk Report
+- dashboard core widgets
+- Quick Log behavior beyond storage compatibility only
+- minuteCalc
+- schoolCalendar
+- scheduling orchestration
+- nav-config
+- seed/reset orchestration
+- demo reset/seeding files unless only classifying references
+
+Candidate safe cleanup areas:
+- e2e README references that now describe legacy-only behavior inaccurately
+- test-only dual blocks that are no longer needed after NEXT-5, if production no longer dual-writes that key
+- comments that incorrectly imply Trellis is canonical
+- dead compatibility constants where all readers/writers have already moved to Noverta and no user state is at risk
+
+Likely NOT safe to remove yet:
+- trellis_support internal canonical comparisons
+- TrellisRole type if still used internally
+- noverta_support → trellis_support canonicalizer branch
+- TRELLIS_DEV_FORCE_DISTRICT_ID fallback
+- trellis-e2e-* default identities/passwords
+- trellis_role localStorage fallback if still needed for old browser state
+- external URL/email fallbacks from NEXT-6
+- any fallback explicitly needed for rolling migration
+
+Non-goals:
+- No external DNS/Resend/Stripe/Clerk work.
+- No DB migration unless proven unnecessary and safe.
+- No auth weakening.
+- No product workflow changes.
+- No broad docs rewrite.
+- No architecture rails work — Cursor is handling that separately.
+- No demo/seeder roadmap work.
+
+Required classification categories:
+1. Removed safely in NEXT-8
+2. Kept intentionally — external migration required
+3. Kept intentionally — rolling browser/storage migration window
+4. Kept intentionally — internal canonical role/type still required
+5. Historical docs/comment only
+6. Out of scope generated/lock/archive/attached asset
+7. True remaining rename gap
+
+Required proof:
+- Run rg searches before and after changes.
+- List every remaining Trellis hit relevant to NEXT-8 and classify it.
+- Run typecheck/build for touched packages if feasible.
+- If full typecheck is blocked by known pre-existing failures, separate those from regressions.
+- Do not call COMPLETE unless every remaining Trellis reference is classified and no unsafe removals were made.
+
+Required final output:
+
+1. EXECUTIVE VERDICT
+Use exactly one:
+- COMPLETE
+- PARTIAL
+- INCORRECTLY IMPLEMENTED
+
+2. EXACT FILES CREATED
+List exact paths or “None”.
+
+3. EXACT FILES MODIFIED
+List exact paths or “None”.
+
+4. EXACT FILES DELETED
+List exact paths or “None”.
+
+5. EXACT REASONS FOR EACH CHANGE
+Explain every changed file.
+
+6. USER-VISIBLE IMPACT
+State whether users will notice anything. Ideally none.
+
+7. COMPATIBILITY IMPACT
+For every removed shim, explain why removal is safe.
+For every kept shim, explain what still depends on it.
+
+8. LEGACY SHIM RETIREMENT MAP
+For every Trellis compatibility item:
+- old Trellis value/reference
+- Noverta replacement
+- status: removed / kept
+- reason
+- removal blocker if kept
+
+9. REMAINING TRELLIS REFERENCES
+List every remaining relevant Trellis hit and classify it using the required categories.
+
+10. TEST / BUILD STATUS
+Include exact commands and exact results.
+Separate:
+- regressions
+- pre-existing failures
+- environment/tooling noise
+
+11. EXACT REMAINING GAPS
+List true gaps only, or “None”.
+
+12. EXACT NEXT TASKS
+Likely:
+- external Clerk/env/DNS cutover completion
+- final NEXT-9 hard removal after external cutover
+Do not start them.
+
+13. FINAL ARTIFACT
+Brief implementation summary.
+
+Stop after NEXT-8.

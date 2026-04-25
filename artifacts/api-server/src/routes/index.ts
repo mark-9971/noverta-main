@@ -181,7 +181,7 @@ router.post("/imports/", csvUploadLimit);
 router.use("/guardian-portal", guardianPortalRouter);
 router.use("/guardian-portal", guardianMessagesRouter);
 
-// Trellis-support session lifecycle. Mounted BEFORE requireDistrictScope so a
+// Noverta-support session lifecycle. Mounted BEFORE requireDistrictScope so a
 // support user with no active session — and therefore no tenantDistrictId yet
 // — can still call /open with their district picker. The router itself
 // guards on the trellis_support role.

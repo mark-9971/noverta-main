@@ -384,7 +384,7 @@ export interface SeedDemoDistrictOptions {
 
 export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
   console.log("╔══════════════════════════════════════════════════════════════╗");
-  console.log("║  TRELLIS DEMO DISTRICT SEEDER                              ║");
+  console.log("║  NOVERTA DEMO DISTRICT SEEDER                              ║");
   console.log("║  Generating: MetroWest Collaborative (Framingham, MA)       ║");
   console.log("╚══════════════════════════════════════════════════════════════╝");
   console.log("");

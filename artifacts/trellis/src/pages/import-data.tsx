@@ -48,7 +48,7 @@ const IMPORT_GUIDANCE: Record<string, { prereqs: string; requiredCols: string; t
     requiredCols: "first_name, last_name",
     tips: [
       "Include external_id (your SIS student ID) — it makes future imports much easier and is used for deduplication",
-      "school and case_manager columns must exactly match names already in Trellis",
+      "school and case_manager columns must exactly match names already in Noverta",
       "Duplicates are detected by first + last name match (or external_id if provided)",
     ],
   },
@@ -62,7 +62,7 @@ const IMPORT_GUIDANCE: Record<string, { prereqs: string; requiredCols: string; t
     ],
   },
   "service-requirements": {
-    prereqs: "Students must be imported first. Service types must exist in Trellis.",
+    prereqs: "Students must be imported first. Service types must exist in Noverta.",
     requiredCols: "service_type, required_minutes  +  student_external_id OR (student_first_name + student_last_name)",
     tips: [
       "Students are matched by student_external_id first, then by student_first_name + student_last_name",
@@ -88,7 +88,7 @@ const IMPORT_GUIDANCE: Record<string, { prereqs: string; requiredCols: string; t
     tips: [
       "Supports two formats: Tall (one row per data point) and Wide (dates as column headers)",
       "Paste directly from Google Sheets using the Paste button",
-      "Trellis auto-creates goals, targets, and sessions for all data points",
+      "Noverta auto-creates goals, targets, and sessions for all data points",
     ],
   },
   "iep-documents": {
@@ -200,7 +200,7 @@ Tall format — one row per data point:
 Wide format (Google Sheets style) — dates as column headers:
   goal_name, goal_type, 2024-09-06, 2024-09-13, ...
 
-For each goal, Trellis will auto-create the IEP goal, target,
+For each goal, Noverta will auto-create the IEP goal, target,
 and linked sessions so data appears in all charts immediately.`;
 
 function StatusBadge({ status }: { status: "valid" | "warning" | "error" }) {
@@ -552,7 +552,7 @@ export default function ImportData() {
                   </pre>
                 )}
                 <p className="text-[12px] text-emerald-700">
-                  Trellis auto-creates goals, linked targets, and vague sessions for each data point — they appear immediately in all charts and progress views.
+                  Noverta auto-creates goals, linked targets, and vague sessions for each data point — they appear immediately in all charts and progress views.
                 </p>
               </div>
             )}
@@ -564,7 +564,7 @@ export default function ImportData() {
                   <p className="text-[13px] font-semibold text-blue-800">Auto-extract from IEP PDFs</p>
                 </div>
                 <p className="text-[12px] text-blue-700 leading-relaxed">
-                  Upload an IEP PDF and Trellis pulls out goals, service requirements, accommodations,
+                  Upload an IEP PDF and Noverta pulls out goals, service requirements, accommodations,
                   behavior targets, and program targets so you don't have to enter them by hand.
                   Extraction uses an AI model — review the result before saving.
                 </p>
@@ -728,7 +728,7 @@ export default function ImportData() {
                           <Settings2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
                           <div className="flex-1">
                             <p className="text-[12px] font-semibold text-gray-600">Duplicate handling</p>
-                            <p className="text-[11px] text-gray-400">What to do when a record already exists in Trellis</p>
+                            <p className="text-[11px] text-gray-400">What to do when a record already exists in Noverta</p>
                           </div>
                           <div className="flex gap-1.5">
                             <button
@@ -793,7 +793,7 @@ export default function ImportData() {
                     >
                       <Download className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                       <div>
-                        <p className="text-[13px] font-medium text-emerald-800">Trellis Template</p>
+                        <p className="text-[13px] font-medium text-emerald-800">Noverta Template</p>
                         <p className="text-[11px] text-emerald-600">Standard format with sample rows and instructions</p>
                       </div>
                     </button>
@@ -859,7 +859,7 @@ export default function ImportData() {
                     ))}
                     <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
                       <p className="text-[11px] text-amber-700">
-                        <span className="font-semibold">Requirements:</span> Students must already be imported into Trellis.
+                        <span className="font-semibold">Requirements:</span> Students must already be imported into Noverta.
                       </p>
                     </div>
                   </div>

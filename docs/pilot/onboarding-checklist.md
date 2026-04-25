@@ -1,4 +1,4 @@
-# Trellis Pilot Onboarding Checklist
+# Noverta Pilot Onboarding Checklist
 
 **For District Administrators**  
 **Version:** 1.0  
@@ -12,7 +12,7 @@ Complete these steps before allowing case managers and teachers to begin enterin
 
 ### Step 1 — System Access
 - [ ] District admin account is created and confirmed
-- [ ] Admin can log in to Trellis successfully
+- [ ] Admin can log in to Noverta successfully
 - [ ] District name and school(s) are correct in Setup
 
 ### Step 2 — Staff Accounts
@@ -53,4 +53,4 @@ Once all steps above are checked, the district admin signs off to confirm the sy
 
 **Date:** ________________________________
 
-**Trellis Implementation Contact:** ________________________________
+**Noverta Implementation Contact:** ________________________________

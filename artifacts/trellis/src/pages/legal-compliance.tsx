@@ -28,7 +28,7 @@ const DOCS: DocCard[] = [
   {
     title: "Terms of Service",
     description:
-      "Governs authorized use of the Trellis platform by district staff. Covers acceptable use, account security, student data handling, and intellectual property. All staff must accept before accessing the app.",
+      "Governs authorized use of the Noverta platform by district staff. Covers acceptable use, account security, student data handling, and intellectual property. All staff must accept before accessing the app.",
     icon: FileText,
     fileName: "terms-of-service.md",
     badgeLabel: "Required Acceptance",
@@ -38,7 +38,7 @@ const DOCS: DocCard[] = [
   {
     title: "Data Processing Agreement (DPA)",
     description:
-      "The contract that governs how Trellis processes your district's student and staff data. Defines sub-processors, data subject rights, deletion obligations, and breach notification. Review with district counsel before signing.",
+      "The contract that governs how Noverta processes your district's student and staff data. Defines sub-processors, data subject rights, deletion obligations, and breach notification. Review with district counsel before signing.",
     icon: Scale,
     fileName: "dpa-template.md",
     badgeLabel: "Required Acceptance",
@@ -48,7 +48,7 @@ const DOCS: DocCard[] = [
   {
     title: "Privacy Summary",
     description:
-      "Plain-language explanation of what data Trellis collects, how it is used, who can access it, and how parents can exercise their FERPA rights. Suitable for sharing with your school community.",
+      "Plain-language explanation of what data Noverta collects, how it is used, who can access it, and how parents can exercise their FERPA rights. Suitable for sharing with your school community.",
     icon: FileText,
     fileName: "privacy-summary.md",
     badgeLabel: "FERPA",
@@ -78,7 +78,7 @@ const DOCS: DocCard[] = [
   {
     title: "Incident Response Plan",
     description:
-      "How Trellis detects, contains, and notifies affected parties in the event of a data security incident. Covers FERPA 72-hour notification requirement, triage steps, district notification letter template, and post-incident review process.",
+      "How Noverta detects, contains, and notifies affected parties in the event of a data security incident. Covers FERPA 72-hour notification requirement, triage steps, district notification letter template, and post-incident review process.",
     icon: AlertTriangle,
     fileName: "incident-response.md",
     badgeLabel: "FERPA / M.G.L. c.93H",
@@ -281,23 +281,23 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        toast.error("Server error logging request. Please email legal@trellis.app directly.");
+        toast.error("Server error logging request. Please email legal@noverta.app directly.");
         return;
       }
 
       const emailSubject = encodeURIComponent(`DPA Request — ${districtName}`);
       const emailBody = encodeURIComponent(
-        `Hello Trellis Team,\n\n${districtName} would like to request a signed Data Processing Agreement.\n\n` +
+        `Hello Noverta Team,\n\n${districtName} would like to request a signed Data Processing Agreement.\n\n` +
         `Contact: ${contactName}\nTitle: ${contactTitle}\nEmail: ${contactEmail}\n` +
         (notes ? `\nNotes: ${notes}` : "") +
         `\n\nRequested at: ${new Date().toLocaleString()}\n`,
       );
-      window.open(`mailto:legal@trellis.app?subject=${emailSubject}&body=${emailBody}`, "_blank");
+      window.open(`mailto:legal@noverta.app?subject=${emailSubject}&body=${emailBody}`, "_blank");
 
-      toast.success("Your email client has opened with a pre-filled request. Trellis will follow up within 2 business days.");
+      toast.success("Your email client has opened with a pre-filled request. Noverta will follow up within 2 business days.");
       onClose();
     } catch {
-      toast.error("Could not send request. Please email legal@trellis.app directly.");
+      toast.error("Could not send request. Please email legal@noverta.app directly.");
     } finally {
       setSending(false);
     }
@@ -312,7 +312,7 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-900">Request a Signed DPA</h2>
-            <p className="text-xs text-gray-500">Trellis will follow up within 2 business days</p>
+            <p className="text-xs text-gray-500">Noverta will follow up within 2 business days</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -391,7 +391,7 @@ export default function LegalCompliancePage() {
         <CardContent className="py-4 px-5">
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span className="text-sm font-semibold text-emerald-800">Trellis Data Commitments</span>
+            <span className="text-sm font-semibold text-emerald-800">Noverta Data Commitments</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
             {COMMITMENTS.map(c => (
@@ -472,17 +472,17 @@ export default function LegalCompliancePage() {
           {[
             {
               label: "FERPA (Family Educational Rights and Privacy Act)",
-              description: "Federal law protecting the privacy of student education records. Trellis processes records as a \u201cschool official\u201d under FERPA's legitimate educational interest provision. 20 U.S.C. \u00a7 1232g; 34 CFR Part 99.",
+              description: "Federal law protecting the privacy of student education records. Noverta processes records as a \u201cschool official\u201d under FERPA's legitimate educational interest provision. 20 U.S.C. \u00a7 1232g; 34 CFR Part 99.",
               badge: "Federal",
             },
             {
               label: "IDEA (Individuals with Disabilities Education Act)",
-              description: "Federal law governing special education services. Trellis focuses on the IEP-delivery side: service minutes, missed sessions, compensatory services, and the documentation needed to prove delivery.",
+              description: "Federal law governing special education services. Noverta focuses on the IEP-delivery side: service minutes, missed sessions, compensatory services, and the documentation needed to prove delivery.",
               badge: "Federal",
             },
             {
               label: "603 CMR 28.00 — Massachusetts Special Education Regulations",
-              description: "The Massachusetts SPED framework Trellis is built against. Governs IEP content, timelines, service delivery, evaluations, and parent rights.",
+              description: "The Massachusetts SPED framework Noverta is built against. Governs IEP content, timelines, service delivery, evaluations, and parent rights.",
               badge: "Massachusetts",
             },
             {
@@ -492,7 +492,7 @@ export default function LegalCompliancePage() {
             },
             {
               label: "603 CMR 23.00 — Massachusetts Student Records Regulations",
-              description: "Governs retention periods for student records. Trellis retains withdrawn student records for 7 years consistent with these requirements.",
+              description: "Governs retention periods for student records. Noverta retains withdrawn student records for 7 years consistent with these requirements.",
               badge: "Massachusetts",
             },
           ].map(item => (
@@ -512,8 +512,8 @@ export default function LegalCompliancePage() {
 
       <p className="text-[11px] text-gray-400 text-center pb-2">
         These documents are templates and operational policies. They do not constitute legal advice.
-        Trellis recommends district counsel review the DPA before signing.
-        Questions? Email <a href="mailto:legal@trellis.app" className="underline hover:text-gray-600">legal@trellis.app</a>
+        Noverta recommends district counsel review the DPA before signing.
+        Questions? Email <a href="mailto:legal@noverta.app" className="underline hover:text-gray-600">legal@noverta.app</a>
       </p>
     </div>
   );

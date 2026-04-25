@@ -1,6 +1,6 @@
 kind = "slides"
 previewPath = "/trellis-demo/"
-title = "Trellis Demo Deck"
+title = "Noverta Demo Deck"
 version = "1.0.0"
 id = "artifacts/trellis-demo"
 router = "path"

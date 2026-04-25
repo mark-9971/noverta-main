@@ -256,7 +256,7 @@ function buildPrintHtml(data: ReportData): string {
     <tbody>${providerRows}</tbody>
   </table>
 
-  <div class="confidential">Trellis — Compliance Risk Report | ${esc(data.meta.districtName)} | ${genDate} | CONFIDENTIAL</div>
+  <div class="confidential">Noverta — Compliance Risk Report | ${esc(data.meta.districtName)} | ${genDate} | CONFIDENTIAL</div>
 </div>
 </body></html>`;
 }

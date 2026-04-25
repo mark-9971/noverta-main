@@ -1,6 +1,6 @@
 # Stripe Billing Failure-State Lifecycle
 
-Trellis subscriptions are billed through Stripe. Until this workstream the
+Noverta subscriptions are billed through Stripe. Until this workstream the
 api-server only handled the happy path (`active` / `trialing`) and a single
 `canceled` terminal state — every other Stripe failure mode either silently
 let the customer keep working or hard-blocked them with no warning, no email,

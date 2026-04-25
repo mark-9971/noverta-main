@@ -4,7 +4,7 @@
  * Pure client-side calculator: a runner enters the manual labor a district is
  * doing today (hours reconciling minutes, hours on makeup tracking, hours on
  * leadership reports, # spreadsheets, # unresolved missing logs) and the panel
- * recomputes a live "what Trellis centralizes / automates / surfaces sooner"
+ * recomputes a live "what Noverta centralizes / automates / surfaces sooner"
  * summary. Output is exportable as a self-contained one-page HTML.
  *
  * Pure compute means no DB writes — zero risk of mutating the active demo
@@ -47,7 +47,7 @@ const FIELDS: Array<{ key: keyof Inputs; label: string; suffix: string; max: num
 
 function compute(inp: Inputs) {
   const totalHours = inp.hoursReconcilingMinutes + inp.hoursMakeupTracking + inp.hoursLeadershipReports;
-  // Trellis automates ~92% of reconciling, ~80% of makeup tracking, ~95% of leadership reports.
+  // Noverta automates ~92% of reconciling, ~80% of makeup tracking, ~95% of leadership reports.
   const hoursSaved =
     inp.hoursReconcilingMinutes * 0.92 +
     inp.hoursMakeupTracking * 0.80 +
@@ -56,7 +56,7 @@ function compute(inp: Inputs) {
   const annualDollarsSaved = Math.round(hoursSaved * 55 * 36);
   // Spreadsheets collapsed to 1 source of truth (keep 1).
   const spreadsheetsRetired = Math.max(0, inp.spreadsheets - 1);
-  // Missing logs: Trellis surfaces them within 24h instead of 30+ days,
+  // Missing logs: Noverta surfaces them within 24h instead of 30+ days,
   // and ~85% close themselves once surfaced.
   const logsAutoSurfaced = Math.round(inp.unresolvedMissingLogs * 0.85);
   const compensatoryRiskMinutes = inp.unresolvedMissingLogs * 30;
@@ -76,7 +76,7 @@ function compute(inp: Inputs) {
 function buildOnePagerHtml(districtName: string, inp: Inputs, out: ReturnType<typeof compute>): string {
   const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Trellis impact — ${esc(districtName)}</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Noverta impact — ${esc(districtName)}</title>
 <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:760px;margin:24px auto;padding:0 20px;color:#111}
 h1{font-size:22px;margin:0 0 4px}h2{font-size:13px;color:#374151;margin-top:18px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
 .banner{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:8px 12px;border-radius:6px;font-size:12px;margin:8px 0 16px}
@@ -89,15 +89,15 @@ th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #eee}
 th{font-size:10px;text-transform:uppercase;color:#6b7280}
 .up{color:#047857;font-weight:600}.foot{font-size:10px;color:#6b7280;margin-top:24px;border-top:1px solid #eee;padding-top:8px}
 </style></head><body>
-<div class="banner">SAMPLE — Generated from a Trellis demo. Numbers are estimates based on inputs.</div>
-<h1>${esc(districtName)} — Today vs. on Trellis</h1>
+<div class="banner">SAMPLE — Generated from a Noverta demo. Numbers are estimates based on inputs.</div>
+<h1>${esc(districtName)} — Today vs. on Noverta</h1>
 <div class="kpi">
   <div class="k"><div class="kl">Hours saved / week</div><div class="kv up">${out.hoursSaved}</div></div>
   <div class="k"><div class="kl">Annual labor recovered</div><div class="kv up">$${out.annualDollarsSaved.toLocaleString()}</div></div>
   <div class="k"><div class="kl">Comp. exposure avoided</div><div class="kv up">$${out.compensatoryDollarsAvoided.toLocaleString()}</div></div>
 </div>
 <h2>What changes</h2>
-<table><thead><tr><th>Today</th><th>On Trellis</th></tr></thead><tbody>
+<table><thead><tr><th>Today</th><th>On Noverta</th></tr></thead><tbody>
 <tr><td>${inp.hoursReconcilingMinutes} hrs/wk reconciling minutes by hand</td><td class="up">Auto-reconciled — staff log once</td></tr>
 <tr><td>${inp.hoursMakeupTracking} hrs/wk chasing makeup sessions</td><td class="up">Makeups suggested + tracked centrally</td></tr>
 <tr><td>${inp.hoursLeadershipReports} hrs/wk building leadership reports</td><td class="up">Live dashboards — no spreadsheet rebuild</td></tr>
@@ -105,7 +105,7 @@ th{font-size:10px;text-transform:uppercase;color:#6b7280}
 <tr><td>${inp.unresolvedMissingLogs} unresolved missing logs</td><td class="up">${out.logsAutoSurfaced} surfaced within 24h</td></tr>
 </tbody></table>
 <h2>Summary</h2>
-<p style="font-size:13px">Trellis would centralize ${esc(inp.spreadsheets)} spreadsheets to one workspace, automate roughly ${out.hoursSaved} hours of weekly reconciliation and reporting, and surface ${out.logsAutoSurfaced} stalled session logs within a day instead of weeks — recovering an estimated <strong>$${out.annualDollarsSaved.toLocaleString()}</strong> in labor and avoiding <strong>$${out.compensatoryDollarsAvoided.toLocaleString()}</strong> in compensatory exposure annually.</p>
+<p style="font-size:13px">Noverta would centralize ${esc(inp.spreadsheets)} spreadsheets to one workspace, automate roughly ${out.hoursSaved} hours of weekly reconciliation and reporting, and surface ${out.logsAutoSurfaced} stalled session logs within a day instead of weeks — recovering an estimated <strong>$${out.annualDollarsSaved.toLocaleString()}</strong> in labor and avoiding <strong>$${out.compensatoryDollarsAvoided.toLocaleString()}</strong> in compensatory exposure annually.</p>
 <div class="foot">Generated ${new Date().toLocaleString()} from the Demo Control Center for the ${esc(districtName)} demo district.</div>
 </body></html>`;
 }

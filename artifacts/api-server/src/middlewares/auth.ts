@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
-import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
+import { type TrellisRole, isRole, ROLE_HIERARCHY, canonicalizeRoleString } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { recordAccessDenial } from "../lib/accessDenials";
 import { db, staffTable, schoolsTable, districtsTable, ensureDemoStaffForEmail } from "@workspace/db";
@@ -32,7 +32,7 @@ export interface AuthedRequest extends Request {
   viewAsSessionId?: number;
 
   /**
-   * Trellis-support session context. When the authenticated user has the
+   * Noverta-support session context. When the authenticated user has the
    * `trellis_support` role AND has an active support_sessions row, the
    * request is pinned to that district (tenantDistrictId) and tagged with
    * supportSessionId so audit log rows can be filtered by session. The
@@ -48,11 +48,21 @@ function extractRole(req: Request): TrellisRole | null {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
 
+  // Canonicalize the Clerk session's publicMetadata.role through the
+  // boundary helper so the new `"noverta_support"` claim spelling is
+  // accepted alongside the legacy `"trellis_support"` value during the
+  // rename transition. After canonicalization, every downstream check
+  // (support-session override, role-hierarchy gate, route-level
+  // requireRoles) only sees the internal canonical name. See
+  // permissions.ts → canonicalizeRoleString.
   const meta = getPublicMeta(req);
-  if (isRole(meta.role)) return meta.role as TrellisRole;
+  const metaRole = canonicalizeRoleString(meta.role);
+  if (isRole(metaRole)) return metaRole as TrellisRole;
 
   if (process.env.NODE_ENV !== "production") {
-    const demoRole = req.headers["x-demo-role"];
+    // Same dual-accept policy on the dev/demo `x-demo-role` header so
+    // local persona switching can use either spelling safely.
+    const demoRole = canonicalizeRoleString(req.headers["x-demo-role"]);
     if (isRole(demoRole)) return demoRole as TrellisRole;
     return "admin";
   }
@@ -132,11 +142,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   if (allowTestBypass) {
     const testUserId = req.headers["x-test-user-id"];
     const testRole = req.headers["x-test-role"];
-    if (typeof testUserId === "string" && testUserId && isRole(testRole)) {
+    // Canonicalize `x-test-role` so test fixtures may pass either
+    // `"trellis_support"` or `"noverta_support"` and observe identical
+    // authorization behavior.
+    const canonicalTestRole = canonicalizeRoleString(testRole);
+    if (typeof testUserId === "string" && testUserId && isRole(canonicalTestRole)) {
       const authed = req as unknown as AuthedRequest;
       authed.userId = testUserId;
-      authed.trellisRole = testRole as TrellisRole;
-      authed.displayName = `Test ${testRole}`;
+      authed.trellisRole = canonicalTestRole as TrellisRole;
+      authed.displayName = `Test ${canonicalTestRole}`;
       authed.tenantDistrictId = req.headers["x-test-district-id"]
         ? Number(req.headers["x-test-district-id"]) : null;
       authed.tenantStaffId = req.headers["x-test-staff-id"]
@@ -157,7 +171,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   (req as unknown as AuthedRequest).userId = auth.userId;
   const role = extractRole(req);
   if (!role) {
-    recordAccessDenial(req, "no_role", 403, "Authenticated user has no Trellis role in token metadata");
+    recordAccessDenial(req, "no_role", 403, "Authenticated user has no Noverta role in token metadata");
     res.status(403).json({ error: "No role assigned. Contact your administrator." });
     return;
   }
@@ -236,7 +250,7 @@ export function enforceSupportReadOnly(req: Request, res: Response, next: NextFu
   const m = req.method.toUpperCase();
   if (m === "GET" || m === "HEAD" || m === "OPTIONS") { next(); return; }
   recordAccessDenial(req, "support_session_readonly", 403, `trellis_support attempted ${m} ${req.path} during read-only session ${authed.supportSessionId}`);
-  res.status(403).json({ error: "Trellis support sessions are read-only. Writes are not permitted while a support session is active." });
+  res.status(403).json({ error: "Noverta support sessions are read-only. Writes are not permitted while a support session is active." });
 }
 
 /**
@@ -271,7 +285,7 @@ export function logSupportSessionReads(req: Request, res: Response, next: NextFu
         action: "read",
         targetTable: "support_session_view",
         targetId: String(authed.supportSessionId),
-        summary: `Trellis support read ${req.method} ${req.originalUrl || req.url}`,
+        summary: `Noverta support read ${req.method} ${req.originalUrl || req.url}`,
         metadata: {
           path: req.path,
           query: req.query,
@@ -357,8 +371,14 @@ export function enforceDistrictScope(req: Request, res: Response, next: NextFunc
  * claims. Intentionally NOT a silent first-row fallback — that hazard is what
  * caused the multi-tenant pin bug. Requires explicit operator action to enable.
  */
-const _forcedDistrictId: number | null = process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
-  ? Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID)
+// Prefer the new NOVERTA_* env var; fall back to the deprecated TRELLIS_* one
+// so existing operator/CI configs continue to work during the rename. Drop
+// the legacy read once all environments have been updated.
+const _forcedDistrictRaw =
+  process.env.NOVERTA_DEV_FORCE_DISTRICT_ID
+  ?? process.env.TRELLIS_DEV_FORCE_DISTRICT_ID;
+const _forcedDistrictId: number | null = _forcedDistrictRaw
+  ? Number(_forcedDistrictRaw)
   : null;
 
 /**
@@ -404,7 +424,7 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
     let districtId = rows[0]?.districtId ?? null;
 
     // Fallback: known demo / e2e Clerk-test identities (showcase-walker,
-    // trellis-e2e-*, etc.) auto-provision into the existing demo district
+    // noverta-e2e-* / trellis-e2e-*, etc.) auto-provision into the existing demo district
     // so a freshly-signed-in demo account doesn't need a manual staff row
     // INSERT to clear requireDistrictScope. Returns null in any environment
     // that has no is_demo=true district, so production tenants are never
@@ -440,11 +460,15 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
 /**
  * Initializer kept for backwards compatibility. The legacy "first district in
  * the table is everyone's tenant in dev" behavior was removed; this now only
- * logs whether the explicit TRELLIS_DEV_FORCE_DISTRICT_ID override is active.
+ * logs whether the explicit NOVERTA_DEV_FORCE_DISTRICT_ID (or its deprecated
+ * alias TRELLIS_DEV_FORCE_DISTRICT_ID) override is active.
  */
 export async function initDevDistrictFallback(): Promise<void> {
   if (_forcedDistrictId != null) {
-    console.log(`[Auth] TRELLIS_DEV_FORCE_DISTRICT_ID is set — every request will be pinned to district ${_forcedDistrictId}. Do not enable in production.`);
+    const which = process.env.NOVERTA_DEV_FORCE_DISTRICT_ID
+      ? "NOVERTA_DEV_FORCE_DISTRICT_ID"
+      : "TRELLIS_DEV_FORCE_DISTRICT_ID (deprecated — rename to NOVERTA_DEV_FORCE_DISTRICT_ID)";
+    console.log(`[Auth] ${which} is set — every request will be pinned to district ${_forcedDistrictId}. Do not enable in production.`);
   }
 }
 
@@ -630,7 +654,7 @@ export function blockDeletedDistrict(req: Request, res: Response, next: NextFunc
     if (cached.deleteInitiatedAt) {
       recordAccessDenial(req, "district_soft_deleted", 403, `District ${districtId} is scheduled for deletion (initiated ${cached.deleteInitiatedAt.toISOString()})`);
       res.status(403).json({
-        error: "This district is scheduled for deletion. Contact support@trellis.education to cancel.",
+        error: "This district is scheduled for deletion. Contact support@noverta.education to cancel.",
         code: "DISTRICT_SOFT_DELETED",
       });
       return;
@@ -654,7 +678,7 @@ export function blockDeletedDistrict(req: Request, res: Response, next: NextFunc
       if (deleteInitiatedAt) {
         recordAccessDenial(req, "district_soft_deleted", 403, `District ${districtId} is scheduled for deletion (initiated ${deleteInitiatedAt.toISOString()})`);
         res.status(403).json({
-          error: "This district is scheduled for deletion. Contact support@trellis.education to cancel.",
+          error: "This district is scheduled for deletion. Contact support@noverta.education to cancel.",
           code: "DISTRICT_SOFT_DELETED",
         });
         return;

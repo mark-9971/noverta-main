@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Trellis"
+title = "Noverta"
 version = "1.0.0"
 id = "artifacts/minuteops"
 router = "path"

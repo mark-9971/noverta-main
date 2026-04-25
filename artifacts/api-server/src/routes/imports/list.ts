@@ -53,7 +53,7 @@ const templates: Record<string, TemplateConfig> = {
       "# date_of_birth: YYYY-MM-DD or MM/DD/YYYY format",
       "# disability_category: SLD, ASD, DD, OHI, ED, ID, etc.",
       "# placement_type: inclusion, partial_inclusion, substantially_separate, out_of_district",
-      "# school: must match an existing school name in Trellis",
+      "# school: must match an existing school name in Noverta",
       "# case_manager: Last, First format — must match an existing staff member",
       "# DUPLICATES: students matching by first+last name will be skipped (or updated if you choose 'Update existing')",
     ],
@@ -72,7 +72,7 @@ const templates: Record<string, TemplateConfig> = {
       "# role must be one of: slp, ot, pt, bcba, para, counselor, case_manager, teacher, coordinator, admin, provider",
       "# Common role aliases accepted: 'Speech-Language Pathologist' → slp, 'Occupational Therapist' → ot, 'Paraprofessional' → para",
       "# email: used for login and duplicate detection — strongly recommended",
-      "# school: must match an existing school name in Trellis",
+      "# school: must match an existing school name in Noverta",
       "# qualifications: licenses, certifications (CCC-SLP, OTR/L, BCBA, etc.)",
       "# hourly_rate: numeric, used for compensatory cost calculations",
       "# npi_number: National Provider Identifier — needed for Medicaid billing",
@@ -89,7 +89,7 @@ const templates: Record<string, TemplateConfig> = {
     ],
     instructions: [
       "# Student matching: use student_external_id OR student_first_name + student_last_name (or student_name as 'Last, First')",
-      "# REQUIRED: service_type, required_minutes — student must already exist in Trellis",
+      "# REQUIRED: service_type, required_minutes — student must already exist in Noverta",
       "# service_type: Speech-Language Therapy, Occupational Therapy, Physical Therapy, Applied Behavior Analysis, Counseling, Para Support",
       "# required_minutes: total minutes per interval (e.g., 120 minutes per month)",
       "# interval_type: monthly (default), weekly, daily, quarterly",
@@ -108,13 +108,13 @@ const templates: Record<string, TemplateConfig> = {
     ],
     instructions: [
       "# Student matching: use student_external_id OR student_first_name + student_last_name",
-      "# REQUIRED: session_date, duration_minutes — student must already exist in Trellis",
+      "# REQUIRED: session_date, duration_minutes — student must already exist in Noverta",
       "# session_date: YYYY-MM-DD or MM/DD/YYYY format",
       "# duration_minutes: actual session duration in minutes",
       "# status: completed (default), missed, partial — 'missed' sessions count against compliance",
       "# is_makeup: true/false — marks compensatory/makeup sessions",
       "# start_time / end_time: HH:MM format (optional)",
-      "# service_type: must match a service type in Trellis (or leave blank)",
+      "# service_type: must match a service type in Noverta (or leave blank)",
     ],
   },
   staff_schedules: {
@@ -128,10 +128,10 @@ const templates: Record<string, TemplateConfig> = {
     ],
     instructions: [
       "# REQUIRED: staff (email or first+last name), school, day_of_week, start_time, end_time",
-      "# Staff must already exist in Trellis (run the Staff step first)",
+      "# Staff must already exist in Noverta (run the Staff step first)",
       "# day_of_week: Monday, Tuesday, Wednesday, Thursday, Friday (or Mon, Tue, etc.) — one row per day",
       "# start_time / end_time: HH:MM (24h) or H:MM AM/PM",
-      "# school: must match an existing school name in Trellis",
+      "# school: must match an existing school name in Noverta",
       "# service_type (optional): Speech-Language Therapy, Occupational Therapy, ABA, Counseling, Para Support, etc.",
       "# label / notes (optional): block name or coverage notes (e.g. '1:1 with Carlos Rivera')",
       "# effective_from / effective_to (optional): YYYY-MM-DD — defaults to open-ended",
@@ -147,7 +147,7 @@ const templates: Record<string, TemplateConfig> = {
     instructions: [
       "# Aspen X2 student roster export format",
       "# Export from Aspen: Student tab → SPED view → Export → CSV",
-      "# Trellis maps: Student ID → external_id, Disability → disability_category",
+      "# Noverta maps: Student ID → external_id, Disability → disability_category",
     ],
   },
   esped_services: {
@@ -206,7 +206,7 @@ router.get("/imports/templates/:type", requireAdmin, async (req, res): Promise<v
 
   const csv = lines.join("\n");
   res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", `attachment; filename=trellis_${type}_template.csv`);
+  res.setHeader("Content-Disposition", `attachment; filename=noverta_${type}_template.csv`);
   res.send(csv);
 });
 

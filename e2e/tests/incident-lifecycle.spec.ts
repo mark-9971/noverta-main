@@ -138,9 +138,9 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     // and a localStorage proto monkey-patch as a belt-and-braces fallback.
     await page.addInitScript(() => {
       try {
-        (window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean })
-          .__TRELLIS_DISABLE_TOURS__ = true;
-        window.localStorage.setItem("trellis.disableTours", "1");
+        (window as unknown as { __NOVERTA_DISABLE_TOURS__?: boolean })
+          .__NOVERTA_DISABLE_TOURS__ = true;
+        window.localStorage.setItem("noverta.disableTours", "1");
       } catch {
         // best-effort
       }
@@ -158,12 +158,21 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     });
     await page.addInitScript(() => {
       try {
+        // Production reads canonical `noverta.sampleTour.v1.*` first via
+        // the storage-migration helper; matching the noverta key here
+        // forces the tour into "seen" state without needing the legacy
+        // `trellis.*` fallback path. The setItem block, however, must
+        // catch BOTH the canonical noverta key AND the legacy trellis
+        // key because `setup/index.tsx` dual-writes both names during
+        // the rename window — blocking only one would still let the
+        // tour re-arm via the other key (consumeStartFlag in production
+        // honors either flag).
         const orig = Storage.prototype.getItem;
         Storage.prototype.getItem = function (key: string) {
-          if (typeof key === "string" && key.startsWith("trellis.sampleTour.v1.")) {
+          if (typeof key === "string" && key.startsWith("noverta.sampleTour.v1.")) {
             return "seen";
           }
-          if (key === "trellis.sampleTour.start" || key === "trellis.showcaseTour.start") {
+          if (key === "noverta.sampleTour.start" || key === "noverta.showcaseTour.start") {
             return null;
           }
           return orig.call(this, key);
@@ -171,7 +180,13 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
         const origSet = Storage.prototype.setItem;
         Storage.prototype.setItem = function (key: string, value: string) {
           // Block any code path that tries to (re-)arm the tour start flag.
-          if (key === "trellis.sampleTour.start" || key === "trellis.showcaseTour.start") {
+          // Both old and new names are blocked during the dual-write window.
+          if (
+            key === "noverta.sampleTour.start" ||
+            key === "noverta.showcaseTour.start" ||
+            key === "trellis.sampleTour.start" ||
+            key === "trellis.showcaseTour.start"
+          ) {
             return;
           }
           return origSet.call(this, key, value);
@@ -883,7 +898,7 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     // The page heading should be present (varies by copy; accept any heading).
     const heading = page
       .getByRole("heading")
-      .filter({ hasNotText: /set up trellis/i })
+      .filter({ hasNotText: /set up (trellis|noverta)/i })
       .first();
     await expect(heading).toBeVisible({ timeout: 30_000 });
 

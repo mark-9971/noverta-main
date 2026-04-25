@@ -1,15 +1,15 @@
 # Incident Response Plan
 
-**Trellis — Data Security Incident Response Outline**
+**Noverta — Data Security Incident Response Outline**
 *Last updated: [DATE]*
 
 ---
 
 ## Overview
 
-This document describes Trellis's process for detecting, responding to, and notifying affected parties in the event of a data security incident that may affect student education records or other sensitive district data.
+This document describes Noverta's process for detecting, responding to, and notifying affected parties in the event of a data security incident that may affect student education records or other sensitive district data.
 
-Trellis is subject to FERPA breach notification requirements. Under FERPA, school districts (as the data controllers) must notify affected families when education records are impermissibly disclosed. Trellis, as the data processor, will support the district in fulfilling this obligation.
+Noverta is subject to FERPA breach notification requirements. Under FERPA, school districts (as the data controllers) must notify affected families when education records are impermissibly disclosed. Noverta, as the data processor, will support the district in fulfilling this obligation.
 
 ---
 
@@ -17,7 +17,7 @@ Trellis is subject to FERPA breach notification requirements. Under FERPA, schoo
 
 A **security incident** is any event that represents or may represent:
 
-- Unauthorized access to Trellis systems or data
+- Unauthorized access to Noverta systems or data
 - Accidental disclosure of student or staff records to unauthorized parties
 - Data loss or corruption affecting student records
 - Unauthorized modification of student data
@@ -30,7 +30,7 @@ A **security incident** is any event that represents or may represent:
 
 ## 2. Detection
 
-Trellis detects potential incidents through multiple mechanisms:
+Noverta detects potential incidents through multiple mechanisms:
 
 **Automated detection:**
 - **Sentry error monitoring** — flags anomalous error spikes, unexpected authentication failures, and application crashes
@@ -39,7 +39,7 @@ Trellis detects potential incidents through multiple mechanisms:
 
 **Human detection:**
 - District admin reports an anomaly (unexpected data, missing records, unauthorized login)
-- Trellis engineering team identifies a vulnerability during code review or dependency audit
+- Noverta engineering team identifies a vulnerability during code review or dependency audit
 - Third-party security researcher responsible disclosure
 
 ---
@@ -67,23 +67,23 @@ Upon identifying a potential incident:
 - Document: timeline, vector of access, records potentially exposed, and containment actions taken
 
 **Step 4 — Internal escalation**
-- Notify Trellis leadership within 1 hour of confirming a P1/P2 incident
+- Notify Noverta leadership within 1 hour of confirming a P1/P2 incident
 - Engage legal counsel if the incident may involve litigation exposure
 
 ---
 
 ## 4. District Notification (FERPA 72-Hour Requirement)
 
-Under FERPA, when an unauthorized disclosure of education records occurs, the school district (as the entity responsible for student records) must notify affected families. Trellis will notify the affected district(s) within **72 hours** of confirming that an impermissible disclosure has occurred.
+Under FERPA, when an unauthorized disclosure of education records occurs, the school district (as the entity responsible for student records) must notify affected families. Noverta will notify the affected district(s) within **72 hours** of confirming that an impermissible disclosure has occurred.
 
 **Notification to district includes:**
 1. Date and time incident was discovered and confirmed
 2. Nature of the incident (what happened)
 3. Categories of records affected (e.g., student session logs, IEP goals)
 4. Number of students or staff records estimated to be affected
-5. Actions Trellis has taken to contain the incident
+5. Actions Noverta has taken to contain the incident
 6. Actions the district should consider taking (e.g., password resets, parent notifications)
-7. Trellis point of contact for ongoing communication
+7. Noverta point of contact for ongoing communication
 
 **Delivery method:** Direct email to the district's designated Security/Privacy contact, followed by a phone call for P1 incidents.
 
@@ -92,11 +92,11 @@ Under FERPA, when an unauthorized disclosure of education records occurs, the sc
 ## 5. District Notification Letter Template
 
 ```
-Subject: Trellis Security Incident Notification — [DATE]
+Subject: Noverta Security Incident Notification — [DATE]
 
 Dear [DISTRICT CONTACT NAME],
 
-Trellis is writing to notify [DISTRICT NAME] of a security incident 
+Noverta is writing to notify [DISTRICT NAME] of a security incident 
 that occurred on [DATE/TIME] and was confirmed on [DATE/TIME].
 
 Nature of the incident:
@@ -105,13 +105,13 @@ Nature of the incident:
 Records potentially affected:
 [Describe record types and estimated number of students/staff]
 
-Actions taken by Trellis:
+Actions taken by Noverta:
 [Describe containment steps completed]
 
 Recommended actions for the district:
 [Describe any steps the district should take]
 
-Trellis remains available to support your response. Please contact:
+Noverta remains available to support your response. Please contact:
 
 [TRELLIS INCIDENT CONTACT NAME]
 [EMAIL]
@@ -128,11 +128,11 @@ Sincerely,
 
 ## 6. Family Notification (District Responsibility)
 
-When a FERPA breach affects student education records, the **school district** (not Trellis) is the responsible party for notifying affected families. Trellis will:
+When a FERPA breach affects student education records, the **school district** (not Noverta) is the responsible party for notifying affected families. Noverta will:
 
 - Provide the district with a complete list of affected student records
 - Provide documentation of the incident for the district's use in notifications
-- Make a Trellis representative available to answer questions for district counsel
+- Make a Noverta representative available to answer questions for district counsel
 
 The district's obligation under FERPA: notify affected families as soon as reasonably practicable. FERPA does not specify a deadline for family notification, but most privacy attorneys recommend notification within 30 days of confirmed breach.
 
@@ -140,9 +140,9 @@ The district's obligation under FERPA: notify affected families as soon as reaso
 
 ## 7. Regulatory Reporting
 
-**FERPA:** The district, as the data controller, is responsible for notifying the U.S. Department of Education of significant FERPA breaches if required. Trellis will provide supporting documentation.
+**FERPA:** The district, as the data controller, is responsible for notifying the U.S. Department of Education of significant FERPA breaches if required. Noverta will provide supporting documentation.
 
-**State law:** Massachusetts does not have a separate education-specific breach notification law, but M.G.L. c. 93H requires notification to the Massachusetts Attorney General and affected individuals for breaches of personal information. Trellis will cooperate with the district in fulfilling M.G.L. c. 93H obligations.
+**State law:** Massachusetts does not have a separate education-specific breach notification law, but M.G.L. c. 93H requires notification to the Massachusetts Attorney General and affected individuals for breaches of personal information. Noverta will cooperate with the district in fulfilling M.G.L. c. 93H obligations.
 
 ---
 
@@ -160,10 +160,10 @@ Within **14 days** of closing a P1 or P2 incident:
 
 ## 9. Contact Information
 
-**Trellis Security Incident Hotline:** [PHONE NUMBER]
+**Noverta Security Incident Hotline:** [PHONE NUMBER]
 **Security Email:** [SECURITY EMAIL]
 **Response SLA:** P1 incidents — acknowledged within 1 hour, 24/7. P2 incidents — acknowledged within 4 hours.
 
 ---
 
-*This document is an internal operational outline and does not constitute legal advice. Trellis recommends that districts consult with legal counsel to ensure their own incident response obligations are satisfied.*
+*This document is an internal operational outline and does not constitute legal advice. Noverta recommends that districts consult with legal counsel to ensure their own incident response obligations are satisfied.*

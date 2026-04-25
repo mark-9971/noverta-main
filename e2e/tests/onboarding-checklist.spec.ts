@@ -259,7 +259,7 @@ test.describe("Admin pilot onboarding checklist", () => {
   // 4. Widget is absent for non-admin roles
   //
   // The Vite dev server sets import.meta.env.DEV=true, so RoleContext reads
-  // "trellis_role" from localStorage (devRole) before Clerk publicMetadata.
+  // "noverta_role" from localStorage (devRole) before Clerk publicMetadata.
   // page.addInitScript sets that key before React boots, exercising the real
   // isAdmin gate in PilotAdminHome without needing a second Clerk user.
   // -------------------------------------------------------------------------
@@ -268,7 +268,7 @@ test.describe("Admin pilot onboarding checklist", () => {
     page,
   }) => {
     await page.addInitScript(() => {
-      localStorage.setItem("trellis_role", "sped_teacher");
+      localStorage.setItem("noverta_role", "sped_teacher");
     });
 
     await page.goto("/");
@@ -514,7 +514,7 @@ test.describe("Onboarding wizard endpoints (real API round-trip)", () => {
     // signed-in Clerk session before we hit /api/onboarding/*.
     await page.goto("/setup");
     await expect(
-      page.getByRole("heading", { name: "Set Up Trellis" }),
+      page.getByRole("heading", { name: "Set Up Noverta" }),
     ).toBeVisible({ timeout: 60_000 });
   });
 

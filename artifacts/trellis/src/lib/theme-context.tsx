@@ -52,7 +52,10 @@ export const THEMES: ThemeOption[] = [
   { id: "obsidian", label: "Obsidian", description: "Deep violet — premium and focused", category: "sidebar" },
 ];
 
-const STORAGE_KEY = "trellis-theme";
+import { migrateLocalGet } from "./storage-migration";
+
+const STORAGE_KEY = "noverta-theme";
+const LEGACY_STORAGE_KEY = "trellis-theme";
 
 interface ThemeContextValue {
   theme: ThemeId;
@@ -67,7 +70,9 @@ const ThemeContext = createContext<ThemeContextValue>({
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      // Read-fallback: prefer the new noverta-theme key; copy-forward
+      // from the legacy trellis-theme key on first read.
+      const stored = migrateLocalGet(STORAGE_KEY, LEGACY_STORAGE_KEY);
       // "open-air" was the old default — migrate anyone who has it to warm-edu.
       // Explicit choices (anything other than open-air) are preserved.
       if (stored && stored !== "open-air" && THEMES.some(t => t.id === stored)) return stored as ThemeId;

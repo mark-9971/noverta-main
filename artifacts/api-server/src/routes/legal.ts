@@ -282,7 +282,7 @@ router.post(
         },
       });
 
-      res.json({ ok: true, message: "DPA request recorded. Trellis will follow up within 2 business days." });
+      res.json({ ok: true, message: "DPA request recorded. Noverta will follow up within 2 business days." });
     } catch (err) {
       logger.error({ err }, "[legal] dpa-request error");
       res.status(500).json({ error: "Failed to record request" });

@@ -1,4 +1,4 @@
-# Trellis — Staged Refactor Plan
+# Noverta — Staged Refactor Plan
 
 > Prefer incremental refactors over big rewrites. Extract, don't rewrite.
 

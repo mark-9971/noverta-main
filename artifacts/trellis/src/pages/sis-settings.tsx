@@ -17,7 +17,7 @@ interface SisProvider {
   // Mirrors `SUPPORTED_PROVIDERS` in `api-server/src/lib/sis/index.ts`.
   // "ga" connectors are supported for self-serve setup; "early_pilot"
   // connectors are wired in code but have not been validated against a real
-  // vendor tenant and require Trellis engineering for first sync.
+  // vendor tenant and require Noverta engineering for first sync.
   tier?: "ga" | "early_pilot";
 }
 
@@ -799,7 +799,7 @@ function NewConnectionForm({ onCreated }: { onCreated: () => void }) {
         <CardContent className="p-4">
           <p className="text-[13px] font-semibold text-gray-700 mb-1">Add a roster source</p>
           <p className="text-[11px] text-gray-500 mb-3">
-            CSV is fully supported. Direct API connectors are in early pilot — Trellis support will validate the first sync with you.
+            CSV is fully supported. Direct API connectors are in early pilot — Noverta support will validate the first sync with you.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {(providers ?? []).map((p) => {
@@ -999,7 +999,7 @@ export default function SisSettings() {
             SIS Integration
           </h1>
           <p className="text-[13px] text-gray-500 mt-1">
-            CSV roster upload is fully supported today. Direct PowerSchool, Infinite Campus, Skyward, and SFTP connectors are in early pilot — the connector is built but Trellis engineering will validate the first sync with you. Aspen, Synergy, Aeries, Genesis, and other systems have no live connector — bring your roster as a CSV export.
+            CSV roster upload is fully supported today. Direct PowerSchool, Infinite Campus, Skyward, and SFTP connectors are in early pilot — the connector is built but Noverta engineering will validate the first sync with you. Aspen, Synergy, Aeries, Genesis, and other systems have no live connector — bring your roster as a CSV export.
           </p>
         </div>
       </div>
@@ -1012,19 +1012,19 @@ export default function SisSettings() {
           <Info className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
           <div className="space-y-2">
             <p className="text-[13px] font-semibold text-emerald-900">
-              How Trellis works with your SIS
+              How Noverta works with your SIS
             </p>
             <p className="text-[12px] text-emerald-900/80 leading-relaxed">
               Your SIS (PowerSchool, Infinite Campus, Skyward, etc.) stays the
               system of record for student demographics, enrollment, and IEP
-              metadata. Trellis reads roster data from your SIS on a schedule,
+              metadata. Noverta reads roster data from your SIS on a schedule,
               then layers service-delivery tracking, minutes-at-risk
               calculations, and compliance reporting on top of it.
             </p>
             <p className="text-[12px] text-emerald-900/80 leading-relaxed">
-              <span className="font-semibold">Trellis flags gaps; it does not
+              <span className="font-semibold">Noverta flags gaps; it does not
               replace your SIS.</span> Edits to demographics or enrollment still
-              happen in your SIS and flow into Trellis on the next sync.
+              happen in your SIS and flow into Noverta on the next sync.
             </p>
           </div>
         </div>
@@ -1037,7 +1037,7 @@ export default function SisSettings() {
             <div>
               <p className="text-[13px] font-semibold text-amber-800">No roster source connected</p>
               <p className="text-[12px] text-amber-600 mt-0.5">
-                Upload a CSV roster below to start using Trellis today. If you'd like to set up a direct PowerSchool, Infinite Campus, Skyward, or SFTP connector, you can save the credentials below and Trellis support will schedule a verified first sync — these connectors are in early pilot and not yet self-serve.
+                Upload a CSV roster below to start using Noverta today. If you'd like to set up a direct PowerSchool, Infinite Campus, Skyward, or SFTP connector, you can save the credentials below and Noverta support will schedule a verified first sync — these connectors are in early pilot and not yet self-serve.
               </p>
             </div>
           </div>

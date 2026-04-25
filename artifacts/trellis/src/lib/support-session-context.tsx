@@ -1,5 +1,5 @@
 /**
- * Trellis-support session context. Mirrors view-as-context but for the
+ * Noverta-support session context. Mirrors view-as-context but for the
  * trellis_support read-only role.
  *
  * Polls /api/support-session/active every 30s so the countdown banner stays

@@ -1,4 +1,4 @@
-# Trellis — Acquisition Listing Screenshot Pack
+# Noverta — Acquisition Listing Screenshot Pack
 
 8 polished screenshots for an acquisition listing. All were captured at 1440×900 from the live app with realistic seed data (district 6, school year 2025-2026, "today" = Apr 20, 2026), with debug banners and the feedback widget hidden via the `?screenshot=1` flag.
 
@@ -14,7 +14,7 @@
 | 08 | `08-state-reporting.jpg` | `/state-reporting?screenshot=1` | One-click MA state filings — IDEA Part B child count, MA SIMS, DESE restraint, and IEP timeline reports validated and exported district-wide. |
 
 ## The wedge in one sentence
-Massachusetts SPED directors are personally liable for service-minute compliance and have no system that tracks minutes-required vs minutes-delivered in real time. Trellis is the only platform that closes that gap — and turns the comp-ed liability number (currently $0 because it's invisible) into a board-ready exposure metric.
+Massachusetts SPED directors are personally liable for service-minute compliance and have no system that tracks minutes-required vs minutes-delivered in real time. Noverta is the only platform that closes that gap — and turns the comp-ed liability number (currently $0 because it's invisible) into a board-ready exposure metric.
 
 ## How to recapture
 1. Make sure `artifacts/trellis: web` workflow is running.

@@ -285,7 +285,7 @@ export default function StudentIepPage() {
                   <div className="text-xs text-gray-500 mt-2 max-w-lg mx-auto space-y-2 text-left">
                     <p>This student has <strong>{programTargets.length} program target{programTargets.length !== 1 ? "s" : ""}</strong> and <strong>{behaviorTargets.length} behavior target{behaviorTargets.length !== 1 ? "s" : ""}</strong> from data tracking.</p>
                     <p className="font-medium text-gray-600">You can:</p>
-                    <p>1. Click <strong>"Auto-Create from Data Targets"</strong> to generate measurable IEP goals from existing targets — Trellis maps each target to a goal with baselines, benchmarks, and measurement criteria.</p>
+                    <p>1. Click <strong>"Auto-Create from Data Targets"</strong> to generate measurable IEP goals from existing targets — Noverta maps each target to a goal with baselines, benchmarks, and measurement criteria.</p>
                     <p>2. Click <strong>"Add Goal"</strong> to write a custom goal manually.</p>
                     <p>3. Use the <strong>Goal Bank</strong> for Massachusetts-aligned goal templates by service area.</p>
                   </div>

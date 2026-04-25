@@ -60,10 +60,9 @@ async function safeFetch(
 function checkEnvVars() {
   const required = [
     ["DATABASE_URL", "Postgres connection. Without it nothing runs."],
-    ["SESSION_SECRET", "Required for cookie signing and SIS credential encryption."],
-    ["DEFAULT_OBJECT_STORAGE_BUCKET_ID", "File uploads (IEPs, exports) require object storage."],
-    ["PRIVATE_OBJECT_DIR", "Private object path prefix."],
-    ["PUBLIC_OBJECT_SEARCH_PATHS", "Public object path prefixes."],
+    ["SESSION_SECRET", "Required for SIS credential encryption."],
+    ["PRIVATE_OBJECT_DIR", "Required by object storage uploads."],
+    ["PUBLIC_OBJECT_SEARCH_PATHS", "Required by object storage reads/downloads."],
   ];
   const recommended = [
     ["CLERK_SECRET_KEY", "Required in production for real auth."],

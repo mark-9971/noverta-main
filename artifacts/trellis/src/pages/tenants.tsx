@@ -80,8 +80,8 @@ export default function TenantsPage() {
         <Building2 className="h-12 w-12 text-gray-300 mb-4" />
         <h2 className="text-lg font-semibold text-gray-900">Access Restricted</h2>
         <p className="text-sm text-gray-500 mt-2 max-w-md">
-          Tenant Management is only available to Trellis platform administrators.
-          Contact Trellis support if you believe you should have access.
+          Tenant Management is only available to Noverta platform administrators.
+          Contact Noverta support if you believe you should have access.
         </p>
       </div>
     );

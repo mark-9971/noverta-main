@@ -56,7 +56,7 @@ function snoozePage(opts: { ok: boolean; title: string; body: string }): string 
 <body><div class="card">
 <div class="header"><h1>${opts.title}</h1></div>
 <div class="body">${opts.body}</div>
-<div class="footer">Trellis SPED Compliance Platform</div>
+<div class="footer">Noverta SPED Compliance Platform</div>
 </div></body></html>`;
 }
 

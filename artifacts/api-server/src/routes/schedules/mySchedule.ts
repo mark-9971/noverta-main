@@ -655,10 +655,10 @@ async function notifyProviderOfDecision(
 ${adminNotesHtml}
 ${linkHtml}
 </div>
-<div style="background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb">Sent by Trellis SPED Compliance Platform.</div>
+<div style="background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb">Sent by Noverta SPED Compliance Platform.</div>
 </div></body></html>`;
 
-  const text = `Hi ${greetingName},\n\nYour ${typeLabel} request has been ${decisionLabel.toLowerCase()} by your reviewer.\n\nRequest type: ${typeLabel}\nDecision: ${decisionLabel}${adminNotesText}${linkText}\n\n— Trellis SPED Compliance Platform`;
+  const text = `Hi ${greetingName},\n\nYour ${typeLabel} request has been ${decisionLabel.toLowerCase()} by your reviewer.\n\nRequest type: ${typeLabel}\nDecision: ${decisionLabel}${adminNotesText}${linkText}\n\n— Noverta SPED Compliance Platform`;
 
   const result = await sendAdminEmail({
     to: [requester.email],

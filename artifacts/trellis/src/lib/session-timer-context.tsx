@@ -40,20 +40,47 @@ const SessionTimerContext = createContext<SessionTimerContextValue | null>(null)
 const MAX_COMPLETED = 10;
 
 function storageKey(userId: string) {
+  return `noverta_session_timers_v3_${userId}`;
+}
+function legacyStorageKey(userId: string) {
   return `trellis_session_timers_v3_${userId}`;
 }
 
 function completedKey(userId: string) {
+  return `noverta_session_timers_completed_v3_${userId}`;
+}
+function legacyCompletedKey(userId: string) {
   return `trellis_session_timers_completed_v3_${userId}`;
 }
 
 function thresholdsKey(userId: string) {
+  return `noverta_session_timer_thresholds_v1_${userId}`;
+}
+function legacyThresholdsKey(userId: string) {
   return `trellis_session_timer_thresholds_v1_${userId}`;
 }
 
-function loadFromStorage<T>(key: string, fallback: T): T {
+/**
+ * Read-fallback for in-flight timer state. Tries the new key first,
+ * then the legacy `trellis_*` key, and (only on a successful copy)
+ * removes the legacy key. NEVER discards data without preserving it
+ * under the new key — this can hold unsaved live session timers.
+ */
+function loadFromStorage<T>(newKey: string, oldKey: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    let raw = localStorage.getItem(newKey);
+    if (!raw) {
+      const legacy = localStorage.getItem(oldKey);
+      if (legacy) {
+        try {
+          localStorage.setItem(newKey, legacy);
+          localStorage.removeItem(oldKey);
+        } catch {
+          // copy failed — leave legacy intact, return its value below
+        }
+        raw = legacy;
+      }
+    }
     if (raw) return JSON.parse(raw);
   } catch {}
   return fallback;
@@ -70,13 +97,13 @@ export function SessionTimerProvider({ children }: { children: ReactNode }) {
   const userId = String(teacherId || "anon");
 
   const [timers, setTimers] = useState<TimerEntry[]>(() =>
-    loadFromStorage(storageKey(userId), [])
+    loadFromStorage(storageKey(userId), legacyStorageKey(userId), [])
   );
   const [completedTimers, setCompletedTimers] = useState<TimerEntry[]>(() =>
-    loadFromStorage(completedKey(userId), [])
+    loadFromStorage(completedKey(userId), legacyCompletedKey(userId), [])
   );
   const [thresholds, setThresholds] = useState<TimerWarningThresholds>(() =>
-    loadFromStorage(thresholdsKey(userId), {
+    loadFromStorage(thresholdsKey(userId), legacyThresholdsKey(userId), {
       warnThresholdMs: DEFAULT_WARN_THRESHOLD_MS,
       criticalThresholdMs: DEFAULT_CRITICAL_THRESHOLD_MS,
     })
@@ -88,9 +115,9 @@ export function SessionTimerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (userIdRef.current !== userId) {
-      setTimers(loadFromStorage(storageKey(userId), []));
-      setCompletedTimers(loadFromStorage(completedKey(userId), []));
-      setThresholds(loadFromStorage(thresholdsKey(userId), {
+      setTimers(loadFromStorage(storageKey(userId), legacyStorageKey(userId), []));
+      setCompletedTimers(loadFromStorage(completedKey(userId), legacyCompletedKey(userId), []));
+      setThresholds(loadFromStorage(thresholdsKey(userId), legacyThresholdsKey(userId), {
         warnThresholdMs: DEFAULT_WARN_THRESHOLD_MS,
         criticalThresholdMs: DEFAULT_CRITICAL_THRESHOLD_MS,
       }));

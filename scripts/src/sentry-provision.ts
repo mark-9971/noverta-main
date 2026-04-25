@@ -10,7 +10,7 @@
  *   SENTRY_ORG=trellis \
  *   SENTRY_PROJECTS=trellis-frontend,trellis-api \
  *   [SLACK_CHANNEL=#trellis-alerts] \
- *   [ONCALL_EMAIL=oncall@trellis.example] \
+ *   [ONCALL_EMAIL=oncall@noverta.example] \
  *   pnpm --filter @workspace/scripts run sentry-provision
  *
  * Things that still must be done manually in the Sentry UI (no API for them):

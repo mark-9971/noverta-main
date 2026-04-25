@@ -99,7 +99,7 @@ export default function UpgradePage() {
         </Badge>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Plans &amp; Features</h1>
         <p className="text-gray-500 max-w-xl mx-auto text-sm">
-          Every Trellis plan starts with the survival features your team depends on every day.
+          Every Noverta plan starts with the survival features your team depends on every day.
           Upgrade to unlock clinical workflows, engagement tools, and district-wide oversight.
         </p>
       </div>
@@ -145,7 +145,7 @@ export default function UpgradePage() {
           cta={
             <Button asChild className="w-full bg-violet-600 hover:bg-violet-700 text-white text-sm gap-2 mt-3">
               <a
-                href="mailto:sales@trellis.education?subject=Trellis%20ELITE%20Inquiry"
+                href="mailto:sales@noverta.education?subject=Noverta%20ELITE%20Inquiry"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -238,7 +238,7 @@ export default function UpgradePage() {
           </p>
           <Button asChild size="sm" className="bg-violet-600 hover:bg-violet-700 text-white gap-2">
             <a
-              href="mailto:sales@trellis.education?subject=Trellis%20ELITE%20Inquiry"
+              href="mailto:sales@noverta.education?subject=Noverta%20ELITE%20Inquiry"
               target="_blank"
               rel="noreferrer"
             >
@@ -252,7 +252,7 @@ export default function UpgradePage() {
       <p className="text-center text-xs text-gray-400 mt-6">
         Questions about pricing or a custom quote?{" "}
         <a
-          href="mailto:sales@trellis.education"
+          href="mailto:sales@noverta.education"
           className="text-emerald-600 hover:underline"
         >
           Contact our team

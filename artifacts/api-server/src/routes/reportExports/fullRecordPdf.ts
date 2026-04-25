@@ -355,8 +355,8 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
     for (let i = 0; i < pageCount; i++) {
       doc.switchToPage(i);
       const footerLabel = demoDistrict
-        ? `SAMPLE DATA — NOT REAL STUDENT RECORDS | Trellis — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`
-        : `Trellis — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`;
+        ? `SAMPLE DATA — NOT REAL STUDENT RECORDS | Noverta — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`
+        : `Noverta — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`;
       doc.fontSize(8).fillColor(GRAY_MID)
         .text(footerLabel, 60, 762, { align: "center", width: PAGE_W });
     }

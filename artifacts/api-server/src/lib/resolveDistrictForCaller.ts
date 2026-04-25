@@ -17,11 +17,17 @@
  * That fallback has been removed everywhere; this helper enforces the new
  * contract.
  *
- * The only legal override is `TRELLIS_DEV_FORCE_DISTRICT_ID`, which:
+ * The only legal override is `NOVERTA_DEV_FORCE_DISTRICT_ID` (or its
+ * deprecated alias `TRELLIS_DEV_FORCE_DISTRICT_ID`), which:
  *   - is read at module load time,
  *   - is **strictly ignored when NODE_ENV === "production"**,
  *   - exists so a developer running against a fresh local DB can see real
  *     data without round-tripping through Clerk metadata.
+ *
+ * Both env vars are accepted during the rename transition; the new name
+ * wins when both are set. The legacy alias is kept so existing operator
+ * `.env`/CI configs do not break. Drop the legacy read once all configs
+ * have been updated.
  */
 
 import { db, staffTable, schoolsTable } from "@workspace/db";
@@ -30,9 +36,12 @@ import type { Request } from "express";
 import { getPublicMeta } from "./clerkClaims";
 import { clerkClient, getAuth } from "@clerk/express";
 
+const _devForceRaw =
+  process.env.NOVERTA_DEV_FORCE_DISTRICT_ID
+  ?? process.env.TRELLIS_DEV_FORCE_DISTRICT_ID;
 const DEV_FORCED_DISTRICT_ID: number | null =
-  process.env.NODE_ENV !== "production" && process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
-    ? Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID)
+  process.env.NODE_ENV !== "production" && _devForceRaw
+    ? Number(_devForceRaw)
     : null;
 
 export interface DistrictResolution {

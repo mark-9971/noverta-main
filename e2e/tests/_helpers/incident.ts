@@ -12,7 +12,7 @@ export const ADMIN_EMAIL =
  * Dev-bypass auth headers — the api-server's requireAuth middleware accepts
  * these when NODE_ENV=test or DEV_AUTH_BYPASS=1, both of which are true for
  * the dev workflows that back this E2E run. This keeps page.request.* calls
- * authenticated as the dev admin (matches the identity the running Trellis
+ * authenticated as the dev admin (matches the identity the running Noverta
  * frontend uses in this workflow).
  */
 export const DEV_BYPASS_HEADERS = {
@@ -38,9 +38,13 @@ export async function signIn(page: Page): Promise<void> {
   // Suppress the SampleDataTour overlay (auto-fires when sample data is
   // present) so it doesn't redirect us to /compliance-risk-report mid-test.
   await page.addInitScript(() => {
+    // Production reads `noverta.sampleTour.v1.*` first via the storage-
+    // migration helper; matching the canonical key here is sufficient
+    // (the legacy `trellis.*` fallback is never reached when the
+    // canonical read returns "seen").
     const origGet = Storage.prototype.getItem;
     Storage.prototype.getItem = function (key: string) {
-      if (key.startsWith("trellis.sampleTour.v1")) return "seen";
+      if (key.startsWith("noverta.sampleTour.v1")) return "seen";
       return origGet.call(this, key);
     };
   });

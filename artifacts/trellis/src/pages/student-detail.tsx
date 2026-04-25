@@ -2,7 +2,20 @@ import { useParams, useSearch, useLocation } from "wouter";
 import { useGetStudent, useGetStudentMinuteProgress, useGetStudentSessions } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { ArrowLeft, FileText, Share2, Plus, Archive, ArchiveRestore, CalendarDays, ClipboardList, CalendarPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  Share2,
+  Plus,
+  Archive,
+  ArchiveRestore,
+  CalendarDays,
+  ClipboardList,
+  CalendarPlus,
+  AlertTriangle,
+  Building2,
+  UserRound,
+} from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
@@ -399,132 +412,293 @@ export default function StudentDetail() {
   }
 
   const studentName = s ? `${s.firstName} ${s.lastName}` : "";
+  const studentLifecycle = (() => {
+    if (!s) return null;
+
+    let statusLabel: string;
+    let dateStr: string | null | undefined;
+
+    if (s.status === "active") {
+      statusLabel = "Enrolled";
+      dateStr = s.enrolledAt ?? enrollmentDate;
+    } else if (s.withdrawnAt) {
+      statusLabel = "Withdrawn";
+      dateStr = s.withdrawnAt;
+    } else if (latestEnrollment) {
+      statusLabel =
+        latestEnrollment.eventType === "graduated" ? "Graduated"
+        : latestEnrollment.eventType?.startsWith("transferred") ? "Transferred"
+        : "Withdrawn";
+      dateStr = latestEnrollment.eventDate ?? enrollmentDate;
+    } else {
+      return null;
+    }
+
+    return {
+      statusLabel,
+      monthText: dateStr
+        ? new Date(dateStr).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+        : null,
+    };
+  })();
+  const serviceDeliveryLabel =
+    totalRequired > 0 ? `${totalDelivered}/${totalRequired} min delivered` : "No service minutes assigned";
+  const atRiskCount = atRiskServices.length;
+  const servicesSummaryLabel =
+    progressList.length === 0
+      ? "No tracked services"
+      : `${progressList.length} tracked service${progressList.length === 1 ? "" : "s"}`;
+  const staffGuideLabel =
+    s?.caseManagerName
+      ? s.caseManagerName
+      : s?.caseManagerId
+        ? `Case manager #${s.caseManagerId}`
+        : "No case manager assigned";
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
-      <div>
-        <Link href={backHref} className="text-emerald-700 text-sm flex items-center gap-1.5 mb-4 hover:text-emerald-800">
-          <ArrowLeft className="w-4 h-4" /> {backLabel}
-        </Link>
+      <section className="rounded-[28px] border border-emerald-100/70 bg-white shadow-[0_20px_50px_-36px_rgba(17,24,39,0.45)] overflow-hidden">
+        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_38%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(249,250,251,0.98))] px-5 py-5 md:px-6 md:py-6 lg:px-7">
+          <Link href={backHref} className="text-emerald-700 text-sm inline-flex items-center gap-1.5 mb-5 hover:text-emerald-800">
+            <ArrowLeft className="w-4 h-4" /> {backLabel}
+          </Link>
 
-        {s ? (
-          <div className="flex items-center gap-3 md:gap-5 flex-wrap">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-700 text-base md:text-lg font-bold flex-shrink-0" aria-hidden="true">
-              {s.firstName?.[0]}{s.lastName?.[0]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">{s.firstName} {s.lastName}</h1>
-              <p className="text-xs md:text-sm text-gray-400 mt-0.5 truncate">
-                Grade {s.grade}{s.disabilityCategory ? ` · ${s.disabilityCategory}` : ""}{s.schoolName ? ` · ${s.schoolName}` : ""}{s.caseManagerName ? ` · CM: ${s.caseManagerName}` : s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
-                {(() => {
-                  // Prefer the direct enrolledAt/withdrawnAt fields; fall back to
-                  // enrollment-history events for records predating the field.
-                  let statusLabel: string;
-                  let dateStr: string | null | undefined;
+          {s ? (
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.95fr)] xl:items-start">
+              <div className="space-y-5 min-w-0">
+                <div className="flex items-start gap-4 md:gap-5">
+                  <div className="w-14 h-14 md:w-16 md:h-16 bg-emerald-100 rounded-3xl flex items-center justify-center text-emerald-700 text-lg md:text-xl font-bold flex-shrink-0 shadow-inner shadow-emerald-200/70" aria-hidden="true">
+                    {s.firstName?.[0]}{s.lastName?.[0]}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700/70">
+                        Student workspace
+                      </p>
+                      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 truncate">
+                        {s.firstName} {s.lastName}
+                      </h1>
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                        Grade {s.grade}
+                        {s.disabilityCategory ? ` · ${s.disabilityCategory}` : ""}
+                        {s.schoolName ? ` · ${s.schoolName}` : ""}
+                        {s.caseManagerName ? ` · CM: ${s.caseManagerName}` : s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {s.status === "inactive" && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Archive className="w-3 h-3" /> Inactive
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
+                        {riskCfg.label}
+                      </span>
+                      {studentLifecycle?.monthText && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/80 text-gray-600 border border-gray-200">
+                          <CalendarDays className="w-3 h-3" /> {studentLifecycle.statusLabel} {studentLifecycle.monthText}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-                  if (s.status === "active") {
-                    statusLabel = "Enrolled";
-                    dateStr = s.enrolledAt ?? enrollmentDate;
-                  } else if (s.withdrawnAt) {
-                    statusLabel = "Withdrawn";
-                    dateStr = s.withdrawnAt;
-                  } else if (latestEnrollment) {
-                    statusLabel =
-                      latestEnrollment.eventType === "graduated" ? "Graduated"
-                      : latestEnrollment.eventType?.startsWith("transferred") ? "Transferred"
-                      : "Withdrawn";
-                    dateStr = latestEnrollment.eventDate ?? enrollmentDate;
-                  } else {
-                    return null;
-                  }
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">Service delivery</p>
+                    <div className="mt-2 flex items-end gap-2">
+                      <span className="text-2xl font-semibold tracking-tight text-gray-900">{overallPct}%</span>
+                      <span className="text-xs font-medium text-gray-500 pb-1">overall</span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">{serviceDeliveryLabel}</p>
+                  </div>
 
-                  if (!dateStr) return null;
-                  return (
-                    <> · <CalendarDays className="w-3 h-3 inline -mt-0.5" /> {statusLabel} {new Date(dateStr).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</>
-                  );
-                })()}
-              </p>
+                  <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">Risk watch</p>
+                    <div className="mt-2 flex items-end gap-2">
+                      <span className="text-2xl font-semibold tracking-tight text-gray-900">{atRiskCount}</span>
+                      <span className="text-xs font-medium text-gray-500 pb-1">service{atRiskCount === 1 ? "" : "s"}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {atRiskCount > 0 ? "Need attention this period" : "No flagged services right now"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                      <Building2 className="w-3.5 h-3.5" /> Placement
+                    </div>
+                    <p className="mt-2 text-base font-semibold text-gray-900 truncate">{s.schoolName || "School not assigned"}</p>
+                    <p className="mt-1 text-sm text-gray-500">{servicesSummaryLabel}</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                      <UserRound className="w-3.5 h-3.5" /> Staff guide
+                    </div>
+                    <p className="mt-2 text-base font-semibold text-gray-900 truncate">{staffGuideLabel}</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {studentLifecycle?.monthText ? `${studentLifecycle.statusLabel} ${studentLifecycle.monthText}` : "Student status history available"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-gray-200 bg-gray-50/80 p-4 md:p-5">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400">Workspace actions</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Keep the most common student actions close without leaving the workspace.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">Daily workflow</p>
+                    <div className="flex flex-wrap gap-2">
+                      {((role === "para" || role === "provider" || role === "direct_provider")) ? (
+                        <button
+                          onClick={() => setQuickLogOpen(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors"
+                          data-testid="button-student-quick-log"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Log Session
+                        </button>
+                      ) : (
+                        <Link href={`/sessions?studentId=${studentId}&log=true`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
+                          <ClipboardList className="w-3.5 h-3.5" /> Log Session
+                        </Link>
+                      )}
+                      <Link href={`/scheduling?studentId=${studentId}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
+                        <CalendarPlus className="w-3.5 h-3.5" /> Schedule
+                      </Link>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">Documents & sharing</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
+                        <FileText className="w-3.5 h-3.5" /> View IEP
+                      </Link>
+                      <button
+                        onClick={share.handleShareProgress}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> Share Progress
+                      </button>
+                    </div>
+                  </div>
+
+                  {caps.archiveStudent && (
+                    <div className="space-y-2.5 pt-1 border-t border-gray-200">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">Record status</p>
+                      <div className="flex flex-wrap gap-2">
+                        {s.status === "inactive" ? (
+                          <button
+                            onClick={() => archive.setReactivateDialogOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                          >
+                            <ArchiveRestore className="w-3.5 h-3.5" /> Reactivate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => archive.setArchiveDialogOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                          >
+                            <Archive className="w-3.5 h-3.5" /> Archive
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:flex-shrink-0">
-              {s.status === "inactive" && (
-                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                  <Archive className="w-3 h-3" /> Inactive
-                </span>
-              )}
-              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
-                {riskCfg.label}
-              </span>
-              {((role === "para" || role === "provider" || role === "direct_provider")) ? (
-                <button
-                  onClick={() => setQuickLogOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors"
-                  data-testid="button-student-quick-log"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Log Session
-                </button>
-              ) : (
-                <Link href={`/sessions?studentId=${studentId}&log=true`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
-                  <ClipboardList className="w-3.5 h-3.5" /> Log Session
-                </Link>
-              )}
-              <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
-                <FileText className="w-3.5 h-3.5" /> View IEP
-              </Link>
-              <Link href={`/scheduling?studentId=${studentId}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
-                <CalendarPlus className="w-3.5 h-3.5" /> Schedule
-              </Link>
-              <button
-                onClick={share.handleShareProgress}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
-              >
-                <Share2 className="w-3.5 h-3.5" /> Share Progress
-              </button>
-              {caps.archiveStudent && (
-                s.status === "inactive" ? (
-                  <button
-                    onClick={() => archive.setReactivateDialogOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
-                  >
-                    <ArchiveRestore className="w-3.5 h-3.5" /> Reactivate
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => archive.setArchiveDialogOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-                  >
-                    <Archive className="w-3.5 h-3.5" /> Archive
-                  </button>
-                )
-              )}
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.95fr)] xl:items-start">
+              <div className="space-y-5">
+                <div className="flex items-center gap-5">
+                  <Skeleton className="w-16 h-16 rounded-3xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="w-24 h-3" />
+                    <Skeleton className="w-56 h-8" />
+                    <Skeleton className="w-72 h-4" />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={idx} className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3.5 space-y-2">
+                      <Skeleton className="w-24 h-3" />
+                      <Skeleton className="w-16 h-8" />
+                      <Skeleton className="w-28 h-4" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-[24px] border border-gray-200 bg-gray-50/80 p-4 md:p-5 space-y-3">
+                <Skeleton className="w-36 h-3" />
+                <Skeleton className="w-full h-4" />
+                <Skeleton className="w-full h-20 rounded-2xl" />
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-5">
-            <Skeleton className="w-14 h-14 rounded-2xl" />
-            <div>
-              <Skeleton className="w-48 h-7" />
-              <Skeleton className="w-32 h-4 mt-2" />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </section>
 
       {s && (
-        <nav className="sticky top-0 z-20 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-white/95 backdrop-blur-sm border-b border-gray-100 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1 min-w-max py-1">
-            {STUDENT_TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`px-3 py-2 text-[12px] font-medium rounded-md transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        <nav className="sticky top-0 z-20">
+          <div className="rounded-[24px] border border-gray-200 bg-white/95 shadow-[0_18px_45px_-36px_rgba(17,24,39,0.65)] backdrop-blur-md overflow-hidden">
+            <div className="flex flex-col gap-3 px-4 py-3 md:px-5 md:py-4 border-b border-gray-100 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 font-semibold flex items-center justify-center flex-shrink-0">
+                  {s.firstName?.[0]}{s.lastName?.[0]}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400">Student workspace</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{studentName}</p>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
+                      {riskCfg.label}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
+                      Grade {s.grade}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1.5 font-semibold">
+                  {overallPct}% delivered
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-2.5 py-1.5 font-medium">
+                  {servicesSummaryLabel}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-medium ${atRiskCount > 0 ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-600"}`}>
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {atRiskCount > 0 ? `${atRiskCount} at risk` : "No service alerts"}
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-1 min-w-max p-2">
+                {STUDENT_TABS.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`px-3.5 py-2.5 text-[12px] font-medium rounded-xl transition-all whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? "bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100"
+                        : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </nav>
       )}

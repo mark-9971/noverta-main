@@ -2,7 +2,7 @@ import { pgTable, serial, integer, text, timestamp, jsonb } from "drizzle-orm/pg
 
 /**
  * Communication events — the audit + delivery-state record for every parent /
- * guardian / staff email Trellis sends.
+ * guardian / staff email Noverta sends.
  *
  * Delivery-state lifecycle (see also `EmailStatus` in api-server/src/lib/email.ts):
  *

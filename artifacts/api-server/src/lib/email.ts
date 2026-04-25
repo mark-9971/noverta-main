@@ -30,11 +30,11 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
   }
 
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const subject = `Trellis Scheduled Report: ${reportLabel} — ${dateStr}`;
+  const subject = `Noverta Scheduled Report: ${reportLabel} — ${dateStr}`;
   const formatLabel = format === "pdf" ? "PDF" : "CSV";
   const formatNote = format === "pdf"
     ? "The report is attached as a PDF file."
-    : "The report is attached as a CSV file. Log in to Trellis to generate PDF versions or view export history.";
+    : "The report is attached as a CSV file. Log in to Noverta to generate PDF versions or view export history.";
 
   const buildHtml = (unsubscribeUrl: string | null): string => {
     const footerLink = unsubscribeUrl
@@ -42,7 +42,7 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
       : "";
     return `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
-<h2 style="margin:0;font-size:18px">Trellis — ${reportLabel}</h2>
+<h2 style="margin:0;font-size:18px">Noverta — ${reportLabel}</h2>
 </div>
 <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
 <p>Your scheduled ${frequency} <strong>${reportLabel}</strong> report has been generated.</p>
@@ -53,7 +53,7 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
 </ul>
 <p style="color:#6b7280;font-size:13px">${formatNote}</p>
 </div>
-<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Noverta SPED Compliance Platform — Confidential</div>
 ${footerLink}
 </div>`;
   };
@@ -175,8 +175,16 @@ export interface SendEmailResult {
   notConfigured?: boolean;
 }
 
-const FROM_EMAIL = "Trellis SPED <hello@noreply.trellis.education>";
-const FROM_EMAIL_FALLBACK = "hello@noreply.trellis.education";
+// Sender identity is env-driven so the FROM domain can be flipped to
+// `noreply.noverta.education` once that domain is verified in Resend
+// (and any required SPF/DKIM/DMARC records are live). Until then the
+// defaults keep the current `noreply.trellis.education` sender — the
+// only Resend-verified domain — so production deliverability does NOT
+// silently break during the rename. Set EMAIL_FROM (full RFC-5322
+// "Name <addr>") and/or EMAIL_FROM_ADDRESS (bare addr) once the new
+// domain is verified. See NEXT-6 cutover checklist.
+const FROM_EMAIL = process.env.EMAIL_FROM ?? "Noverta SPED <hello@noreply.trellis.education>";
+const FROM_EMAIL_FALLBACK = process.env.EMAIL_FROM_ADDRESS ?? "hello@noreply.trellis.education";
 
 /**
  * Resolve the base URL for deep links into the app from emails.
@@ -441,7 +449,7 @@ export function buildPwnReadReceiptEmail(opts: {
 <p style="color:#374151">This read receipt is recorded in the parent-communication audit log for compliance tracking. It confirms the guardian opened the notice in the parent portal but is not a substitute for any required signed acknowledgment.</p>
 ${linkHtml}
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${eSchool}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform on behalf of ${eSchool}.</p></div>
 </div></body></html>`;
   const text = `Prior Written Notice — Read Receipt\n\nHi ${staffName},\n\n${guardianName} opened the Prior Written Notice you sent regarding ${studentName}.\n\nSubject: ${pwnSubject}\nStudent: ${studentName}\nRead at: ${readAtStr}\n\nThis read receipt is recorded in the parent-communication audit log for compliance tracking.${linkText}\n\n${schoolName}`;
   return { subject, html, text };
@@ -497,7 +505,7 @@ export function buildIncidentNotificationEmail(opts: {
   </div>
   <div class="footer">
     <p>This notification was sent electronically pursuant to 603 CMR 46.04. To exercise your rights as a parent/guardian, please contact the school's Special Education department.</p>
-    <p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p>
+    <p>Sent by Noverta SPED Compliance Platform on behalf of ${schoolName}.</p>
   </div>
 </div>
 </body>
@@ -530,7 +538,7 @@ export function buildMissedServiceAlertEmail(opts: {
 <p>Under Massachusetts 603 CMR 28.00, you have the right to be notified of any interruption in your child's special education services. We are working to address this shortfall and will provide a plan for making up missed services.</p>
 <p>Please contact us if you have questions or would like to discuss this further.</p>
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `Dear ${guardianName},\n\nThis is to notify you that ${studentName} has missed ${missedMinutes} minutes of ${serviceType} (required: ${requiredMinutes} minutes) this period. Please contact the school if you have questions.\n\n${schoolName}`;
   return { subject, html, text };
@@ -556,7 +564,7 @@ export function buildOverdueFollowupEmail(opts: {
 <p>This is a follow-up regarding our previous contact on <strong>${originalContactDate}</strong> about: <em>${originalSubject}</em>.</p>
 <p>A follow-up was scheduled for <strong>${followUpDate}</strong>. Please contact <strong>${staffName}</strong> at your earliest convenience to discuss next steps for <strong>${studentName}</strong>.</p>
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `Dear ${guardianName},\n\nThis is a follow-up regarding our previous contact on ${originalContactDate} about: ${originalSubject}.\n\nA follow-up was scheduled for ${followUpDate}. Please contact ${staffName} to discuss next steps for ${studentName}.\n\n${schoolName}`;
   return { subject, html, text };
@@ -584,7 +592,7 @@ export function buildIncompleteTransitionEmail(opts: {
 <div class="body">
 <div class="notice">A transition plan for <strong>${studentName}</strong> was created on <strong>${planDate}</strong> and is currently in <em>draft</em> status.</div>
 <p>Dear ${coordinatorName},</p>
-<p>Please review and complete the transition plan for <strong>${studentName}</strong> in Trellis. Under 603 CMR 28.05, transition plans must be completed and included in the IEP for students age 14 or older.</p>
+<p>Please review and complete the transition plan for <strong>${studentName}</strong> in Noverta. Under 603 CMR 28.05, transition plans must be completed and included in the IEP for students age 14 or older.</p>
 <p>Key items to complete:</p>
 <ul>
   <li>Graduation pathway and expected graduation date</li>
@@ -594,7 +602,7 @@ export function buildIncompleteTransitionEmail(opts: {
 </ul>
 ${linkHtml}
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `TRANSITION PLAN INCOMPLETE\n\nDear ${coordinatorName},\n\nA transition plan for ${studentName} (plan date: ${planDate}) is in draft status and requires completion.\n\nPlease complete the plan including graduation pathway, transition goals, and course of study.${linkText}\n\n${schoolName}`;
   return { subject, html, text };
@@ -633,10 +641,10 @@ export function buildOverdueEvaluationEmail(opts: {
   <li>Due date: <strong>${dueDate}</strong></li>
   <li>Status: <strong>${overduePart}</strong></li>
 </ul>
-<p>Please take immediate action to complete this evaluation or document the reason for the delay in Trellis.</p>
+<p>Please take immediate action to complete this evaluation or document the reason for the delay in Noverta.</p>
 ${linkHtml}
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `EVALUATION OVERDUE ALERT\n\nDear ${staffName},\n\nThe ${typeLabel} evaluation for ${studentName} is ${overduePart}.\n\nDue date: ${dueDate}\n\nPlease complete this evaluation or document the reason for the delay.${linkText}\n\n${schoolName}`;
   return { subject, html, text };
@@ -694,7 +702,7 @@ export function buildCostAvoidanceRiskEmail(opts: {
 <body><div class="wrapper">
 <div class="header">
   <h1 style="margin:0;font-size:17px">Critical Cost Avoidance Risk</h1>
-  <p style="margin:4px 0 0;font-size:11px;opacity:.8">Trellis SPED Compliance — Automated Risk Alert</p>
+  <p style="margin:4px 0 0;font-size:11px;opacity:.8">Noverta SPED Compliance — Automated Risk Alert</p>
 </div>
 <div class="body">
 <div class="alert">
@@ -714,10 +722,10 @@ export function buildCostAvoidanceRiskEmail(opts: {
 <p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;font-size:13px"><strong>Action needed:</strong> ${actionNeeded}</p>
 ${linkHtml}
 </div>
-<div class="footer"><p>This is an automated alert from Trellis SPED Compliance Platform. Risk alerts are rate-limited to one email per item per 7 days. Manage alert preferences in Trellis Settings.</p></div>
+<div class="footer"><p>This is an automated alert from Noverta SPED Compliance Platform. Risk alerts are rate-limited to one email per item per 7 days. Manage alert preferences in Noverta Settings.</p></div>
 </div></body></html>`;
 
-  const text = `CRITICAL COST AVOIDANCE RISK ALERT\n\nDear ${staffName},\n\nA critical compliance risk has been identified:\n\nStudent: ${studentName}\nRisk: ${riskTitle}\nCategory: ${categoryLabel}\nStatus: ${daysLabel}\n${estimatedExposure != null ? `Estimated exposure: $${estimatedExposure.toLocaleString()}` : `Risk basis: ${exposureBasis}`}\n\nDescription: ${riskDescription}\n\nAction needed: ${actionNeeded}\n${linkText}\nThis is an automated alert from Trellis SPED Compliance Platform.`;
+  const text = `CRITICAL COST AVOIDANCE RISK ALERT\n\nDear ${staffName},\n\nA critical compliance risk has been identified:\n\nStudent: ${studentName}\nRisk: ${riskTitle}\nCategory: ${categoryLabel}\nStatus: ${daysLabel}\n${estimatedExposure != null ? `Estimated exposure: $${estimatedExposure.toLocaleString()}` : `Risk basis: ${exposureBasis}`}\n\nDescription: ${riskDescription}\n\nAction needed: ${actionNeeded}\n${linkText}\nThis is an automated alert from Noverta SPED Compliance Platform.`;
 
   return { subject, html, text };
 }
@@ -779,7 +787,7 @@ export function buildCostAvoidanceDigestEmail(opts: {
   ).join("\n\n");
 
   const dashboardLink = appBaseUrl
-    ? `<p style="margin-top:20px"><a href="${appBaseUrl}/alerts" style="background:#dc2626;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View All Alerts in Trellis →</a></p>`
+    ? `<p style="margin-top:20px"><a href="${appBaseUrl}/alerts" style="background:#dc2626;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View All Alerts in Noverta →</a></p>`
     : "";
 
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
@@ -787,7 +795,7 @@ export function buildCostAvoidanceDigestEmail(opts: {
 <body><div class="wrapper">
 <div class="header">
   <h1 style="margin:0;font-size:17px">Daily Critical Risk Digest — ${digestDate}</h1>
-  <p style="margin:4px 0 0;font-size:11px;opacity:.8">Trellis SPED Compliance — ${count} item${count !== 1 ? "s" : ""} require your attention</p>
+  <p style="margin:4px 0 0;font-size:11px;opacity:.8">Noverta SPED Compliance — ${count} item${count !== 1 ? "s" : ""} require your attention</p>
 </div>
 <div class="body">
 <p>Hi ${staffName},</p>
@@ -805,10 +813,10 @@ export function buildCostAvoidanceDigestEmail(opts: {
 ${dashboardLink}
 <p style="margin-top:16px;font-size:12px;color:#6b7280">This digest replaces individual alerts. You will receive one digest per day when multiple critical risks are active for your students.</p>
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform. Manage alert preferences in Trellis Settings.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform. Manage alert preferences in Noverta Settings.</p></div>
 </div></body></html>`;
 
-  const text = `DAILY CRITICAL RISK DIGEST — ${digestDate}\n\nHi ${staffName},\n\n${count} critical compliance risk${count !== 1 ? "s" : ""} require your attention:\n\n${textRows}\n\nLog in to Trellis to take action. This digest replaces individual per-alert emails.\n\nTrellis SPED Compliance Platform`;
+  const text = `DAILY CRITICAL RISK DIGEST — ${digestDate}\n\nHi ${staffName},\n\n${count} critical compliance risk${count !== 1 ? "s" : ""} require your attention:\n\n${textRows}\n\nLog in to Noverta to take action. This digest replaces individual per-alert emails.\n\nNoverta SPED Compliance Platform`;
 
   return { subject, html, text };
 }
@@ -847,11 +855,11 @@ export function buildOverdueSessionLogEmail(opts: {
 <p>Hi ${staffName},</p>
 <div class="alert"><strong>${count}</strong> scheduled session${count !== 1 ? "s" : ""} from the past week ${count === 1 ? "is" : "are"} missing a log entry. Please log ${count === 1 ? "it" : "them"} or mark as missed with a reason.</div>
 <table>${rows}</table>
-<p style="margin-top:20px">Open Trellis to log these sessions. Sessions logged within the same school week count toward compliance — older entries may flag your students as out of compliance.</p>
+<p style="margin-top:20px">Open Noverta to log these sessions. Sessions logged within the same school week count toward compliance — older entries may flag your students as out of compliance.</p>
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform${schoolName ? ` — ${schoolName}` : ""}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform${schoolName ? ` — ${schoolName}` : ""}.</p></div>
 </div></body></html>`;
-  const text = `Hi ${staffName},\n\n${count} scheduled session${count !== 1 ? "s" : ""} from the past week ${count === 1 ? "is" : "are"} missing a log entry:\n\n${textRows}\n\nPlease log them or mark as missed in Trellis.${schoolName ? `\n\n${schoolName}` : ""}`;
+  const text = `Hi ${staffName},\n\n${count} scheduled session${count !== 1 ? "s" : ""} from the past week ${count === 1 ? "is" : "are"} missing a log entry:\n\n${textRows}\n\nPlease log them or mark as missed in Noverta.${schoolName ? `\n\n${schoolName}` : ""}`;
   return { subject, html, text };
 }
 
@@ -995,7 +1003,7 @@ export function buildSignatureRequestEmail(opts: {
 <div class="wrapper">
   <div class="header">
     <h1 style="margin:0;font-size:18px">Signature Requested</h1>
-    <p style="margin:4px 0 0;font-size:12px;opacity:.85">Trellis SPED Compliance Platform</p>
+    <p style="margin:4px 0 0;font-size:12px;opacity:.85">Noverta SPED Compliance Platform</p>
   </div>
   <div class="body">
     <p>Dear ${recipientName},</p>
@@ -1009,7 +1017,7 @@ export function buildSignatureRequestEmail(opts: {
     <p style="margin-top:20px;font-size:12px;color:#6b7280">If the button doesn't work, copy and paste this link into your browser:<br><a href="${signUrl}" style="color:#059669;word-break:break-all">${signUrl}</a></p>
   </div>
   <div class="footer">
-    <p>Sent by Trellis SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Requested by ${senderName}` : ""}.</p>
+    <p>Sent by Noverta SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Requested by ${senderName}` : ""}.</p>
   </div>
 </div>
 </body>
@@ -1053,7 +1061,7 @@ export function buildShareLinkEmail(opts: {
 <div class="wrapper">
   <div class="header">
     <h1 style="margin:0;font-size:18px">Progress Report Ready</h1>
-    <p style="margin:4px 0 0;font-size:12px;opacity:.85">Trellis SPED Compliance Platform</p>
+    <p style="margin:4px 0 0;font-size:12px;opacity:.85">Noverta SPED Compliance Platform</p>
   </div>
   <div class="body">
     <p>${greeting}</p>
@@ -1066,7 +1074,7 @@ export function buildShareLinkEmail(opts: {
     <p style="margin-top:20px;font-size:12px;color:#6b7280">If the button doesn't work, copy and paste this link into your browser:<br><a href="${shareUrl}" style="color:#059669;word-break:break-all">${shareUrl}</a></p>
   </div>
   <div class="footer">
-    <p>Sent by Trellis SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Shared by ${senderName}` : ""}.</p>
+    <p>Sent by Noverta SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Shared by ${senderName}` : ""}.</p>
   </div>
 </div>
 </body>
@@ -1139,7 +1147,7 @@ export function buildIepMeetingInvitationEmail(opts: {
     <p>Please contact${senderName ? ` ${senderName}` : " the school"} if you have questions or need to reschedule.</p>
   </div>
   <div class="footer">
-    <p>Sent by Trellis SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Contact: ${senderName}` : ""}.</p>
+    <p>Sent by Noverta SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Contact: ${senderName}` : ""}.</p>
   </div>
 </div>
 </body>
@@ -1174,7 +1182,7 @@ export function buildProviderActivationNudgeEmail(opts: {
     todaysScheduleUrl, snoozeUrl, districtName,
   } = opts;
 
-  const subject = `Quick nudge — log today's sessions in Trellis`;
+  const subject = `Quick nudge — log today's sessions in Noverta`;
   const sessionsLine = scheduledSessionsToday > 0
     ? `You have <strong>${scheduledMinutesToday} minutes</strong> across ${scheduledSessionsToday} scheduled session${scheduledSessionsToday === 1 ? "" : "s"} today.`
     : `Your schedule today is light — but a quick check-in keeps your caseload current.`;
@@ -1190,14 +1198,14 @@ export function buildProviderActivationNudgeEmail(opts: {
 <p class="muted">Logging takes about 30 seconds per session. If you've already provided services, just enter them so they count toward your students' minutes.</p>
 </div>
 <div class="footer">
-<p>Sent by Trellis SPED${districtName ? ` — ${districtName}` : ""}.</p>
+<p>Sent by Noverta SPED${districtName ? ` — ${districtName}` : ""}.</p>
 ${snoozeUrl ? `<p><a href="${snoozeUrl}" style="color:#6b7280">Snooze these reminders for one week</a></p>` : ""}
 </div>
 </div></body></html>`;
 
   const text = `Hi ${providerName},
 
-${consecutiveDays} school days have gone by without a logged session in Trellis.
+${consecutiveDays} school days have gone by without a logged session in Noverta.
 ${scheduledSessionsToday > 0 ? `You have ${scheduledMinutesToday} minutes across ${scheduledSessionsToday} scheduled session${scheduledSessionsToday === 1 ? "" : "s"} today.` : "Your schedule today is light — but a quick check-in keeps your caseload current."}
 
 Open Today's Schedule: ${todaysScheduleUrl}
@@ -1227,7 +1235,7 @@ export function buildProviderActivationEscalationEmail(opts: {
 <p>This is the kind of stall that quietly tanks a pilot — students keep accruing service-minute shortfalls that won't show up in reports until much later. Please reach out to ${providerName} today to unblock whatever's in the way.</p>
 <p><a class="cta" href="${todaysScheduleUrl}">View Today's Schedule →</a></p>
 </div>
-<div class="footer"><p>Sent by Trellis SPED${districtName ? ` — ${districtName}` : ""}.</p></div>
+<div class="footer"><p>Sent by Noverta SPED${districtName ? ` — ${districtName}` : ""}.</p></div>
 </div></body></html>`;
 
   const text = `Hi ${recipientName},
@@ -1295,7 +1303,7 @@ export function buildIepRenewalReminderEmail(opts: {
 <p style="color:#374151">Please review the student's IEP and begin the renewal process to ensure continuity of services and maintain compliance.</p>
 ${ctaHtml}
 </div>
-<div class="footer"><p>Sent by Trellis SPED Compliance Platform. You are receiving this because you are listed as the case manager for this student.</p></div>
+<div class="footer"><p>Sent by Noverta SPED Compliance Platform. You are receiving this because you are listed as the case manager for this student.</p></div>
 </div></body></html>`;
 
   const text = `IEP Renewal Reminder — ${urgencyLabel}
@@ -1311,7 +1319,7 @@ Days remaining: ${daysRemaining}
 Please review the student's IEP and begin the renewal process to ensure continuity of services and maintain compliance.${ctaText}
 
 —
-Sent by Trellis SPED Compliance Platform. You are receiving this because you are listed as the case manager for this student.`;
+Sent by Noverta SPED Compliance Platform. You are receiving this because you are listed as the case manager for this student.`;
 
   return { subject, html, text };
 }

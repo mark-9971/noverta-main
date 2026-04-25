@@ -1,9 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { migrateLocalGet } from "./storage-migration";
 
 export type DemoFlowId = "admin" | "coordinator" | "para" | "bcba" | "executive";
 
-const FLOW_KEY = "trellis.demoFlow.v1";
-const HIGHLIGHT_KEY = "trellis.demoHighlight.v1";
+const FLOW_KEY = "noverta.demoFlow.v1";
+const HIGHLIGHT_KEY = "noverta.demoHighlight.v1";
+const LEGACY_FLOW_KEY = "trellis.demoFlow.v1";
+const LEGACY_HIGHLIGHT_KEY = "trellis.demoHighlight.v1";
 
 interface DemoFlowState {
   flowId: DemoFlowId;
@@ -24,7 +27,8 @@ const DemoModeContext = createContext<DemoModeContextValue | null>(null);
 
 function readFlow(): DemoFlowState | null {
   try {
-    const raw = window.localStorage.getItem(FLOW_KEY);
+    // Read-fallback: noverta.* first, then trellis.*; copy-forward.
+    const raw = migrateLocalGet(FLOW_KEY, LEGACY_FLOW_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (typeof parsed?.flowId === "string" && typeof parsed?.stepIdx === "number") {
@@ -35,7 +39,7 @@ function readFlow(): DemoFlowState | null {
 }
 
 function readHighlight(): boolean {
-  try { return window.localStorage.getItem(HIGHLIGHT_KEY) === "1"; }
+  try { return migrateLocalGet(HIGHLIGHT_KEY, LEGACY_HIGHLIGHT_KEY) === "1"; }
   catch { return false; }
 }
 
@@ -50,8 +54,9 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   // Sync from other tabs / direct localStorage edits.
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key === FLOW_KEY) setFlow(readFlow());
-      if (e.key === HIGHLIGHT_KEY) setHighlightModeState(readHighlight());
+      // Listen on both old + new key names during the rename transition.
+      if (e.key === FLOW_KEY || e.key === LEGACY_FLOW_KEY) setFlow(readFlow());
+      if (e.key === HIGHLIGHT_KEY || e.key === LEGACY_HIGHLIGHT_KEY) setHighlightModeState(readHighlight());
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -61,7 +66,10 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     setFlow(next);
     try {
       if (next) window.localStorage.setItem(FLOW_KEY, JSON.stringify(next));
-      else window.localStorage.removeItem(FLOW_KEY);
+      else {
+        window.localStorage.removeItem(FLOW_KEY);
+        window.localStorage.removeItem(LEGACY_FLOW_KEY);
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -84,7 +92,10 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     setHighlightModeState(on);
     try {
       if (on) window.localStorage.setItem(HIGHLIGHT_KEY, "1");
-      else window.localStorage.removeItem(HIGHLIGHT_KEY);
+      else {
+        window.localStorage.removeItem(HIGHLIGHT_KEY);
+        window.localStorage.removeItem(LEGACY_HIGHLIGHT_KEY);
+      }
     } catch { /* ignore */ }
   }, []);
 
