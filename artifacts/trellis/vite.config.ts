@@ -97,7 +97,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           "vendor-react": ["react", "react-dom"],
-          "vendor-clerk": ["@clerk/clerk-react"],
+          "vendor-clerk": ["@clerk/react"],
           "vendor-charts": ["recharts"],
           "vendor-query": ["@tanstack/react-query"],
         },
