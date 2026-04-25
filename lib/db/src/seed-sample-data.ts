@@ -2224,7 +2224,7 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
     //   1. Walk the pg FK graph transitively from `students` to discover every
     //      table that holds a (possibly indirect) reference to a student row,
     //      plus the column it uses on its direct parent.
-    //   2. Inside one transaction, set session_replication_role=replica so the
+    //   2. Inside one transaction, use dependency-ordered deletes so the
     //      ordering of DELETEs doesn't matter, then delete from every reachable
     //      table. This is safe because we *enumerated* the tables dynamically
     //      from pg_constraint — nothing gets silently orphaned via schema
@@ -2283,56 +2283,37 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
     }
 
     await db.transaction(async (tx) => {
-      // session_replication_role=replica is scoped to this txn; constraints
-      // are restored on COMMIT/ROLLBACK. Required because the FK graph has
-      // cycles and multi-level chains that would otherwise need topological
-      // sort. We've already enumerated every reachable table above so
-      // nothing gets silently orphaned.
-      await tx.execute(sql`SET LOCAL session_replication_role = 'replica'`);
-      // Disable parallel-worker plans for this txn: snapshot SELECTs over
-      // huge IN-lists (thousands of students) otherwise spawn parallel
-      // workers that each allocate ~8 MB of shared memory on /dev/shm. In
-      // constrained environments (containers with default 64 MB shm) this
-      // hits "could not resize shared memory segment ... No space left on
-      // device" (53100). Forcing serial execution costs a few seconds but
-      // keeps the wipe deterministic and within the shared-memory budget.
+      // Neon/managed Postgres does not allow app users to disable FK checks.
+      // Keep teardown FK-safe by snapshotting rows while parents still exist,
+      // then deleting dependent rows under normal FK enforcement.
       await tx.execute(sql`SET LOCAL max_parallel_workers_per_gather = 0`);
 
-      // ---- Snapshot phase ----
-      // The reachable predicates reference parent rows (e.g. SGD's predicate
-      // is `session_log_id IN (SELECT id FROM session_logs WHERE ...)`). If
-      // we DELETE in BFS order, the parent (`session_logs`) is wiped first
-      // and the child (`session_goal_data`) predicate evaluates to an empty
-      // set — leaving orphans. Fix: snapshot each reachable table's row
-      // identifiers (ctid is stable within a txn) into a temp table while
-      // every parent is still intact, then delete by ctid.
-      const tableNames: string[] = [];
-      let tmpIdx = 0;
+      const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
+      const quoteLiteral = (value: string) => `'${value.replace(/'/g, "''")}'`;
+
+      const tablePredicates = new Map<string, string[]>();
+
+      const addTablePredicate = (table: string, where: string) => {
+        if (table === "students") return;
+        const list = tablePredicates.get(table) ?? [];
+        list.push(where);
+        tablePredicates.set(table, list);
+      };
+
+      // ---- Snapshot scope build ----
+      // The reachable predicates reference parent rows. Capture every target
+      // row's ctid before deleting anything so child predicates do not become
+      // empty after parent rows are removed.
       for (const [table, preds] of predicates.entries()) {
         if (table === "students") continue;
-        const where = preds.map(p => `(${p})`).join(" OR ");
-        const tmp = `_td_snap_${tmpIdx++}`;
-        await tx.execute(sql.raw(
-          `CREATE TEMP TABLE "${tmp}" ON COMMIT DROP AS SELECT ctid AS row_ctid FROM "${table}" WHERE ${where}`
-        ));
-        tableNames.push(`${table}|${tmp}`);
+        for (const pred of preds) {
+          addTablePredicate(table, `(${pred})`);
+        }
       }
 
-      // Belt-and-suspenders: dynamically discover *every* public table with
-      // a `student_id` column and DELETE rows scoped to the sample student
-      // set. The BFS-from-students walk above can miss tables when the FK
-      // graph has cycles, depth caps, or complex chains (we have observed
-      // orphaned `parent_contacts`, `restraint_incidents`, `emergency_contacts`,
-      // `behavior_intervention_plans`, `behavior_targets`, `parent_messages`
-      // surviving teardown). Doing this explicit per-table sweep inside the
-      // same replica-role transaction guarantees those rows go away too,
-      // even if they have no real FK or the FK walk skipped them.
-      // Restrict to BASE TABLEs (not views) — running DELETE against a view
-      // without an INSTEAD OF trigger would abort the whole txn. We also rely
-      // on `students.id` being a globally-unique serial PK, so scoping by
-      // `student_id IN (sample-ids)` cannot accidentally match a different
-      // tenant's row even on denormalized columns without an FK
-      // (e.g. `audit_logs.student_id`, `communication_events.student_id`).
+      // Belt-and-suspenders: dynamically discover every public base table
+      // with a student_id column and include those rows in the same ordered
+      // teardown. This preserves broad cleanup behavior without FK bypasses.
       const studentLinkedRes = await tx.execute(sql`
         SELECT c.table_name
         FROM information_schema.columns c
@@ -2342,24 +2323,99 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
           AND c.column_name = 'student_id'
           AND t.table_type = 'BASE TABLE'
       `);
+
       const studentLinkedTables = (studentLinkedRes.rows as any[])
         .map(r => String(r.table_name))
-        .filter(t => t !== "students"); // never the parent itself
+        .filter(t => t !== "students");
+
       for (const t of studentLinkedTables) {
-        await tx.execute(sql.raw(`DELETE FROM "${t}" WHERE student_id IN (${idsList})`));
+        addTablePredicate(t, `student_id IN (${idsList})`);
       }
 
-      // ---- Delete phase ---- (snapshots already captured; order no longer matters)
-      // Note: temp table column was aliased to row_ctid so the inner SELECT
-      // returns the *parent* table's ctids (not the temp table's own ctid).
-      for (const entry of tableNames) {
-        const [table, tmp] = entry.split("|");
+      // ---- Snapshot phase ----
+      const tableSnapshots: Array<{ table: string; tmp: string }> = [];
+      const snapshotByTable = new Map<string, string>();
+      let tmpIdx = 0;
+
+      for (const [table, wheres] of tablePredicates.entries()) {
+        const tmp = `_td_snap_${tmpIdx++}`;
+        const where = wheres.map(p => `(${p})`).join(" OR ");
+
         await tx.execute(sql.raw(
-          `DELETE FROM "${table}" WHERE ctid IN (SELECT row_ctid FROM "${tmp}")`
+          `CREATE TEMP TABLE ${quoteIdent(tmp)} ON COMMIT DROP AS ` +
+          `SELECT ctid AS row_ctid FROM ${quoteIdent(table)} WHERE ${where}`
         ));
+
+        tableSnapshots.push({ table, tmp });
+        snapshotByTable.set(table, tmp);
       }
 
-      // Self-ref on students (case_manager_id) and final delete.
+      // Do not mutate rows after snapshotting by ctid. Updating rows can change
+      // their ctid and cause the later delete to miss them. If a real FK cycle
+      // still blocks teardown, the savepoint retry loop below will surface the
+      // exact remaining table/constraint so we can add a targeted fix.
+
+      // ---- Delete phase ----
+      // Try deepest/reachable rows first. If an FK still blocks a table, roll
+      // back only that statement with a savepoint and retry after other child
+      // tables have been deleted. This keeps the transaction usable after FK
+      // errors and surfaces the exact remaining blocker if teardown cannot
+      // complete.
+      const pending = [...tableSnapshots].reverse();
+      let pass = 0;
+      let lastErrors: string[] = [];
+
+      while (pending.length > 0) {
+        pass += 1;
+        let deletedThisPass = 0;
+        lastErrors = [];
+
+        for (let i = pending.length - 1; i >= 0; i -= 1) {
+          const { table, tmp } = pending[i];
+          const savepoint = `td_sp_${pass}_${i}`;
+
+          try {
+            await tx.execute(sql.raw(`SAVEPOINT ${quoteIdent(savepoint)}`));
+            await tx.execute(sql.raw(
+              `DELETE FROM ${quoteIdent(table)} ` +
+              `WHERE ctid IN (SELECT row_ctid FROM ${quoteIdent(tmp)})`
+            ));
+            await tx.execute(sql.raw(`RELEASE SAVEPOINT ${quoteIdent(savepoint)}`));
+
+            pending.splice(i, 1);
+            deletedThisPass += 1;
+          } catch (err) {
+            try {
+              await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${quoteIdent(savepoint)}`));
+              await tx.execute(sql.raw(`RELEASE SAVEPOINT ${quoteIdent(savepoint)}`));
+            } catch {
+              // If rollback/release itself fails, preserve the original error
+              // below; the outer transaction will still fail honestly.
+            }
+
+            const message = err instanceof Error ? err.message : String(err);
+            lastErrors.push(`${table}: ${message}`);
+          }
+        }
+
+        if (deletedThisPass === 0) {
+          throw new Error(
+            `Unable to teardown sample student rows under normal FK enforcement after ${pass} passes. ` +
+            `Remaining tables: ${pending.map(p => p.table).join(", ")}. ` +
+            `Last errors: ${lastErrors.join(" | ")}`
+          );
+        }
+
+        if (pass > tableSnapshots.length + 2) {
+          throw new Error(
+            `Unable to teardown sample student rows: exceeded retry limit. ` +
+            `Remaining tables: ${pending.map(p => p.table).join(", ")}. ` +
+            `Last errors: ${lastErrors.join(" | ")}`
+          );
+        }
+      }
+
+      // Self-ref on students and final parent delete.
       await tx.execute(sql.raw(`UPDATE students SET case_manager_id = NULL WHERE id IN (${idsList})`));
       await tx.execute(sql.raw(`DELETE FROM students WHERE id IN (${idsList})`));
     });
