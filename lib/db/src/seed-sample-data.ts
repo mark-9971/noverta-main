@@ -2441,6 +2441,38 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
         }
       }
 
+      // Final guard: after the broad snapshot/ctid delete pass, make one
+      // direct predicate-based cleanup pass for every FK that still points at
+      // the sample students. This protects managed Postgres teardown from ctid
+      // snapshot misses before the final parent DELETE.
+      for (const row of directStudentFkRes.rows as any[]) {
+        const table = String(row.child_table);
+        const column = String(row.child_col);
+        if (table === "students") continue;
+
+        const savepoint = `td_final_fk_${table.replace(/[^a-zA-Z0-9_]/g, "_")}_${column.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+
+        try {
+          await tx.execute(sql.raw(`SAVEPOINT ${quoteIdent(savepoint)}`));
+          await tx.execute(sql.raw(
+            `DELETE FROM ${quoteIdent(table)} WHERE ${quoteIdent(column)} IN (${idsList})`
+          ));
+          await tx.execute(sql.raw(`RELEASE SAVEPOINT ${quoteIdent(savepoint)}`));
+        } catch (err) {
+          try {
+            await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${quoteIdent(savepoint)}`));
+            await tx.execute(sql.raw(`RELEASE SAVEPOINT ${quoteIdent(savepoint)}`));
+          } catch {
+            // Preserve the original FK cleanup error below.
+          }
+
+          const message = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `Unable to clear direct student FK before final student delete: ${table}.${column}. ${message}`
+          );
+        }
+      }
+
       // Self-ref on students and final parent delete.
       await tx.execute(sql.raw(`UPDATE students SET case_manager_id = NULL WHERE id IN (${idsList})`));
       await tx.execute(sql.raw(`DELETE FROM students WHERE id IN (${idsList})`));
