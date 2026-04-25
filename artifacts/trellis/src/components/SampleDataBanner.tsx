@@ -47,6 +47,15 @@ const REMOVED_NOTICE_TIMEOUT_MS = 30_000;
  * back without leaving the page they're on.
  */
 export function SampleDataBanner() {
+  // Temporarily hidden: this global banner currently displays misleading
+  // sample-data counts and exposes a teardown action that depends on the
+  // sample-data reset path still being stabilized for Railway/Neon.
+  //
+  // Keep the component mounted so layout/import behavior stays stable, but do
+  // not show operator-facing sample-data controls here until the backend reset
+  // path and count semantics are trustworthy.
+  return null;
+
   const { role } = useRole();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
