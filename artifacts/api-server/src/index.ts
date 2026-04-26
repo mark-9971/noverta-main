@@ -199,13 +199,22 @@ async function applyPendingMigrations() {
   // SQL files for objects already created by drizzle-kit push will be
   // recorded as applied via the runner's "already exists" idempotency path.
   if (await isCoreSchemaMissing()) {
+    if (isProductionLikeDeploy()) {
+      const message =
+        "Core DB schema is missing in a production-like deploy. " +
+        "Refusing to run `drizzle-kit push --force` automatically against a managed database. " +
+        "Run the approved migration/bootstrap procedure manually, then redeploy.";
+      logger.error(message);
+      throw new Error(message);
+    }
+
     logger.warn(
-      "Core schema missing — bootstrapping with `drizzle-kit push --force`",
+      "Core schema missing — bootstrapping local/dev database with `drizzle-kit push --force`",
     );
     try {
       await runDrizzlePush();
     } catch (err) {
-      logger.error({ err }, "drizzle-kit push failed during bootstrap");
+      logger.error({ err }, "drizzle-kit push failed during local/dev bootstrap");
       throw err;
     }
   }
