@@ -7,6 +7,7 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxy
 import router from "./routes";
 import healthRouter from "./routes/health";
 import { logger } from "./lib/logger";
+import { isManagedDeploy } from "./lib/deployEnv";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 import { requireActiveSubscription } from "./middlewares/subscriptionGate";
 import { enforceDistrictScope } from "./middlewares/auth";
@@ -19,6 +20,34 @@ import { eq, and } from "drizzle-orm";
 import { Webhook as SvixWebhook } from "svix";
 
 const app: Express = express();
+
+// Trust the upstream proxy on managed-cloud deploys (Railway / Render / Fly
+// all front the app with a load balancer that adds X-Forwarded-For and
+// X-Forwarded-Proto). Without this:
+//   - express-rate-limit v8 throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on
+//     every request once the header is present, which causes Express's
+//     default error handler to render an HTML error page — the browser
+//     then sees "Unexpected token '<'" when it tries to JSON.parse the
+//     response.
+//   - getClientIp() falls back to the socket address (always the LB), so
+//     per-IP rate limits and audit-log entries lose attribution.
+// Operators can also force this on with TRUST_PROXY=1 in any environment.
+const TRUST_PROXY_ENV_OPT_IN = ["1", "true", "yes"].includes(
+  (process.env.TRUST_PROXY ?? "").toLowerCase(),
+);
+if (TRUST_PROXY_ENV_OPT_IN || isManagedDeploy()) {
+  // "1" = trust exactly one proxy hop, which matches Railway / Render / Fly's
+  // single-LB topology. The express-rate-limit v8 validator accepts any
+  // numeric value here; using a finite hop count rather than `true` prevents
+  // header-spoofing through additional unknown proxies.
+  app.set("trust proxy", 1);
+  logger.info(
+    {
+      via: TRUST_PROXY_ENV_OPT_IN ? "TRUST_PROXY env" : "managed-deploy auto-detect",
+    },
+    "Express trust proxy enabled",
+  );
+}
 
 app.use(
   pinoHttp({
