@@ -258,7 +258,7 @@ function ProtectedRoutes({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  registerTokenProvider(() => getToken({ template: "trellis" }));
+  registerTokenProvider(() => getToken({ template: "noverta-default" }));
 
   if (!isLoaded) return (
     <div className="flex items-center justify-center min-h-screen bg-white">
