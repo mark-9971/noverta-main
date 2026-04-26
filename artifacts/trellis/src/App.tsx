@@ -1,7 +1,7 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth, useUser, useClerk } from "@clerk/react";
-import { setOnApiError, setBaseUrl, ApiError } from "@workspace/api-client-react";
+import { setOnApiError, setBaseUrl, setAuthTokenGetter, setExtraHeaders, ApiError } from "@workspace/api-client-react";
 import { setDistrictLockedMessage } from "@/pages/district-locked";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -242,7 +242,11 @@ const DEV_AUTH_BYPASS =
   import.meta.env.VITE_DEV_AUTH_BYPASS === "1" && import.meta.env.MODE !== "production";
 
 if (DEV_AUTH_BYPASS) {
-  setAuthFetchExtraHeaders(getDevAuthBypassHeaders());
+  const devAuthBypassHeaders = getDevAuthBypassHeaders();
+  setAuthFetchExtraHeaders(devAuthBypassHeaders);
+  setExtraHeaders(devAuthBypassHeaders);
+} else {
+  setExtraHeaders(null);
 }
 
 const API_BASE_URL =
@@ -255,10 +259,13 @@ function ProtectedRoutes({ children }: { children: React.ReactNode }) {
 
   if (DEV_AUTH_BYPASS) {
     registerTokenProvider(() => Promise.resolve(null));
+    setAuthTokenGetter(null);
     return <>{children}</>;
   }
 
-  registerTokenProvider(() => getToken({ template: "noverta-default" }));
+  const clerkTokenGetter = () => getToken({ template: "noverta-default" });
+  registerTokenProvider(clerkTokenGetter);
+  setAuthTokenGetter(clerkTokenGetter);
 
   if (!isLoaded) return (
     <div className="flex items-center justify-center min-h-screen bg-white">
