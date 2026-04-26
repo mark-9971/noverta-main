@@ -30,19 +30,29 @@ export function setAuthFetchExtraHeaders(headers: Record<string, string> | null)
  * headers server-side regardless of any flag.
  *
  * Returns {} when bypass is off, so callers can spread unconditionally.
+ *
+ * Belt-and-braces: explicitly returns {} whenever MODE === "production" so
+ * that even if `VITE_DEV_AUTH_BYPASS=1` somehow leaks into a production build
+ * (this is also blocked at build time by `vite.config.ts`), the runtime
+ * cannot emit spoofable identity headers.
  */
 export function getDevAuthBypassHeaders(): Record<string, string> {
-  if (
-    import.meta.env.VITE_DEV_AUTH_BYPASS === "1" &&
-    import.meta.env.MODE !== "production"
-  ) {
-    return {
-      "x-test-user-id": "dev_bypass_admin",
-      "x-test-role": "admin",
-      "x-test-district-id": "6",
-    };
+  if (import.meta.env.MODE === "production") return {};
+  if (import.meta.env.VITE_DEV_AUTH_BYPASS !== "1") return {};
+  if (typeof window !== "undefined" && !(window as { __TRELLIS_DEV_BYPASS_WARNED__?: boolean }).__TRELLIS_DEV_BYPASS_WARNED__) {
+    (window as { __TRELLIS_DEV_BYPASS_WARNED__?: boolean }).__TRELLIS_DEV_BYPASS_WARNED__ = true;
+    // Visible in the browser console so an engineer immediately notices when
+    // a non-prod build is running with the bypass on.
+    console.warn(
+      "[Trellis] VITE_DEV_AUTH_BYPASS is enabled — every API call carries x-test-* admin headers. " +
+        "This must NEVER be set in a Railway / Render / Fly deployment.",
+    );
   }
-  return {};
+  return {
+    "x-test-user-id": "dev_bypass_admin",
+    "x-test-role": "admin",
+    "x-test-district-id": "6",
+  };
 }
 
 export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
