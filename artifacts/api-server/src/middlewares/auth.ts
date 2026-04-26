@@ -7,6 +7,7 @@ import { db, staffTable, schoolsTable, districtsTable, ensureDemoStaffForEmail }
 import { sql, eq, isNull, and, inArray } from "drizzle-orm";
 import { loadActiveViewAsSession, VIEW_AS_HEADER, endSessionByToken } from "../lib/viewAsSession";
 import { loadActiveSupportSession } from "../lib/supportSession";
+import { isAuthBypassAllowed, isProductionLikeDeploy } from "../lib/deployEnv";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -51,7 +52,11 @@ function extractRole(req: Request): TrellisRole | null {
   const meta = getPublicMeta(req);
   if (isRole(meta.role)) return meta.role as TrellisRole;
 
-  if (process.env.NODE_ENV !== "production") {
+  // x-demo-role / default "admin" fallback is a developer convenience for
+  // local dev only. It must be refused in any production-like deployment
+  // (Railway / Render / Fly / NODE_ENV=production) — otherwise an unset
+  // NODE_ENV on a managed host silently grants admin to every caller.
+  if (!isProductionLikeDeploy()) {
     const demoRole = req.headers["x-demo-role"];
     if (isRole(demoRole)) return demoRole as TrellisRole;
     return "admin";
@@ -63,7 +68,7 @@ function extractRole(req: Request): TrellisRole | null {
 function extractDisplayName(req: Request): string {
   const meta = getPublicMeta(req);
   if (meta.name) return meta.name;
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProductionLikeDeploy()) {
     const demoName = req.headers["x-demo-name"];
     if (typeof demoName === "string" && demoName.trim()) return demoName.trim();
   }
@@ -113,23 +118,24 @@ async function applyViewAsOverride(req: Request, token: string): Promise<void> {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  // Production: explicitly reject any dev-only test headers to prevent spoofing.
-  if (process.env.NODE_ENV === "production") {
+  // Production-like deploys (NODE_ENV=production OR any managed-cloud marker
+  // such as RAILWAY_ENVIRONMENT) explicitly reject every dev-only test header
+  // before any bypass logic can run. This is the load-bearing guard that
+  // prevents an operator who forgot `NODE_ENV=production` on Railway from
+  // serving a fully-spoofable API.
+  if (isProductionLikeDeploy()) {
     if (req.headers["x-test-user-id"] || req.headers["x-test-role"] || req.headers["x-test-district-id"]) {
-      recordAccessDenial(req, "dev_headers_in_prod", 400, "x-test-* headers received in production");
+      recordAccessDenial(req, "dev_headers_in_prod", 400, "x-test-* headers received in production-like deploy");
       res.status(400).json({ error: "Dev-only headers are not accepted in production" });
       return;
     }
   }
 
-  // Test-mode bypass: allowed when NODE_ENV === "test" (CI permission-matrix tests),
-  // OR when DEV_AUTH_BYPASS === "1" in any non-production environment (agent/local testing
-  // without a real Clerk session). Production rejection above (lines 104-110) prevents
-  // these headers from ever working in production regardless of any flag.
-  const allowTestBypass =
-    process.env.NODE_ENV === "test" ||
-    (process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_BYPASS === "1");
-  if (allowTestBypass) {
+  // Test-mode bypass: allowed when NODE_ENV === "test" (CI permission-matrix
+  // tests), or when DEV_AUTH_BYPASS === "1" in a non-managed local-dev shell.
+  // isAuthBypassAllowed() also refuses the bypass whenever a managed-deploy
+  // marker is present, regardless of NODE_ENV.
+  if (isAuthBypassAllowed("either")) {
     const testUserId = req.headers["x-test-user-id"];
     const testRole = req.headers["x-test-role"];
     if (typeof testUserId === "string" && testUserId && isRole(testRole)) {
@@ -302,9 +308,12 @@ export function getEnforcedDistrictId(req: AuthedRequest): number | null {
  * Runs in EVERY environment (prod, staging, preview, dev, test) so the clamp
  * is not silently disabled in non-prod pilot deployments. In production the
  * tenant district is derived from Clerk session claims (publicMetadata.districtId).
- * In `NODE_ENV=test` or `DEV_AUTH_BYPASS=1` (non-prod), the `x-test-district-id`
- * header is also honored — same trust boundary `requireAuth` already uses for
- * the test-bypass path; production still rejects those headers outright.
+ * In `NODE_ENV=test` or `DEV_AUTH_BYPASS=1` (non-prod, non-managed), the
+ * `x-test-district-id` header is also honored — same trust boundary
+ * `requireAuth` already uses for the test-bypass path. Any production-like
+ * deploy (NODE_ENV=production OR a managed-cloud marker like
+ * RAILWAY_ENVIRONMENT) refuses those headers outright via
+ * isAuthBypassAllowed().
  *
  * When neither path resolves a tenant district (platform admin / unscoped),
  * the middleware is pass-through: no mutation, request continues unchanged.
@@ -318,12 +327,11 @@ export function enforceDistrictScope(req: Request, res: Response, next: NextFunc
   if (tokenDistrictId == null) {
     // Mirror requireAuth's test-bypass guard so the clamp is observable in
     // the vitest suite (which seeds tenant context via x-test-* headers
-    // rather than Clerk session claims). Production explicitly rejects these
-    // headers in requireAuth, so honoring them here is safe.
-    const allowTestBypass =
-      process.env.NODE_ENV === "test" ||
-      (process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_BYPASS === "1");
-    if (allowTestBypass) {
+    // rather than Clerk session claims). isAuthBypassAllowed() refuses the
+    // bypass in any production-like deploy (NODE_ENV=production OR managed
+    // cloud marker) — requireAuth already rejects these headers there too,
+    // so this is defense in depth.
+    if (isAuthBypassAllowed("either")) {
       const raw = req.headers["x-test-district-id"];
       if (typeof raw === "string" && raw) {
         const n = Number(raw);
@@ -473,8 +481,10 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
       const meta = getPublicMeta(req);
       if (meta.platformAdmin) { next(); return; }
 
-      // Explicit dev override (must be set deliberately via env). Never on in prod.
-      if (process.env.NODE_ENV !== "production" && _forcedDistrictId != null) {
+      // Explicit dev override (must be set deliberately via env). Never on
+      // in prod and never on in any managed-cloud deploy, regardless of
+      // NODE_ENV (defense in depth against an unset NODE_ENV on Railway).
+      if (!isProductionLikeDeploy() && _forcedDistrictId != null) {
         authed.tenantDistrictId = _forcedDistrictId;
         next();
         return;
@@ -563,8 +573,11 @@ export function requireGuardianScope(req: Request, res: Response, next: NextFunc
       res.status(403).json({ error: "Guardian portal access requires the sped_parent role." });
       return;
     }
-    // In dev mode allow a demo header to set guardianId for testing
-    if (process.env.NODE_ENV !== "production" && !authed.tenantGuardianId) {
+    // In local dev allow a demo header to set guardianId for testing.
+    // Refused in any production-like deploy (NODE_ENV=production OR managed
+    // cloud marker) so an unset NODE_ENV on Railway cannot grant guardian
+    // identity via a request header.
+    if (!isProductionLikeDeploy() && !authed.tenantGuardianId) {
       const demoId = req.headers["x-demo-guardian-id"];
       if (demoId && !isNaN(Number(demoId))) {
         authed.tenantGuardianId = Number(demoId);

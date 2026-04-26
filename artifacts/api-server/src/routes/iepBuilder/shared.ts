@@ -1,4 +1,5 @@
 import { getPublicMeta } from "../../lib/clerkClaims";
+import { isAuthBypassAllowed, isProductionLikeDeploy } from "../../lib/deployEnv";
 
 export function getAge(dob: string | null): number | null {
   if (!dob) return null;
@@ -134,18 +135,17 @@ export function getStaffIdFromReq(req: any): number | null {
   const meta = getPublicMeta(req);
   if (meta.staffId) return meta.staffId;
   // Test-only: a trusted test harness may pass an x-test-staff-id header.
-  // Strictly gated on the same conditions as the auth middleware's dev/test
-  // bypass to prevent identity spoofing in production.
-  const allowTestBypass =
-    process.env.NODE_ENV === "test" ||
-    (process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_BYPASS === "1");
-  if (allowTestBypass) {
+  // Refused in any production-like deploy (NODE_ENV=production OR managed
+  // cloud marker) by isAuthBypassAllowed().
+  if (isAuthBypassAllowed("either")) {
     const hdr = req?.headers?.["x-test-staff-id"];
     if (typeof hdr === "string" && hdr) {
       const n = Number(hdr);
       if (Number.isFinite(n) && n > 0) return n;
     }
   }
-  if (process.env.NODE_ENV !== "production") return 77;
+  // Local-dev convenience hard-coded staff fallback (never returned in any
+  // production-like deploy).
+  if (!isProductionLikeDeploy()) return 77;
   return null;
 }

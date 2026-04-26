@@ -1,3 +1,11 @@
+// Run the managed-cloud posture check before any other import chain executes.
+// ES module evaluation order means `import app from "./app"` would otherwise
+// pull in routes, db, integrations, etc. — any of which may throw on a
+// misconfigured managed deploy and obscure the underlying auth-posture bug.
+// Keep this at the very top of the file.
+import { assertManagedDeployPosture, isProductionLikeDeploy } from "./lib/deployEnv";
+assertManagedDeployPosture();
+
 import { initSentry, captureException, flushSentry, recordError5xx } from "./lib/sentry";
 import app from "./app";
 import { logger } from "./lib/logger";
@@ -26,17 +34,17 @@ import { reloadSchedule } from "./lib/demoResetScheduler";
 
 initSentry();
 
-// Clerk key guard: hard-fail in production when keys are absent or misconfigured.
-// In production, a test key (sk_test_*) is a mis-config — fail closed rather than
-// silently serving unauthenticated requests.
+// Clerk key guard: hard-fail in any production-like deploy when keys are
+// absent or misconfigured. A test key (sk_test_*) is a mis-config — fail
+// closed rather than silently serving unauthenticated requests.
 const clerkSecretKey = process.env.CLERK_SECRET_KEY;
-if (process.env.NODE_ENV === "production") {
+if (isProductionLikeDeploy()) {
   if (!clerkSecretKey) {
-    logger.error("FATAL: CLERK_SECRET_KEY is not set. Cannot start in production without Clerk auth.");
+    logger.error("FATAL: CLERK_SECRET_KEY is not set. Cannot start a production-like deploy without Clerk auth.");
     process.exit(1);
   }
   if (clerkSecretKey.startsWith("sk_test_")) {
-    logger.error("FATAL: Test Clerk key (sk_test_*) used in production. Set a live key (sk_live_*) and restart.");
+    logger.error("FATAL: Test Clerk key (sk_test_*) used in a production-like deploy. Set a live key (sk_live_*) and restart.");
     process.exit(1);
   }
 } else {
@@ -47,17 +55,19 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
-// Publishable key guard — baked into the frontend bundle at build time via VITE_CLERK_PUBLISHABLE_KEY.
-// The server-side alias CLERK_PUBLISHABLE_KEY is used by clerkProxyMiddleware in app.ts.
-// In production both must be live keys (pk_live_*); test keys (pk_test_*) indicate a mis-deployment.
+// Publishable key guard — baked into the frontend bundle at build time via
+// VITE_CLERK_PUBLISHABLE_KEY. The server-side alias CLERK_PUBLISHABLE_KEY is
+// used by clerkProxyMiddleware in app.ts. In a production-like deploy both
+// must be live keys (pk_live_*); test keys (pk_test_*) indicate a
+// mis-deployment.
 const clerkPubKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
-if (process.env.NODE_ENV === "production") {
+if (isProductionLikeDeploy()) {
   if (!clerkPubKey) {
-    logger.error("FATAL: CLERK_PUBLISHABLE_KEY is not set. Cannot start in production.");
+    logger.error("FATAL: CLERK_PUBLISHABLE_KEY is not set. Cannot start a production-like deploy.");
     process.exit(1);
   }
   if (clerkPubKey.startsWith("pk_test_")) {
-    logger.error("FATAL: Test Clerk publishable key (pk_test_*) used in production. Set a live key (pk_live_*) and redeploy.");
+    logger.error("FATAL: Test Clerk publishable key (pk_test_*) used in a production-like deploy. Set a live key (pk_live_*) and redeploy.");
     process.exit(1);
   }
 } else if (clerkPubKey) {

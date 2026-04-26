@@ -27,6 +27,25 @@ if (!basePath) {
   );
 }
 
+// Build-time refusal: a production-mode bundle MUST NOT ship with the dev
+// auth bypass enabled. The runtime guard in App.tsx already strips the
+// bypass branch when `import.meta.env.MODE === "production"`, but this
+// belt-and-braces check fails the build outright if the two are ever set
+// inconsistently (e.g. `VITE_DEV_AUTH_BYPASS=1 vite build`). Without this,
+// an operator who flips a Railway env var while shipping a production build
+// could publish a bundle with x-test-* identity-spoofing headers wired in.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.VITE_DEV_AUTH_BYPASS === "1"
+) {
+  throw new Error(
+    "VITE_DEV_AUTH_BYPASS=1 is set while building in production mode. " +
+      "This combination would ship hard-coded x-test-* admin headers in the " +
+      "web bundle. Unset VITE_DEV_AUTH_BYPASS in the build environment, or " +
+      "build with NODE_ENV=development.",
+  );
+}
+
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
