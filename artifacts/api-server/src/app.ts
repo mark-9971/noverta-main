@@ -275,12 +275,65 @@ app.post(
   }
 );
 
-const rawOrigins = process.env.CORS_ALLOWED_ORIGINS;
-const corsOrigin: cors.CorsOptions["origin"] = rawOrigins
-  ? rawOrigins.split(",").map((o) => o.trim())
-  : process.env.NODE_ENV === "production"
-    ? false
-    : true;
+function parseCorsAllowedOrigins(): cors.CorsOptions["origin"] {
+  const rawOrigins = process.env.CORS_ALLOWED_ORIGINS;
+  const isProductionLike = process.env.NODE_ENV === "production" || isManagedDeploy();
+
+  if (!rawOrigins || rawOrigins.trim() === "") {
+    if (isProductionLike) {
+      throw new Error(
+        "CORS_ALLOWED_ORIGINS is required in production-like deploys. " +
+          "Set it to the comma-separated frontend origin allowlist, e.g. https://use.noverta.app.",
+      );
+    }
+    return true;
+  }
+
+  const origins = rawOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (origins.length === 0) {
+    if (isProductionLike) {
+      throw new Error("CORS_ALLOWED_ORIGINS was provided but no valid origins were parsed.");
+    }
+    return true;
+  }
+
+  if (isProductionLike) {
+    for (const origin of origins) {
+      if (origin === "*" || origin.toLowerCase() === "true") {
+        throw new Error(
+          "CORS_ALLOWED_ORIGINS must be an explicit allowlist in production-like deploys; wildcard origins are not allowed.",
+        );
+      }
+
+      let parsed: URL;
+      try {
+        parsed = new URL(origin);
+      } catch {
+        throw new Error(`Invalid CORS origin in CORS_ALLOWED_ORIGINS: ${origin}`);
+      }
+
+      if (parsed.protocol !== "https:") {
+        throw new Error(
+          `Production CORS origin must use https: ${origin}`,
+        );
+      }
+
+      if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+        throw new Error(
+          `CORS origins must be bare origins without paths, query strings, or hashes: ${origin}`,
+        );
+      }
+    }
+  }
+
+  return origins;
+}
+
+const corsOrigin = parseCorsAllowedOrigins();
 app.use(cors({ credentials: true, origin: corsOrigin }));
 
 const readLimiter = rateLimit({
