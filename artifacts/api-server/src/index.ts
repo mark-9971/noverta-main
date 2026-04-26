@@ -106,6 +106,42 @@ async function backfillDistrictSubscriptions() {
   }
 }
 
+function normalizeBareOrigin(raw: string, envName: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`${envName} must be a valid URL origin, got: ${raw}`);
+  }
+  if (parsed.protocol !== "https:" && isProductionLikeDeploy()) {
+    throw new Error(`${envName} must use https in production-like deploys, got: ${raw}`);
+  }
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error(`${envName} must be a bare origin without path/query/hash, got: ${raw}`);
+  }
+  return parsed.origin;
+}
+
+function resolveApiOrigin(): string {
+  const explicit = process.env.API_ORIGIN || process.env.API_URL;
+  if (explicit && explicit.trim() !== "") {
+    return normalizeBareOrigin(explicit, process.env.API_ORIGIN ? "API_ORIGIN" : "API_URL");
+  }
+
+  if (isProductionLikeDeploy()) {
+    throw new Error(
+      "API_ORIGIN or API_URL is required in production-like deploys. " +
+        "Set it to the API origin, e.g. https://api.noverta.app.",
+    );
+  }
+
+  const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+  if (replitDomain) return `https://${replitDomain.replace(/\/+$/, "")}`;
+
+  throw new Error("Unable to resolve API origin. Set API_ORIGIN or API_URL.");
+}
+
 async function initStripe() {
   try {
     const { runMigrations } = await import('stripe-replit-sync');
@@ -126,9 +162,9 @@ async function initStripe() {
     const { getStripeSync } = await import('./lib/stripeClient');
     const stripeSync = await getStripeSync();
 
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-    await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
-    logger.info('Stripe webhook configured');
+    const apiOrigin = resolveApiOrigin();
+    await stripeSync.findOrCreateManagedWebhook(`${apiOrigin}/api/stripe/webhook`);
+    logger.info({ apiOrigin }, 'Stripe webhook configured');
 
     stripeSync.syncBackfill()
       .then(() => logger.info('Stripe data synced'))
