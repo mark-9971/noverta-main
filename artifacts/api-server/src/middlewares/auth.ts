@@ -155,16 +155,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   const auth = getAuth(req);
-  if (req.path.includes("/legal/acceptance-status")) {
-    const claims = auth?.sessionClaims as Record<string, unknown> | undefined;
-    console.log("[auth-debug]", {
-      path: req.path,
-      userId: auth?.userId ?? null,
-      hasClaims: !!claims,
-      claimKeys: claims ? Object.keys(claims) : [],
-      publicMetadata: getPublicMeta(req),
-    });
-  }
   if (!auth?.userId) {
     recordAccessDenial(req, "unauthenticated", 401, "No Clerk session on request");
     res.status(401).json({ error: "Authentication required" });
